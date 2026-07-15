@@ -9,20 +9,19 @@ I've reordered and expanded your draft list based on real dependencies from `pro
 ## Phase 1 — Project Setup
 
 **Goal:** a working, empty skeleton both apps can build on.
-- Initialize monorepo structure (`apps/web`, `apps/api`) per `architecture.md` §6.
-- Next.js 15 app scaffolded with Tailwind v4 + shadcn/ui installed.
-- NestJS app scaffolded with Prisma connected to a Postgres instance (Neon/Supabase free tier).
+- Initialize Next.js app structure per `architecture.md` §6.
+- Scaffold Next.js 15 app with Tailwind v4 + shadcn/ui installed.
+- Connect Prisma to a Postgres instance (Neon/Supabase free tier).
 - ESLint + Prettier configured project-wide, per `rules.md` §1.
-- `.env.example` files for both apps; secrets excluded from git.
-- Swagger wired up on the NestJS app (empty, but live).
-- **Done when:** both apps run locally, the frontend can hit a health-check endpoint on the backend, and a first empty migration runs cleanly.
+- `.env.example` file created; secrets excluded from git.
+- **Done when:** the app runs locally, a Server Action can hit the DB, and a first empty migration runs cleanly.
 
 ## Phase 2 — Authentication & Roles
 
 **Goal:** people can log in, and every route respects who they are.
 - `User` model (Operator/Accountant, Owner/Admin roles) in Prisma.
-- JWT login + refresh flow, bcrypt password hashing, per `architecture.md` §3.
-- `JwtAuthGuard` + `RolesGuard` + `@Roles()` decorator on the backend.
+- Auth.js (NextAuth) session flow, bcrypt password hashing via Credentials Provider, per `architecture.md` §3.
+- Server Actions role checks and Next.js Middleware.
 - Login screen, session state in Zustand, protected route wrapper on the frontend.
 - Admin password reset flow requiring accountant approval (per manager notes).
 - **Done when:** an Operator and an Owner account can both log in, see different navigation, and a Operator token is provably rejected from any Owner-only endpoint (e.g. profit figures).
@@ -32,7 +31,7 @@ I've reordered and expanded your draft list based on real dependencies from `pro
 **Goal:** the front desk can create and find customers.
 - `Customer` model: ID, name, phone (unique), address, map link, type, deposit, default price, credit limit, remarks, house photo.
 - Create/edit/search (by ID/name/phone)/soft-delete.
-- Cloudinary upload wired for the house photo, per `architecture.md` §11.
+- Vercel Blob / S3 upload wired for the house photo, per `architecture.md` §11.
 - Customer detail view shows the "instant snapshot" fields (balance, bottle count, last delivery, avg monthly orders) — even though some of these will show zero/placeholder until later phases populate real transactions.
 - **Done when:** an operator can create a customer, find them by phone number in under a second, and edit their profile.
 

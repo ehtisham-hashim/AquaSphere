@@ -13,7 +13,7 @@ Status: **not started.** Development has not begun — this file is being create
 
 ## Current Module
 
-None yet. First module up in Phase 1 is project scaffolding (no business module — this is repo/tooling setup, not a NestJS domain module).
+None yet. First module up in Phase 1 is project scaffolding (no business module — this is repo/tooling setup).
 
 ## Current File
 
@@ -48,18 +48,17 @@ _(Nothing yet — this section fills in as phases close out. Format going forwar
 
 Pulled directly from `phases.md` Phase 1 checklist — the immediate queue:
 
-- [ ] Initialize monorepo structure (`apps/web`, `apps/api`) per `architecture.md` §6
+- [ ] Initialize Next.js structure per `architecture.md` §6
 - [ ] Scaffold Next.js 15 app; install Tailwind v4 + shadcn/ui
-- [ ] Scaffold NestJS app; connect Prisma to a Postgres instance (Neon/Supabase free tier)
+- [ ] Connect Prisma to a Postgres instance (Neon/Supabase free tier)
 - [ ] Configure ESLint + Prettier project-wide per `rules.md` §1
-- [ ] Create `.env.example` for both apps; confirm `.env` is git-ignored
-- [ ] Wire up Swagger on the NestJS app (empty, but live)
+- [ ] Create `.env.example`; confirm `.env` is git-ignored
 - [ ] First empty Prisma migration, confirm it runs cleanly
-- [ ] Confirm frontend can hit a backend health-check endpoint end-to-end
+- [ ] Confirm a Server Action can hit the DB end-to-end
 
 ## Next Task
 
-**Initialize the monorepo structure** (`apps/web`, `apps/api`) — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
+**Initialize the Next.js app structure** — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
 
 ---
 

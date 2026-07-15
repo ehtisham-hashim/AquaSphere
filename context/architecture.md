@@ -6,18 +6,15 @@ This document defines **how** AQUA Sphere OS is built, based on what `project-re
 
 ## 1. System Architecture
 
-AQUA Sphere OS is a classic **3-tier web application**, kept deliberately simple (no microservices, no message queues) because the business is single-tenant and the traffic is low (a handful of concurrent staff).
+AQUA Sphere OS is a **Next.js monolith**, kept deliberately simple because the business is single-tenant and the traffic is low (a handful of concurrent staff). 
 
-```
+```text
 ┌─────────────────────────┐
-│   Next.js 15 Frontend    │  (Vercel / free-tier host)
-│  React 19 + TanStack     │
-│  Query + Zustand         │
-└────────────┬─────────────┘
-             │ HTTPS / JSON (REST)
-┌────────────▼─────────────┐
-│   NestJS Backend API      │  (Railway / Render free tier)
-│  Modules + Guards + DTOs  │
+│   Next.js 15 App        │  (Vercel / free-tier host)
+│  React 19 + TanStack    │
+│  Query + Zustand        │
+│                         │
+│  Server Actions (Node)  │
 └────────────┬─────────────┘
              │ Prisma Client
 ┌────────────▼─────────────┐
@@ -25,13 +22,13 @@ AQUA Sphere OS is a classic **3-tier web application**, kept deliberately simple
 └───────────────────────────┘
              │
 ┌────────────▼─────────────┐
-│   Cloudinary (files)      │  (customer house photos, docs)
+│   Vercel Blob / S3        │  (customer house photos, docs)
 └───────────────────────────┘
 ```
 
 **Why this shape:**
-- **Frontend and backend are separate deployables** — Next.js talks to NestJS purely over HTTP. This lets the owner's phone (frontend) and the office PC hit the same backend safely, and lets each layer scale/redeploy independently.
-- **Postgres is the single source of truth.** Every "balance" the app shows (bottle counts, customer balance, stock) is a `SUM()` over a transaction table — never a stored, editable field. This directly implements Section 12 of the requirements ("No Manually-Edited Numbers").
+- **One Deployable, Zero API Boilerplate** — Next.js Server Actions talk directly to Prisma. No separate backend, no CORS, no duplicated types.
+- **PostgreSQL is the single source of truth.** Every "balance" the app shows (bottle counts, customer balance, stock) is a `SUM()` over a transaction table — never a stored, editable field. This directly implements Section 12 of the requirements ("No Manually-Edited Numbers").
 - **No server to manage** — everything runs on managed, free-tier-friendly platforms, matching the low-cost hosting requirement.
 
 ---
@@ -40,7 +37,7 @@ AQUA Sphere OS is a classic **3-tier web application**, kept deliberately simple
 
 The system flow mirrors the real front-desk phone call, end to end:
 
-```
+```text
 Phone rings → Operator searches customer (phone/name/ID)
    → Customer snapshot loads instantly:
        name, address, outstanding balance, bottle balance,
@@ -60,7 +57,7 @@ Phone rings → Operator searches customer (phone/name/ID)
 
 Production and purchasing run as parallel, simpler flows that feed the same inventory ledger:
 
-```
+```text
 Production run (PET) → operator enters pack counts only
    → system derives: -empty bottles, -caps, -labels, -shrink wrap,
       -mineral sets (exact fraction), +finished goods
@@ -74,20 +71,17 @@ Vendor payment → -vendor payable (separate transaction stream)
 
 ## 3. Authentication Flow
 
-- **JWT-based**, stateless auth — no server-side sessions, which keeps the backend horizontally simple and cheap to host.
-- Two roles at login: **Operator/Accountant** and **Owner/Admin**. Role is embedded as a claim in the JWT and checked by NestJS Guards on every protected route.
-- Passwords hashed with **bcrypt**; never stored or logged in plain text.
-- **Access token** (short-lived, ~15 min) + **refresh token** (long-lived, httpOnly cookie) pattern, so the owner's phone session stays logged in without re-entering credentials constantly, while limiting the blast radius of a leaked access token.
+- **Auth.js (NextAuth)** handles all session management using secure, HTTP-only cookies.
+- Two roles at login: **Operator/Accountant** and **Owner/Admin**. Role is embedded in the session and checked by Server Actions and Middleware.
+- Passwords hashed with **bcrypt** (via a Custom Credentials Provider in Auth.js).
 - **Admin password reset requires accountant confirmation** (per manager notes) — implemented as a two-step flow: Admin initiates reset → Accountant approves via a confirmation action → new temporary password issued.
-- All balance-affecting endpoints require an authenticated role; read-only dashboard endpoints are Owner-only where they expose profit.
 
-```
+```text
 Login (phone/email + password)
-   → NestJS validates via bcrypt
-   → Issues { accessToken, refreshToken } + role claim
-Frontend stores accessToken in memory (Zustand), refreshToken in httpOnly cookie
-   → Axios/Query interceptor auto-refreshes on 401
-Guards on backend check role claim per route (RolesGuard + JwtAuthGuard)
+   → Auth.js Credentials Provider (bcrypt check)
+   → Issues encrypted session cookie with Role
+Frontend reads session
+Server Actions & Middleware enforce Role checks
 ```
 
 ---
@@ -105,100 +99,67 @@ Guards on backend check role claim per route (RolesGuard + JwtAuthGuard)
 - **Database-level transactions (Prisma `$transaction`) + row locking** wrap every "read balance, then write" operation (e.g. delivery completion) to keep concurrent operator/owner usage safe, per the concurrency requirement.
 - **Adjustment/reversal transaction type** exists on every ledger, carrying a mandatory `reason` field — this is the *only* sanctioned way to correct a mistake, never a direct edit.
 - **Soft deletes** for Customers/Vendors/Items (an `archivedAt` field) instead of hard deletes, to keep historical orders/reports intact.
-- **Daily closing**: a `DailyClose` record locks all transactions dated on/before it; the accountant role is blocked (at the API layer) from writing transactions dated before the latest close.
+- **Daily closing**: a `DailyClose` record locks all transactions dated on/before it; the accountant role is blocked from writing transactions dated before the latest close.
 
 ---
 
 ## 5. Module Architecture
 
-NestJS is organized as one module per business domain, each with its own controller, service, and DTOs — mirroring the requirements sections directly so nothing gets lost in translation:
+Logic is organized by domain using Next.js Server Actions, keeping frontend components close to their server counterparts.
 
-```
-AppModule
-├── AuthModule            – login, JWT, refresh, role guards
-├── UsersModule           – operator/accountant/owner accounts
-├── CustomersModule       – profiles, search, credit limit
-├── OrdersModule          – 19L & PET orders, status computation
-├── DeliveriesModule      – delivery completion, soft-block checks
-├── BottleLedgerModule    – bottle asset ledger + reconciliation
-├── InventoryModule       – items, stock derivation, low-stock alerts
-├── ProductionModule      – PET production batches, auto-deduction
-├── MineralCalcModule     – shared water/mineral-set fraction logic
-├── PurchasingModule      – purchases, vendors, vendor payments
-├── ExpensesModule        – operating expenses
-├── DashboardModule       – live aggregate queries for the owner
-├── ReportsModule         – daily/weekly/monthly/yearly rollups
-├── FilesModule           – Cloudinary upload (house photos, docs)
-└── SchedulerModule       – @nestjs/schedule: reminders, daily close
+```text
+Server Actions (e.g. actions/orders.ts)
+   → Validates input (Zod)
+   → Runs business logic (e.g. MineralCalc)
+   → Mutates via Prisma
+   → revalidatePath / returns fresh data
 ```
 
-`MineralCalcModule` is deliberately pulled out as a shared service (not duplicated in Orders/Production/Deliveries) since the exact-fraction mineral math (Section 3 of requirements) is the single most error-prone calculation in the system and must live in exactly one place.
+`MineralCalc` logic is deliberately isolated as a shared utility since the exact-fraction mineral math (Section 3 of requirements) is the single most error-prone calculation in the system and must live in exactly one place.
 
 ---
 
 ## 6. Folder Structure
 
-```
+```text
 aqua-sphere-os/
-├── apps/
-│   ├── web/                        # Next.js 15 frontend
-│   │   ├── app/
-│   │   │   ├── (auth)/login/
-│   │   │   ├── (dashboard)/
-│   │   │   │   ├── dashboard/
-│   │   │   │   ├── customers/
-│   │   │   │   ├── orders/
-│   │   │   │   │   ├── 19l/
-│   │   │   │   │   └── pet/
-│   │   │   │   ├── deliveries/
-│   │   │   │   ├── bottles/         # bottle ledger views
-│   │   │   │   ├── inventory/
-│   │   │   │   ├── production/
-│   │   │   │   ├── purchasing/
-│   │   │   │   ├── expenses/
-│   │   │   │   └── reports/
-│   │   │   └── layout.tsx
-│   │   ├── components/
-│   │   │   ├── ui/                  # shadcn/ui primitives
-│   │   │   ├── forms/
-│   │   │   └── tables/
-│   │   ├── hooks/                   # TanStack Query hooks per module
-│   │   ├── store/                   # Zustand slices (session, ui)
-│   │   ├── lib/                     # api client, zod schemas, utils
-│   │   └── types/
-│   │
-│   └── api/                         # NestJS backend
-│       ├── src/
-│       │   ├── modules/
-│       │   │   ├── auth/
-│       │   │   ├── customers/
-│       │   │   ├── orders/
-│       │   │   ├── deliveries/
-│       │   │   ├── bottle-ledger/
-│       │   │   ├── inventory/
-│       │   │   ├── production/
-│       │   │   ├── mineral-calc/
-│       │   │   ├── purchasing/
-│       │   │   ├── expenses/
-│       │   │   ├── dashboard/
-│       │   │   ├── reports/
-│       │   │   └── files/
-│       │   │       (each: *.controller.ts, *.service.ts, dto/, entities/)
-│       │   ├── common/
-│       │   │   ├── guards/            # JwtAuthGuard, RolesGuard
-│       │   │   ├── decorators/        # @Roles(), @CurrentUser()
-│       │   │   ├── interceptors/
-│       │   │   └── filters/
-│       │   ├── prisma/
-│       │   │   ├── schema.prisma
-│       │   │   └── prisma.service.ts
-│       │   └── main.ts
-│       └── test/
-│
-├── packages/
-│   └── shared-types/                 # DTOs/enums shared FE↔BE (optional)
-│
-└── prisma/migrations/
+├── app/
+│   ├── (auth)/login/
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   ├── customers/
+│   │   ├── orders/
+│   │   │   ├── 19l/
+│   │   │   └── pet/
+│   │   ├── deliveries/
+│   │   ├── bottles/
+│   │   ├── inventory/
+│   │   ├── production/
+│   │   ├── purchasing/
+│   │   ├── expenses/
+│   │   └── reports/
+│   ├── api/auth/[...nextauth]/  # Auth.js route
+│   └── layout.tsx
+├── actions/                      # Server Actions (Business Logic)
+│   ├── auth.ts
+│   ├── customers.ts
+│   ├── orders.ts
+│   ├── deliveries.ts
+│   ├── inventory.ts
+│   ├── mineral-calc.ts           # Shared exact-fraction math
+│   ├── dashboard.ts
+│   └── files.ts
+├── components/
+│   ├── ui/                       # shadcn/ui primitives
+│   ├── forms/
+│   └── tables/
+├── hooks/                        # TanStack Query wrappers for Server Actions
+├── store/                        # Zustand slices (ui state)
+├── lib/                          # Utils, Auth options
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+└── types/                        # Shared Zod schemas & types
 ```
 
 ---
@@ -207,7 +168,7 @@ aqua-sphere-os/
 
 | Layer | Choice |
 |---|---|
-| Frontend framework | Next.js 15 (App Router) |
+| Framework | Next.js 15 (App Router + Server Actions) |
 | UI library | React 19 + TypeScript |
 | Styling | Tailwind CSS v4 + shadcn/ui + Lucide icons |
 | Animation | Framer Motion |
@@ -217,100 +178,56 @@ aqua-sphere-os/
 | Tables | TanStack Table |
 | Charts | Recharts |
 | Dates | date-fns |
-| Backend framework | NestJS (Node.js LTS, TypeScript) |
 | ORM | Prisma (+ Prisma Migrate) |
 | Database | PostgreSQL |
-| Auth | JWT + bcrypt |
-| Uploads | Multer → Cloudinary |
-| Validation (API) | class-validator + class-transformer |
-| API docs | Swagger (OpenAPI) |
-| Scheduled jobs | @nestjs/schedule |
-| File storage | Cloudinary |
+| Auth | Auth.js (NextAuth) + bcrypt |
+| Scheduled jobs | Vercel Cron / external cron pinging a Route Handler |
+| File storage | Vercel Blob / S3 |
 | PDF generation | PDFKit |
 | Excel export | ExcelJS |
-
-This is the confirmed stack from your tech-stack list — nothing added or substituted.
 
 ---
 
 ## 8. Naming Conventions
 
-- **Files & folders**: `kebab-case` (`bottle-ledger.service.ts`, `order-item.dto.ts`).
-- **Classes / Interfaces / DTOs**: `PascalCase` (`CreateOrderDto`, `BottleTransaction`).
+- **Files & folders**: `kebab-case` (`bottle-ledger.ts`, `customer-form.tsx`).
+- **Classes / Interfaces / Types**: `PascalCase` (`CreateOrderInput`, `BottleTransaction`).
 - **Variables & functions**: `camelCase` (`getCustomerBalance`, `mineralFraction`).
 - **Database tables (Prisma models)**: singular `PascalCase` in schema (`Customer`, `BottleTransaction`), mapped to snake_case tables via `@@map` for Postgres convention (`customer`, `bottle_transaction`).
 - **Enums**: `PascalCase` type, `SCREAMING_SNAKE_CASE` members (`OrderType.NINETEEN_L`, `DeliveryStatus.PARTIAL`).
-- **API routes**: plural, kebab-case resource names (`/customers`, `/orders/19l`, `/bottle-ledger`).
 - **React components**: `PascalCase` (`CustomerSearchBar.tsx`); hooks prefixed `use` (`useCustomerBalance.ts`).
 - **Zustand stores**: `useXStore` (`useSessionStore`).
-- **Environment variables**: `SCREAMING_SNAKE_CASE`, prefixed by concern (`DATABASE_URL`, `JWT_ACCESS_SECRET`, `CLOUDINARY_API_KEY`).
+- **Environment variables**: `SCREAMING_SNAKE_CASE`, prefixed by concern (`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`).
 
 ---
 
-## 9. API Structure
+## 9. API & Data Fetching Structure
 
-REST over JSON, versioned from day one (`/api/v1/...`), documented automatically via Swagger.
-
-```
-POST   /api/v1/auth/login
-POST   /api/v1/auth/refresh
-
-GET    /api/v1/customers?search=
-POST   /api/v1/customers
-PATCH  /api/v1/customers/:id
-DELETE /api/v1/customers/:id
-
-POST   /api/v1/orders/19l
-POST   /api/v1/orders/pet
-GET    /api/v1/orders/pending
-PATCH  /api/v1/orders/:id           # status recompute only, never direct edit
-
-POST   /api/v1/deliveries           # creates delivery + triggers ledger updates
-GET    /api/v1/bottle-ledger/summary
-GET    /api/v1/bottle-ledger/:customerId
-
-GET    /api/v1/inventory
-POST   /api/v1/inventory/adjustments   # reason required
-
-POST   /api/v1/production/pet-batch
-
-POST   /api/v1/purchases
-POST   /api/v1/vendor-payments
-
-POST   /api/v1/expenses
-
-GET    /api/v1/dashboard/summary
-GET    /api/v1/reports/:period      # daily | weekly | monthly | yearly
-
-POST   /api/v1/files/upload         # → Cloudinary, returns URL
-```
+No REST endpoints needed for internal use. The app uses **Next.js Server Actions** for mutations and direct Prisma calls for server components, wrapped in TanStack Query for client-side caching.
 
 **Conventions:**
-- Every mutating endpoint that touches a balance returns the **recomputed balances**, not just a success flag — the frontend never re-derives numbers itself.
-- Soft-block warnings come back as a structured `{ warning: true, message, currentValue, limit }` payload with a `200`, not an error — the operator can then resubmit with `confirm: true`. This keeps the "never hard-block" rule out of scattered `if` statements and into one consistent contract.
-- All list endpoints support pagination + search query params, used by TanStack Table server-side pagination.
+- Every Server Action that mutates a balance returns the **recomputed balances**, not just a success flag — the frontend never re-derives numbers itself.
+- Soft-block warnings come back as a structured `{ warning: true, message, currentValue, limit }` payload, not an error throw — the operator can then resubmit with `confirm: true`. This keeps the "never hard-block" rule consistent.
+- Validation: The exact same Zod schema is used by `react-hook-form` on the client and the Server Action on the backend.
 
 ---
 
 ## 10. State Management
 
-- **TanStack Query** owns all server state — customer records, orders, inventory, dashboard numbers. This is the single source of truth for anything from the API; it handles caching, background refetch, and optimistic updates for delivery/order actions so the UI feels instant even before the server confirms.
-- **Zustand** owns only true client/UI state: current logged-in user + role, active order-desk draft (before submit), sidebar/UI toggles. It deliberately does **not** cache server data — that's Query's job, avoiding the classic bug of two sources of truth disagreeing.
-- **React Hook Form + Zod** own form-local state and validation, decoupled from both of the above, with the same Zod schemas reused on the NestJS side (via class-validator equivalents) so validation rules are defined once conceptually and mirrored, not duplicated ad hoc.
-- After any mutation (e.g. delivery completion), the relevant Query keys (`customer`, `order`, `bottle-ledger`, `dashboard`) are invalidated together, since one action legitimately changes many balances at once — this is enforced as a shared invalidation helper, not repeated per-mutation.
+- **TanStack Query** owns server state — customer records, orders, inventory. It handles background refetch and optimistic updates.
+- **Zustand** owns only client/UI state: sidebar toggles, active draft order. It deliberately does **not** cache server data.
+- After any mutation via a Server Action, the relevant Query keys are invalidated to fetch the latest derived balances.
 
 ---
 
 ## 11. File Upload Strategy
 
-- **Use case**: customer house photos (for driver identification) and any future documents (invoices, ID proofs).
-- **Flow**: Frontend → `multipart/form-data` → NestJS `FilesModule` (Multer, memory storage, size/type validation) → forwarded to **Cloudinary** → Cloudinary URL saved on the `Customer` record (or relevant entity).
-- **Nothing is stored on the API server's disk** — Multer only buffers in memory before handing off, which matters because the backend host is stateless/ephemeral on a free tier.
-- **Validation**: image mime-types only, max size enforced both client-side (immediate feedback) and server-side (authoritative check).
-- **Generated files** (invoices via PDFKit, report exports via ExcelJS) are generated on-demand in the API and streamed directly to the client — not persisted to Cloudinary, since they're reproducible from the transaction data at any time.
+- **Use case**: customer house photos.
+- **Flow**: Frontend → Server Action → **Vercel Blob or S3** → URL saved on `Customer` record.
+- **Generated files** (invoices via PDFKit, Excel exports) are generated on-demand in Server Actions/Route Handlers and streamed directly to the client.
 
 ---
 
 ### How this maps back to the business
 
-Every architectural choice above traces to a specific rule from the blueprint: the ledger-first database strategy implements "no manually-edited numbers" (Section 12); the soft-block API contract implements the credit/soft-block philosophy (Section 9); the shared `MineralCalcModule` implements the exact-fraction rule (Section 3); and the JWT + role-guard auth implements the operator/owner visibility split and admin-reset-needs-accountant-approval rule from the manager notes.
+Every architectural choice traces to a specific rule: the ledger-first database strategy implements "no manually-edited numbers" (Section 12); the soft-block contract implements the credit philosophy (Section 9); the shared `mineral-calc.ts` implements the exact-fraction rule (Section 3); and Auth.js with role checks implements the operator/owner visibility split.
