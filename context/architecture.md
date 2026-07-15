@@ -8,22 +8,13 @@ This document defines **how** AQUA Sphere OS is built, based on what `project-re
 
 AQUA Sphere OS is a **Next.js monolith**, kept deliberately simple because the business is single-tenant and the traffic is low (a handful of concurrent staff). 
 
-```text
-┌─────────────────────────┐
-│   Next.js 15 App        │  (Vercel / free-tier host)
-│  React 19 + TanStack    │
-│  Query + Zustand        │
-│                         │
-│  Server Actions (Node)  │
-└────────────┬─────────────┘
-             │ Prisma Client
-┌────────────▼─────────────┐
-│   PostgreSQL Database     │  (Neon / Supabase free tier)
-└───────────────────────────┘
-             │
-┌────────────▼─────────────┐
-│   Vercel Blob / S3        │  (customer house photos, docs)
-└───────────────────────────┘
+```mermaid
+graph TD
+    A["Next.js 15 App<br>(React 19, Server Actions)"] -->|Prisma Client| B[("PostgreSQL<br>(Neon/Supabase)")]
+    A -->|Uploads| C["Vercel Blob / S3<br>(Photos, Docs)"]
+    classDef default fill:#F7FAFB,stroke:#E2E8EC,stroke-width:2px,color:#101B24;
+    classDef db fill:#0E7C9C,stroke:#0B6580,stroke-width:2px,color:#FFFFFF;
+    class B db;
 ```
 
 **Why this shape:**
@@ -37,34 +28,44 @@ AQUA Sphere OS is a **Next.js monolith**, kept deliberately simple because the b
 
 The system flow mirrors the real front-desk phone call, end to end:
 
-```text
-Phone rings → Operator searches customer (phone/name/ID)
-   → Customer snapshot loads instantly:
-       name, address, outstanding balance, bottle balance,
-       last delivery date, avg monthly orders
-   → Operator creates Order (19L OR PET — never mixed)
-       → Soft-block check: credit limit vs (outstanding + new order)
-       → Order saved as (delivery: pending, payment: unpaid)
-   → Order appears in the live "Pending Orders" list
-   → Driver delivers → Operator opens order → enters delivery:
-       qty delivered, bottles returned (good/broken), cash, method
-       → Soft-block check: bottles returned ≤ customer's current balance
-   → System auto-creates:
-       BottleTransaction(s), InventoryTransaction(s), Payment record
-   → Order status recomputed (sum of deliveries / payments, not a flag)
-   → Dashboard, customer balance, and reports update live
+```mermaid
+sequenceDiagram
+    actor Operator
+    participant UI as Next.js UI
+    participant DB as Postgres (Ledger)
+    
+    Operator->>UI: Search Customer
+    UI->>DB: Fetch Balance & History
+    DB-->>UI: Instant Snapshot
+    Operator->>UI: Create Order (19L or PET)
+    UI->>UI: Soft Block: Credit Limit Check
+    UI->>DB: Save Order (Pending/Unpaid)
+    
+    Note over Operator,DB: Later: Driver Delivers
+    
+    Operator->>UI: Enter Delivery (Qty, Returned, Cash)
+    UI->>UI: Soft Block: Returned <= Held Balance
+    UI->>DB: Append Transactions (Bottle, Inventory, Payment)
+    DB-->>UI: Recompute Order Status
+    UI-->>Operator: Dashboard Updates Live
 ```
 
 Production and purchasing run as parallel, simpler flows that feed the same inventory ledger:
 
-```text
-Production run (PET) → operator enters pack counts only
-   → system derives: -empty bottles, -caps, -labels, -shrink wrap,
-      -mineral sets (exact fraction), +finished goods
+```mermaid
+flowchart LR
+    subgraph Production
+        Op1[Operator enters pack counts] --> Der[System derives fractions]
+        Der -->|- Empty Bottles, Caps, Labels| Inv[(Inventory)]
+        Der -->|- Mineral Sets| Inv
+        Der -->|+ Finished Goods| Inv
+    end
 
-Purchase → operator enters item + qty + vendor
-   → +raw material inventory, +vendor payable
-Vendor payment → -vendor payable (separate transaction stream)
+    subgraph Purchasing
+        Op2[Purchase Entry] -->|+ Raw Material| Inv
+        Op2 -->|+ Vendor Payable| Ledger[(Ledger)]
+        Pay[Vendor Payment] -->|- Vendor Payable| Ledger
+    end
 ```
 
 ---
@@ -76,12 +77,20 @@ Vendor payment → -vendor payable (separate transaction stream)
 - Passwords hashed with **bcrypt** (via a Custom Credentials Provider in Auth.js).
 - **Admin password reset requires accountant confirmation** (per manager notes) — implemented as a two-step flow: Admin initiates reset → Accountant approves via a confirmation action → new temporary password issued.
 
-```text
-Login (phone/email + password)
-   → Auth.js Credentials Provider (bcrypt check)
-   → Issues encrypted session cookie with Role
-Frontend reads session
-Server Actions & Middleware enforce Role checks
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as Next.js App
+    participant Auth as Auth.js
+    participant DB as Postgres
+    
+    User->>UI: Login (Email + Password)
+    UI->>Auth: Credentials Provider
+    Auth->>DB: bcrypt validation
+    DB-->>Auth: Success + User Role
+    Auth-->>User: Encrypted Session Cookie (HTTP-Only)
+    User->>UI: Access Dashboard / Actions
+    UI->>UI: Middleware & Action Role Check
 ```
 
 ---
@@ -107,12 +116,13 @@ Server Actions & Middleware enforce Role checks
 
 Logic is organized by domain using Next.js Server Actions, keeping frontend components close to their server counterparts.
 
-```text
-Server Actions (e.g. actions/orders.ts)
-   → Validates input (Zod)
-   → Runs business logic (e.g. MineralCalc)
-   → Mutates via Prisma
-   → revalidatePath / returns fresh data
+```mermaid
+graph LR
+    A[Server Action<br>e.g. actions/orders.ts] --> B{Zod Schema<br>Validation}
+    B -->|Invalid| C[Return {error}]
+    B -->|Valid| D[Business Logic<br>e.g. MineralCalc]
+    D --> E[Prisma DB Mutation]
+    E --> F[revalidatePath<br>Return fresh data]
 ```
 
 `MineralCalc` logic is deliberately isolated as a shared utility since the exact-fraction mineral math (Section 3 of requirements) is the single most error-prone calculation in the system and must live in exactly one place.

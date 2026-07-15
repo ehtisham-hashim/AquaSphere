@@ -4,6 +4,37 @@ This is the build roadmap. Each phase is a working, testable slice of the produc
 
 I've reordered and expanded your draft list based on real dependencies from `project-requirements.md` and `architecture.md` — mainly: **you can't build Orders before Customers exist, can't build Deliveries before Orders and the Bottle Ledger exist, and a real Dashboard needs real transactions to show.** So a few things moved earlier (Bottle Ledger, Inventory) and a few moved later (full Dashboard, Notifications). I split "Bottle Ledger" out from "Orders" as its own phase since it's the single most business-critical piece of data in the whole system and deserves to be solid before anything writes to it.
 
+```mermaid
+flowchart TD
+    subgraph Foundation
+        P1[1. Setup] --> P2[2. Auth & Roles]
+        P2 --> P3[3. Customers]
+        P2 --> P4[4. Core Inventory]
+        P4 --> P5[5. Bottle Ledger]
+    end
+    
+    subgraph Core Operations
+        P3 --> P6[6. Orders]
+        P5 --> P6
+        P6 --> P7[7. Deliveries]
+        P7 --> P8[8. Dashboard Basics]
+    end
+    
+    subgraph Extended Operations
+        P8 --> P9[9. Production]
+        P8 --> P10[10. Purchasing]
+        P8 --> P11[11. Expenses]
+        P8 --> P14[14. Counter Sales]
+    end
+    
+    subgraph Management
+        P8 --> P12[12. Full Reports]
+        P8 --> P13[13. Notifications & Close]
+    end
+    
+    classDef default fill:#F7FAFB,stroke:#E2E8EC,stroke-width:2px,color:#101B24;
+```
+
 ---
 
 ## Phase 1 — Project Setup

@@ -142,6 +142,18 @@ Tables are the most-used surface in this app (orders, inventory, ledgers) — th
 | Delivered / Paid | `--color-success` |
 | Soft-block warning shown | `--color-warning` |
 
+```mermaid
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Partial : Partial Delivery / Payment
+    Partial --> Delivered : Remainder Completed
+    Pending --> Delivered : Full Completion
+    
+    note right of Pending: color-ink-muted
+    note right of Partial: color-info
+    note right of Delivered: color-success
+```
+
 ## 10. Forms
 
 - Labels always above the field (not placeholder-as-label — placeholders disappear the moment someone starts typing, and this app's operators need the label visible while they work).

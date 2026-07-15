@@ -8,6 +8,19 @@ AQUA Sphere OS is a custom business management system for AQUA Sphere, a drinkin
 2. **Packaged Water (PET Bottles)** — 0.5L and 1.5L bottles, produced in advance and stored as finished goods until sold.
 3. **Blowing Machine Division** — production of preform-based bottles for three companies (Aqua Sphere, Deosai, Pivrifine), tracked completely separately from Divisions 1 and 2.
 
+```mermaid
+flowchart LR
+    subgraph AQUA Sphere OS
+        D1[Division 1<br>19L Reusable]
+        D2[Division 2<br>PET Packaged]
+        D3[Division 3<br>Blowing Machine]
+    end
+    D1 -.->|Track bottle assets,<br>refill at delivery| Cust[Customers]
+    D2 -.->|Track finished<br>goods inventory| Cust
+    D3 -.->|Strictly separate<br>B2B tracking| B2B[B2B Clients]
+    classDef default fill:#F7FAFB,stroke:#E2E8EC,stroke-width:2px,color:#101B24;
+```
+
 Today, the business runs on manual records and phone calls. AQUA Sphere OS replaces this with one web-based system that the front-desk operator, the accountant, and the owner can all use — at the same time — to manage customers, orders, deliveries, inventory, production, purchasing, expenses, and reporting.
 
 The system is being built as a simple, honest reflection of how this business actually works — not a generic off-the-shelf inventory or ERP template.
