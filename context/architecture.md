@@ -144,60 +144,40 @@ graph LR
 
 ```text
 aqua-sphere-os/
-├── client/                          # React frontend (Vite)
+├── frontend/                          # React frontend (Vite)
 │   ├── src/
-│   │   ├── pages/
-│   │   │   ├── login/
-│   │   │   ├── dashboard/
+│   │   ├── features/                # Domain-driven feature modules
+│   │   │   ├── auth/                # components, api, types for auth
 │   │   │   ├── customers/
 │   │   │   ├── orders/
-│   │   │   │   ├── nineteen-l/
-│   │   │   │   └── pet/
 │   │   │   ├── deliveries/
 │   │   │   ├── bottles/
 │   │   │   ├── inventory/
-│   │   │   ├── production/
-│   │   │   ├── purchasing/
-│   │   │   ├── expenses/
-│   │   │   └── reports/
-│   │   ├── components/
-│   │   │   ├── ui/                  # Reusable primitives (Button, Input, Table, etc.)
-│   │   │   ├── forms/
-│   │   │   └── layout/             # Sidebar, Header, ProtectedRoute
-│   │   ├── hooks/                   # TanStack Query hooks per domain
-│   │   ├── lib/                     # Axios instance, utils, constants
-│   │   ├── types/                   # Shared TypeScript types
+│   │   │   └── dashboard/
+│   │   ├── components/              # Global/shared UI components only
+│   │   │   ├── ui/                  # Primitives (Button, Input, Table)
+│   │   │   └── layout/              # Sidebar, Header, ProtectedRoute
+│   │   ├── lib/                     # Axios instance, global utils
 │   │   ├── App.tsx
 │   │   └── main.tsx
 │   ├── index.html
 │   ├── tailwind.config.ts
 │   └── vite.config.ts
 │
-├── server/                          # Express backend
+├── backend/                          # Express backend
 │   ├── src/
-│   │   ├── modules/
-│   │   │   ├── auth/                # routes, controller, service
-│   │   │   ├── customers/
-│   │   │   ├── orders/
-│   │   │   ├── deliveries/
-│   │   │   ├── bottle-ledger/
-│   │   │   ├── inventory/
-│   │   │   ├── production/
-│   │   │   ├── mineral-calc/        # Shared service only (no routes)
-│   │   │   ├── purchasing/
-│   │   │   ├── expenses/
-│   │   │   ├── dashboard/
-│   │   │   ├── reports/
-│   │   │   └── files/
-│   │   ├── middleware/
-│   │   │   ├── auth.middleware.ts    # JWT verification
-│   │   │   ├── role.middleware.ts    # Role-based access
-│   │   │   ├── validate.middleware.ts # Zod validation
-│   │   │   └── error.middleware.ts   # Global error handler
-│   │   ├── lib/
-│   │   │   ├── prisma.ts            # Prisma client singleton
-│   │   │   └── constants.ts         # Business-rule constants
-│   │   └── index.ts                 # Express app entry
+│   │   ├── controllers/             # Request handling and response formatting
+│   │   ├── db/                      # Database connection and Prisma client wrappers
+│   │   ├── middlewares/             # Express middlewares (auth, validation, errors)
+│   │   ├── routes/                  # API route definitions
+│   │   ├── services/                # Business logic and complex operations
+│   │   ├── utils/                   # Generic utilities and helpers
+│   │   ├── app.ts                   # Express app setup and middleware registration
+│   │   ├── constants.ts             # Global constants and business rules
+│   │   └── index.ts                 # Entry point (server start)
+│   ├── tests/
+│   │   ├── integration/
+│   │   └── unit/
 │   ├── prisma/
 │   │   ├── schema.prisma
 │   │   └── migrations/
@@ -304,7 +284,7 @@ POST   /api/v1/files/upload
 ## 10. State Management
 
 - **TanStack Query** owns all server state — customer records, orders, inventory, dashboard numbers. Handles caching, background refetch, and optimistic updates.
-- **React state** (`useState` / `useContext`) for true client/UI state: sidebar toggles, active draft order. No additional state library.
+- **React state** (`useState` / `useContext`) for true frontend/UI state: sidebar toggles, active draft order. No additional state library.
 - After any mutation, the relevant Query keys are invalidated to fetch the latest derived balances.
 
 ---

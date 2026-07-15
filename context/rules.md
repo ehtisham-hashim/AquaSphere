@@ -8,10 +8,10 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 ## 1. Coding Standards
 
-- **TypeScript everywhere, strict mode on.** Both `client/` and `server/` use TypeScript. No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
+- **TypeScript everywhere, strict mode on.** Both `frontend/` and `backend/` use TypeScript. No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
 - **One responsibility per file.** Routes define HTTP verb + path. Controllers handle req/res. Services own business logic + DB calls. React components only handle UI. Don't mix database queries into React or business rules into controllers.
 - **Functions should be short and named for what they do**, not how they do it (`calculateMineralFraction()` not `doMath()`).
-- **No magic numbers.** `23` (litres per 19L bottle) or `13248` (litres per mineral set) must be named constants in `server/src/lib/constants.ts`, not typed inline — these numbers are business rules, not decoration.
+- **No magic numbers.** `23` (litres per 19L bottle) or `13248` (litres per mineral set) must be named constants in `backend/src/lib/constants.ts`, not typed inline — these numbers are business rules, not decoration.
 - **Every derived value must actually be derived.** If a number is "current stock" or "current balance," it must be computed from a transaction table (`SUM()` or an equivalent kept-in-sync value) — never a field the UI writes to directly. This is the single most important rule in the whole project (see `architecture.md` §4).
 - **Comment the "why," not the "what."** Code should be readable enough to explain itself; comments exist for business-logic reasons that aren't obvious from the code (e.g. "delivery time, not production time — 19L bottles aren't produced ahead of delivery").
 - **Consistent formatting** — Prettier + ESLint configured once at the project root, run on every file, no per-developer style variation.
@@ -33,10 +33,10 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 ## 3. Folder Rules
 
 - Follow the folder structure in `architecture.md` §6 exactly — don't invent new top-level folders without a reason written down.
-- Each backend module (`orders`, `deliveries`, `bottle-ledger`, etc.) is self-contained: its own routes, controller, service, and validation live together under `server/src/modules/<name>/`. Don't split one module's logic across unrelated folders.
-- Shared logic (like mineral-set math) lives in its own module (`mineral-calc`) and is imported — never copy-pasted into multiple modules.
-- Frontend: one folder per business area under `client/src/pages/`, mirroring backend modules 1:1, so anyone can find "the PET order screen" or "the bottle ledger API" without hunting.
-- Shared Zod schemas live in `shared/schemas/` and are imported by both client and server — never duplicated.
+- **Backend**: Use a layered MVC architecture within `backend/src/`. Routes (`src/routes/`) map URLs to Controllers (`src/controllers/`), which handle HTTP requests/responses. Controllers call Services (`src/services/`), which contain the business logic and database queries.
+- Shared logic (like mineral-set math) lives in `backend/src/utils/` or as a generic service, imported where needed. Do not copy-paste.
+- **Frontend**: Use domain-driven feature folders (`frontend/src/features/<name>/`), mirroring backend modules 1:1. Each feature folder owns its own components, hooks, api calls, and types (e.g. `features/orders/components/`, `features/orders/api/`). Do not use global `components/` or `types/` folders except for truly app-wide shared primitives (like a generic Button).
+- Shared Zod schemas live in `shared/schemas/` and are imported by both frontend and backend — never duplicated.
 - Nothing business-specific goes in `middleware/` — that folder is only for truly generic, reusable code (auth, validation, error handling).
 
 ## 4. Error Handling
@@ -49,7 +49,6 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 ## 5. Validation Rules
 
-- **Validate on both ends using the exact same Zod schema** from `shared/schemas/`. Zod validates on the frontend (via React Hook Form resolver) for instant feedback, and validates again in Express middleware, because the client can never be trusted as the only gate.
 - **Every Zod schema must reject unknown/extra fields** (using `.strict()`) — this stops stray fields from silently reaching the database.
 - **Business-rule validation lives in services.** E.g. "bottles returned ≤ customer's current balance" is checked in `deliveries.service.ts`, not scattered in the controller or the frontend form.
 - **Every soft-block check (Section 9 of requirements) must be enforced server-side**, even though the frontend should also show the warning early for a good user experience. The frontend check is a convenience; the backend check is the real gate.

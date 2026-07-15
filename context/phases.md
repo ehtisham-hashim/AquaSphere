@@ -40,7 +40,7 @@ flowchart TD
 ## Phase 1 — Project Setup
 
 **Goal:** a working, empty skeleton for both client and server.
-- Initialize monorepo structure (`client/`, `server/`, `shared/`) per `architecture.md` §6.
+- Initialize monorepo structure (`frontend/`, `backend/`, `shared/`) per `architecture.md` §6.
 - Scaffold React + Vite app with Tailwind v4 installed.
 - Scaffold Express app with TypeScript, connect Prisma to NeonDB.
 - ESLint + Prettier configured project-wide, per `rules.md` §1.

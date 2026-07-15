@@ -48,7 +48,7 @@ _(Nothing yet — this section fills in as phases close out. Format going forwar
 
 Pulled directly from `phases.md` Phase 1 checklist — the immediate queue:
 
-- [ ] Initialize monorepo structure (`client/`, `server/`, `shared/`) per `architecture.md` §6
+- [ ] Initialize monorepo structure (`frontend/`, `backend/`, `shared/`) per `architecture.md` §6
 - [ ] Scaffold React + Vite app; install Tailwind v4
 - [ ] Scaffold Express app with TypeScript
 - [ ] Connect Prisma to NeonDB
@@ -60,7 +60,7 @@ Pulled directly from `phases.md` Phase 1 checklist — the immediate queue:
 
 ## Next Task
 
-**Initialize the monorepo structure** (`client/`, `server/`, `shared/`) — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
+**Initialize the monorepo structure** (`frontend/`, `backend/`, `shared/`) — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
 
 ---
 
