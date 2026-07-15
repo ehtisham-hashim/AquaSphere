@@ -28,7 +28,7 @@ Named tokens, defined once as CSS variables and reused everywhere — no ad hoc 
 **Rule:** `--color-warning` (amber) is reserved exclusively for soft-block situations described in the requirements doc (credit limit, bottle-return overage, negative stock) — this is a deliberate visual signal that the system is *warning, not blocking*. `--color-danger` (red) is reserved for actual failures. Mixing these up would misrepresent the soft-block philosophy that's core to this product.
 
 ### Dark Mode
-Dark mode is a "should have," not a "must have" for launch — the owner's primary use is a phone screen in daylight/office light, where light mode reads faster. But since Tailwind + shadcn make it nearly free, define the dark tokens now so it can be toggled on later without a redesign:
+Dark mode is a "should have," not a "must have" for launch — the owner's primary use is a phone screen in daylight/office light, where light mode reads faster. Define the dark tokens now so it can be toggled on later without a redesign:
 
 | Token | Hex |
 |---|---|
@@ -181,7 +181,7 @@ stateDiagram-v2
 
 ## 13. Dark Mode
 
-Tokens are defined (Section 1) but dark mode ships as a **user-toggleable preference, not the default** — implemented via a `class="dark"` root toggle so Tailwind's dark: variants apply app-wide with no per-component rework. Priority: light mode must be complete and polished for launch; dark mode is a fast-follow once the token system proves out in light mode, since it's mostly a token swap at that point, not new design work.
+Tokens are defined (Section 1) but dark mode ships as a **user-toggleable preference, not the default** — implemented via a `class="dark"` root toggle so Tailwind's `dark:` variants apply app-wide with no per-component rework. Priority: light mode must be complete and polished for launch; dark mode is a fast-follow once the token system proves out in light mode, since it's mostly a token swap at that point, not new design work.
 
 ---
 

@@ -13,11 +13,11 @@ Status: **not started.** Development has not begun — this file is being create
 
 ## Current Module
 
-None yet. First module up in Phase 1 is project scaffolding (no business module — this is repo/tooling setup).
+None yet. First module up in Phase 1 is project scaffolding (client + server + shared).
 
 ## Current File
 
-None yet — no files exist beyond the five planning documents:
+None yet — no files exist beyond the planning documents:
 `project-requirements.md`, `architecture.md`, `rules.md`, `design.md`, `phases.md`.
 
 ---
@@ -48,17 +48,19 @@ _(Nothing yet — this section fills in as phases close out. Format going forwar
 
 Pulled directly from `phases.md` Phase 1 checklist — the immediate queue:
 
-- [ ] Initialize Next.js structure per `architecture.md` §6
-- [ ] Scaffold Next.js 15 app; install Tailwind v4 + shadcn/ui
-- [ ] Connect Prisma to a Postgres instance (Neon/Supabase free tier)
+- [ ] Initialize monorepo structure (`client/`, `server/`, `shared/`) per `architecture.md` §6
+- [ ] Scaffold React + Vite app; install Tailwind v4
+- [ ] Scaffold Express app with TypeScript
+- [ ] Connect Prisma to NeonDB
 - [ ] Configure ESLint + Prettier project-wide per `rules.md` §1
-- [ ] Create `.env.example`; confirm `.env` is git-ignored
-- [ ] First empty Prisma migration, confirm it runs cleanly
-- [ ] Confirm a Server Action can hit the DB end-to-end
+- [ ] Create `.env.example` for both apps; confirm `.env` is git-ignored
+- [ ] Configure CORS on Express for Vite dev server
+- [ ] First empty Prisma migration, confirm it runs cleanly against NeonDB
+- [ ] Confirm React app can fetch Express health-check endpoint end-to-end
 
 ## Next Task
 
-**Initialize the Next.js app structure** — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
+**Initialize the monorepo structure** (`client/`, `server/`, `shared/`) — this is the very first concrete action once building begins, per Phase 1 in `phases.md`.
 
 ---
 
@@ -75,7 +77,8 @@ Open items carried over from the planning documents — none are bugs yet (no co
 
 ## Notes
 
-- The five foundation documents (`project-requirements.md`, `architecture.md`, `rules.md`, `design.md`, `phases.md`) are finalized as of this date. Any change to *what* is being built, *how* it's structured, *how* code is written, or *how* it looks should be made in those files first — this memory file only tracks progress and decisions made along the way, it doesn't redefine scope.
+- The foundation documents (`project-requirements.md`, `architecture.md`, `rules.md`, `design.md`, `phases.md`) are finalized as of this date. Any change to *what* is being built, *how* it's structured, *how* code is written, or *how* it looks should be made in those files first — this memory file only tracks progress and decisions made along the way, it doesn't redefine scope.
+- **Tech stack: PERN** — PostgreSQL (NeonDB) + Express + React (Vite) + Node. Prisma ORM. JWT auth with httpOnly cookies. This was confirmed on 2026-07-15.
 - `phases.md` reordered the original phase list so Inventory and the Bottle Ledger are built *before* Orders/Deliveries, since both write into them. If a future session sees Orders work happening before Bottle Ledger/Inventory exist, that's a sequencing error — check `phases.md` before proceeding.
 - The single most important rule across every document: **no balance, stock count, or bottle count is ever a directly-editable field** — everything is derived from a transaction ledger (`architecture.md` §4, `rules.md` §1 and §9). Any code review or AI-assisted change should be checked against this before being accepted.
 - This file should be updated at the end of every work session, even a short one — "Current File" and "Next Task" especially, so the next session (human or AI) can resume in seconds instead of re-deriving context.

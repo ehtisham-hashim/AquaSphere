@@ -8,10 +8,10 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 ## 1. Coding Standards
 
-- **TypeScript everywhere, strict mode on.** No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
-- **One responsibility per file.** Server Actions handle business logic and DB mutations. Components only handle UI. Don't mix database queries into client components.
+- **TypeScript everywhere, strict mode on.** Both `client/` and `server/` use TypeScript. No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
+- **One responsibility per file.** Routes define HTTP verb + path. Controllers handle req/res. Services own business logic + DB calls. React components only handle UI. Don't mix database queries into React or business rules into controllers.
 - **Functions should be short and named for what they do**, not how they do it (`calculateMineralFraction()` not `doMath()`).
-- **No magic numbers.** `23` (litres per 19L bottle) or `13248` (litres per mineral set) must be named constants, not typed inline — these numbers are business rules, not decoration.
+- **No magic numbers.** `23` (litres per 19L bottle) or `13248` (litres per mineral set) must be named constants in `server/src/lib/constants.ts`, not typed inline — these numbers are business rules, not decoration.
 - **Every derived value must actually be derived.** If a number is "current stock" or "current balance," it must be computed from a transaction table (`SUM()` or an equivalent kept-in-sync value) — never a field the UI writes to directly. This is the single most important rule in the whole project (see `architecture.md` §4).
 - **Comment the "why," not the "what."** Code should be readable enough to explain itself; comments exist for business-logic reasons that aren't obvious from the code (e.g. "delivery time, not production time — 19L bottles aren't produced ahead of delivery").
 - **Consistent formatting** — Prettier + ESLint configured once at the project root, run on every file, no per-developer style variation.
@@ -21,11 +21,11 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 (Full detail already defined in `architecture.md` §8 — repeated here as the enforceable rule.)
 
 - Files/folders: `kebab-case`
-- Classes, DTOs, interfaces: `PascalCase`
+- Classes, interfaces, types: `PascalCase`
 - Variables, functions: `camelCase`
 - Enum type: `PascalCase`, enum members: `SCREAMING_SNAKE_CASE`
 - Database tables: singular `PascalCase` in Prisma schema, mapped to `snake_case` in Postgres
-- API routes: plural, kebab-case (`/vendor-payments`, not `/VendorPayment`)
+- API routes: plural, kebab-case (`/api/v1/vendor-payments`, not `/VendorPayment`)
 - React components: `PascalCase`; hooks start with `use`
 
 **Rule:** never invent a new naming style mid-project. If a new kind of file doesn't fit an existing pattern, match it to the closest existing one rather than starting a new convention.
@@ -33,59 +33,61 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 ## 3. Folder Rules
 
 - Follow the folder structure in `architecture.md` §6 exactly — don't invent new top-level folders without a reason written down.
-- Each business domain (`orders`, `deliveries`, `bottle-ledger`, etc.) is represented by a dedicated Server Action file (e.g., `actions/orders.ts`). Don't split one module's logic across unrelated folders.
+- Each backend module (`orders`, `deliveries`, `bottle-ledger`, etc.) is self-contained: its own routes, controller, service, and validation live together under `server/src/modules/<name>/`. Don't split one module's logic across unrelated folders.
 - Shared logic (like mineral-set math) lives in its own module (`mineral-calc`) and is imported — never copy-pasted into multiple modules.
-- Frontend: one folder per business area under `app/(dashboard)/`, mirroring Server Actions 1:1, so anyone can find "the PET order screen" or "the bottle ledger action" without hunting.
-- Nothing business-specific goes in `common/` — that folder is only for truly generic, reusable code (guards, decorators, interceptors).
+- Frontend: one folder per business area under `client/src/pages/`, mirroring backend modules 1:1, so anyone can find "the PET order screen" or "the bottle ledger API" without hunting.
+- Shared Zod schemas live in `shared/schemas/` and are imported by both client and server — never duplicated.
+- Nothing business-specific goes in `middleware/` — that folder is only for truly generic, reusable code (auth, validation, error handling).
 
 ## 4. Error Handling
 
 - **Never fail silently.** Every catch block either handles the error meaningfully or re-throws it — no empty `catch {}`.
-- **Server Actions must return structured errors**, for example `{ error: string }`. The frontend should never need to guess the shape of an error.
+- **One global error middleware** (`error.middleware.ts`) formats all error responses the same way: `{ status, message, errors? }`. The frontend should never need to guess the shape of an error.
 - **Distinguish real errors from soft-block warnings.** A credit-limit warning or a stock-going-negative warning is *not* an error — it's a normal `200` response with a `warning` flag (see `architecture.md` §9). Reserve actual HTTP error codes (400/403/404/500) for genuine problems: bad input, missing records, unauthorized access, server failure.
 - **Log real errors server-side** (at minimum to console in early phases; a proper logging service can come later) — but never log passwords, tokens, or full customer payment details.
 - **Frontend**: every API call through TanStack Query must have error state handled in the UI (a toast, inline message, etc.) — no silent failed requests that leave the operator wondering if an order was saved.
 
 ## 5. Validation Rules
 
-- **Validate on both ends using the exact same Zod schema.** Zod validates on the frontend for instant feedback, and validates again inside the Server Action, because the client can never be trusted as the only gate.
+- **Validate on both ends using the exact same Zod schema** from `shared/schemas/`. Zod validates on the frontend (via React Hook Form resolver) for instant feedback, and validates again in Express middleware, because the client can never be trusted as the only gate.
 - **Every Zod schema must reject unknown/extra fields** (using `.strict()`) — this stops stray fields from silently reaching the database.
-- **Business-rule validation lives in Server Actions.** E.g. "bottles returned ≤ customer's current balance" is checked in the `actions/deliveries.ts` action, not scattered in the frontend form.
+- **Business-rule validation lives in services.** E.g. "bottles returned ≤ customer's current balance" is checked in `deliveries.service.ts`, not scattered in the controller or the frontend form.
 - **Every soft-block check (Section 9 of requirements) must be enforced server-side**, even though the frontend should also show the warning early for a good user experience. The frontend check is a convenience; the backend check is the real gate.
 - **Required vs optional fields must match the requirements doc exactly** — e.g. Default Selling Price and Credit Limit are optional on Customer; Phone Number is required and unique.
 
 ## 6. Security Rules
 
 - **Never trust client input for anything that affects money, stock, or bottle counts.** Always recompute and re-validate server-side.
-- **Passwords**: bcrypt only, minimum salt rounds 10+, never logged, never returned to client.
-- **Session Cookies**: Auth.js (NextAuth) handles secure, encrypted HTTP-only cookies. Secrets stored in environment variables — never hardcoded, never committed to git.
-- **Role checks on every Server Action and protected route** — don't rely on the frontend hiding a button as the only protection. If Operator shouldn't see profit margins, the Server Action must refuse to return that field.
+- **Passwords**: bcrypt only, minimum salt rounds 10+, never logged, never returned in any API response.
+- **JWTs**: stored in httpOnly cookies, secrets stored in environment variables — never hardcoded, never committed to git.
+- **Role checks on every protected route** via `role.middleware.ts` — don't rely on the frontend hiding a button as the only protection. If Operator shouldn't see profit margins, the API must refuse to return that data to an Operator token.
 - **Admin password reset requires accountant approval** — implement this as an actual two-step server-side flow, not a UI-only confirmation dialog.
 - **Daily-closed records are backend-enforced as locked** — the accountant role must be rejected by the API (not just the UI) from writing transactions dated on/before the last close.
 - **No secrets in the repo.** `.env` files are git-ignored; only `.env.example` (with placeholder values) is committed.
-- **File uploads**: validate mime-type and size server-side (not just client-side) before forwarding to Vercel Blob / S3.
+- **File uploads**: validate mime-type and size server-side (Multer config) before forwarding to S3.
+- **CORS**: configured on Express to only allow the frontend origin. No wildcard `*` in production.
 
 ## 7. Libraries to Use
 
 Stick to the confirmed stack — don't substitute "similar" packages mid-project:
 
-**Frontend:** Next.js 15, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, Lucide React, Framer Motion, React Hook Form, Zod, TanStack Query, Zustand, TanStack Table, Recharts, date-fns.
+**Frontend:** React 19, Vite, TypeScript, React Router v7, Tailwind CSS v4, Lucide React, React Hook Form, Zod, TanStack Query v5, Axios, TanStack Table, Recharts, date-fns.
 
-**Backend / Server Actions:** Node.js runtime, Prisma ORM, Auth.js (NextAuth), bcrypt.
+**Backend:** Express, TypeScript, Prisma ORM, jsonwebtoken, bcrypt, Multer, Zod, node-cron, cors, helmet, cookie-parser.
 
-**Other:** PostgreSQL, Prisma Migrate, Vercel Blob / S3, PDFKit, ExcelJS.
+**Other:** PostgreSQL (NeonDB), Prisma Migrate, PDFKit, ExcelJS.
 
 If a task seems to need something outside this list, stop and flag it rather than quietly adding a new dependency — a new library is a project-wide decision, not a per-file one.
 
 ## 8. Libraries to Avoid
 
-- **No competing state libraries** — don't add Redux, MobX, Recoil, or Jotai; Zustand + TanStack Query already cover all state needs.
-- **No competing ORMs** — don't add TypeORM, Sequelize, or raw `pg` queries alongside Prisma. One data-access layer only.
-- **No competing UI kits** — don't add MUI, Ant Design, Chakra, or Bootstrap alongside shadcn/ui + Tailwind; it creates visual and bundle-size inconsistency.
+- **No competing state libraries** — don't add Redux, MobX, Recoil, Zustand, or Jotai; TanStack Query + React state already covers all needs.
+- **No competing ORMs** — don't add TypeORM, Sequelize, Knex, or Drizzle alongside Prisma. One data-access layer only.
+- **No competing UI kits** — don't add MUI, Ant Design, Chakra, or Bootstrap alongside Tailwind; it creates visual and bundle-size inconsistency.
 - **No competing form libraries** — don't add Formik; React Hook Form + Zod is the standard.
 - **No moment.js** — date-fns is already chosen; moment is heavier and effectively deprecated.
-- **No raw SQL migrations tools** (e.g. Knex, node-pg-migrate) — Prisma Migrate handles this.
-- **No alternative auth-as-a-service** (Auth0, Clerk, Firebase Auth) unless explicitly requested later — the Auth.js + bcrypt approach is intentional and keeps the system self-contained and free-tier-friendly.
+- **No Next.js, Remix, or SSR frameworks** — this is a Vite SPA + Express API. No server-side rendering needed for an internal operations tool.
+- **No alternative auth-as-a-service** (Auth0, Clerk, Firebase Auth) unless explicitly requested later — the JWT + bcrypt approach is intentional and keeps the system self-contained and free-tier-friendly.
 - **No local/session storage for anything business-critical** (balances, tokens meant to be secure) — httpOnly cookies and in-memory state only.
 - **No generic "admin panel generator" packages** (e.g. AdminJS, React-Admin) — the UI is purpose-built around the 20-second order-entry goal, which generic admin scaffolding won't respect.
 
@@ -93,7 +95,7 @@ If a task seems to need something outside this list, stop and flag it rather tha
 
 These are hard limits on what an AI assistant working on this codebase should and shouldn't do unprompted:
 
-- **Never invent business rules.** If a number, formula, or workflow isn't in `project-requirements.md`, don't guess — flag it as an open question (the requirements doc already has an "Open Decisions" section for exactly this).
+- **Never invent business rules.** If a number, formula, or workflow isn't in `project-requirements.md`, don't guess — flag it as an open question.
 - **Never make a balance or count directly editable**, even if it seems convenient for a quick fix. If a bug needs correcting, add an adjustment/reversal transaction — don't patch the stored number.
 - **Never silently swap a library**, change the database schema shape, or restructure folders without calling it out — these are project-wide decisions covered by this file, not local code style choices.
 - **Never turn a soft-block into a hard block, or vice versa**, without being told to — this is a deliberate business decision (Section 9 of requirements), not a technical default.

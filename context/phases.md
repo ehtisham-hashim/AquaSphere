@@ -39,30 +39,31 @@ flowchart TD
 
 ## Phase 1 — Project Setup
 
-**Goal:** a working, empty skeleton both apps can build on.
-- Initialize Next.js app structure per `architecture.md` §6.
-- Scaffold Next.js 15 app with Tailwind v4 + shadcn/ui installed.
-- Connect Prisma to a Postgres instance (Neon/Supabase free tier).
+**Goal:** a working, empty skeleton for both client and server.
+- Initialize monorepo structure (`client/`, `server/`, `shared/`) per `architecture.md` §6.
+- Scaffold React + Vite app with Tailwind v4 installed.
+- Scaffold Express app with TypeScript, connect Prisma to NeonDB.
 - ESLint + Prettier configured project-wide, per `rules.md` §1.
-- `.env.example` file created; secrets excluded from git.
-- **Done when:** the app runs locally, a Server Action can hit the DB, and a first empty migration runs cleanly.
+- `.env.example` files for both apps; secrets excluded from git.
+- CORS configured on Express to allow the Vite dev server origin.
+- **Done when:** both apps run locally (`npm run dev`), the Express API returns a health-check JSON, the React app can fetch it, and a first empty Prisma migration runs cleanly against NeonDB.
 
 ## Phase 2 — Authentication & Roles
 
 **Goal:** people can log in, and every route respects who they are.
 - `User` model (Operator/Accountant, Owner/Admin roles) in Prisma.
-- Auth.js (NextAuth) session flow, bcrypt password hashing via Credentials Provider, per `architecture.md` §3.
-- Server Actions role checks and Next.js Middleware.
-- Login screen, session state in Zustand, protected route wrapper on the frontend.
+- JWT login flow (`/api/v1/auth/login`), bcrypt password hashing, httpOnly cookie, per `architecture.md` §3.
+- `auth.middleware.ts` + `role.middleware.ts` on Express.
+- Login page in React, protected route wrapper, Axios interceptor for cookie-based auth.
 - Admin password reset flow requiring accountant approval (per manager notes).
-- **Done when:** an Operator and an Owner account can both log in, see different navigation, and a Operator token is provably rejected from any Owner-only endpoint (e.g. profit figures).
+- **Done when:** an Operator and an Owner account can both log in, see different navigation, and an Operator is provably rejected from any Owner-only endpoint (e.g. profit figures).
 
 ## Phase 3 — Customer Management
 
 **Goal:** the front desk can create and find customers.
 - `Customer` model: ID, name, phone (unique), address, map link, type, deposit, default price, credit limit, remarks, house photo.
-- Create/edit/search (by ID/name/phone)/soft-delete.
-- Vercel Blob / S3 upload wired for the house photo, per `architecture.md` §11.
+- CRUD endpoints + search (by ID/name/phone) + soft-delete.
+- Multer upload wired for the house photo (S3 or local disk), per `architecture.md` §11.
 - Customer detail view shows the "instant snapshot" fields (balance, bottle count, last delivery, avg monthly orders) — even though some of these will show zero/placeholder until later phases populate real transactions.
 - **Done when:** an operator can create a customer, find them by phone number in under a second, and edit their profile.
 
@@ -99,7 +100,7 @@ flowchart TD
 **Goal:** completing a delivery correctly updates every balance in the system automatically.
 - `Delivery` + `Payment` models.
 - Delivery-completion form (per order type) per requirements §7.
-- On submit: recompute order status, update bottle ledger (19L), update customer balance, update raw-material/finished-goods inventory, update cash/profit figures — all inside one database transaction (`architecture.md` §4).
+- On submit: recompute order status, update bottle ledger (19L), update customer balance, update raw-material/finished-goods inventory, update cash/profit figures — all inside one Prisma `$transaction` (`architecture.md` §4).
 - Soft-block: bottles returned ≤ customer's current balance, with confirm-to-proceed.
 - Support multiple partial deliveries against one order.
 - **Done when:** completing a delivery — including a partial one — correctly and atomically updates the bottle ledger, inventory, and balances, with no manual math anywhere in the flow.
@@ -119,7 +120,7 @@ flowchart TD
 **Goal:** production runs derive everything automatically from two numbers.
 - `ProductionBatch` model.
 - Operator enters only pack counts (0.5L / 1.5L produced).
-- Shared `MineralCalcModule` derives exact-fraction mineral-set consumption, label/shrink-wrap deduction (once conversion factors are confirmed — see Open Decisions), and finished-goods increase — per requirements §4 and §3.
+- Shared `mineral-calc` service derives exact-fraction mineral-set consumption, label/shrink-wrap deduction (once conversion factors are confirmed — see Open Decisions), and finished-goods increase — per requirements §4 and §3.
 - **Done when:** entering a production run correctly reduces raw materials and increases finished-goods stock, with mineral consumption stored as an exact, unrounded fraction.
 
 ## Phase 10 — Purchasing & Vendors
