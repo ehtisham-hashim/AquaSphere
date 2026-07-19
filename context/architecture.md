@@ -85,6 +85,7 @@ graph TD
 
 **Separation Rules:**
 - All transactional records, sales history, customer databases, credit ledgers, and inventories are completely segregated by schema.
+- The `schema.prisma` file is **generated dynamically** via `scripts/generate-schema.js` from `base-models.prisma` to ensure perfectly identical schemas for `aquasphere` and `badana` without manual duplication.
 - The `auth` schema is global — shared users log in once and switch context dynamically.
 - A persistent header shows `[Active Workspace: Aquasphere | Badana Industries]` allowing instant context switch.
 - Invoices and alerts dynamically render branding matching the active schema context.
@@ -270,6 +271,7 @@ sequenceDiagram
 
 - **PostgreSQL on NeonDB** as the single relational store — one database project, three schemas.
 - **Prisma ORM** with multi-schema support (`schemas` in datasource block) for type-safe queries and migrations.
+- Duplicate schemas are maintained automatically using `node scripts/generate-schema.js`.
 - **Transaction tables drive everything:**
   - `BottleTransaction` → derives total-owned / at-factory / with-customer / broken / lost.
   - `InventoryTransaction` → derives current stock per `Item` (raw material or finished good).
