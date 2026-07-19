@@ -1,0 +1,218 @@
+model [[PREFIX]]Customer {
+  id             String    @id @default(uuid())
+  name           String
+  phone          String
+  address        String?
+  mapLink        String?
+  type           String
+  deposit        Decimal   @default(0.0)
+  defaultPrice   Decimal   @default(0.0)
+  creditLimit    Decimal   @default(0.0)
+  remarks        String?
+  homePictureUrl String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  orders             [[PREFIX]]Order[]
+  bottleTransactions [[PREFIX]]BottleTransaction[]
+  payments           [[PREFIX]]Payment[]
+
+  @@unique([phone])
+  @@map("Customer")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Item {
+  id           String    @id @default(uuid())
+  name         String
+  type         [[PREFIX]]ItemType
+  reorderLevel Int       @default(0)
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  inventoryTransactions [[PREFIX]]InventoryTransaction[]
+  orderItems            [[PREFIX]]OrderItem[]
+  purchases             [[PREFIX]]Purchase[]
+
+  @@map("Item")
+  @@schema("[[SCHEMA]]")
+}
+
+enum [[PREFIX]]ItemType {
+  RAW_MATERIAL
+  FINISHED_GOOD
+
+  @@map("ItemType")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]InventoryTransaction {
+  id        String         @id @default(uuid())
+  itemId    String
+  item      [[PREFIX]]Item @relation(fields: [itemId], references: [id])
+  quantity  Int
+  reason    String
+  createdAt DateTime       @default(now())
+
+  @@map("InventoryTransaction")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]BottleTransaction {
+  id         String                      @id @default(uuid())
+  customerId String?
+  customer   [[PREFIX]]Customer?         @relation(fields: [customerId], references: [id])
+  type       [[PREFIX]]BottleTransactionType
+  quantity   Int
+  reason     String?
+  createdAt  DateTime                    @default(now())
+
+  @@map("BottleTransaction")
+  @@schema("[[SCHEMA]]")
+}
+
+enum [[PREFIX]]BottleTransactionType {
+  NEW_PURCHASE
+  DELIVERED_TO_CUSTOMER
+  RETURNED_GOOD
+  RETURNED_BROKEN
+  MARKED_LOST
+  AT_FACTORY_ADJUSTMENT
+
+  @@map("BottleTransactionType")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Order {
+  id         String               @id @default(uuid())
+  customerId String
+  customer   [[PREFIX]]Customer   @relation(fields: [customerId], references: [id])
+  type       [[PREFIX]]OrderType
+  status     String
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  items      [[PREFIX]]OrderItem[]
+  deliveries [[PREFIX]]Delivery[]
+  payments   [[PREFIX]]Payment[]
+
+  @@map("Order")
+  @@schema("[[SCHEMA]]")
+}
+
+enum [[PREFIX]]OrderType {
+  NINETEEN_L
+  PET
+
+  @@map("OrderType")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]OrderItem {
+  id       String         @id @default(uuid())
+  orderId  String
+  order    [[PREFIX]]Order @relation(fields: [orderId], references: [id])
+  itemId   String
+  item     [[PREFIX]]Item  @relation(fields: [itemId], references: [id])
+  quantity Int
+  price    Decimal
+
+  @@map("OrderItem")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Delivery {
+  id          String         @id @default(uuid())
+  orderId     String
+  order       [[PREFIX]]Order @relation(fields: [orderId], references: [id])
+  deliveredAt DateTime       @default(now())
+
+  @@map("Delivery")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Payment {
+  id         String             @id @default(uuid())
+  orderId    String?
+  order      [[PREFIX]]Order?   @relation(fields: [orderId], references: [id])
+  customerId String
+  customer   [[PREFIX]]Customer @relation(fields: [customerId], references: [id])
+  amount     Decimal
+  type       String
+  createdAt  DateTime           @default(now())
+
+  @@map("Payment")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]ProductionBatch {
+  id        String   @id @default(uuid())
+  type      String
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  @@map("ProductionBatch")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Vendor {
+  id         String    @id @default(uuid())
+  name       String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  purchases [[PREFIX]]Purchase[]
+  payments  [[PREFIX]]VendorPayment[]
+
+  @@map("Vendor")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Purchase {
+  id         String         @id @default(uuid())
+  vendorId   String
+  vendor     [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
+  itemId     String
+  item       [[PREFIX]]Item   @relation(fields: [itemId], references: [id])
+  quantity   Int
+  price      Decimal
+  receiptUrl String
+  createdAt  DateTime       @default(now())
+
+  @@map("Purchase")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]VendorPayment {
+  id        String         @id @default(uuid())
+  vendorId  String
+  vendor    [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
+  amount    Decimal
+  createdAt DateTime       @default(now())
+
+  @@map("VendorPayment")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]Expense {
+  id         String   @id @default(uuid())
+  category   String
+  amount     Decimal
+  receiptUrl String
+  createdAt  DateTime @default(now())
+
+  @@map("Expense")
+  @@schema("[[SCHEMA]]")
+}
+
+model [[PREFIX]]DailyClose {
+  id         String   @id @default(uuid())
+  date       DateTime @unique @db.Date
+  closedAt   DateTime @default(now())
+  closedById String
+
+  @@map("DailyClose")
+  @@schema("[[SCHEMA]]")
+}
