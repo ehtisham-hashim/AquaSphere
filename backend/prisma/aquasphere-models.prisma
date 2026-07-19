@@ -22,6 +22,7 @@ model AquasphereCustomer {
   orders             AquasphereOrder[]
   bottleTransactions AquasphereBottleTransaction[]
   payments           AquaspherePayment[]
+  notifications      AquasphereNotification[]
 
   @@unique([phone])
   @@index([name])
@@ -254,7 +255,10 @@ model AquasphereDailyClose {
 
 model AquasphereNotification {
   id         String   @id @default(uuid())
+  customerId String?  @map("customer_id")
+  customer   AquasphereCustomer? @relation(fields: [customerId], references: [id])
   type       String   
+  channel    String?  
   message    String
   isRead     Boolean  @default(false) @map("is_read")
   createdAt  DateTime @default(now()) @map("created_at")

@@ -13,6 +13,7 @@ model BadanaCompany {
   orders             BadanaOrder[]
   payments           BadanaPayment[]
   productionBatches  BadanaProductionBatch[]
+  notifications      BadanaNotification[]
 
   @@index([name])
   @@map("companies")
@@ -24,6 +25,7 @@ model BadanaItem {
   name         String
   type         BadanaItemType
   preformType  BadanaPreformType? @map("preform_type")
+  preformWeightGrams Decimal?     @map("preform_weight_grams")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
@@ -33,6 +35,8 @@ model BadanaItem {
   inventoryTransactions BadanaInventoryTransaction[]
   orderItems            BadanaOrderItem[]
   purchases             BadanaPurchase[]
+  producedBatches       BadanaProductionBatch[] @relation("ProducedItems")
+  consumedBatches       BadanaProductionBatch[] @relation("ConsumedItems")
 
   @@map("items")
   @@schema("badana")
@@ -62,6 +66,15 @@ enum BadanaLocation {
   @@schema("badana")
 }
 
+enum BadanaBottleSize {
+  HALF_LITER     
+  ONE_POINT_FIVE 
+  NINETEEN_LITER 
+
+  @@map("bottle_sizes")
+  @@schema("badana")
+}
+
 model BadanaInventoryTransaction {
   id        String         @id @default(uuid())
   itemId    String         @map("item_id")
@@ -83,8 +96,16 @@ model BadanaProductionBatch {
   id                  String   @id @default(uuid())
   companyId           String   @map("company_id")
   company             BadanaCompany @relation(fields: [companyId], references: [id])
-  bottleSize          String?  @map("bottle_size")
+  bottleSize          BadanaBottleSize? @map("bottle_size")
   preformType         BadanaPreformType @map("preform_type")
+  
+  outputItemId        String?  @map("output_item_id")
+  outputItem          BadanaItem? @relation("ProducedItems", fields: [outputItemId], references: [id])
+  
+  inputItemId         String?  @map("input_item_id")
+  inputItem           BadanaItem? @relation("ConsumedItems", fields: [inputItemId], references: [id])
+  
+  preformConsumedKg   Decimal? @map("preform_consumed_kg")
   location            BadanaLocation
   quantity            Int?
   createdAt           DateTime @default(now()) @map("created_at")
@@ -106,6 +127,7 @@ model BadanaOrder {
   updatedAt        DateTime             @updatedAt @map("updated_at")
   items            BadanaOrderItem[]
   payments         BadanaPayment[]
+  deliveries       BadanaDelivery[]
 
   @@index([companyId, createdAt(sort: Desc)])
   @@index([deliveryStatus, createdAt])
@@ -123,6 +145,19 @@ model BadanaOrderItem {
   price    Decimal
 
   @@map("order_items")
+  @@schema("badana")
+}
+
+model BadanaDelivery {
+  id                    String         @id @default(uuid())
+  orderId               String         @map("order_id")
+  order                 BadanaOrder    @relation(fields: [orderId], references: [id])
+  qtyDelivered          Int            @map("qty_delivered")
+  remarks               String?
+  deliveredAt           DateTime       @default(now()) @map("delivered_at")
+
+  @@index([orderId, deliveredAt])
+  @@map("deliveries")
   @@schema("badana")
 }
 
@@ -207,7 +242,10 @@ model BadanaDailyClose {
 
 model BadanaNotification {
   id         String   @id @default(uuid())
+  companyId  String?  @map("company_id")
+  company    BadanaCompany? @relation(fields: [companyId], references: [id])
   type       String   
+  channel    String?
   message    String
   isRead     Boolean  @default(false) @map("is_read")
   createdAt  DateTime @default(now()) @map("created_at")
