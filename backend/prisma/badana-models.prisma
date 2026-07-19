@@ -1,0 +1,217 @@
+model BadanaCompany {
+  id                  String    @id @default(uuid())
+  name                String
+  phone               String?
+  address             String?
+  creditLimit         Decimal   @default(0.0) @map("credit_limit")
+  creditDuration      Int       @default(1) @map("credit_duration")
+  cachedBalance       Decimal   @default(0.0) @map("cached_balance")
+  archivedAt          DateTime? @map("archived_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  orders             BadanaOrder[]
+  payments           BadanaPayment[]
+  productionBatches  BadanaProductionBatch[]
+
+  @@index([name])
+  @@map("companies")
+  @@schema("badana")
+}
+
+model BadanaItem {
+  id           String    @id @default(uuid())
+  name         String
+  type         BadanaItemType
+  preformType  BadanaPreformType? @map("preform_type")
+  cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  reorderLevel Decimal   @default(0.0) @map("reorder_level")
+  archivedAt   DateTime? @map("archived_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  inventoryTransactions BadanaInventoryTransaction[]
+  orderItems            BadanaOrderItem[]
+  purchases             BadanaPurchase[]
+
+  @@map("items")
+  @@schema("badana")
+}
+
+enum BadanaItemType {
+  RAW_MATERIAL
+  FINISHED_GOOD
+
+  @@map("item_types")
+  @@schema("badana")
+}
+
+enum BadanaPreformType {
+  PURE
+  MIX
+
+  @@map("preform_types")
+  @@schema("badana")
+}
+
+enum BadanaLocation {
+  FACTORY
+  WAREHOUSE
+
+  @@map("locations")
+  @@schema("badana")
+}
+
+model BadanaInventoryTransaction {
+  id        String         @id @default(uuid())
+  itemId    String         @map("item_id")
+  item      BadanaItem     @relation(fields: [itemId], references: [id])
+  quantity  Decimal
+  direction String
+  reason    String
+  refType   String?        @map("ref_type")
+  refId     String?        @map("ref_id")
+  location  BadanaLocation?
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([itemId, createdAt])
+  @@map("inventory_transactions")
+  @@schema("badana")
+}
+
+model BadanaProductionBatch {
+  id                  String   @id @default(uuid())
+  companyId           String   @map("company_id")
+  company             BadanaCompany @relation(fields: [companyId], references: [id])
+  bottleSize          String?  @map("bottle_size")
+  preformType         BadanaPreformType @map("preform_type")
+  location            BadanaLocation
+  quantity            Int?
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("production_batches")
+  @@schema("badana")
+}
+
+model BadanaOrder {
+  id               String               @id @default(uuid())
+  companyId        String               @map("company_id")
+  company          BadanaCompany        @relation(fields: [companyId], references: [id])
+  deliveryStatus   String               @default("pending") @map("delivery_status")
+  paymentStatus    String               @default("unpaid") @map("payment_status")
+  expectedDelivery DateTime?            @map("expected_delivery")
+  remarks          String?
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  items            BadanaOrderItem[]
+  payments         BadanaPayment[]
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([deliveryStatus, createdAt])
+  @@map("orders")
+  @@schema("badana")
+}
+
+model BadanaOrderItem {
+  id       String         @id @default(uuid())
+  orderId  String         @map("order_id")
+  order    BadanaOrder    @relation(fields: [orderId], references: [id])
+  itemId   String         @map("item_id")
+  item     BadanaItem     @relation(fields: [itemId], references: [id])
+  quantity Int
+  price    Decimal
+
+  @@map("order_items")
+  @@schema("badana")
+}
+
+model BadanaPayment {
+  id         String             @id @default(uuid())
+  orderId    String?            @map("order_id")
+  order      BadanaOrder?       @relation(fields: [orderId], references: [id])
+  companyId  String             @map("company_id")
+  company    BadanaCompany      @relation(fields: [companyId], references: [id])
+  amount     Decimal
+  type       String
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@map("payments")
+  @@schema("badana")
+}
+
+model BadanaVendor {
+  id         String    @id @default(uuid())
+  name       String
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  purchases BadanaPurchase[]
+  payments  BadanaVendorPayment[]
+
+  @@map("vendors")
+  @@schema("badana")
+}
+
+model BadanaPurchase {
+  id         String         @id @default(uuid())
+  vendorId   String         @map("vendor_id")
+  vendor     BadanaVendor   @relation(fields: [vendorId], references: [id])
+  itemId     String         @map("item_id")
+  item       BadanaItem     @relation(fields: [itemId], references: [id])
+  quantity   Decimal
+  price      Decimal
+  receiptUrl String         @map("receipt_url")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("purchases")
+  @@schema("badana")
+}
+
+model BadanaVendorPayment {
+  id        String         @id @default(uuid())
+  vendorId  String         @map("vendor_id")
+  vendor    BadanaVendor   @relation(fields: [vendorId], references: [id])
+  amount    Decimal
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_payments")
+  @@schema("badana")
+}
+
+model BadanaExpense {
+  id         String   @id @default(uuid())
+  category   String
+  amount     Decimal
+  receiptUrl String   @map("receipt_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt, category])
+  @@map("expenses")
+  @@schema("badana")
+}
+
+model BadanaDailyClose {
+  id         String   @id @default(uuid())
+  date       DateTime @unique @db.Date
+  closedAt   DateTime @default(now()) @map("closed_at")
+  closedById String   @map("closed_by_id")
+
+  @@map("daily_closes")
+  @@schema("badana")
+}
+
+model BadanaNotification {
+  id         String   @id @default(uuid())
+  type       String   
+  message    String
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+  @@schema("badana")
+}

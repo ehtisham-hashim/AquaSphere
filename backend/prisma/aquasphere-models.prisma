@@ -1,4 +1,4 @@
-model [[PREFIX]]Customer {
+model AquasphereCustomer {
   id                  String    @id @default(uuid())
   customerId          String    @unique @default(uuid()) @map("customer_id")
   name                String
@@ -19,46 +19,46 @@ model [[PREFIX]]Customer {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  orders             [[PREFIX]]Order[]
-  bottleTransactions [[PREFIX]]BottleTransaction[]
-  payments           [[PREFIX]]Payment[]
+  orders             AquasphereOrder[]
+  bottleTransactions AquasphereBottleTransaction[]
+  payments           AquaspherePayment[]
 
   @@unique([phone])
   @@index([name])
   @@map("customers")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Item {
+model AquasphereItem {
   id           String    @id @default(uuid())
   name         String
-  type         [[PREFIX]]ItemType
+  type         AquasphereItemType
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  inventoryTransactions [[PREFIX]]InventoryTransaction[]
-  orderItems            [[PREFIX]]OrderItem[]
-  purchases             [[PREFIX]]Purchase[]
+  inventoryTransactions AquasphereInventoryTransaction[]
+  orderItems            AquasphereOrderItem[]
+  purchases             AquaspherePurchase[]
 
   @@map("items")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-enum [[PREFIX]]ItemType {
+enum AquasphereItemType {
   RAW_MATERIAL
   FINISHED_GOOD
 
   @@map("item_types")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]InventoryTransaction {
+model AquasphereInventoryTransaction {
   id        String         @id @default(uuid())
   itemId    String         @map("item_id")
-  item      [[PREFIX]]Item @relation(fields: [itemId], references: [id])
+  item      AquasphereItem @relation(fields: [itemId], references: [id])
   quantity  Decimal
   direction String
   reason    String
@@ -69,24 +69,24 @@ model [[PREFIX]]InventoryTransaction {
 
   @@index([itemId, createdAt])
   @@map("inventory_transactions")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]BottleTransaction {
+model AquasphereBottleTransaction {
   id         String                      @id @default(uuid())
   customerId String?                     @map("customer_id")
-  customer   [[PREFIX]]Customer?         @relation(fields: [customerId], references: [id])
-  type       [[PREFIX]]BottleTransactionType @map("txn_type")
+  customer   AquasphereCustomer?         @relation(fields: [customerId], references: [id])
+  type       AquasphereBottleTransactionType @map("txn_type")
   quantity   Int
   reason     String?
   createdAt  DateTime                    @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
   @@map("bottle_transactions")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-enum [[PREFIX]]BottleTransactionType {
+enum AquasphereBottleTransactionType {
   NEW_PURCHASE
   DELIVERED_TO_CUSTOMER
   RETURNED_GOOD
@@ -95,55 +95,55 @@ enum [[PREFIX]]BottleTransactionType {
   AT_FACTORY_ADJUSTMENT
 
   @@map("bottle_transaction_types")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Order {
+model AquasphereOrder {
   id               String               @id @default(uuid())
   customerId       String               @map("customer_id")
-  customer         [[PREFIX]]Customer   @relation(fields: [customerId], references: [id])
-  type             [[PREFIX]]OrderType
+  customer         AquasphereCustomer   @relation(fields: [customerId], references: [id])
+  type             AquasphereOrderType
   deliveryStatus   String               @default("pending") @map("delivery_status")
   paymentStatus    String               @default("unpaid") @map("payment_status")
   expectedDelivery DateTime?            @map("expected_delivery")
   remarks          String?
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
-  items            [[PREFIX]]OrderItem[]
-  deliveries       [[PREFIX]]Delivery[]
-  payments         [[PREFIX]]Payment[]
+  items            AquasphereOrderItem[]
+  deliveries       AquasphereDelivery[]
+  payments         AquaspherePayment[]
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([deliveryStatus, createdAt])
   @@map("orders")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-enum [[PREFIX]]OrderType {
+enum AquasphereOrderType {
   NINETEEN_L
   PET
 
   @@map("order_types")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]OrderItem {
+model AquasphereOrderItem {
   id       String         @id @default(uuid())
   orderId  String         @map("order_id")
-  order    [[PREFIX]]Order @relation(fields: [orderId], references: [id])
+  order    AquasphereOrder @relation(fields: [orderId], references: [id])
   itemId   String         @map("item_id")
-  item     [[PREFIX]]Item  @relation(fields: [itemId], references: [id])
+  item     AquasphereItem  @relation(fields: [itemId], references: [id])
   quantity Int
   price    Decimal
 
   @@map("order_items")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Delivery {
+model AquasphereDelivery {
   id                    String         @id @default(uuid())
   orderId               String         @map("order_id")
-  order                 [[PREFIX]]Order @relation(fields: [orderId], references: [id])
+  order                 AquasphereOrder @relation(fields: [orderId], references: [id])
   qtyDelivered          Int            @map("qty_delivered")
   bottlesReturnedGood   Int            @default(0) @map("bottles_returned_good")
   bottlesReturnedBroken Int            @default(0) @map("bottles_returned_broken")
@@ -154,25 +154,25 @@ model [[PREFIX]]Delivery {
 
   @@index([orderId, deliveredAt])
   @@map("deliveries")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Payment {
+model AquaspherePayment {
   id         String             @id @default(uuid())
   orderId    String?            @map("order_id")
-  order      [[PREFIX]]Order?   @relation(fields: [orderId], references: [id])
+  order      AquasphereOrder?   @relation(fields: [orderId], references: [id])
   customerId String             @map("customer_id")
-  customer   [[PREFIX]]Customer @relation(fields: [customerId], references: [id])
+  customer   AquasphereCustomer @relation(fields: [customerId], references: [id])
   amount     Decimal
   type       String
   createdAt  DateTime           @default(now()) @map("created_at")
 
   @@index([customerId, createdAt(sort: Desc)])
   @@map("payments")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]ProductionBatch {
+model AquasphereProductionBatch {
   id                  String   @id @default(uuid())
   qty05LProduced      Int?     @map("qty_05l_produced")
   qty15LProduced      Int?     @map("qty_15l_produced")
@@ -185,29 +185,29 @@ model [[PREFIX]]ProductionBatch {
 
   @@index([createdAt])
   @@map("production_batches")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Vendor {
+model AquasphereVendor {
   id         String    @id @default(uuid())
   name       String
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  purchases [[PREFIX]]Purchase[]
-  payments  [[PREFIX]]VendorPayment[]
+  purchases AquaspherePurchase[]
+  payments  AquasphereVendorPayment[]
 
   @@map("vendors")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Purchase {
+model AquaspherePurchase {
   id         String         @id @default(uuid())
   vendorId   String         @map("vendor_id")
-  vendor     [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
+  vendor     AquasphereVendor @relation(fields: [vendorId], references: [id])
   itemId     String         @map("item_id")
-  item       [[PREFIX]]Item   @relation(fields: [itemId], references: [id])
+  item       AquasphereItem   @relation(fields: [itemId], references: [id])
   quantity   Decimal
   price      Decimal
   receiptUrl String         @map("receipt_url")
@@ -215,22 +215,22 @@ model [[PREFIX]]Purchase {
 
   @@index([vendorId, createdAt])
   @@map("purchases")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]VendorPayment {
+model AquasphereVendorPayment {
   id        String         @id @default(uuid())
   vendorId  String         @map("vendor_id")
-  vendor    [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
+  vendor    AquasphereVendor @relation(fields: [vendorId], references: [id])
   amount    Decimal
   createdAt DateTime       @default(now()) @map("created_at")
 
   @@index([vendorId, createdAt])
   @@map("vendor_payments")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]Expense {
+model AquasphereExpense {
   id         String   @id @default(uuid())
   category   String
   amount     Decimal
@@ -239,15 +239,26 @@ model [[PREFIX]]Expense {
 
   @@index([createdAt, category])
   @@map("expenses")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
 }
 
-model [[PREFIX]]DailyClose {
+model AquasphereDailyClose {
   id         String   @id @default(uuid())
   date       DateTime @unique @db.Date
   closedAt   DateTime @default(now()) @map("closed_at")
   closedById String   @map("closed_by_id")
 
   @@map("daily_closes")
-  @@schema("[[SCHEMA]]")
+  @@schema("aquasphere")
+}
+
+model AquasphereNotification {
+  id         String   @id @default(uuid())
+  type       String   
+  message    String
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+  @@schema("aquasphere")
 }
