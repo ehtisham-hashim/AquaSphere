@@ -103,12 +103,12 @@ export const theme = createTheme({
 
 ### Division Branding
 
-When the active workspace switches between **Aquasphere** and **Badana Industries**, the branding bar at the top of the app changes subtly to reinforce context:
+When the active workspace switches between **Aquasphere** and **Wadaana Industries**, the branding bar at the top of the app changes subtly to reinforce context:
 
 | Workspace | MUI AppBar Color | Badge Label |
 |---|---|---|
 | **Aquasphere** | `palette.primary.main` (`#0E7C9C`) | "AQUA SPHERE" |
-| **Badana Industries** | `#6B4C9A` (muted purple — distinct from water teal, signals manufacturing context) | "BADANA IND." |
+| **Wadaana Industries** | `#6B4C9A` (muted purple — distinct from water teal, signals manufacturing context) | "WADAANA IND." |
 
 This is a single AppBar color change only — not a full theme swap. The rest of the UI remains consistent so operators don't re-learn patterns when switching workspaces.
 
@@ -116,7 +116,7 @@ This is a single AppBar color change only — not a full theme swap. The rest of
 // Division-aware AppBar
 const divisionColors = {
   aquasphere: theme.palette.primary.main,
-  badana: '#6B4C9A',
+  wadaana: '#6B4C9A',
 };
 
 <AppBar sx={{ bgcolor: divisionColors[companyContext] }} />
@@ -533,8 +533,8 @@ import { SvgIcon } from '@mui/material';
 | ChevronRight | `ChevronRight` | `ListItem` icon | Navigation expand |
 | CreditCard | `CreditCard` | `SvgIcon` wrapper | Credit limit |
 | Truck | `Truck` | `SvgIcon` wrapper | Delivery status |
-| Factory | `Factory` | `SvgIcon` wrapper | Badana production |
-| Warehouse | `Warehouse` | `SvgIcon` wrapper | Badana inventory |
+| Factory | `Factory` | `SvgIcon` wrapper | Wadaana production |
+| Warehouse | `Warehouse` | `SvgIcon` wrapper | Wadaana inventory |
 | FlaskConical | `FlaskConical` | `SvgIcon` wrapper | Mineral sets |
 | Receipt | `Receipt` | `SvgIcon` wrapper | Expenses, bills |
 | FileText | `FileText` | `SvgIcon` wrapper | Invoices, reports |
@@ -573,7 +573,7 @@ import { SvgIcon } from '@mui/material';
 - **No charts above the fold.** Recharts visualizations (sales trend, inventory levels) sit below the summary cards in a second `Grid` row — the owner should see the headline numbers in under a second, then scroll for trends if curious.
 - **Bottle Summary** gets its own dedicated MUI `Card` (not folded into general inventory) with the five reconciling figures (total owned / at factory / with customers / broken / lost) shown together in a MUI `Stack` row, since this reconciliation is a core trust signal for the business (per requirements §10).
 - **Live, not "refresh to update"**: dashboard cards use TanStack Query's background refetch (e.g. 30s interval) and SSE event listeners so numbers update without the owner needing to pull-to-refresh — trust in real-time accuracy is the whole point of this dashboard.
-- **Division-aware**: when the owner toggles between Aquasphere and Badana, the dashboard cards swap context instantly. The MUI `AppBar` changes color (§1.1) and the card labels update (e.g. "Today's Sales" → "Today's Sales — Badana"). No page reload.
+- **Division-aware**: when the owner toggles between Aquasphere and Wadaana, the dashboard cards swap context instantly. The MUI `AppBar` changes color (§1.1) and the card labels update (e.g. "Today's Sales" → "Today's Sales — Wadaana"). No page reload.
 - **Role-aware visibility**: Admin sees stock and order counts but NOT profit cards (those cards are hidden via conditional rendering, not just zeroed out). Production Manager sees only inventory and production cards. Marketing Manager sees orders and customer alerts.
 
 ### Dashboard Layout (MUI Grid)
@@ -623,7 +623,7 @@ Always visible at the top of the app using MUI `AppBar` + `Toolbar`:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ [Logo]  AQUA Sphere OS          [Aquasphere ▼]  [User ▼]  │
-│                                 [Badana Ind.  ]           │
+│                                 [Wadaana Ind.  ]           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -646,7 +646,7 @@ Always visible at the top of the app using MUI `AppBar` + `Toolbar`:
     <Box sx={{ flexGrow: 1 }} />
     <ToggleButtonGroup value={companyContext} exclusive>
       <ToggleButton value="aquasphere">Aquasphere</ToggleButton>
-      <ToggleButton value="badana">Badana Ind.</ToggleButton>
+      <ToggleButton value="wadaana">Wadaana Ind.</ToggleButton>
     </ToggleButtonGroup>
     <UserMenu />
   </Toolbar>
@@ -668,7 +668,7 @@ Collapsible sidebar using MUI `Drawer` (persistent variant), 240px wide, icons +
 | **Bottle Ledger** | Summary, By Customer, Adjustments | Owner, Marketing Manager | `Droplets`, `Users`, `Scale` |
 | **Reports** | Sales, Profit, Inventory, Production | Owner, Accountant (no profit for Accountant) | `BarChart3`, `TrendingUp`, `Package`, `Factory` |
 | **Admin** | Daily Close, User Management | Admin, Owner | `Shield`, `Users` |
-| **Badana** | Companies, Preform, Production, Orders | Owner, PM, MM (when in Badana context) | `Building2`, `FlaskConical`, `Factory`, `ShoppingCart` |
+| **Wadaana** | Companies, Preform, Production, Orders | Owner, PM, MM (when in Wadaana context) | `Building2`, `FlaskConical`, `Factory`, `ShoppingCart` |
 
 **Mobile**: sidebar becomes a MUI `BottomNavigation` (4-5 tabs max) or a `SwipeableDrawer` from a hamburger menu. The division toggle stays in the `AppBar`.
 
@@ -762,7 +762,7 @@ shadcn/ui excels at specific UI patterns that MUI doesn't have out-of-the-box or
 | `Skeleton` | Loading states for dashboard cards | MUI `bgcolor` tokens |
 | `ScrollArea` | Custom scrollbars for dense tables | MUI `divider` color |
 | `Separator` | Visual dividers in forms and lists | MUI `Divider` alternative |
-| `Tabs` | Badana per-company order filtering | MUI `Tabs` is primary; shadcn `Tabs` for specific patterns |
+| `Tabs` | Wadaana per-company order filtering | MUI `Tabs` is primary; shadcn `Tabs` for specific patterns |
 | `Accordion` | FAQ, help sections, expandable settings | MUI `Accordion` is primary |
 | `Sheet` | Mobile slide-out panels | MUI `Drawer` is primary |
 | `Toast` (Sonner) | Toast notifications | MUI `Snackbar` is primary; shadcn `Toast` as alternative |

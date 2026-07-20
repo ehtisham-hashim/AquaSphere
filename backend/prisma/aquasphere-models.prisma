@@ -266,3 +266,28 @@ model AquasphereNotification {
   @@map("notifications")
   @@schema("aquasphere")
 }
+
+model AquasphereUser {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         AquasphereRole
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+  @@schema("aquasphere")
+}
+
+enum AquasphereRole {
+  OWNER
+  ADMIN
+  PRODUCTION_MANAGER
+  ACCOUNTANT
+  MARKETING_MANAGER
+
+  @@map("roles")
+  @@schema("aquasphere")
+}

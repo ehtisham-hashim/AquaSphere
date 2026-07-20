@@ -838,11 +838,11 @@ LIMIT 20;
 
 ---
 
-## 7. Production Batch Optimization (Badana)
+## 7. Production Batch Optimization (Wadaana)
 
 ### 7.1 Preform Deduction — Single Transaction, Bulk Insert
 
-A Badana production batch deducts preform from inventory and creates finished bottles. All in one atomic transaction:
+A Wadaana production batch deducts preform from inventory and creates finished bottles. All in one atomic transaction:
 
 ```typescript
 await prisma.$transaction(async (tx) => {
@@ -887,22 +887,22 @@ await prisma.$transaction(async (tx) => {
 
 ### 7.2 Per-Company Order Filtering
 
-Badana has 3+ client companies with separate order lists. Never fetch all orders then filter in JS.
+Wadaana has 3+ client companies with separate order lists. Never fetch all orders then filter in JS.
 
 ```typescript
 // BAD: Fetch all orders, filter in memory
-const allOrders = await prisma.badanaOrder.findMany();
+const allOrders = await prisma.wadaanaOrder.findMany();
 const deosaniOrders = allOrders.filter(o => o.companyId === deosaniId);
 
 // GOOD: Filter at database level
-const deosaniOrders = await prisma.badanaOrder.findMany({
+const deosaniOrders = await prisma.wadaanaOrder.findMany({
   where: { companyId: deosaniId },
   orderBy: { createdAt: 'desc' },
   take: 50,
 });
 ```
 
-**Index:** `@@index([companyId, createdAt(sort: Desc)])` on `badana_order` table.
+**Index:** `@@index([companyId, createdAt(sort: Desc)])` on `wadaana_order` table.
 
 ---
 

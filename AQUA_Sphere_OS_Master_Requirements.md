@@ -13,7 +13,7 @@
 2. [Architecture & Database Design](#2-architecture--database-design)
 3. [Role Hierarchy & Permissions](#3-role-hierarchy--permissions)
 4. [Division 1: Aquasphere (Water Business)](#4-division-1-aquasphere-water-business)
-5. [Division 2: Badana Industries (Blowing Machine)](#5-division-2-badana-industries-blowing-machine)
+5. [Division 2: Wadaana Industries (Blowing Machine)](#5-division-2-wadaana-industries-blowing-machine)
 6. [Inventory & Production Calculations](#6-inventory--production-calculations)
 7. [Order & Customer Management](#7-order--customer-management)
 8. [Credit Limits & Alerts](#8-credit-limits--alerts)
@@ -29,20 +29,13 @@
 
 ## 1. System Overview
 
-### 1.1 Two Businesses, One Login
+### 1.1 Two Separate Businesses
 
-AQUA Sphere OS runs **two completely separate businesses** under one login system. After login, every user is asked:
+AQUA Sphere OS runs **two completely separate businesses**. Each division has its own dedicated users, roles, and logins.
 
 ```
-┌─────────────────────────────────────────┐
-│     "Would you like to enter           │
-│      Badana or Aquasphere?"            │
-└─────────────────────────────────────────┘
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
 ┌───────────────┐       ┌───────────────┐
-│ Badana        │       │ Aquasphere    │
+│ Wadaana        │       │ Aquasphere    │
 │ Industries    │       │ (Water        │
 │ (Blowing      │       │ Business)     │
 │  Machine)     │       │               │
@@ -56,14 +49,14 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 └───────────────┘       └───────────────┘
 ```
 
-> **Critical Rule:** These two sides **never share data**. Inventory, orders, customers, and reports are fully isolated. The same 5 roles operate in both, but their actions in one division have zero impact on the other.
+> **Critical Rule:** These two sides **never share data**. Inventory, orders, customers, and reports are fully isolated. The same 5 roles operate in both, but their actions in one division have zero impact on the other. Users and authentication are also completely separate for each division.
 
 ### 1.2 Company Contexts
 
 | Division | Business | Products |
 |----------|----------|----------|
 | **Aquasphere** | Water manufacturing & delivery | 19L reusable bottles, 0.5L PET packs, 1.5L PET packs |
-| **Badana Industries** | Bottle manufacturing (Blowing Machine) | Preform-based bottles for 3 client companies |
+| **Wadaana Industries** | Bottle manufacturing (Blowing Machine) | Preform-based bottles for 3 client companies |
 
 ### 1.3 Tech Stack
 
@@ -86,7 +79,7 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 ┌──────────────┐      ┌──────────────┐
 │ PostgreSQL   │      │ PostgreSQL   │
 │ Database A   │      │ Database B   │
-│ (Aquasphere) │      │ (Badana)     │
+│ (Aquasphere) │      │ (Wadaana)     │
 └──────────────┘      └──────────────┘
 ```
 
@@ -101,13 +94,13 @@ graph TD
     subgraph UI ["Single Shared Frontend App (Mobile Responsive)"]
         MM_UI["Marketing Manager Workspace"]
         Owner_UI["Owner Workspace (Consolidated/Toggle)"]
-        Staff_UI["Staff Workspace (Aquasphere or Badana Portal)"]
+        Staff_UI["Staff Workspace (Aquasphere or Wadaana Portal)"]
     end
 
     Router{"Database Context Router"}
 
     MM_UI -->|"API Session: company=aquasphere"| Router
-    Owner_UI -->|"API Session: company=badana"| Router
+    Owner_UI -->|"API Session: company=wadaana"| Router
     Staff_UI -->|"API Session: company=aquasphere"| Router
 
     subgraph DB1 ["Database A: Aquasphere"]
@@ -117,7 +110,7 @@ graph TD
         AS_Fin["Financial Records"]
     end
 
-    subgraph DB2 ["Database B: Badana Industries"]
+    subgraph DB2 ["Database B: Wadaana Industries"]
         BI_Cust["Customers/Companies Table"]
         BI_Ord["Orders Table"]
         BI_Inv["Inventory & Ledgers"]
@@ -138,9 +131,8 @@ graph TD
 | Rule | Description |
 |------|-------------|
 | **Database Isolation** | All transactional records, sales history, customer databases, credit ledgers, and inventories are completely segregated |
-| **Shared Users** | Marketing Manager, Owner, Admin can switch context between both databases dynamically |
-| **Dedicated Users** | Production Manager, Accountant are typically assigned to one company workspace upon login |
-| **Company Toggle** | A persistent header shows `[Active Workspace: Aquasphere | Badana Industries]` allowing instant context switch |
+| **Separate Users** | Users and authentication are entirely isolated per company. Aquasphere has its own users, Wadaana has its own users. |
+| **Dedicated Roles** | Roles operate within their specific company context. |
 | **Branding** | Invoices and alerts dynamically render branding matching the active database context |
 
 ---
@@ -368,13 +360,13 @@ graph TD
 
 ---
 
-## 5. Division 2: Badana Industries (Blowing Machine)
+## 5. Division 2: Wadaana Industries (Blowing Machine)
 
 ### 5.1 Full Workflow — Start to Finish
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│           BADANA INDUSTRIES — 5-STEP CYCLE                  │
+│           WADAANA INDUSTRIES — 5-STEP CYCLE                  │
 └─────────────────────────────────────────────────────────────┘
 
     STEP 1: BUY PREFORM
@@ -439,7 +431,7 @@ graph TD
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              INVENTORY LOCATIONS — BADANA                   │
+│              INVENTORY LOCATIONS — WADAANA                   │
 └─────────────────────────────────────────────────────────────┘
 
          ┌─────────────────────┐
@@ -501,7 +493,7 @@ graph TD
 - Aqua Sphere, Deosani, and Pivrifine should **not be hardcoded**
 - They should be the first three rows in a "Companies" table that new entries can be added to
 
-### 5.6 Role Workflows — Badana
+### 5.6 Role Workflows — Wadaana
 
 #### Production Manager (PM)
 
@@ -1262,13 +1254,20 @@ erDiagram
         text remarks
     }
 
-    USER {
+    AQUASPHERE_USER {
         uuid id PK
         string name
         string email UK
         enum role
         string passwordHash
-        enum companyContext
+    }
+
+    WADAANA_USER {
+        uuid id PK
+        string name
+        string email UK
+        enum role
+        string passwordHash
     }
 ```
 
@@ -1427,7 +1426,7 @@ erDiagram
 | `receipt_image_url` | VARCHAR | REQUIRED — photo of bill |
 | `remarks` | TEXT | |
 
-#### User (System Users)
+#### Aquasphere User
 
 | Field | Type | Constraints |
 |-------|------|-------------|
@@ -1437,7 +1436,19 @@ erDiagram
 | `phone` | VARCHAR | |
 | `role` | ENUM | `owner`, `admin`, `production_manager`, `accountant`, `marketing_manager` |
 | `password_hash` | VARCHAR | bcrypt/argon2 |
-| `company_access` | ENUM | `aquasphere`, `badana`, `both` |
+| `is_active` | BOOLEAN | DEFAULT true |
+| `created_at` | TIMESTAMP | DEFAULT NOW() |
+
+#### Wadaana User
+
+| Field | Type | Constraints |
+|-------|------|-------------|
+| `id` | UUID | PRIMARY KEY |
+| `name` | VARCHAR | NOT NULL |
+| `email` | VARCHAR | UNIQUE |
+| `phone` | VARCHAR | |
+| `role` | ENUM | `owner`, `admin`, `production_manager`, `accountant`, `marketing_manager` |
+| `password_hash` | VARCHAR | bcrypt/argon2 |
 | `is_active` | BOOLEAN | DEFAULT true |
 | `created_at` | TIMESTAMP | DEFAULT NOW() |
 
@@ -1537,7 +1548,7 @@ Week 11-12: Expenses & Dashboard
 └── Admin close-of-day workflow
 ```
 
-### Phase 3: Reports, Badana & Refinements
+### Phase 3: Reports, Wadaana & Refinements
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1551,13 +1562,13 @@ Week 13-14: Reports Module
 ├── Vendor Balances, Bottle Summary
 └── Export functionality
 
-Week 15-16: Badana Industries (Blowing Machine)
+Week 15-16: Wadaana Industries (Blowing Machine)
 ├── Company management (3 + add new)
 ├── Preform inventory (Pure/Mix, Factory/Warehouse)
 ├── Production batch with auto-deduction
 ├── Order management per company
 ├── Accountant expense tracking
-└── Full permission model for Badana
+└── Full permission model for Wadaana
 
 Week 17-18: Polish & Launch
 ├── Mobile responsiveness testing
