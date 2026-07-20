@@ -1,35 +1,41 @@
-# Development Phases — AQUA Sphere OS
+# Development Phases — AQUA Sphere OS (Comprehensive Roadmap)
 
-This is the build roadmap. Each phase is a working, testable slice of the product — not just a folder of code. **A phase isn't "done" until its exit criteria are true**, so the AI (or a developer) always knows when to move forward.
-
-I've reordered and expanded your draft list based on real dependencies from `project-requirements.md` and `architecture.md` — mainly: **you can't build Orders before Customers exist, can't build Deliveries before Orders and the Bottle Ledger exist, and a real Dashboard needs real transactions to show.** So a few things moved earlier (Bottle Ledger, Inventory) and a few moved later (full Dashboard, Notifications). I split "Bottle Ledger" out from "Orders" as its own phase since it's the single most business-critical piece of data in the whole system and deserves to be solid before anything writes to it.
+This roadmap defines the strict hierarchy for building the AQUA Sphere OS. It maps every requirement from the Master Requirements document into actionable, testable phases. **A phase isn't "done" until its exit criteria are fully met.**
 
 ```mermaid
 flowchart TD
-    subgraph Foundation
-        P1[1. Setup] --> P2[2. Auth & Roles]
-        P2 --> P3[3. Customers]
-        P2 --> P4[4. Core Inventory]
-        P4 --> P5[5. Bottle Ledger]
+    subgraph Phase1 [Phase 1: Core Foundation & Auth]
+        P1["1. Utilities & Setup"] --> P2["2. User Models & Roles"]
+        P2 --> P3["3. Auth APIs"]
+        P3 --> P4["4. Login Page UI"]
     end
     
-    subgraph Core Operations
-        P3 --> P6[6. Orders]
-        P5 --> P6
-        P6 --> P7[7. Deliveries]
-        P7 --> P8[8. Dashboard Basics]
+    subgraph Phase2 [Phase 2: CRM & Dashboard Shell]
+        P4 --> P5["5. Dashboard Shell UI"]
+        P5 --> P6["6. Customer Management"]
     end
     
-    subgraph Extended Operations
-        P8 --> P9[9. Production]
-        P8 --> P10[10. Purchasing]
-        P8 --> P11[11. Expenses]
-        P8 --> P14[14. Counter Sales]
+    subgraph Phase3 [Phase 3: Inventory & Assets]
+        P6 --> P7["7. Item Master"]
+        P7 --> P8["8. Bottle Ledger"]
     end
     
-    subgraph Management
-        P8 --> P12[12. Full Reports]
-        P8 --> P13[13. Notifications & Close]
+    subgraph Phase4 [Phase 4: Core Operations]
+        P8 --> P9["9. Orders (19L & PET)"]
+        P9 --> P10["10. Deliveries & Payments"]
+        P10 --> P11["11. Dashboard Live Metrics"]
+    end
+    
+    subgraph Phase5 [Phase 5: Extended Operations]
+        P11 --> P12["12. Production Automation"]
+        P11 --> P13["13. Finance: Purchasing"]
+        P11 --> P14["14. Finance: Expenses"]
+        P11 --> P15["15. Counter Sales"]
+    end
+    
+    subgraph Phase6 [Phase 6: Management & B2B]
+        P15 --> P16["16. Daily Closing & Reports"]
+        P16 --> P17["17. Wadaana B2B Expansion"]
     end
     
     classDef default fill:#F7FAFB,stroke:#E2E8EC,stroke-width:2px,color:#101B24;
@@ -37,158 +43,107 @@ flowchart TD
 
 ---
 
-## Phase 1 — Project Setup
+## 🕒 Phase 1: Core Foundation & Auth (Highest Priority)
+**Goal:** Establish backend utilities, user roles, authentication APIs, and the Login Page based exactly on the prototype.
 
-**Goal:** a working, empty skeleton for both client and server.
-- Initialize monorepo structure (`frontend/`, `backend/`, `shared/`) per `architecture.md` §6.
-- Scaffold React + Vite app with Tailwind v4 installed.
-- Scaffold Express app with TypeScript, connect Prisma to NeonDB.
-- ESLint + Prettier configured project-wide, per `rules.md` §1.
-- `.env.example` files for both apps; secrets excluded from git.
-- CORS configured on Express to allow the Vite dev server origin.
-- **Done when:** both apps run locally (`npm run dev`), the Express API returns a health-check JSON, the React app can fetch it, and a first empty Prisma migration runs cleanly against NeonDB.
-
-## Phase 2 — Authentication & Roles
-
-**Goal:** people can log in, and every route respects who they are.
-- `User` model (Operator/Accountant, Owner/Admin roles) in Prisma.
-- JWT login flow (`/api/v1/auth/login`), bcrypt password hashing, httpOnly cookie, per `architecture.md` §3.
-- `auth.middleware.ts` + `role.middleware.ts` on Express.
-- Login page in React, protected route wrapper, Axios interceptor for cookie-based auth.
-- Admin password reset flow requiring accountant approval (per manager notes).
-- **Done when:** an Operator and an Owner account can both log in, see different navigation, and an Operator is provably rejected from any Owner-only endpoint (e.g. profit figures).
-
-## Phase 3 — Customer Management
-
-**Goal:** the front desk can create and find customers.
-- `Customer` model: ID, name, phone (unique), address, map link, type, deposit, default price, credit limit, remarks, house photo.
-- CRUD endpoints + search (by ID/name/phone) + soft-delete.
-- Multer upload wired for the house photo (S3 or local disk), per `architecture.md` §11.
-- Customer detail view shows the "instant snapshot" fields (balance, bottle count, last delivery, avg monthly orders) — even though some of these will show zero/placeholder until later phases populate real transactions.
-- **Done when:** an operator can create a customer, find them by phone number in under a second, and edit their profile.
-
-## Phase 4 — Core Inventory & Item Master
-
-**Goal:** every raw material and finished good exists as a trackable item, before anything tries to consume one.
-- `Item` model (raw materials + finished goods) and `InventoryTransaction` ledger, per `architecture.md` §4.
-- Manual "opening stock" entry mechanism (a purchase-like transaction) to seed initial quantities from the manager's notes (PETs, caps, 19L bottles, etc.).
-- Configurable low-stock reorder levels per item.
-- Inventory list screen showing derived current stock (never a stored/edited number), with low-stock flags.
-- **Done when:** every raw material and finished-good item from Section 2 of `project-requirements.md` exists in the system with a correct, derived starting stock.
-
-## Phase 5 — Bottle Ledger
-
-**Goal:** the 19L reusable bottle asset — the most business-critical figure — is tracked correctly before any order can touch it.
-- `BottleTransaction` append-only ledger; derived totals (owned / at factory / with customers / broken / lost), per `architecture.md` §4 and requirements §10.
-- "New bottles added" entry (fleet growth via purchase).
-- Manual "mark lost" action (deliberate, separate from returns).
-- Bottle summary view showing all five reconciling figures together.
-- **Done when:** the five figures always reconcile (`at-factory + with-customers + broken == total-owned`), verified with a test seeding several ledger entries.
-
-## Phase 6 — Orders (19L & PET)
-
-**Goal:** the front desk can take a phone order in under 20 seconds.
-- `Order` + `OrderItem` models; two distinct order types (19L, PET) that are never mixed, per requirements §6.
-- Independent delivery-status / payment-status tracks, computed (not stored as one flag).
-- Order-entry screen built around the real call-taking sequence: find customer → enter type-specific fields → save.
-- Live "Pending Orders" list.
-- Soft-block check: credit limit vs (outstanding + new order amount), per requirements §9 and `design.md` §10.
-- **Done when:** an operator can place a 19L order and a PET order end-to-end, see it in Pending Orders, and see the credit-limit warning trigger correctly (and still be able to proceed).
-
-## Phase 7 — Deliveries
-
-**Goal:** completing a delivery correctly updates every balance in the system automatically.
-- `Delivery` + `Payment` models.
-- Delivery-completion form (per order type) per requirements §7.
-- On submit: recompute order status, update bottle ledger (19L), update customer balance, update raw-material/finished-goods inventory, update cash/profit figures — all inside one Prisma `$transaction` (`architecture.md` §4).
-- Soft-block: bottles returned ≤ customer's current balance, with confirm-to-proceed.
-- Support multiple partial deliveries against one order.
-- **Done when:** completing a delivery — including a partial one — correctly and atomically updates the bottle ledger, inventory, and balances, with no manual math anywhere in the flow.
-
-## Phase 8 — Dashboard (Basics)
-
-**Goal:** the owner has something real to look at, now that real transactions exist.
-- Today's Sales, Cash Collection, Credit Sales, Pending/Completed Orders, Bottle Summary card.
-- Mobile-first responsive layout per `design.md` §12.
-- Live updates via TanStack Query background refetch.
-- **Done when:** the owner can open the dashboard on a phone and see today's real activity from Phases 6–7 reflected accurately.
-
-*(This closes out your original "Phase 1" build target from `project-requirements.md` §19 — Customers → Inventory → Bottle Ledger → Orders → Deliveries → basic Dashboard is the highest-value end-to-end slice, and it's now fully working.)*
-
-## Phase 9 — Production (PET)
-
-**Goal:** production runs derive everything automatically from two numbers.
-- `ProductionBatch` model.
-- Operator enters only pack counts (0.5L / 1.5L produced).
-- Shared `mineral-calc` service derives exact-fraction mineral-set consumption, label/shrink-wrap deduction (once conversion factors are confirmed — see Open Decisions), and finished-goods increase — per requirements §4 and §3.
-- **Done when:** entering a production run correctly reduces raw materials and increases finished-goods stock, with mineral consumption stored as an exact, unrounded fraction.
-
-## Phase 10 — Purchasing & Vendors
-
-**Goal:** stock can come in, and vendors can be paid over time — not just all-at-once.
-- `Vendor`, `Purchase`, `VendorPayment` models.
-- Purchase entry increases inventory + vendor payable.
-- Vendor payment entry reduces payable, recorded as its own transaction stream.
-- 19L bottle purchases route into the Bottle Ledger (Phase 5), not regular inventory.
-- **Done when:** a purchase and a partial vendor payment both correctly reflect in inventory and vendor balances.
-
-## Phase 11 — Expenses
-
-**Goal:** operating costs are tracked without touching inventory.
-- `Expense` model (fuel, salaries, electricity, rent, repairs, misc.).
-- Expense entry screen; reflected in profit calculations only.
-- **Done when:** an expense entry changes the profit figure on the dashboard but never touches any inventory or stock number.
-
-## Phase 12 — Expanded Dashboard & Reports
-
-**Goal:** the owner gets the full picture, and the business gets historical reporting.
-- Full dashboard: add Today's Expenses, Estimated Profit, Outstanding Customer/Vendor Balances, Raw Material & Finished Goods Inventory with low-stock flags.
-- Daily/Weekly/Monthly/Yearly reports: Sales, Profit, Expenses, Inventory, Production, Customer Credits, Vendor Balances, Bottle Summary, Pending Orders.
-- PDF export (PDFKit) and Excel export (ExcelJS) for reports and invoices.
-- Exact report layouts confirmed with the owner before finishing this phase (flagged as an open item in `project-requirements.md` §10).
-- **Done when:** the owner can pull any report for any period and export it as PDF or Excel.
-
-## Phase 13 — Notifications & Daily Closing
-
-**Goal:** the system proactively flags things instead of the operator having to remember.
-- Customer reminder alerts (no order in N days — configurable, default 1 week per manager notes).
-- Low-stock alerts surfaced on the dashboard and, later, as a notification (email/in-app).
-- Daily Closing: locks all transactions on/before the close date; accountant blocked from editing closed-day records at the API layer, per `rules.md` §6.
-- **Done when:** a stale customer triggers a reminder, a low-stock item triggers an alert, and closing a day genuinely prevents further edits to it.
-
-## Phase 14 — Counter Sales & Invoicing
-
-**Goal:** walk-in sales and formal billing are supported alongside phone orders.
-- Counter sale entry (litres, caps, cash/credit) per manager notes §7.
-- Invoice/bill generation (PDFKit) tied to any order or counter sale.
-- **Done when:** a walk-in sale can be recorded and an invoice generated for it or for any completed order.
-
-## Phase 15 — Blowing Machine Division (Division 3)
-
-**Goal:** the fully separate third division gets its own tracking, once Divisions 1 & 2 are stable.
-- Separate item master, production, and sales/purchase tracking for Aqua Sphere, Deosai, and Pivrifine bottle lines, per requirements §1.3 and manager notes §9–10, §12.
-- Explicitly isolated from Division 1/2 data — no shared balances or reports unless later requested.
-- **Done when:** Division 3 production and sales can be recorded without affecting any Division 1/2 number.
-
-## Phase 16 — Website
-
-**Goal:** the public-facing site exists and is optimized, per manager notes §8, §13.
-- `aquasphere.org`: Customers, Reviews, Work With Us, Find Us sections, social links.
-- Performance/SEO optimization pass.
-- **Done when:** the site is live, mobile-friendly, and loads quickly — this track can run in parallel with later app phases since it doesn't depend on the internal system.
-
-## Phase 17 — Optimization & Polish
-
-**Goal:** tighten everything now that the full system is in daily use.
-- Performance pass per `rules.md` §10 (indexes, pagination audits, N+1 query cleanup).
-- Full mobile polish pass against `design.md`.
-- Dark mode enabled (tokens already defined in `design.md` §1/§13).
-- Individual bottle serialization evaluated (only if the business decides it's worth it — data model already supports adding it, per requirements §10).
-- Formal price-history mechanism, if the owner wants it beyond the existing per-order-item snapshot.
-- **Done when:** the system has been used in production long enough to reveal real slow points, and those are resolved — this phase is intentionally last and ongoing rather than a one-time task.
+1. **Step 1: Backend Utilities (`backend/src/utils`)**
+   - Scaffold Express app connected to PostgreSQL (NeonDB) with Prisma.
+   - Populate essential helpers: `ApiError`, `ApiResponse`, `asyncHandler`, `jwtUtils` (token generation), and `hashUtils` (bcrypt).
+   - Configure global ESLint + Prettier.
+2. **Step 2: Users & Roles (Database)**
+   - Define `User` model with roles (`Owner`, `Admin`, `Operator`, `Accountant`).
+   - Implement the Dual-Company logic (ensure Users belong to either Aquasphere or Wadaana context).
+3. **Step 3: Authentication APIs**
+   - Build `/api/v1/auth/login`, `/logout`, and `/me`.
+   - Implement `auth.middleware.js` (JWT httpOnly cookies) and `role.middleware.js` (RBAC strict checking).
+4. **Step 4: Login Page UI (Frontend)**
+   - Convert prototype HTML/CSS/JS into React.
+   - Wire up UI to Auth APIs. Establish protected routes (React Router).
+   - **Done When:** An Owner and an Operator can log in, receive a secure httpOnly cookie, and be correctly redirected. Unauthenticated users are forced to Login.
 
 ---
 
-### How to use this roadmap
+## 🕒 Phase 2: CRM & Dashboard Basics
+**Goal:** Build the primary UI shell and allow the front desk to manage the customer database.
 
-Work top to bottom. Don't start a phase until the previous one's **"Done when"** line is genuinely true — a Dashboard built on top of a Bottle Ledger that doesn't reconcile yet will just show wrong numbers confidently, which is worse than showing nothing. If a phase turns up a question that isn't answered in `project-requirements.md`, stop and add it to that document's Open Decisions section rather than guessing (per `rules.md` §9, AI Boundaries).
+1. **Step 5: Dashboard Shell**
+   - Build the responsive layout (Sidebar, Header, Workspace Toggle) from prototype.
+   - Implement `x-company-context` header logic to separate Aquasphere and Wadaana HTTP requests.
+2. **Step 6: Customer Management (CRM)**
+   - `Customer` model: Phone (unique), Map Link, Home Photo URL (via Multer), Category, Default Price, Credit Limit.
+   - Build CRUD APIs + Instant Search (<1s response time by phone/name).
+   - Customer Detail View showing dynamic balance and bottle held fields.
+   - **Done When:** An operator can search a customer instantly, view their profile, and upload a house photo. Customers are fully isolated between the two companies.
+
+---
+
+## 🕒 Phase 3: Inventory & Bottle Ledger
+**Goal:** Setup tracking for physical assets and stock before any orders can consume them.
+
+1. **Step 7: Core Inventory (Item Master)**
+   - Define Raw Materials (Minerals, Labels, Caps) and Finished Goods (0.5L/1.5L PET packs).
+   - Implement `InventoryTransaction` append-only ledger. No manually edited quantities!
+   - Setup Reorder Alert Levels (e.g., Sodium < 3kg, Labels < 10kg).
+2. **Step 8: 19L Bottle Ledger**
+   - The most critical business asset. Track 5 states: Owned, At Factory, With Customers, Broken, Lost.
+   - Build `BottleTransaction` append-only ledger.
+   - **Done When:** A manual inventory entry updates the stock, and the bottle ledger equation (`at-factory + with-customers + broken == total-owned`) mathematically perfectly reconciles.
+
+---
+
+## 🕒 Phase 4: Core Operations (Orders & Deliveries)
+**Goal:** The core business loop (Phone call → Order → Delivery) must be under 20 seconds.
+
+1. **Step 9: Order Entry (19L & PET)**
+   - Independent UI flows for 19L orders and PET orders.
+   - Implement the "Smart Add Customer" modal inside the order workflow.
+   - Soft-block logic: Warn operator if order pushes customer over `creditLimit` (0 = unlimited).
+   - Live "Pending Orders" list.
+2. **Step 10: Deliveries & Payments**
+   - Delivery submission form for drivers returning from routes.
+   - 19L Auto-Updates: Consume 1 Large Cap + precise fraction of Mineral Set upon delivery. Increase Customer Bottle Balance.
+   - PET Auto-Updates: Reduce Finished Goods stock.
+   - Soft-block logic: Customer cannot return more 19L bottles than they currently hold.
+3. **Step 11: Live Dashboard Metrics**
+   - Connect prototype KPI cards: Today's Sales, Cash Collection, Credit Sales, Pending/Completed Orders.
+   - **Done When:** An operator places a 19L order (seeing credit warnings if applicable), completes the delivery, and the Dashboard KPIs, Customer Balance, and Bottle Ledger automatically update via a Prisma `$transaction`.
+
+---
+
+## 🕒 Phase 5: Extended Operations & Management
+**Goal:** Complex backend calculations, purchasing, and expenses.
+
+1. **Step 12: Production Automation (PET)**
+   - Operator enters "Packs Produced" (e.g., 0.5L).
+   - System automatically deducts raw materials using exact decimal precision (1 Mineral Set = 15,140L, 0.5L pack uses 108L fraction, 6.72g labels).
+   - Increases Finished Goods stock.
+2. **Step 13: Finance (Purchasing & Vendors)**
+   - Vendors must exist before purchase.
+   - Purchase entry increases inventory and Vendor Payable balance.
+   - Mandatory receipt/bill photo upload required.
+3. **Step 14: Finance (Expenses)**
+   - Record fuel, salaries, electricity, etc.
+   - Mandatory receipt photo upload required by Accountant.
+   - Impacts profit only, never touches inventory.
+4. **Step 15: Counter Sales**
+   - Spot sales for walk-ins (Litres sold, caps used, cash collected).
+   - **Done When:** A production run perfectly deduces 0.00012 fractions of minerals, and an expense entry with a photo reduces the calculated Dashboard profit.
+
+---
+
+## 🕒 Phase 6: Management, Closing & B2B Expansion
+**Goal:** Lockdown mechanisms and future division expansions.
+
+1. **Step 16: Daily Closing & Reports**
+   - **Daily Closing:** Admin clicks "Close Day". Transaction modifications for that date are strictly locked for everyone except Owner.
+   - **Reports:** Generate PDF/Excel for Sales, Profit, Inventory, and Outstanding Credits.
+2. **Step 17: Wadaana B2B Expansion (Future Phase)**
+   - While Wadaana currently mirrors Aquasphere, this phase will introduce the specialized Blowing Machine logic.
+   - Complex Preform deduction formulas (Pure vs Mix, Factory vs Warehouse).
+   - Specific client company ordering logic (Deosani, Pivrifine).
+   - **Done When:** The owner can view comprehensive PDF reports, the Admin can lock yesterday's data securely, and Wadaana B2B operations run smoothly in their isolated context.
+
+---
+
+### Execution Rule
+Work top to bottom strictly. Do not start a step until the previous step is 100% complete. If a phase turns up a question that isn't answered in `AQUA_Sphere_OS_Master_Requirements.md`, stop and request clarification.

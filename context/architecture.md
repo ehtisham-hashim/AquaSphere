@@ -37,7 +37,7 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 
 ```mermaid
 graph TD
-    A["React Frontend<br/>(Vite + TypeScript)"] -->|REST / JSON / SSE| B["Express API<br/>(Node.js + TypeScript)"]
+    A["React Frontend<br/>(Vite + JavaScript)"] -->|REST / JSON / SSE| B["Express API<br/>(Node.js + JavaScript)"]
     B -->|Prisma Client| C[("PostgreSQL<br/>(NeonDB)")]
     B -->|Uploads| D["S3 / Server Filesystem<br/>(Photos)"]
 ```
@@ -315,10 +315,10 @@ Express backend is organized by domain — one folder per business area, each wi
 
 ```mermaid
 graph LR
-    A[Route<br/>e.g. routes/orders.ts] --> B[Controller<br/>orders.controller.ts]
+    A[Route<br/>e.g. routes/orders.js] --> B[Controller<br/>orders.controller.js]
     B --> C{Zod Validation}
     C -->|Invalid| D["res.status(400)"]
-    C -->|Valid| E[Service<br/>orders.service.ts]
+    C -->|Valid| E[Service<br/>orders.service.js]
     E --> F[Prisma DB Query]
     F --> G[Return JSON]
 ```
@@ -362,27 +362,26 @@ aqua-sphere-os/
 │   │   │   └── layout/              # Sidebar, Header, ProtectedRoute, CompanyToggle
 │   │   ├── lib/                     # Axios instance, global utils
 │   │   ├── hooks/                   # useCompanyContext, useAuth
-│   │   ├── App.tsx
-│   │   └── main.tsx
+│   │   ├── App.jsx
+│   │   └── main.jsx
 │   ├── index.html
-│   ├── tailwind.config.ts
-│   └── vite.config.ts
+│   ├── tailwind.config.js
+│   └── vite.config.js
 │
 ├── backend/                          # Express backend
 │   ├── src/
 │   │   ├── controllers/             # Request handling and response formatting
 │   │   ├── db/                      # Database connection and Prisma client wrappers
-│   │   │   ├── prisma-aquasphere.ts # Prisma client for aquasphere schema
-│   │   │   ├── prisma-wadaana.ts     # Prisma client for wadaana schema
-│   │   │   └── prisma-auth.ts       # Prisma client for auth schema
+│   │   │   ├── prisma-aquasphere.js # Prisma client for aquasphere schema
+│   │   │   ├── prisma-wadaana.js     # Prisma client for wadaana schema
+│   │   │   └── prisma-auth.js       # Prisma client for auth schema
 │   │   ├── middlewares/             # Express middlewares
-│   │   │   ├── auth.ts              # JWT verification + role checking
-│   │   │   ├── company-context.ts   # Routes request to correct schema
-│   │   │   ├── validation.ts        # Zod request validation
-│   │   │   ├── error-handler.ts     # Global error handler
-│   │   │   └── daily-close-guard.ts # Blocks edits on closed dates
+│   │   │   ├── auth.js              # JWT verification + role checking
+│   │   │   ├── company-context.js   # Routes request to correct schema
+│   │   │   ├── validation.js        # Zod request validation
+│   │   │   ├── error-handler.js     # Global error handler
+│   │   │   └── daily-close-guard.js # Blocks edits on closed dates
 │   │   ├── routes/                  # API route definitions
-│   │   │   ├── auth.routes.ts
 │   │   │   ├── customer.routes.ts
 │   │   │   ├── order.routes.ts
 │   │   │   ├── delivery.routes.ts
@@ -439,7 +438,7 @@ aqua-sphere-os/
 
 | Layer | Choice |
 |---|---|
-| Frontend framework | React 19 + Vite + TypeScript |
+| Frontend framework | React 19 + Vite + JavaScript |
 | Routing (client) | React Router v7 |
 | Styling | Tailwind CSS v4 + Lucide React icons |
 | Forms & validation | React Hook Form + Zod |
@@ -448,7 +447,7 @@ aqua-sphere-os/
 | Tables | TanStack Table |
 | Charts | Recharts |
 | Dates | date-fns |
-| Backend framework | Express (TypeScript) |
+| Backend framework | Express (JavaScript) |
 | Security | helmet, cookie-parser, cors |
 | ORM | Prisma (+ Prisma Migrate) with multi-schema support |
 | Database | PostgreSQL (NeonDB) |
@@ -464,12 +463,12 @@ aqua-sphere-os/
 
 ## 8. Naming Conventions
 
-- **Files & folders**: `kebab-case` (`bottle-ledger.service.ts`, `customer-form.tsx`).
+- **Files & folders**: `kebab-case` (`bottle-ledger.service.js`, `customer-form.jsx`).
 - **Classes / Interfaces / Types**: `PascalCase` (`CreateOrderInput`, `BottleTransaction`).
 - **Variables & functions**: `camelCase` (`getCustomerBalance`, `mineralFraction`).
 - **Database tables (Prisma models)**: singular `PascalCase` in schema (`Customer`, `BottleTransaction`), mapped to snake_case tables via `@@map` for Postgres convention.
 - **Enums**: `PascalCase` type, `SCREAMING_SNAKE_CASE` members (`OrderType.NINETEEN_L`, `DeliveryStatus.PARTIAL`).
-- **React components**: `PascalCase` (`CustomerSearchBar.tsx`); hooks prefixed `use` (`useCustomerBalance.ts`).
+- **React components**: `PascalCase` (`CustomerSearchBar.jsx`); hooks prefixed `use` (`useCustomerBalance.js`).
 - **API routes**: plural, kebab-case (`/api/v1/customers`, `/api/v1/bottle-ledger`).
 - **Environment variables**: `SCREAMING_SNAKE_CASE`, prefixed by concern (`DATABASE_URL`, `JWT_SECRET`, `S3_BUCKET`).
 

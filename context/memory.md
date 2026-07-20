@@ -50,7 +50,7 @@ Pulled directly from `phases.md` Phase 1 checklist — the immediate queue:
 
 - [ ] Initialize monorepo structure (`frontend/`, `backend/`, `shared/`) per `architecture.md` §6
 - [ ] Scaffold React + Vite app; install Tailwind v4
-- [ ] Scaffold Express app with TypeScript
+- [ ] Scaffold Express app with JavaScript
 - [ ] Connect Prisma to NeonDB
 - [ ] Configure ESLint + Prettier project-wide per `rules.md` §1
 - [ ] Create `.env.example` for both apps; confirm `.env` is git-ignored

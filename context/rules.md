@@ -8,7 +8,7 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 ## 1. Coding Standards
 
-- **TypeScript everywhere, strict mode on.** Both `frontend/` and `backend/` use TypeScript. No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
+- **JavaScript (ES6+) everywhere.** Both `frontend/` and `backend/` use JavaScript. Maintain clean code structure and thorough JSDoc documentation where helpful.
 - **One responsibility per file.** Routes define HTTP verb + path. Controllers handle req/res. Services own business logic + DB calls. React components only handle UI. Don't mix database queries into React or business rules into controllers.
 - **Functions should be short and named for what they do**, not how they do it (`calculateMineralFraction()` not `doMath()`).
 - **No magic numbers.** `23` (litres per 19L bottle), `15140` (litres per mineral set), `27` (0.5L Mix preform grams), `15` (0.5L Pure / 1.5L Mix preform grams), `13` (1.5L Pure preform grams), `6.72` (0.5L label grams per pack), `7.86` (1.5L label grams per pack) must be named constants in `backend/src/constants.ts`, not typed inline — these numbers are business rules, not decoration.
@@ -83,9 +83,9 @@ These rules are non-negotiable and specific to the dual-business architecture:
 
 Stick to the confirmed stack — don't substitute "similar" packages mid-project:
 
-**Frontend:** React 19, Vite, TypeScript, React Router v7, Tailwind CSS v4, Lucide React, React Hook Form, Zod, TanStack Query v5, Axios, TanStack Table, Recharts, date-fns.
+**Frontend:** React 19, Vite, JavaScript, React Router v7, Tailwind CSS v4, Lucide React, React Hook Form, Zod, TanStack Query v5, Axios, TanStack Table, Recharts, date-fns.
 
-**Backend:** Express, TypeScript, Prisma ORM, jsonwebtoken, bcrypt, Multer, Zod, node-cron, cors, helmet, cookie-parser.
+**Backend:** Express, JavaScript, Prisma ORM, jsonwebtoken, bcrypt, Multer, Zod, node-cron, cors, helmet, cookie-parser.
 
 **Other:** PostgreSQL (NeonDB), Prisma Migrate, PDFKit, ExcelJS.
 
