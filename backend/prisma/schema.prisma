@@ -19,9 +19,8 @@ datasource db {
 
 model AquasphereCustomer {
   id                  String    @id @default(uuid())
-  customerId          String    @unique @default(uuid()) @map("customer_id")
   name                String
-  phone               String
+  phone               String    @unique
   address             String?
   mapLink             String?   @map("map_link")
   type                String
@@ -41,9 +40,8 @@ model AquasphereCustomer {
   orders             AquasphereOrder[]
   bottleTransactions AquasphereBottleTransaction[]
   payments           AquaspherePayment[]
-  notifications      AquasphereNotification[]
 
-  @@unique([phone])
+
   @@index([name])
   @@map("customers")
   @@schema("aquasphere")
@@ -62,6 +60,8 @@ model AquasphereItem {
   inventoryTransactions AquasphereInventoryTransaction[]
   orderItems            AquasphereOrderItem[]
   purchases             AquaspherePurchase[]
+  producedBatches       AquasphereProductionBatch[] @relation("ProducedItems")
+  consumedBatches       AquasphereProductionBatch[] @relation("ConsumedItems")
 
   @@map("items")
   @@schema("aquasphere")
@@ -80,7 +80,7 @@ model AquasphereInventoryTransaction {
   itemId    String         @map("item_id")
   item      AquasphereItem @relation(fields: [itemId], references: [id])
   quantity  Decimal
-  direction String
+  direction TransactionDirection
   reason    String
   refType   String?        @map("ref_type")
   refId     String?        @map("ref_id")
@@ -123,8 +123,8 @@ model AquasphereOrder {
   customerId       String               @map("customer_id")
   customer         AquasphereCustomer   @relation(fields: [customerId], references: [id])
   type             AquasphereOrderType
-  deliveryStatus   String               @default("pending") @map("delivery_status")
-  paymentStatus    String               @default("unpaid") @map("payment_status")
+  deliveryStatus   DeliveryStatus       @default(PENDING) @map("delivery_status")
+  paymentStatus    PaymentStatus        @default(UNPAID) @map("payment_status")
   expectedDelivery DateTime?            @map("expected_delivery")
   remarks          String?
   createdAt        DateTime             @default(now()) @map("created_at")
@@ -184,7 +184,7 @@ model AquaspherePayment {
   customerId String             @map("customer_id")
   customer   AquasphereCustomer @relation(fields: [customerId], references: [id])
   amount     Decimal
-  type       String
+  type       PaymentType
   createdAt  DateTime           @default(now()) @map("created_at")
 
   @@index([customerId, createdAt(sort: Desc)])
@@ -194,12 +194,11 @@ model AquaspherePayment {
 
 model AquasphereProductionBatch {
   id                  String   @id @default(uuid())
-  qty05LProduced      Int?     @map("qty_05l_produced")
-  qty15LProduced      Int?     @map("qty_15l_produced")
-  mineralSetsConsumed Decimal? @map("mineral_sets_consumed")
-  bottleSize          String?  @map("bottle_size")
-  preformType         String?  @map("preform_type")
-  location            String?
+  outputItemId        String?  @map("output_item_id")
+  outputItem          AquasphereItem? @relation("ProducedItems", fields: [outputItemId], references: [id])
+  inputItemId         String?  @map("input_item_id")
+  inputItem           AquasphereItem? @relation("ConsumedItems", fields: [inputItemId], references: [id])
+  location            AquasphereLocation?
   quantity            Int?
   createdAt           DateTime @default(now()) @map("created_at")
 
@@ -267,24 +266,12 @@ model AquasphereDailyClose {
   date       DateTime @unique @db.Date
   closedAt   DateTime @default(now()) @map("closed_at")
   closedById String   @map("closed_by_id")
+  closedBy   AquasphereUser @relation(fields: [closedById], references: [id])
 
   @@map("daily_closes")
   @@schema("aquasphere")
 }
 
-model AquasphereNotification {
-  id         String   @id @default(uuid())
-  customerId String?  @map("customer_id")
-  customer   AquasphereCustomer? @relation(fields: [customerId], references: [id])
-  type       String   
-  channel    String?  
-  message    String
-  isRead     Boolean  @default(false) @map("is_read")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  @@map("notifications")
-  @@schema("aquasphere")
-}
 
 model AquasphereUser {
   id           String   @id @default(uuid())
@@ -295,6 +282,8 @@ model AquasphereUser {
   role         AquasphereRole
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
+
+  dailyCloses  AquasphereDailyClose[]
 
   @@map("users")
   @@schema("aquasphere")
@@ -308,6 +297,49 @@ enum AquasphereRole {
   MARKETING_MANAGER
 
   @@map("roles")
+  @@schema("aquasphere")
+}
+
+enum TransactionDirection {
+  IN
+  OUT
+
+  @@map("transaction_directions")
+  @@schema("aquasphere")
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  CANCELLED
+
+  @@map("delivery_statuses")
+  @@schema("aquasphere")
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+
+  @@map("payment_statuses")
+  @@schema("aquasphere")
+}
+
+enum PaymentType {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+
+  @@map("payment_types")
+  @@schema("aquasphere")
+}
+
+enum AquasphereLocation {
+  FACTORY
+  WAREHOUSE
+
+  @@map("locations")
   @@schema("aquasphere")
 }
 
@@ -553,6 +585,7 @@ model WadaanaDailyClose {
   date       DateTime @unique @db.Date
   closedAt   DateTime @default(now()) @map("closed_at")
   closedById String   @map("closed_by_id")
+  closedBy   WadaanaUser @relation(fields: [closedById], references: [id])
 
   @@map("daily_closes")
   @@schema("wadaana")
@@ -581,6 +614,8 @@ model WadaanaUser {
   role         WadaanaRole
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
+
+  dailyCloses  WadaanaDailyClose[]
 
   @@map("users")
   @@schema("wadaana")
