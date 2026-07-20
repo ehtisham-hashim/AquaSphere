@@ -17,6 +17,7 @@ const header = `// =============================================================
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
