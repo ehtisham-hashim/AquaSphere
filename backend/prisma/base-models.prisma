@@ -32,6 +32,7 @@ model __Prefix__Item {
   id           String    @id @default(uuid())
   name         String
   type         __Prefix__ItemType
+  unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
@@ -40,7 +41,7 @@ model __Prefix__Item {
 
   inventoryTransactions __Prefix__InventoryTransaction[]
   orderItems            __Prefix__OrderItem[]
-  purchases             __Prefix__Purchase[]
+  purchaseItems         __Prefix__PurchaseItem[]
   producedBatches       __Prefix__ProductionBatch[] @relation("ProducedItems")
   consumedBatches       __Prefix__ProductionBatch[] @relation("ConsumedItems")
 
@@ -192,30 +193,94 @@ model __Prefix__ProductionBatch {
 model __Prefix__Vendor {
   id         String    @id @default(uuid())
   name       String
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  purchases __Prefix__Purchase[]
-  payments  __Prefix__VendorPayment[]
+  purchases     __Prefix__Purchase[]
+  payments      __Prefix__VendorPayment[]
+  ledgerEntries __Prefix__VendorLedgerEntry[]
 
   @@map("vendors")
   @@schema("__schema__")
 }
 
 model __Prefix__Purchase {
-  id         String         @id @default(uuid())
-  vendorId   String         @map("vendor_id")
-  vendor     __Prefix__Vendor @relation(fields: [vendorId], references: [id])
-  itemId     String         @map("item_id")
-  item       __Prefix__Item   @relation(fields: [itemId], references: [id])
-  quantity   Decimal
-  price      Decimal
-  receiptUrl String         @map("receipt_url")
-  createdAt  DateTime       @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  vendorId     String    @map("vendor_id")
+  vendor       __Prefix__Vendor @relation(fields: [vendorId], references: [id])
+  invoiceNo    String?   @map("invoice_no")
+  receiptUrl   String?   @map("receipt_url")
+  remarks      String?
+  grandTotal   Decimal   @default(0.0) @map("grand_total")
+  purchaseDate DateTime  @default(now()) @map("purchase_date")
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  items         __Prefix__PurchaseItem[]
+  ledgerEntries __Prefix__VendorLedgerEntry[]
 
   @@index([vendorId, createdAt])
   @@map("purchases")
+  @@schema("__schema__")
+}
+
+model __Prefix__PurchaseItem {
+  id         String         @id @default(uuid())
+  purchaseId String         @map("purchase_id")
+  purchase   __Prefix__Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemId     String         @map("item_id")
+  item       __Prefix__Item   @relation(fields: [itemId], references: [id])
+  quantity   Decimal
+  unitPrice  Decimal        @map("unit_price")
+  total      Decimal
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("purchase_items")
+  @@schema("__schema__")
+}
+
+enum __Prefix__VendorLedgerType {
+  PURCHASE
+  PAYMENT
+
+  @@map("vendor_ledger_types")
+  @@schema("__schema__")
+}
+
+model __Prefix__VendorLedgerEntry {
+  id         String                 @id @default(uuid())
+  vendorId   String                 @map("vendor_id")
+  vendor     __Prefix__Vendor       @relation(fields: [vendorId], references: [id])
+  purchaseId String?                @map("purchase_id")
+  purchase   __Prefix__Purchase?    @relation(fields: [purchaseId], references: [id])
+  type       __Prefix__VendorLedgerType
+  amount     Decimal
+  remarks    String?
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_ledger_entries")
+  @@schema("__schema__")
+}
+
+model __Prefix__AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  details     String?
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
   @@schema("__schema__")
 }
 

@@ -52,6 +52,7 @@ model AquasphereItem {
   id           String    @id @default(uuid())
   name         String
   type         AquasphereItemType
+  unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
@@ -60,7 +61,7 @@ model AquasphereItem {
 
   inventoryTransactions AquasphereInventoryTransaction[]
   orderItems            AquasphereOrderItem[]
-  purchases             AquaspherePurchase[]
+  purchaseItems         AquaspherePurchaseItem[]
   producedBatches       AquasphereProductionBatch[] @relation("ProducedItems")
   consumedBatches       AquasphereProductionBatch[] @relation("ConsumedItems")
 
@@ -212,30 +213,94 @@ model AquasphereProductionBatch {
 model AquasphereVendor {
   id         String    @id @default(uuid())
   name       String
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  purchases AquaspherePurchase[]
-  payments  AquasphereVendorPayment[]
+  purchases     AquaspherePurchase[]
+  payments      AquasphereVendorPayment[]
+  ledgerEntries AquasphereVendorLedgerEntry[]
 
   @@map("vendors")
   @@schema("aquasphere")
 }
 
 model AquaspherePurchase {
-  id         String         @id @default(uuid())
-  vendorId   String         @map("vendor_id")
-  vendor     AquasphereVendor @relation(fields: [vendorId], references: [id])
-  itemId     String         @map("item_id")
-  item       AquasphereItem   @relation(fields: [itemId], references: [id])
-  quantity   Decimal
-  price      Decimal
-  receiptUrl String         @map("receipt_url")
-  createdAt  DateTime       @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  vendorId     String    @map("vendor_id")
+  vendor       AquasphereVendor @relation(fields: [vendorId], references: [id])
+  invoiceNo    String?   @map("invoice_no")
+  receiptUrl   String?   @map("receipt_url")
+  remarks      String?
+  grandTotal   Decimal   @default(0.0) @map("grand_total")
+  purchaseDate DateTime  @default(now()) @map("purchase_date")
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  items         AquaspherePurchaseItem[]
+  ledgerEntries AquasphereVendorLedgerEntry[]
 
   @@index([vendorId, createdAt])
   @@map("purchases")
+  @@schema("aquasphere")
+}
+
+model AquaspherePurchaseItem {
+  id         String         @id @default(uuid())
+  purchaseId String         @map("purchase_id")
+  purchase   AquaspherePurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemId     String         @map("item_id")
+  item       AquasphereItem   @relation(fields: [itemId], references: [id])
+  quantity   Decimal
+  unitPrice  Decimal        @map("unit_price")
+  total      Decimal
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("purchase_items")
+  @@schema("aquasphere")
+}
+
+enum AquasphereVendorLedgerType {
+  PURCHASE
+  PAYMENT
+
+  @@map("vendor_ledger_types")
+  @@schema("aquasphere")
+}
+
+model AquasphereVendorLedgerEntry {
+  id         String                 @id @default(uuid())
+  vendorId   String                 @map("vendor_id")
+  vendor     AquasphereVendor       @relation(fields: [vendorId], references: [id])
+  purchaseId String?                @map("purchase_id")
+  purchase   AquaspherePurchase?    @relation(fields: [purchaseId], references: [id])
+  type       AquasphereVendorLedgerType
+  amount     Decimal
+  remarks    String?
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_ledger_entries")
+  @@schema("aquasphere")
+}
+
+model AquasphereAuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  details     String?
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
   @@schema("aquasphere")
 }
 
@@ -384,6 +449,7 @@ model WadaanaItem {
   id           String    @id @default(uuid())
   name         String
   type         WadaanaItemType
+  unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
@@ -392,7 +458,7 @@ model WadaanaItem {
 
   inventoryTransactions WadaanaInventoryTransaction[]
   orderItems            WadaanaOrderItem[]
-  purchases             WadaanaPurchase[]
+  purchaseItems         WadaanaPurchaseItem[]
   producedBatches       WadaanaProductionBatch[] @relation("ProducedItems")
   consumedBatches       WadaanaProductionBatch[] @relation("ConsumedItems")
 
@@ -544,30 +610,94 @@ model WadaanaProductionBatch {
 model WadaanaVendor {
   id         String    @id @default(uuid())
   name       String
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  purchases WadaanaPurchase[]
-  payments  WadaanaVendorPayment[]
+  purchases     WadaanaPurchase[]
+  payments      WadaanaVendorPayment[]
+  ledgerEntries WadaanaVendorLedgerEntry[]
 
   @@map("vendors")
   @@schema("wadaana")
 }
 
 model WadaanaPurchase {
-  id         String         @id @default(uuid())
-  vendorId   String         @map("vendor_id")
-  vendor     WadaanaVendor @relation(fields: [vendorId], references: [id])
-  itemId     String         @map("item_id")
-  item       WadaanaItem   @relation(fields: [itemId], references: [id])
-  quantity   Decimal
-  price      Decimal
-  receiptUrl String         @map("receipt_url")
-  createdAt  DateTime       @default(now()) @map("created_at")
+  id           String    @id @default(uuid())
+  vendorId     String    @map("vendor_id")
+  vendor       WadaanaVendor @relation(fields: [vendorId], references: [id])
+  invoiceNo    String?   @map("invoice_no")
+  receiptUrl   String?   @map("receipt_url")
+  remarks      String?
+  grandTotal   Decimal   @default(0.0) @map("grand_total")
+  purchaseDate DateTime  @default(now()) @map("purchase_date")
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  items         WadaanaPurchaseItem[]
+  ledgerEntries WadaanaVendorLedgerEntry[]
 
   @@index([vendorId, createdAt])
   @@map("purchases")
+  @@schema("wadaana")
+}
+
+model WadaanaPurchaseItem {
+  id         String         @id @default(uuid())
+  purchaseId String         @map("purchase_id")
+  purchase   WadaanaPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemId     String         @map("item_id")
+  item       WadaanaItem   @relation(fields: [itemId], references: [id])
+  quantity   Decimal
+  unitPrice  Decimal        @map("unit_price")
+  total      Decimal
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("purchase_items")
+  @@schema("wadaana")
+}
+
+enum WadaanaVendorLedgerType {
+  PURCHASE
+  PAYMENT
+
+  @@map("vendor_ledger_types")
+  @@schema("wadaana")
+}
+
+model WadaanaVendorLedgerEntry {
+  id         String                 @id @default(uuid())
+  vendorId   String                 @map("vendor_id")
+  vendor     WadaanaVendor       @relation(fields: [vendorId], references: [id])
+  purchaseId String?                @map("purchase_id")
+  purchase   WadaanaPurchase?    @relation(fields: [purchaseId], references: [id])
+  type       WadaanaVendorLedgerType
+  amount     Decimal
+  remarks    String?
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_ledger_entries")
+  @@schema("wadaana")
+}
+
+model WadaanaAuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  details     String?
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
   @@schema("wadaana")
 }
 

@@ -24,6 +24,7 @@ function PublicRoute({ children }) {
 
 import Vendors from './pages/Vendors';
 import Purchases from './pages/Purchases';
+import RawMaterials from './pages/RawMaterials';
 import Production from './pages/Production';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
@@ -37,6 +38,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="purchases" element={<Purchases />} />
+        <Route path="raw-materials" element={<RawMaterials />} />
         <Route path="production" element={<Production />} />
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />

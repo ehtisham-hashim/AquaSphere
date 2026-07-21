@@ -28,6 +28,8 @@ import orderRoutes from './routes/order.routes.js';
 app.use('/api/v1/orders', orderRoutes);
 import expenseRoutes from './routes/expense.routes.js';
 app.use('/api/v1/expenses', expenseRoutes);
+import purchaseRoutes from './routes/purchase.routes.js';
+app.use('/api/v1/purchases', purchaseRoutes);
 import analyticsRoutes from './routes/analytics.routes.js';
 app.use('/api/v1/analytics', analyticsRoutes);
 

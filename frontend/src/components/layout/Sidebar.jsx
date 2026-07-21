@@ -26,6 +26,7 @@ const navItems = [
   { icon: RefreshCcw, label: 'Bottle Ledger', path: '/bottle-ledger' },
   { icon: ShoppingCart, label: 'Purchases', path: '/purchases' },
   { icon: Users, label: 'Vendors', path: '/vendors' },
+  { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
   { icon: LineChart, label: 'Reports', path: '/reports' },
