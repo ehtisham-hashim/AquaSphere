@@ -11,11 +11,11 @@ export default function Purchases() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/v1/vendors', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL}/vendors`, { credentials: 'include' })
       .then(res => res.json())
       .then(d => { if (d.success) setVendors(d.data); });
     
-    fetch('http://localhost:3000/api/v1/items', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL}/items`, { credentials: 'include' })
       .then(res => res.json())
       .then(d => { if (d.success) setItems(d.data.filter(i => i.type === 'RAW_MATERIAL')); });
   }, []);
@@ -27,7 +27,7 @@ export default function Purchases() {
 
   const addPurchase = async (e) => {
     e.preventDefault();
-    await fetch('http://localhost:3000/api/v1/vendors/purchases', {
+    await fetch(`${import.meta.env.VITE_API_URL}/vendors/purchases`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(purchaseData),

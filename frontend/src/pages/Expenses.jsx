@@ -10,7 +10,7 @@ export default function Expenses() {
   const [receiptUrl, setReceiptUrl] = useState('');
 
   const fetchExpenses = async () => {
-    const res = await fetch('http://localhost:3000/api/v1/expenses', { credentials: 'include' });
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/expenses`, { credentials: 'include' });
     const json = await res.json();
     if (json.success) setExpenses(json.data);
   };
@@ -19,7 +19,7 @@ export default function Expenses() {
 
   const addExpense = async (e) => {
     e.preventDefault();
-    await fetch('http://localhost:3000/api/v1/expenses', {
+    await fetch(`${import.meta.env.VITE_API_URL}/expenses`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category, amount, receiptUrl }),

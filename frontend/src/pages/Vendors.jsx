@@ -8,7 +8,7 @@ export default function Vendors() {
   const [name, setName] = useState('');
 
   const fetchVendors = async () => {
-    const res = await fetch('http://localhost:3000/api/v1/vendors', { credentials: 'include' });
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/vendors`, { credentials: 'include' });
     const json = await res.json();
     if (json.success) setVendors(json.data);
   };
@@ -18,7 +18,7 @@ export default function Vendors() {
   const addVendor = async (e) => {
     e.preventDefault();
     if (!name) return;
-    await fetch('http://localhost:3000/api/v1/vendors', {
+    await fetch(`${import.meta.env.VITE_API_URL}/vendors`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),

@@ -15,7 +15,7 @@ export default function Customers() {
 
   const fetchCustomers = async (q = '') => {
     setIsLoading(true);
-    const res = await fetch(`http://localhost:3000/api/v1/customers?search=${q}`, { credentials: 'include' });
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/customers?search=${q}`, { credentials: 'include' });
     const json = await res.json();
     if (json.success) setCustomers(json.data);
     setIsLoading(false);
@@ -30,7 +30,7 @@ export default function Customers() {
 
   const addCustomer = async (e) => {
     e.preventDefault();
-    await fetch('http://localhost:3000/api/v1/customers', {
+    await fetch(`${import.meta.env.VITE_API_URL}/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),

@@ -8,14 +8,14 @@ export default function Production() {
   const [quantity, setQuantity] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/v1/items', { credentials: 'include' })
+    fetch(`${import.meta.env.VITE_API_URL}/items`, { credentials: 'include' })
       .then(res => res.json())
       .then(d => { if (d.success) setItems(d.data.filter(i => i.type === 'FINISHED_GOOD')); });
   }, []);
 
   const submitBatch = async (e) => {
     e.preventDefault();
-    await fetch('http://localhost:3000/api/v1/production', {
+    await fetch(`${import.meta.env.VITE_API_URL}/production`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ outputItemId, quantity }),

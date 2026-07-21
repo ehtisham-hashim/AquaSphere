@@ -9,7 +9,7 @@ export default function Dashboard() {
   });
   
   useEffect(() => {
-    const sse = new EventSource('http://localhost:3000/api/v1/analytics/dashboard/stream', {
+    const sse = new EventSource(`${import.meta.env.VITE_API_URL}/analytics/dashboard/stream`, {
       withCredentials: true
     });
 

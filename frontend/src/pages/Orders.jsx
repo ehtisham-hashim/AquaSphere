@@ -27,9 +27,9 @@ export default function Orders() {
   const fetchData = async () => {
     setIsLoading(true);
     const [ordRes, custRes, itmRes] = await Promise.all([
-      fetch('http://localhost:3000/api/v1/orders', { credentials: 'include' }),
-      fetch('http://localhost:3000/api/v1/customers', { credentials: 'include' }),
-      fetch('http://localhost:3000/api/v1/items', { credentials: 'include' })
+      fetch(`${import.meta.env.VITE_API_URL}/orders`, { credentials: 'include' }),
+      fetch(`${import.meta.env.VITE_API_URL}/customers`, { credentials: 'include' }),
+      fetch(`${import.meta.env.VITE_API_URL}/items`, { credentials: 'include' })
     ]);
     const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
     if (ord.success) setOrders(ord.data);
