@@ -13,7 +13,7 @@ export default function Orders() {
   const [items, setItems] = useState([]);
 
   // UI State
-  const [activeTab, setActiveTab] = useState('Pending Orders');
+  const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('All Clients');
 
@@ -86,7 +86,7 @@ export default function Orders() {
     }
   };
 
-  const tabs = ['Pending Orders', 'Completed Orders', 'Cancelled Orders', 'All Orders'];
+  const tabs = ['All Orders', 'Pending Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
 
   const formatItemName = (name) => {
