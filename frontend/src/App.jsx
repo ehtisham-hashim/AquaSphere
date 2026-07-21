@@ -22,26 +22,25 @@ function PublicRoute({ children }) {
   return children;
 }
 
+import Vendors from './pages/Vendors';
+import Purchases from './pages/Purchases';
+import Production from './pages/Production';
+import Customers from './pages/Customers';
+import Orders from './pages/Orders';
+import Expenses from './pages/Expenses';
+
 function AppRoutes() {
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        } 
-      />
-      <Route 
-        path="/" 
-        element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
+        <Route path="vendors" element={<Vendors />} />
+        <Route path="purchases" element={<Purchases />} />
+        <Route path="production" element={<Production />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="expenses" element={<Expenses />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>

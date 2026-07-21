@@ -22,8 +22,8 @@ model __Prefix__Customer {
   bottleTransactions __Prefix__BottleTransaction[]
   payments           __Prefix__Payment[]
 
-
   @@index([name])
+  @@index([createdAt(sort: Desc)])
   @@map("customers")
   @@schema("__schema__")
 }
@@ -116,6 +116,7 @@ model __Prefix__Order {
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([deliveryStatus, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("orders")
   @@schema("__schema__")
 }

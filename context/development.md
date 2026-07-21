@@ -273,3 +273,28 @@ Pulled from the master doc's §14 — resolve these **before** the phase listed,
 ---
 
 *This document is the working companion to `SYSTEM_DOCUMENTATION.md` (what the prototype already does) and `AQUA_Sphere_OS_Master_Requirements.md` (what the PERN rebuild must do). Update phase status here as work lands.*
+
+---
+
+## 9. Completed Work Log (Phase 0 & 1 Initiation)
+**Date:** July 20, 2026
+
+**1. Authentication & Security (Phase 0)**
+- Migrated frontend auth from insecure `localStorage` mock to true JWT HTTP-only cookies communicating with `/api/v1/auth/me`.
+- Implemented `ProtectedRoute` and `PublicRoute` wrappers in React Router to enforce strict access control (unauthorized users are kicked to `/login`, authenticated users bypass `/login`).
+
+**2. Layout & UI Overhaul (Phase 1)**
+- Scrapped the broken CSS templates and reset `index.css` to clean Tailwind defaults, fixing extreme width constraints and giant typography.
+- Built a pixel-perfect replica of the client-approved prototype layout (TopNav, Sidebar, responsive Dashboard Grid).
+- Replaced harsh black borders with soft `border-slate-200` globally for a premium enterprise feel.
+- Added all requested navigation modules (`Counter Sales`, `Reports`, `Users & Roles`, `Settings`).
+
+**3. Role-Based Dashboard Isolation (Phase 1)**
+- Enforced strict data isolation based on `Goal_Requirements.md` permission matrix.
+- `Est. Profit` strictly hidden from everyone except `OWNER`.
+- Financial metrics (Cash, Credit, Expenses) hidden from operational roles (`ADMIN`, `PRODUCTION_MANAGER`).
+- Added Chemical Stock Gauges (Calcium, Magnesium, Sodium) visible only to operational and owner roles.
+
+**Next Steps:**
+- Build out the actual data-fetching layer (React Query / Axios) to populate the Dashboard KPIs from the PostgreSQL database.
+- Begin **Phase 2 (Purchasing & Vendors)** to allow the system to ingest raw materials so production and orders can function.

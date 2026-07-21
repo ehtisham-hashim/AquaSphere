@@ -42,8 +42,8 @@ model AquasphereCustomer {
   bottleTransactions AquasphereBottleTransaction[]
   payments           AquaspherePayment[]
 
-
   @@index([name])
+  @@index([createdAt(sort: Desc)])
   @@map("customers")
   @@schema("aquasphere")
 }
@@ -136,6 +136,7 @@ model AquasphereOrder {
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([deliveryStatus, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("orders")
   @@schema("aquasphere")
 }
@@ -373,8 +374,8 @@ model WadaanaCustomer {
   bottleTransactions WadaanaBottleTransaction[]
   payments           WadaanaPayment[]
 
-
   @@index([name])
+  @@index([createdAt(sort: Desc)])
   @@map("customers")
   @@schema("wadaana")
 }
@@ -467,6 +468,7 @@ model WadaanaOrder {
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([deliveryStatus, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("orders")
   @@schema("wadaana")
 }
