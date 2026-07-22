@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-import { eventBus } from '../utils/eventBus.js';
+import { broadcastDashboardUpdate } from './analytics.controller.js';
 
 export const getExpenses = asyncHandler(async (req, res) => {
   const expenses = await prisma.aquasphereExpense.findMany({
@@ -22,6 +22,6 @@ export const createExpense = asyncHandler(async (req, res) => {
     data: { category, amount: parseFloat(amount), receiptUrl }
   });
 
-  eventBus.emit('DashboardDataChanged');
+  broadcastDashboardUpdate();
   res.status(201).json({ success: true, data: expense });
 });

@@ -3,8 +3,17 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { errorHandler } from './middleware/error.middleware.js';
+import { errorHandler } from './middlewares/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+import vendorRoutes from './routes/vendor.routes.js';
+import itemRoutes from './routes/item.routes.js';
+import productionRoutes from './routes/production.routes.js';
+import customerRoutes from './routes/customer.routes.js';
+import orderRoutes from './routes/order.routes.js';
+import expenseRoutes from './routes/expense.routes.js';
+import purchaseRoutes from './routes/purchase.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 
 const app = express();
 
@@ -14,23 +23,14 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use('/api/v1/auth', authRoutes);
-import userRoutes from './routes/user.routes.js';
 app.use('/api/v1/users', userRoutes);
-import vendorRoutes from './routes/vendor.routes.js';
 app.use('/api/v1/vendors', vendorRoutes);
-import itemRoutes from './routes/item.routes.js';
 app.use('/api/v1/items', itemRoutes);
-import productionRoutes from './routes/production.routes.js';
 app.use('/api/v1/production', productionRoutes);
-import customerRoutes from './routes/customer.routes.js';
 app.use('/api/v1/customers', customerRoutes);
-import orderRoutes from './routes/order.routes.js';
 app.use('/api/v1/orders', orderRoutes);
-import expenseRoutes from './routes/expense.routes.js';
 app.use('/api/v1/expenses', expenseRoutes);
-import purchaseRoutes from './routes/purchase.routes.js';
 app.use('/api/v1/purchases', purchaseRoutes);
-import analyticsRoutes from './routes/analytics.routes.js';
 app.use('/api/v1/analytics', analyticsRoutes);
 
 app.use(errorHandler);

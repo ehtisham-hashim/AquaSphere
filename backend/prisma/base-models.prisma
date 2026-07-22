@@ -43,6 +43,10 @@ model __Prefix__Item {
   orderItems            __Prefix__OrderItem[]
   purchaseItems         __Prefix__PurchaseItem[]
   batchConsumptions     __Prefix__ProductionBatchConsumption[]
+  producedBatches       __Prefix__ProductionBatch[] @relation("ProducedItems")
+  consumedBatches       __Prefix__ProductionBatch[] @relation("ConsumedItems")
+  recipeFinishedGoods   __Prefix__RecipeItem[] @relation("RecipeFinishedGood")
+  recipeRawMaterials    __Prefix__RecipeItem[] @relation("RecipeRawMaterial")
 
   @@map("items")
   @@schema("__schema__")
@@ -175,15 +179,23 @@ model __Prefix__Payment {
 }
 
 model __Prefix__ProductionBatch {
-  id               String   @id @default(uuid())
-  packs05L         Int      @default(0) @map("packs_05l")      // 0.5L packs produced (good output)
-  packs15L         Int      @default(0) @map("packs_15l")      // 1.5L packs produced (good output)
-  brokenBottles05L Int      @default(0) @map("broken_bottles_05l")
-  brokenBottles15L Int      @default(0) @map("broken_bottles_15l")
-  batchDate        DateTime @default(now()) @map("batch_date")
-  producedBy       String?  @map("produced_by")                // req.user.id
-  notes            String?
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                  String   @id @default(uuid())
+  outputItemId        String?  @map("output_item_id")
+  outputItem          __Prefix__Item? @relation("ProducedItems", fields: [outputItemId], references: [id])
+  inputItemId         String?  @map("input_item_id")
+  inputItem           __Prefix__Item? @relation("ConsumedItems", fields: [inputItemId], references: [id])
+  location            __Prefix__Location?
+  quantity            Int?
+  wasteQuantity       Int      @default(0) @map("waste_quantity")
+  remarks             String?
+  packs05L            Int      @default(0) @map("packs_05l")      // 0.5L packs produced (good output)
+  packs15L            Int      @default(0) @map("packs_15l")      // 1.5L packs produced (good output)
+  brokenBottles05L    Int      @default(0) @map("broken_bottles_05l")
+  brokenBottles15L    Int      @default(0) @map("broken_bottles_15l")
+  batchDate           DateTime @default(now()) @map("batch_date")
+  producedBy          String?  @map("produced_by")                // req.user.id
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
 
   consumptions __Prefix__ProductionBatchConsumption[]
 
@@ -404,5 +416,19 @@ enum __Prefix__Location {
   WAREHOUSE
 
   @@map("locations")
+  @@schema("__schema__")
+}
+
+model __Prefix__RecipeItem {
+  id               String         @id @default(uuid())
+  finishedGoodId   String         @map("finished_good_id")
+  rawMaterialId    String         @map("raw_material_id")
+  quantityPerUnit  Decimal        @map("quantity_per_unit")
+  
+  finishedGood     __Prefix__Item @relation("RecipeFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterial      __Prefix__Item @relation("RecipeRawMaterial", fields: [rawMaterialId], references: [id])
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@map("recipe_items")
   @@schema("__schema__")
 }

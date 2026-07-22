@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-import { eventBus } from '../utils/eventBus.js';
+import { broadcastDashboardUpdate } from './analytics.controller.js';
 
 export const getOrders = asyncHandler(async (req, res) => {
   const orders = await prisma.aquasphereOrder.findMany({
@@ -102,18 +102,11 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Update customer bottle balance (Delivered decreases empty balance, returned increases it)
-    const customer = await tx.aquasphereCustomer.findUnique({ where: { id: o.customerId } });
-    const newBottleBalance = customer.cachedBottleBalance - qty + retGood + retBroken;
-    
-    // Update customer financial balance (Total Cost - Cash Paid)
-    const newFinancialBalance = parseFloat(customer.cachedBalance) + (orderTotal - cash);
-
     await tx.aquasphereCustomer.update({
       where: { id: o.customerId },
       data: { 
-        cachedBottleBalance: newBottleBalance,
-        cachedBalance: newFinancialBalance
+        cachedBottleBalance: { increment: -qty + retGood + retBroken },
+        cachedBalance: { increment: orderTotal - cash }
       }
     });
 
@@ -125,6 +118,6 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     return updated;
   });
 
-  eventBus.emit('DashboardDataChanged');
+  broadcastDashboardUpdate();
   res.json({ success: true, data: order });
 });

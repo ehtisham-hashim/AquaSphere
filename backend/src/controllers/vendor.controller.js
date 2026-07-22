@@ -7,25 +7,29 @@ export const getVendors = asyncHandler(async (req, res) => {
   const where = includeArchived === 'true' ? {} : { archivedAt: null };
   const vendors = await prisma.aquasphereVendor.findMany({
     where,
-    include: {
-      ledgerEntries: true
-    },
     orderBy: { createdAt: 'desc' }
   });
 
-  const formatted = vendors.map(v => {
-    const totalPurchases = v.ledgerEntries
-      .filter(l => l.type === 'PURCHASE')
-      .reduce((sum, l) => sum + Number(l.amount), 0);
-    const totalPayments = v.ledgerEntries
-      .filter(l => l.type === 'PAYMENT')
-      .reduce((sum, l) => sum + Number(l.amount), 0);
-    return {
-      ...v,
-      payableBalance: totalPurchases - totalPayments,
-      status: v.archivedAt ? 'ARCHIVED' : 'ACTIVE'
-    };
+  // Batch compute balances via groupBy instead of loading all ledger entries
+  const vendorIds = vendors.map(v => v.id);
+  const ledgerSums = await prisma.aquasphereVendorLedgerEntry.groupBy({
+    by: ['vendorId', 'type'],
+    _sum: { amount: true },
+    where: { vendorId: { in: vendorIds } }
   });
+
+  const balanceMap = {};
+  for (const entry of ledgerSums) {
+    if (!balanceMap[entry.vendorId]) balanceMap[entry.vendorId] = { purchases: 0, payments: 0 };
+    if (entry.type === 'PURCHASE') balanceMap[entry.vendorId].purchases = Number(entry._sum.amount);
+    if (entry.type === 'PAYMENT') balanceMap[entry.vendorId].payments = Number(entry._sum.amount);
+  }
+
+  const formatted = vendors.map(v => ({
+    ...v,
+    payableBalance: (balanceMap[v.id]?.purchases || 0) - (balanceMap[v.id]?.payments || 0),
+    status: v.archivedAt ? 'ARCHIVED' : 'ACTIVE'
+  }));
 
   res.json({ success: true, data: formatted });
 });

@@ -2,9 +2,11 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
+import { paginationArgs } from '../utils/pagination.js';
 
 export const getPurchases = asyncHandler(async (req, res) => {
   const purchases = await prisma.aquaspherePurchase.findMany({
+    ...paginationArgs(req.query),
     include: {
       vendor: true,
       items: {
@@ -15,7 +17,8 @@ export const getPurchases = asyncHandler(async (req, res) => {
     },
     orderBy: { createdAt: 'desc' }
   });
-  res.json({ success: true, data: purchases });
+  const nextCursor = purchases.length > 0 ? purchases[purchases.length - 1].id : null;
+  res.json({ success: true, data: purchases, nextCursor });
 });
 
 export const getPurchaseById = asyncHandler(async (req, res) => {
@@ -126,11 +129,10 @@ export const createPurchase = asyncHandler(async (req, res) => {
       });
 
       // Update item cachedQty
-      const currentItem = await tx.aquasphereItem.findUnique({ where: { id: vItem.itemId } });
       await tx.aquasphereItem.update({
         where: { id: vItem.itemId },
         data: {
-          cachedQty: Number(currentItem.cachedQty) + vItem.quantity
+          cachedQty: { increment: vItem.quantity }
         }
       });
 
