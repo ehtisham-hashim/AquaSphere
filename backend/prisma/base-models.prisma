@@ -44,6 +44,8 @@ model __Prefix__Item {
   purchaseItems         __Prefix__PurchaseItem[]
   producedBatches       __Prefix__ProductionBatch[] @relation("ProducedItems")
   consumedBatches       __Prefix__ProductionBatch[] @relation("ConsumedItems")
+  recipeFinishedGoods   __Prefix__RecipeItem[] @relation("RecipeFinishedGood")
+  recipeRawMaterials    __Prefix__RecipeItem[] @relation("RecipeRawMaterial")
 
   @@map("items")
   @@schema("__schema__")
@@ -183,6 +185,8 @@ model __Prefix__ProductionBatch {
   inputItem           __Prefix__Item? @relation("ConsumedItems", fields: [inputItemId], references: [id])
   location            __Prefix__Location?
   quantity            Int?
+  wasteQuantity       Int      @default(0) @map("waste_quantity")
+  remarks             String?
   createdAt           DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
@@ -387,5 +391,19 @@ enum __Prefix__Location {
   WAREHOUSE
 
   @@map("locations")
+  @@schema("__schema__")
+}
+
+model __Prefix__RecipeItem {
+  id               String         @id @default(uuid())
+  finishedGoodId   String         @map("finished_good_id")
+  rawMaterialId    String         @map("raw_material_id")
+  quantityPerUnit  Decimal        @map("quantity_per_unit")
+  
+  finishedGood     __Prefix__Item @relation("RecipeFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterial      __Prefix__Item @relation("RecipeRawMaterial", fields: [rawMaterialId], references: [id])
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@map("recipe_items")
   @@schema("__schema__")
 }

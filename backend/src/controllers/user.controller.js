@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+import { hashPassword } from '../utils/passwordUtils.js';
 
 export const getUsers = asyncHandler(async (req, res) => {
   const company = (req.query.company || '').toLowerCase();
@@ -27,11 +28,11 @@ export const createUser = asyncHandler(async (req, res) => {
   let user;
   if (comp === 'aquasphere') {
     user = await prisma.aquasphereUser.create({
-      data: { name: email.split('@')[0], email, passwordHash: password, role: role || 'ADMIN' }
+      data: { name: email.split('@')[0], email, passwordHash: await hashPassword(password), role: role || 'ADMIN' }
     });
   } else {
     user = await prisma.wadaanaUser.create({
-      data: { name: email.split('@')[0], email, passwordHash: password, role: role || 'ADMIN' }
+      data: { name: email.split('@')[0], email, passwordHash: await hashPassword(password), role: role || 'ADMIN' }
     });
   }
   

@@ -64,6 +64,8 @@ model AquasphereItem {
   purchaseItems         AquaspherePurchaseItem[]
   producedBatches       AquasphereProductionBatch[] @relation("ProducedItems")
   consumedBatches       AquasphereProductionBatch[] @relation("ConsumedItems")
+  recipeFinishedGoods   AquasphereRecipeItem[] @relation("RecipeFinishedGood")
+  recipeRawMaterials    AquasphereRecipeItem[] @relation("RecipeRawMaterial")
 
   @@map("items")
   @@schema("aquasphere")
@@ -203,6 +205,8 @@ model AquasphereProductionBatch {
   inputItem           AquasphereItem? @relation("ConsumedItems", fields: [inputItemId], references: [id])
   location            AquasphereLocation?
   quantity            Int?
+  wasteQuantity       Int      @default(0) @map("waste_quantity")
+  remarks             String?
   createdAt           DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
@@ -410,6 +414,20 @@ enum AquasphereLocation {
   @@schema("aquasphere")
 }
 
+model AquasphereRecipeItem {
+  id               String         @id @default(uuid())
+  finishedGoodId   String         @map("finished_good_id")
+  rawMaterialId    String         @map("raw_material_id")
+  quantityPerUnit  Decimal        @map("quantity_per_unit")
+  
+  finishedGood     AquasphereItem @relation("RecipeFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterial      AquasphereItem @relation("RecipeRawMaterial", fields: [rawMaterialId], references: [id])
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@map("recipe_items")
+  @@schema("aquasphere")
+}
+
 
 // ==========================================
 // WADAANA SCHEMA
@@ -461,6 +479,8 @@ model WadaanaItem {
   purchaseItems         WadaanaPurchaseItem[]
   producedBatches       WadaanaProductionBatch[] @relation("ProducedItems")
   consumedBatches       WadaanaProductionBatch[] @relation("ConsumedItems")
+  recipeFinishedGoods   WadaanaRecipeItem[] @relation("RecipeFinishedGood")
+  recipeRawMaterials    WadaanaRecipeItem[] @relation("RecipeRawMaterial")
 
   @@map("items")
   @@schema("wadaana")
@@ -600,6 +620,8 @@ model WadaanaProductionBatch {
   inputItem           WadaanaItem? @relation("ConsumedItems", fields: [inputItemId], references: [id])
   location            WadaanaLocation?
   quantity            Int?
+  wasteQuantity       Int      @default(0) @map("waste_quantity")
+  remarks             String?
   createdAt           DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
@@ -804,5 +826,19 @@ enum WadaanaLocation {
   WAREHOUSE
 
   @@map("locations")
+  @@schema("wadaana")
+}
+
+model WadaanaRecipeItem {
+  id               String         @id @default(uuid())
+  finishedGoodId   String         @map("finished_good_id")
+  rawMaterialId    String         @map("raw_material_id")
+  quantityPerUnit  Decimal        @map("quantity_per_unit")
+  
+  finishedGood     WadaanaItem @relation("RecipeFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterial      WadaanaItem @relation("RecipeRawMaterial", fields: [rawMaterialId], references: [id])
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@map("recipe_items")
   @@schema("wadaana")
 }
