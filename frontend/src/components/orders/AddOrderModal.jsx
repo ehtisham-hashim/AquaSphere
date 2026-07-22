@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, DollarSign, User, Package, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { X, DollarSign, User, Package, Calendar, AlertTriangle } from 'lucide-react';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
   const [orderData, setOrderData] = useState({
@@ -13,9 +13,11 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
     remarks: ''
   });
 
+  const [softBlockData, setSoftBlockData] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const selectedCustomer = customers.find(c => c.id === orderData.customerId);
-  const selectedItem = items.find(i => i.id === orderData.itemId);
-  
+
   const orderTotal = (orderData.quantity && orderData.price) 
     ? (parseFloat(orderData.quantity) * parseFloat(orderData.price)).toFixed(2) 
     : '0.00';
@@ -32,32 +34,53 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
     }
   };
 
-  const submitOrder = async (e) => {
-    e.preventDefault();
+  const submitOrder = async (e, bypassCreditCheck = false) => {
+    if (e) e.preventDefault();
+    setIsSubmitting(true);
     
-    // Auto-derive type from selected item name
     const item = items.find(i => i.id === orderData.itemId);
     const orderType = (item?.name || '').toLowerCase().includes('19l') ? 'NINETEEN_L' : 'PET';
 
-    await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        customerId: orderData.customerId, 
-        type: orderType, 
-        expectedDelivery: orderData.expectedDelivery, 
-        remarks: orderData.remarks,
-        paymentStatus: orderData.paymentStatus,
-        items: [{ itemId: orderData.itemId, quantity: orderData.quantity, price: orderData.price }] 
-      }),
-      credentials: 'include'
-    });
-    onOrderAdded();
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          customerId: orderData.customerId, 
+          type: orderType, 
+          expectedDelivery: orderData.expectedDelivery, 
+          remarks: orderData.remarks,
+          paymentStatus: orderData.paymentStatus,
+          bypassCreditCheck,
+          items: [{ itemId: orderData.itemId, quantity: orderData.quantity, price: orderData.price }] 
+        }),
+        credentials: 'include'
+      });
+
+      const json = await res.json();
+
+      if (json.softBlock) {
+        setSoftBlockData(json);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (json.success) {
+        onOrderAdded();
+      } else {
+        alert(json.message || 'Failed to create order');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error creating order');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl relative">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
           <h3 className="text-xl font-bold text-slate-800">Create New Order</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors">
@@ -65,7 +88,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
           </button>
         </div>
         
-        <form onSubmit={submitOrder} className="p-6 space-y-8">
+        <form onSubmit={(e) => submitOrder(e, false)} className="p-6 space-y-8">
           {/* Customer Selection Section */}
           <div>
             <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><User size={16}/> Customer Information</h4>
@@ -152,9 +175,45 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
 
           <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
             <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-            <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-sm">Confirm & Place Order</button>
+            <button type="submit" disabled={isSubmitting} className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-sm disabled:opacity-50">
+              {isSubmitting ? 'Processing...' : 'Confirm & Place Order'}
+            </button>
           </div>
         </form>
+
+        {/* Soft-Block Warning Modal Overlay */}
+        {softBlockData && (
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-6 z-20 rounded-2xl">
+            <div className="bg-white border border-amber-200 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+              <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle size={28} />
+              </div>
+              <h4 className="text-lg font-bold text-slate-800">Credit Limit Soft-Block Warning</h4>
+              <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                {softBlockData.message}
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSoftBlockData(null)}
+                  className="flex-1 py-2.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50"
+                >
+                  Cancel / Re-adjust Order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSoftBlockData(null);
+                    submitOrder(null, true);
+                  }}
+                  className="flex-1 py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs"
+                >
+                  Proceed Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,17 +2,22 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 
+const getTenantPrefix = (req) => {
+  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
+  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
+};
+
 export const getVendors = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { includeArchived } = req.query;
   const where = includeArchived === 'true' ? {} : { archivedAt: null };
-  const vendors = await prisma.aquasphereVendor.findMany({
+  const vendors = await prisma[`${prefix}Vendor`].findMany({
     where,
     orderBy: { createdAt: 'desc' }
   });
 
-  // Batch compute balances via groupBy instead of loading all ledger entries
   const vendorIds = vendors.map(v => v.id);
-  const ledgerSums = await prisma.aquasphereVendorLedgerEntry.groupBy({
+  const ledgerSums = await prisma[`${prefix}VendorLedgerEntry`].groupBy({
     by: ['vendorId', 'type'],
     _sum: { amount: true },
     where: { vendorId: { in: vendorIds } }
@@ -35,8 +40,9 @@ export const getVendors = asyncHandler(async (req, res) => {
 });
 
 export const getVendorById = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { id } = req.params;
-  const vendor = await prisma.aquasphereVendor.findUnique({
+  const vendor = await prisma[`${prefix}Vendor`].findUnique({
     where: { id },
     include: {
       purchases: { include: { items: { include: { item: true } } } },
@@ -63,21 +69,23 @@ export const getVendorById = asyncHandler(async (req, res) => {
 });
 
 export const createVendor = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { name, phone, email, address, notes } = req.body;
   if (!name || !phone) throw new ApiError(400, 'Vendor Name and Phone are required');
 
-  const vendor = await prisma.aquasphereVendor.create({
+  const vendor = await prisma[`${prefix}Vendor`].create({
     data: { name, phone, email, address, notes }
   });
   res.status(201).json({ success: true, data: vendor });
 });
 
 export const updateVendor = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { id } = req.params;
   const { name, phone, email, address, notes } = req.body;
   if (!name || !phone) throw new ApiError(400, 'Vendor Name and Phone are required');
 
-  const vendor = await prisma.aquasphereVendor.update({
+  const vendor = await prisma[`${prefix}Vendor`].update({
     where: { id },
     data: { name, phone, email, address, notes }
   });
@@ -85,8 +93,9 @@ export const updateVendor = asyncHandler(async (req, res) => {
 });
 
 export const archiveVendor = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { id } = req.params;
-  const vendor = await prisma.aquasphereVendor.update({
+  const vendor = await prisma[`${prefix}Vendor`].update({
     where: { id },
     data: { archivedAt: new Date() }
   });
@@ -94,8 +103,9 @@ export const archiveVendor = asyncHandler(async (req, res) => {
 });
 
 export const restoreVendor = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { id } = req.params;
-  const vendor = await prisma.aquasphereVendor.update({
+  const vendor = await prisma[`${prefix}Vendor`].update({
     where: { id },
     data: { archivedAt: null }
   });
@@ -103,6 +113,7 @@ export const restoreVendor = asyncHandler(async (req, res) => {
 });
 
 export const recordVendorPayment = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
   const { id: vendorId } = req.params;
   const { amount, paymentMethod, remarks, paymentDate } = req.body;
 
@@ -111,16 +122,12 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Payment amount must be greater than zero');
   }
 
-  const vendor = await prisma.aquasphereVendor.findUnique({ where: { id: vendorId } });
-  if (!vendor) {
-    throw new ApiError(404, 'Vendor not found');
-  }
-  if (vendor.archivedAt) {
-    throw new ApiError(400, 'Cannot record payment for an archived vendor');
-  }
+  const vendor = await prisma[`${prefix}Vendor`].findUnique({ where: { id: vendorId } });
+  if (!vendor) throw new ApiError(404, 'Vendor not found');
+  if (vendor.archivedAt) throw new ApiError(400, 'Cannot record payment for an archived vendor');
 
   const result = await prisma.$transaction(async (tx) => {
-    const entry = await tx.aquasphereVendorLedgerEntry.create({
+    const entry = await tx[`${prefix}VendorLedgerEntry`].create({
       data: {
         vendorId,
         type: 'PAYMENT',
@@ -130,7 +137,7 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
       }
     });
 
-    await tx.aquasphereAuditLog.create({
+    await tx[`${prefix}AuditLog`].create({
       data: {
         action: 'VENDOR_PAYMENT_RECORDED',
         entityType: 'VENDOR_PAYMENT',
@@ -148,8 +155,7 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     return entry;
   });
 
-  // Calculate updated balance
-  const ledgerEntries = await prisma.aquasphereVendorLedgerEntry.findMany({
+  const ledgerEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
     where: { vendorId }
   });
 
@@ -167,4 +173,3 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     message: 'Vendor payment recorded successfully'
   });
 });
-

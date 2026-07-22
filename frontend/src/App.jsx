@@ -29,6 +29,9 @@ import Production from './pages/Production';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import Expenses from './pages/Expenses';
+import CounterSales from './pages/CounterSales';
+import Users from './pages/Users';
+import BottleLedger from './pages/BottleLedger';
 
 function AppRoutes() {
   return (
@@ -43,13 +46,14 @@ function AppRoutes() {
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />
         <Route path="expenses" element={<Expenses />} />
+        <Route path="counter-sales" element={<CounterSales />} />
+        <Route path="users" element={<Users />} />
+        <Route path="bottle-ledger" element={<BottleLedger />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>
   );
 }
-
-
 
 export default function App() {
   return (

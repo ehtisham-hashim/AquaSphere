@@ -14,6 +14,8 @@ import orderRoutes from './routes/order.routes.js';
 import expenseRoutes from './routes/expense.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
+import bottleRoutes from './routes/bottle.routes.js';
+import spotSaleRoutes from './routes/spotSale.routes.js';
 
 const app = express();
 
@@ -32,6 +34,8 @@ app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/expenses', expenseRoutes);
 app.use('/api/v1/purchases', purchaseRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/bottles', bottleRoutes);
+app.use('/api/v1/spot-sales', spotSaleRoutes);
 
 app.use(errorHandler);
 

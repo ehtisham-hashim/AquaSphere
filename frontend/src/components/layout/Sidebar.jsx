@@ -8,7 +8,7 @@ import {
   PackageSearch, 
   RefreshCcw, 
   ShoppingCart, 
-  Users, 
+  Users as VendorsIcon, 
   Banknote,
   Store,
   LineChart,
@@ -22,16 +22,13 @@ const navItems = [
   { icon: Truck, label: 'Orders', path: '/orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },
-  { icon: PackageSearch, label: 'Inventory', path: '/inventory' },
+  { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
   { icon: RefreshCcw, label: 'Bottle Ledger', path: '/bottle-ledger' },
   { icon: ShoppingCart, label: 'Purchases', path: '/purchases' },
-  { icon: Users, label: 'Vendors', path: '/vendors' },
-  { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
+  { icon: VendorsIcon, label: 'Vendors', path: '/vendors' },
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
-  { icon: LineChart, label: 'Reports', path: '/reports' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export default function Sidebar() {
@@ -77,7 +74,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-slate-200">
         <button 
           onClick={logout}
-          className="w-full flex items-center justify-center py-2.5 bg-[#e5e7eb] hover:bg-[#d1d5db] text-[#374151] font-semibold rounded-md transition-colors"
+          className="w-full flex items-center justify-center py-2.5 bg-[#e5e7eb] hover:bg-[#d1d5db] text-[#374151] font-semibold rounded-md transition-colors text-sm"
         >
           AquaSphere (Sign Out)
         </button>

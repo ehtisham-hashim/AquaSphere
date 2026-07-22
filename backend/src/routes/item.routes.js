@@ -7,7 +7,8 @@ import {
   createItem,
   updateItem,
   archiveItem,
-  restoreItem
+  restoreItem,
+  adjustInventory
 } from '../controllers/item.controller.js';
 
 const router = Router();
@@ -23,5 +24,6 @@ router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), createItem);
 router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT'), updateItem);
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveItem);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreItem);
+router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
 
 export default router;

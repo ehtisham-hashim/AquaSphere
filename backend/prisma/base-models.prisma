@@ -432,3 +432,18 @@ model __Prefix__RecipeItem {
   @@map("recipe_items")
   @@schema("__schema__")
 }
+
+model __Prefix__SpotSale {
+  id             String   @id @default(uuid())
+  litresSold     Decimal  @map("litres_sold")
+  capsIssued     Int      @default(0) @map("caps_issued")
+  cashCollected  Decimal  @default(0.0) @map("cash_collected")
+  paymentMethod  String   @default("CASH") @map("payment_method")
+  remarks        String?
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("spot_sales")
+  @@schema("__schema__")
+}
