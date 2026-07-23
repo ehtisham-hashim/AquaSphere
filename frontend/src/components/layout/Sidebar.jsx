@@ -34,7 +34,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const currentTenant = localStorage.getItem('tenant') || 'aquasphere';
   const isWadaana = currentTenant === 'wadaana';
 
@@ -77,7 +77,9 @@ export default function Sidebar({ isOpen, onClose }) {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {navItems.map((item) => {
+        {navItems
+          .filter(item => user?.role !== 'ADMIN' || item.path !== '/users')
+          .map((item) => {
           const Icon = item.icon;
           return (
             <NavLink

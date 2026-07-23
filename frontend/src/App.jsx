@@ -14,6 +14,7 @@ function ProtectedRoute({ children }) {
 
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
+import AdminDashboard from './pages/AdminDashboard';
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
@@ -33,12 +34,20 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 
+function DashboardRoleWrapper() {
+  const { user } = useAuth();
+  if (user?.role === 'ADMIN') {
+    return <AdminDashboard />;
+  }
+  return <Dashboard />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<DashboardRoleWrapper />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="purchases" element={<Purchases />} />
         <Route path="raw-materials" element={<RawMaterials />} />

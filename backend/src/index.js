@@ -21,6 +21,7 @@ import spotSaleRoutes from './routes/spotSale.routes.js';
 import dailyCloseRoutes from './routes/dailyClose.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
 import auditLogRoutes from './routes/auditLog.routes.js';
+import adminDashboardRoutes from './routes/adminDashboard.routes.js';
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/v1/spot-sales', spotSaleRoutes);
 app.use('/api/v1/daily-close', dailyCloseRoutes);
 app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
+app.use('/api/v1/admin', adminDashboardRoutes);
 
 app.use(errorHandler);
 
