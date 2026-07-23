@@ -1,137 +1,151 @@
-import { Prisma } from '@prisma/client';
-
 /**
  * Calculates raw material deductions and finished goods additions for a production batch.
- *
- * @param {Object} params
- * @param {number} params.packs05L - Number of 0.5L packs produced
- * @param {number} params.packs15L - Number of 1.5L packs produced
- * @param {number} params.brokenBottles05L - Number of broken 0.5L bottles
- * @param {number} params.brokenBottles15L - Number of broken 1.5L bottles
- * @param {Array} items - All items from the database to map deductions to actual item IDs
- * @returns {Object} { deductions, finishedGoods, broken }
+ * Implements exact-decimal formulas per §8 PM specs in development.md.
+ * 
+ * 0.5L Pack (12 bottles):
+ * - 0.5L Empty Bottles: 12 pcs
+ * - Small Caps: 12 pcs
+ * - Labels: 6.72g (0.00672 kg)
+ * - Shrink Wrap: 50g (0.050 kg)
+ * - Water: 6L (12 * 0.5L)
+ * - Mineral Set fraction: 6L / 15,140L = 0.000396301... sets
+ * 
+ * 1.5L Pack (6 bottles):
+ * - 1.5L Empty Bottles: 6 pcs
+ * - Small Caps: 6 pcs
+ * - Labels: 7.86g (0.00786 kg)
+ * - Shrink Wrap: 50g (0.050 kg)
+ * - Water: 9L (6 * 1.5L)
+ * - Mineral Set fraction: 9L / 15,140L = 0.000594451... sets
+ * 
+ * Mineral Set composition (15,140L capacity):
+ * - Calcium: 2 kg
+ * - Magnesium: 1 kg
+ * - Sodium: 0.5 kg
  */
 function calculateProductionBatch(params, items) {
   const { packs05L = 0, packs15L = 0, brokenBottles05L = 0, brokenBottles15L = 0 } = params;
 
-  // Constants
-  const LITRES_PER_05L_PACK = 6; // 12 bottles * 0.5L
-  const LITRES_PER_15L_PACK = 9; // 6 bottles * 1.5L
-  const WATER_PER_MINERAL_SET = 15140; // Litres treated by 1 mineral set
+  const LITRES_PER_05L_PACK = 6;  // 12 bottles * 0.5L
+  const LITRES_PER_15L_PACK = 9;  // 6 bottles * 1.5L
+  const WATER_PER_MINERAL_SET = 15140; // Litres treated per mineral set
 
-  const totalLitres05L = new Prisma.Decimal(packs05L).mul(LITRES_PER_05L_PACK);
-  const totalLitres15L = new Prisma.Decimal(packs15L).mul(LITRES_PER_15L_PACK);
+  const decPacks05L = new Prisma.Decimal(packs05L);
+  const decPacks15L = new Prisma.Decimal(packs15L);
+
+  const totalLitres05L = decPacks05L.mul(LITRES_PER_05L_PACK);
+  const totalLitres15L = decPacks15L.mul(LITRES_PER_15L_PACK);
   const totalLitres = totalLitres05L.add(totalLitres15L);
 
-  // 1 mineral set = 2kg Calcium + 1kg Magnesium + 0.5kg Sodium
+  // Exact decimal fraction of mineral set used
   const mineralSetFraction = totalLitres.dividedBy(WATER_PER_MINERAL_SET);
 
   const deductions = [];
   const finishedGoods = [];
   const broken = [];
 
-  // Helper to find item ID by name (case-insensitive fuzzy match)
-  const findItemId = (searchNames) => {
-    const item = items.find(i => searchNames.some(name => i.name.toLowerCase().includes(name.toLowerCase())));
-    return item ? item.id : null;
+  // Helper to find raw material item in database
+  const findRawItem = (terms) => {
+    return items.find(i => 
+      i.type === 'RAW_MATERIAL' && 
+      terms.some(t => i.name.toLowerCase().includes(t.toLowerCase()))
+    );
   };
 
-  // 1. Minerals
-  const calciumId = findItemId(['calcium']);
-  if (calciumId && mineralSetFraction.greaterThan(0)) {
-    deductions.push({ itemId: calciumId, name: 'Calcium', quantityUsed: mineralSetFraction.mul(2), unit: 'kg' });
+  // Helper to add or accumulate deductions
+  const addDeduction = (item, quantity, unit) => {
+    if (!item || quantity.lessThanOrEqualTo(0)) return;
+    const existing = deductions.find(d => d.itemId === item.id);
+    if (existing) {
+      existing.quantityUsed = existing.quantityUsed.add(quantity);
+    } else {
+      deductions.push({
+        itemId: item.id,
+        name: item.name,
+        quantityUsed: quantity,
+        unit: unit || item.unit
+      });
+    }
+  };
+
+  // 1. Mineral Set Chemicals (Calcium 2kg, Magnesium 1kg, Sodium 0.5kg per 15,140L)
+  if (totalLitres.greaterThan(0)) {
+    const calcium = findRawItem(['calcium']);
+    if (calcium) addDeduction(calcium, mineralSetFraction.mul(2), 'kg');
+
+    const magnesium = findRawItem(['magnesium']);
+    if (magnesium) addDeduction(magnesium, mineralSetFraction.mul(1), 'kg');
+
+    const sodium = findRawItem(['sodium']);
+    if (sodium) addDeduction(sodium, mineralSetFraction.mul(0.5), 'kg');
   }
 
-  const magnesiumId = findItemId(['magnesium']);
-  if (magnesiumId && mineralSetFraction.greaterThan(0)) {
-    deductions.push({ itemId: magnesiumId, name: 'Magnesium', quantityUsed: mineralSetFraction.mul(1), unit: 'kg' });
-  }
+  // 2. Caps (Shared or specific)
+  const capItem = findRawItem(['cap', 'small cap']);
 
-  const sodiumId = findItemId(['sodium']);
-  if (sodiumId && mineralSetFraction.greaterThan(0)) {
-    deductions.push({ itemId: sodiumId, name: 'Sodium', quantityUsed: mineralSetFraction.mul(0.5), unit: 'kg' });
-  }
+  // 3. Labels & Shrink Wrap
+  const labelItem = findRawItem(['label']);
+  const shrinkWrapItem = findRawItem(['shrink', 'wrap', 'shrink wrap']);
 
-  // 2. 0.5L Specific Materials
+  // --- 0.5L Pack Deductions ---
   if (packs05L > 0) {
-    const bottle05LId = findItemId(['500ml', '0.5L', 'bottle', 'empty']); // Make sure to get RAW_MATERIAL
-    const rawBottle05L = items.find(i => i.type === 'RAW_MATERIAL' && (i.name.includes('500ml') || i.name.includes('0.5L')));
-    if (rawBottle05L) {
-      deductions.push({ itemId: rawBottle05L.id, name: rawBottle05L.name, quantityUsed: new Prisma.Decimal(packs05L * 12), unit: 'pcs' });
-    }
+    // 12 Empty Bottles per pack
+    const empty05L = findRawItem(['500ml', '0.5l', 'bottle']);
+    if (empty05L) addDeduction(empty05L, decPacks05L.mul(12), 'pcs');
 
-    const capsId = findItemId(['cap', 'small cap']);
-    const rawCaps = items.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes('cap'));
-    if (rawCaps) {
-      deductions.push({ itemId: rawCaps.id, name: rawCaps.name, quantityUsed: new Prisma.Decimal(packs05L * 12), unit: 'pcs' });
-    }
+    // 12 Caps per pack
+    if (capItem) addDeduction(capItem, decPacks05L.mul(12), 'pcs');
 
-    const labelsId = findItemId(['label']);
-    const rawLabels = items.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes('label'));
-    if (rawLabels) {
-      // 6.72g per pack
-      deductions.push({ itemId: rawLabels.id, name: rawLabels.name, quantityUsed: new Prisma.Decimal(packs05L).mul(0.00672), unit: 'kg' });
-    }
+    // 6.72g (0.00672 kg) Labels per pack
+    if (labelItem) addDeduction(labelItem, decPacks05L.mul(0.00672), 'kg');
 
-    // Shrink wrap skipped for now as per plan
+    // 50g (0.050 kg) Shrink Wrap per pack
+    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks05L.mul(0.050), 'kg');
   }
 
-  // 3. 1.5L Specific Materials
+  // --- 1.5L Pack Deductions ---
   if (packs15L > 0) {
-    const rawBottle15L = items.find(i => i.type === 'RAW_MATERIAL' && (i.name.includes('1.5L') || i.name.includes('1500ml')));
-    if (rawBottle15L) {
-      deductions.push({ itemId: rawBottle15L.id, name: rawBottle15L.name, quantityUsed: new Prisma.Decimal(packs15L * 6), unit: 'pcs' });
-    }
+    // 6 Empty Bottles per pack
+    const empty15L = findRawItem(['1.5l', '1500ml', 'bottle']);
+    if (empty15L) addDeduction(empty15L, decPacks15L.mul(6), 'pcs');
 
-    const rawCaps = items.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes('cap'));
-    if (rawCaps) {
-      const existingCapDeduction = deductions.find(d => d.itemId === rawCaps.id);
-      if (existingCapDeduction) {
-        existingCapDeduction.quantityUsed = existingCapDeduction.quantityUsed.add(packs15L * 6);
-      } else {
-        deductions.push({ itemId: rawCaps.id, name: rawCaps.name, quantityUsed: new Prisma.Decimal(packs15L * 6), unit: 'pcs' });
-      }
-    }
+    // 6 Caps per pack
+    if (capItem) addDeduction(capItem, decPacks15L.mul(6), 'pcs');
 
-    const rawLabels = items.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes('label'));
-    if (rawLabels) {
-      // 7.86g per pack
-      const existingLabelDeduction = deductions.find(d => d.itemId === rawLabels.id);
-      if (existingLabelDeduction) {
-         existingLabelDeduction.quantityUsed = existingLabelDeduction.quantityUsed.add(new Prisma.Decimal(packs15L).mul(0.00786));
-      } else {
-         deductions.push({ itemId: rawLabels.id, name: rawLabels.name, quantityUsed: new Prisma.Decimal(packs15L).mul(0.00786), unit: 'kg' });
-      }
-    }
+    // 7.86g (0.00786 kg) Labels per pack
+    if (labelItem) addDeduction(labelItem, decPacks15L.mul(0.00786), 'kg');
+
+    // 50g (0.050 kg) Shrink Wrap per pack
+    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.050), 'kg');
   }
 
   // 4. Finished Goods Additions
   if (packs05L > 0) {
     const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.includes('500ml') || i.name.includes('0.5L')));
     if (fg05L) {
-      finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: new Prisma.Decimal(packs05L), unit: 'packs' });
+      finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: decPacks05L, unit: 'packs' });
     }
   }
 
   if (packs15L > 0) {
     const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.includes('1.5L') || i.name.includes('1500ml')));
     if (fg15L) {
-      finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: new Prisma.Decimal(packs15L), unit: 'packs' });
+      finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: decPacks15L, unit: 'packs' });
     }
   }
 
-  // 5. Broken Bottles
+  // 5. Broken Bottles Logging
   if (brokenBottles05L > 0) {
-    const rawBottle05L = items.find(i => i.type === 'RAW_MATERIAL' && (i.name.includes('500ml') || i.name.includes('0.5L')));
-    if (rawBottle05L) {
-      broken.push({ itemId: rawBottle05L.id, name: rawBottle05L.name, quantityBroken: new Prisma.Decimal(brokenBottles05L), unit: 'pcs' });
+    const empty05L = findRawItem(['500ml', '0.5l', 'bottle']);
+    if (empty05L) {
+      broken.push({ itemId: empty05L.id, name: empty05L.name, quantityBroken: new Prisma.Decimal(brokenBottles05L), unit: 'pcs' });
     }
   }
 
   if (brokenBottles15L > 0) {
-    const rawBottle15L = items.find(i => i.type === 'RAW_MATERIAL' && (i.name.includes('1.5L') || i.name.includes('1500ml')));
-    if (rawBottle15L) {
-      broken.push({ itemId: rawBottle15L.id, name: rawBottle15L.name, quantityBroken: new Prisma.Decimal(brokenBottles15L), unit: 'pcs' });
+    const empty15L = findRawItem(['1.5l', '1500ml', 'bottle']);
+    if (empty15L) {
+      broken.push({ itemId: empty15L.id, name: empty15L.name, quantityBroken: new Prisma.Decimal(brokenBottles15L), unit: 'pcs' });
     }
   }
 

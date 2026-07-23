@@ -358,6 +358,15 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
         where: { id: b.itemId },
         data: { cachedQty: { decrement: b.quantityBroken } }
       });
+
+      // Link to Bottle Transaction Ledger (Phase 3 Feature 4: Deduct At Factory -> Add to Broken)
+      await tx[`${prefix}BottleTransaction`].create({
+        data: {
+          type: 'RETURNED_BROKEN',
+          quantity: parseInt(b.quantityBroken.toString()),
+          reason: `Production breakage in batch #${pb.id.substring(0, 8)}`
+        }
+      });
     }
 
     await tx[`${prefix}AuditLog`].create({
