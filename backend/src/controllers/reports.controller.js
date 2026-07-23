@@ -72,26 +72,25 @@ export const getReportData = asyncHandler(async (req, res) => {
       });
       const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
-      // Compute Real COGS dynamically from PurchaseItem average unit prices
-      const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany({
-        include: { item: true }
+      // Compute Weighted Average COGS dynamically from PurchaseItem records
+      const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany();
+
+      const itemTotalCost = {};
+      const itemTotalQty = {};
+      purchaseItems.forEach(pi => {
+        const qty = Number(pi.quantity) || 0;
+        const total = Number(pi.total) || (qty * (Number(pi.unitPrice) || 0));
+        if (!itemTotalCost[pi.itemId]) {
+          itemTotalCost[pi.itemId] = 0;
+          itemTotalQty[pi.itemId] = 0;
+        }
+        itemTotalCost[pi.itemId] += total;
+        itemTotalQty[pi.itemId] += qty;
       });
 
       const itemCostMap = {};
-      const itemCostCount = {};
-      purchaseItems.forEach(pi => {
-        const unitPrice = Number(pi.unitPrice) || 0;
-        if (!itemCostMap[pi.itemId]) {
-          itemCostMap[pi.itemId] = 0;
-          itemCostCount[pi.itemId] = 0;
-        }
-        itemCostMap[pi.itemId] += unitPrice;
-        itemCostCount[pi.itemId] += 1;
-      });
-
-      // Average unit cost per item
-      Object.keys(itemCostMap).forEach(itemId => {
-        itemCostMap[itemId] = itemCostMap[itemId] / itemCostCount[itemId];
+      Object.keys(itemTotalCost).forEach(itemId => {
+        itemCostMap[itemId] = itemTotalQty[itemId] > 0 ? (itemTotalCost[itemId] / itemTotalQty[itemId]) : 0;
       });
 
       const consumptions = await prisma[`${prefix}ProductionBatchConsumption`].findMany({
