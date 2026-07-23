@@ -29,9 +29,9 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const [dashRes, cashRes, alertRes] = await Promise.all([
-        fetch('/api/v1/admin/dashboard', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/v1/admin/cash-summary', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/v1/admin/customer-alerts', { headers: { 'x-tenant': tenant }, credentials: 'include' })
+        fetch('/api/admin/dashboard', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch('/api/admin/cash-summary', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch('/api/admin/customer-alerts', { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
 
       const dashJson = await dashRes.json();
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
     setClosing(true);
     try {
       const todayStr = new Date().toISOString().split('T')[0];
-      const res = await fetch('/api/v1/daily-close/close', {
+      const res = await fetch('/api/daily-close/close', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -155,8 +155,8 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Today's Orders</p>
-            <h3 className="text-2xl font-bold text-slate-900">{kpis.todaysOrdersCount}</h3>
-            <p className="text-xs text-amber-600 font-medium mt-0.5">{kpis.pendingOrdersCount} Pending Delivery</p>
+            <h3 className="text-2xl font-bold text-slate-900">{kpis.todaysOrdersCount || 0}</h3>
+            <p className="text-xs text-amber-600 font-medium mt-0.5">{kpis.pendingOrdersCount || 0} Pending Delivery</p>
           </div>
         </div>
 
@@ -167,8 +167,8 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Good Yield Today</p>
-            <h3 className="text-2xl font-bold text-slate-900">{kpis.totalGoodYield} units</h3>
-            <p className="text-xs text-rose-500 font-medium mt-0.5">{kpis.totalWaste} units waste</p>
+            <h3 className="text-2xl font-bold text-slate-900">{kpis.totalGoodYield || 0} units</h3>
+            <p className="text-xs text-rose-500 font-medium mt-0.5">{kpis.totalWaste || 0} units waste</p>
           </div>
         </div>
 
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash Collected</p>
-            <h3 className="text-2xl font-bold text-slate-900 font-mono">Rs. {kpis.cashCollected.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 font-mono">Rs. {(kpis.cashCollected || 0).toLocaleString()}</h3>
             <p className="text-xs text-slate-400 mt-0.5">Orders + Spot Sales</p>
           </div>
         </div>
