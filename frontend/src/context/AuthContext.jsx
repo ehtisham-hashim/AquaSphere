@@ -25,12 +25,13 @@ export function AuthProvider({ children }) {
     verifyUser();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, tenant = 'aquasphere') => {
     try {
+      localStorage.setItem('tenant', tenant);
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, tenant }),
         credentials: 'include'
       });
 

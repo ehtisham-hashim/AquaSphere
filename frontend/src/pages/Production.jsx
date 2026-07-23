@@ -95,39 +95,41 @@ export default function Production() {
          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
             <h3 className="font-semibold text-slate-700 flex items-center gap-2"><Factory size={18} className="text-slate-400"/> Recent Production Runs</h3>
          </div>
-         <table className="w-full text-left">
-            <thead>
-              <tr className="text-xs uppercase tracking-wider text-slate-500 bg-slate-50 border-b border-slate-100">
-                <th className="p-4 font-semibold">Date</th>
-                <th className="p-4 font-semibold">Output Item</th>
-                <th className="p-4 font-semibold text-right">Good Yield</th>
-                <th className="p-4 font-semibold text-right">Waste/Breakage</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {batches.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="p-12 text-center text-slate-500">
-                    <Factory size={48} className="mx-auto text-slate-200 mb-4" />
-                    <p>No production batches logged yet.</p>
-                  </td>
+         <div className="overflow-x-auto">
+           <table className="w-full text-left whitespace-nowrap">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-slate-500 bg-slate-50 border-b border-slate-100">
+                  <th className="p-4 font-semibold">Date</th>
+                  <th className="p-4 font-semibold">Output Item</th>
+                  <th className="p-4 font-semibold text-right">Good Yield</th>
+                  <th className="p-4 font-semibold text-right">Waste/Breakage</th>
                 </tr>
-              ) : (
-                batches.map(b => (
-                  <tr key={b.id} className="hover:bg-slate-50">
-                    <td className="p-4 text-sm text-slate-600"><div className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {new Date(b.createdAt).toLocaleString()}</div></td>
-                    <td className="p-4 font-medium text-slate-800">{b.outputItem?.name || 'Unknown Item'}</td>
-                    <td className="p-4 text-right font-bold text-emerald-600">+{b.quantity} Packs</td>
-                    <td className="p-4 text-right">
-                      {b.wasteQuantity > 0 ? (
-                         <span className="text-red-500 font-medium text-sm flex items-center justify-end gap-1"><AlertTriangle size={14}/> {b.wasteQuantity}</span>
-                      ) : <span className="text-slate-300">-</span>}
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {batches.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="p-12 text-center text-slate-500">
+                      <Factory size={48} className="mx-auto text-slate-200 mb-4" />
+                      <p>No production batches logged yet.</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-         </table>
+                ) : (
+                  batches.map(b => (
+                    <tr key={b.id} className="hover:bg-slate-50">
+                      <td className="p-4 text-sm text-slate-600"><div className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400"/> {new Date(b.createdAt).toLocaleString()}</div></td>
+                      <td className="p-4 font-medium text-slate-800">{b.outputItem?.name || 'Unknown Item'}</td>
+                      <td className="p-4 text-right font-bold text-emerald-600">+{b.quantity} Packs</td>
+                      <td className="p-4 text-right">
+                        {b.wasteQuantity > 0 ? (
+                           <span className="text-red-500 font-medium text-sm flex items-center justify-end gap-1"><AlertTriangle size={14}/> {b.wasteQuantity}</span>
+                        ) : <span className="text-slate-300">-</span>}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+           </table>
+         </div>
       </div>
 
       {isModalOpen && (

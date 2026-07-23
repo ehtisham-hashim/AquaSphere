@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { X, DollarSign, User, Package, Calendar, AlertTriangle } from 'lucide-react';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
+  const todayDate = new Date().toISOString().split('T')[0];
   const [orderData, setOrderData] = useState({
     customerId: '', 
     type: 'NINETEEN_L', 
     itemId: '', 
     quantity: '', 
     price: '', 
-    expectedDelivery: '', 
+    expectedDelivery: todayDate, 
     paymentStatus: 'UNPAID',
     remarks: ''
   });
@@ -88,14 +89,22 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
           </button>
         </div>
         
-        <form onSubmit={(e) => submitOrder(e, false)} className="p-6 space-y-8">
+        <form 
+          onSubmit={(e) => submitOrder(e, false)} 
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              submitOrder(e, false);
+            }
+          }}
+          className="p-6 space-y-8"
+        >
           {/* Customer Selection Section */}
           <div>
             <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><User size={16}/> Customer Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer *</label>
-                <select name="customerId" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.customerId} onChange={handleChange} required>
+                <select autoFocus name="customerId" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.customerId} onChange={handleChange} required>
                   <option value="">Search and select customer...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone}) - {c.type}</option>)}
                 </select>

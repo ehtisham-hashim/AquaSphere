@@ -30,6 +30,11 @@ export default function Customers() {
 
   const addCustomer = async (e) => {
     e.preventDefault();
+    if (formData.mapLink && !formData.mapLink.includes('maps.google.com') && !formData.mapLink.includes('goo.gl')) {
+      alert('Please enter a valid Google Maps URL (must contain maps.google.com or goo.gl)');
+      return;
+    }
+
     await fetch(`${import.meta.env.VITE_API_URL}/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,7 +123,13 @@ export default function Customers() {
                     </div>
                     {c.address && (
                       <div className="flex items-center gap-2 text-slate-500 text-xs truncate max-w-[200px]">
-                        <MapPin size={14} className="text-slate-400 flex-shrink-0" /> {c.address}
+                        <MapPin size={14} className="text-slate-400 flex-shrink-0" /> 
+                        <span>{c.address}</span>
+                        {c.mapLink && (
+                          <a href={c.mapLink} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-500 hover:text-blue-700" title="Open in Google Maps">
+                            <MapPin size={14} />
+                          </a>
+                        )}
                       </div>
                     )}
                   </td>

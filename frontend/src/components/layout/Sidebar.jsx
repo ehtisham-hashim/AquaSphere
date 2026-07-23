@@ -14,7 +14,9 @@ import {
   LineChart,
   UserCog,
   Settings,
-  Droplets
+  Droplets,
+  Building2,
+  X
 } from 'lucide-react';
 
 const navItems = [
@@ -31,21 +33,47 @@ const navItems = [
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   const { logout } = useAuth();
+  const currentTenant = localStorage.getItem('tenant') || 'aquasphere';
+  const isWadaana = currentTenant === 'wadaana';
+
+  // Dynamic colors based on tenant
+  const activeBgColor = isWadaana ? 'bg-purple-600/10' : 'bg-[#059669]/10';
+  const activeTextColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
+  const brandIconColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
 
   return (
-    <aside className="hidden md:flex w-64 flex-shrink-0 h-screen bg-white border-r border-slate-200 flex-col sticky top-0 left-0">
-      {/* Brand Header */}
-      <div className="h-16 flex items-center px-6 border-b border-slate-200">
-        <div className="flex items-center gap-2">
-          <Droplets className="w-6 h-6 text-[#059669] fill-current" />
-          <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight text-[#111827] leading-tight">Aqua Sphere OS</span>
-            <span className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase leading-none">Management System</span>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40" 
+          onClick={onClose}
+        />
+      )}
+      <aside className={`fixed md:sticky top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-64 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        {/* Brand Header */}
+        <div className="h-16 flex justify-between items-center px-6 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            {isWadaana ? (
+              <Building2 className={`w-6 h-6 ${brandIconColor} fill-current`} />
+            ) : (
+              <Droplets className={`w-6 h-6 ${brandIconColor} fill-current`} />
+            )}
+            <div className="flex flex-col">
+              <span className="text-lg font-bold tracking-tight text-[#111827] leading-tight">
+                {isWadaana ? 'Wadaana Ind.' : 'Aqua Sphere OS'}
+              </span>
+              <span className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase leading-none">
+                Management System
+              </span>
+            </div>
           </div>
+          <button className="md:hidden text-slate-400 hover:text-slate-600" onClick={onClose}>
+            <X size={20} />
+          </button>
         </div>
-      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -58,7 +86,7 @@ export default function Sidebar() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   isActive 
-                    ? 'bg-[#059669]/10 text-[#059669] font-semibold' 
+                    ? `${activeBgColor} ${activeTextColor} font-semibold` 
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'
                 }`
               }
@@ -76,9 +104,10 @@ export default function Sidebar() {
           onClick={logout}
           className="w-full flex items-center justify-center py-2.5 bg-[#e5e7eb] hover:bg-[#d1d5db] text-[#374151] font-semibold rounded-md transition-colors text-sm"
         >
-          AquaSphere (Sign Out)
+          {isWadaana ? 'Wadaana' : 'AquaSphere'} (Sign Out)
         </button>
       </div>
     </aside>
+    </>
   );
 }

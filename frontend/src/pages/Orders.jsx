@@ -38,7 +38,18 @@ export default function Orders() {
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    
+    const handleKeyDown = (e) => {
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const openDeliverModal = (order) => {
     setSelectedOrder(order);
@@ -103,9 +114,9 @@ export default function Orders() {
       <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 mb-6 flex flex-wrap gap-2 items-center">
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors mr-2"
+          className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors mr-2 group"
         >
-          <Plus size={18} /> New Order
+          <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
         </button>
         
         {tabs.map(tab => (

@@ -150,6 +150,19 @@ export default function Expenses() {
                      placeholder="https://..."
                    />
                 </div>
+                {receiptUrl && (
+                  <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden h-32 bg-slate-50 flex items-center justify-center">
+                    <img 
+                      src={receiptUrl} 
+                      alt="Receipt Preview" 
+                      className="max-h-full max-w-full object-contain"
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM5NDBhMWUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxsaW5lIHgxPSIxMiIgeTE9IjgiIHgyPSIxMiIgeTI9IjEyIi8+PGxpbmUgeDE9IjEyIiB5MT0iMTYiIHgyPSIxMi4wMSIgeTI9IjE2Ii8+PC9zdmc+';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end gap-3">

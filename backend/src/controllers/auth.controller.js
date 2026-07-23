@@ -6,13 +6,14 @@ import { generateToken } from '../utils/jwtUtils.js';
 import { prisma } from '../config/db.js';
 
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, tenant = 'aquasphere' } = req.body;
+  const prefix = tenant.toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 
   if (!email || !password) {
     throw new ApiError(400, 'Email and password required');
   }
 
-  const user = await prisma.aquasphereUser.findUnique({
+  const user = await prisma[`${prefix}User`].findUnique({
     where: { email },
   });
 
