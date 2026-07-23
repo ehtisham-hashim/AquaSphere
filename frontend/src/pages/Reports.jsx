@@ -35,24 +35,6 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Set default dates if custom
-    if (period === 'custom' && !startDate && !endDate) {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      setEndDate(today);
-    } else if (period !== 'custom') {
-      fetchReport();
-    }
-  }, [activeTab, period]);
-
-  // fetch when custom dates change
-  useEffect(() => {
-    if (period === 'custom' && startDate && endDate) {
-      fetchReport();
-    }
-  }, [startDate, endDate]);
-
   const fetchReport = async () => {
     setLoading(true);
     setError(null);
@@ -78,6 +60,24 @@ export default function Reports() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Set default dates if custom
+    if (period === 'custom' && !startDate && !endDate) {
+      const today = new Date().toISOString().split('T')[0];
+      setStartDate(today);
+      setEndDate(today);
+    } else if (period !== 'custom') {
+      fetchReport();
+    }
+  }, [activeTab, period]);
+
+  // fetch when custom dates change
+  useEffect(() => {
+    if (period === 'custom' && startDate && endDate) {
+      fetchReport();
+    }
+  }, [startDate, endDate]);
 
   const handleExportCSV = () => {
     if (!reportData || !reportData.table || reportData.table.length === 0) return;

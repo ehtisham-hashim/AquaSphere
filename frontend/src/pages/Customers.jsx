@@ -30,9 +30,12 @@ export default function Customers() {
 
   const addCustomer = async (e) => {
     e.preventDefault();
-    if (formData.mapLink && !formData.mapLink.includes('maps.google.com') && !formData.mapLink.includes('goo.gl')) {
-      alert('Please enter a valid Google Maps URL (must contain maps.google.com or goo.gl)');
-      return;
+    if (formData.mapLink) {
+      const isValid = ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'].some(d => formData.mapLink.includes(d));
+      if (!isValid) {
+        alert('Please enter a valid Google Maps URL (e.g. maps.google.com, google.com/maps, or goo.gl)');
+        return;
+      }
     }
 
     await fetch(`${import.meta.env.VITE_API_URL}/customers`, {
