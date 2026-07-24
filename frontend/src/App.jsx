@@ -33,6 +33,7 @@ import Expenses from './pages/Expenses';
 import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
+import MMOrders from './pages/MMOrders';
 
 function DashboardRoleWrapper() {
   const { user } = useAuth();
@@ -54,6 +55,7 @@ function AppRoutes() {
         <Route path="production" element={<Production />} />
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />
+        <Route path="mm-orders" element={<MMOrders />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
