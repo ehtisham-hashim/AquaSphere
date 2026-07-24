@@ -34,6 +34,7 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import MMOrders from './pages/MMOrders';
+import MMOrders from './pages/MMOrders';
 
 function DashboardRoleWrapper() {
   const { user } = useAuth();
@@ -60,6 +61,7 @@ function AppRoutes() {
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
         <Route path="bottle-ledger" element={<BottleLedger />} />
+        <Route path="mm-orders" element={<MMOrders />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>
