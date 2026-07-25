@@ -6,6 +6,7 @@ async function seedAdminUsers() {
   const ownerPassword = await hashPassword('owner123');
   const pmPassword = await hashPassword('pm123');
   const mmPassword = await hashPassword('mm123');
+  const accountantPassword = await hashPassword('acc123');
 
   // AquaSphere Users
   const aqAdmin = await prisma.aquasphereUser.upsert({
@@ -30,6 +31,12 @@ async function seedAdminUsers() {
     where: { email: 'mm@aquasphere.com' },
     update: { passwordHash: mmPassword, role: 'MARKETING_MANAGER', isActive: true },
     create: { name: 'AquaSphere MM', email: 'mm@aquasphere.com', passwordHash: mmPassword, role: 'MARKETING_MANAGER', isActive: true }
+  });
+
+  const aqAccountant = await prisma.aquasphereUser.upsert({
+    where: { email: 'accountant@aquasphere.com' },
+    update: { passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true },
+    create: { name: 'AquaSphere Accountant', email: 'accountant@aquasphere.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
   });
 
   // Wadaana Users
@@ -57,8 +64,14 @@ async function seedAdminUsers() {
     create: { name: 'Wadaana MM', email: 'mm@wadaana.com', passwordHash: mmPassword, role: 'MARKETING_MANAGER', isActive: true }
   });
 
+  const wdAccountant = await prisma.wadaanaUser.upsert({
+    where: { email: 'accountant@wadaana.com' },
+    update: { passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true },
+    create: { name: 'Wadaana Accountant', email: 'accountant@wadaana.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
+  });
+
   console.log('Seeded Users:');
-  console.log({ aqAdmin, aqOwner, aqPM, aqMM, wdAdmin, wdOwner, wdPM, wdMM });
+  console.log({ aqAdmin, aqOwner, aqPM, aqMM, aqAccountant, wdAdmin, wdOwner, wdPM, wdMM, wdAccountant });
   await prisma.$disconnect();
 }
 
