@@ -1,28 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
-
-// A simple protected route wrapper
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
-  
-  if (loading) return null; // or a loading spinner
-  if (!user) return <Navigate to="/login" replace />;
-  
-  return children;
-}
-
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
-
-function PublicRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
-  return children;
-}
-
 import Vendors from './pages/Vendors';
 import Purchases from './pages/Purchases';
 import RawMaterials from './pages/RawMaterials';
@@ -34,13 +15,24 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import MMOrders from './pages/MMOrders';
-import MMOrders from './pages/MMOrders';
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return children;
+}
 
 function DashboardRoleWrapper() {
   const { user } = useAuth();
-  if (user?.role === 'ADMIN') {
-    return <AdminDashboard />;
-  }
+  if (user?.role === 'ADMIN') return <AdminDashboard />;
   return <Dashboard />;
 }
 
@@ -61,7 +53,6 @@ function AppRoutes() {
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
         <Route path="bottle-ledger" element={<BottleLedger />} />
-        <Route path="mm-orders" element={<MMOrders />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>
