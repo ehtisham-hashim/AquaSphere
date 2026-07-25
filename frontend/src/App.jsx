@@ -15,6 +15,7 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import MMOrders from './pages/MMOrders';
+import AccountantDashboard from './pages/AccountantDashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
