@@ -61,7 +61,7 @@ export default function Customers() {
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          className="btn-accent inline-flex items-center gap-2"
         >
           <Plus size={20} /> Add Customer
         </button>
@@ -72,13 +72,13 @@ export default function Customers() {
         <input 
           type="search" 
           placeholder="Search by phone or name..." 
-          className="w-full border border-slate-200 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] transition-all bg-white"
+          className="input-field pl-10"
           value={search}
           onChange={(e) => { setSearch(e.target.value); fetchCustomers(e.target.value); }}
         />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -190,21 +190,21 @@ export default function Customers() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Full Name *</label>
-                    <input name="name" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.name} onChange={handleChange} required />
+                    <input name="name" className="input-field" value={formData.name} onChange={handleChange} required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number *</label>
-                    <input name="phone" type="tel" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.phone} onChange={handleChange} required />
+                    <input name="phone" type="tel" className="input-field" value={formData.phone} onChange={handleChange} required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Customer Type *</label>
-                    <select name="type" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.type} onChange={handleChange}>
+                    <select name="type" className="select-field" value={formData.type} onChange={handleChange}>
                       <option>Home</option><option>Restaurant</option><option>Shop</option><option>Distributor</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Default Price (Rs)</label>
-                    <input name="defaultPrice" type="number" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.defaultPrice} onChange={handleChange} />
+                    <input name="defaultPrice" type="number" className="input-field" value={formData.defaultPrice} onChange={handleChange} />
                   </div>
                 </div>
               </div>
@@ -215,11 +215,11 @@ export default function Customers() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Full Address</label>
-                    <textarea name="address" rows="2" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.address} onChange={handleChange}></textarea>
+                    <textarea name="address" rows="2" className="text-area" value={formData.address} onChange={handleChange}></textarea>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Google Maps Link</label>
-                    <input name="mapLink" type="url" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.mapLink} onChange={handleChange} />
+                    <input name="mapLink" type="url" className="input-field" value={formData.mapLink} onChange={handleChange} />
                   </div>
                 </div>
               </div>
@@ -230,24 +230,24 @@ export default function Customers() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Deposit Paid</label>
-                    <input name="deposit" type="number" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.deposit} onChange={handleChange} />
+                    <input name="deposit" type="number" className="input-field" value={formData.deposit} onChange={handleChange} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Credit Limit (Rs)</label>
-                    <input name="creditLimit" type="number" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.creditLimit} onChange={handleChange} />
+                    <label className="block text-sm font medium text-slate-700 mb-1">Credit Limit (Rs)</label>
+                    <input name="creditLimit" type="number" className="input-field" value={formData.creditLimit} onChange={handleChange} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Credit Days</label>
-                    <input name="creditDuration" type="number" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.creditDuration} onChange={handleChange} />
+                    <input name="creditDuration" type="number" className="input-field" value={formData.creditDuration} onChange={handleChange} />
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-colors">
+              <div className="pt-6 border-t border-slate-100 flex flex-col gap-3 md:flex-row justify-end">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary w-full md:w-auto">
                   Cancel
                 </button>
-                <button type="submit" className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-6 py-2.5 rounded-lg font-medium shadow-sm transition-colors">
+                <button type="submit" className="btn-accent w-full md:w-auto">
                   Save Customer
                 </button>
               </div>

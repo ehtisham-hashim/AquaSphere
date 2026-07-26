@@ -52,33 +52,44 @@ export default function Sidebar({ isOpen, onClose }) {
           onClick={onClose}
         />
       )}
-      <aside className={`fixed md:sticky top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-64 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:sticky top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-72 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         {/* Brand Header */}
-        <div className="h-16 flex justify-between items-center px-6 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            {isWadaana ? (
-              <Building2 className={`w-6 h-6 ${brandIconColor} fill-current`} />
-            ) : (
-              <Droplets className={`w-6 h-6 ${brandIconColor} fill-current`} />
-            )}
-            <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-[#111827] leading-tight">
-                {isWadaana ? 'Wadaana Ind.' : 'Aqua Sphere OS'}
-              </span>
-              <span className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase leading-none">
-                Management System
-              </span>
+        <div className="h-20 flex flex-col justify-center px-6 border-b border-slate-200 bg-slate-50">
+          <div className="flex items-center gap-3">
+            <div className={`grid place-items-center rounded-2xl p-3 ${isWadaana ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'}`}>
+              {isWadaana ? <Building2 className="w-6 h-6" /> : <Droplets className="w-6 h-6" />}
+            </div>
+            <div>
+              <p className="text-base font-semibold text-slate-900">{isWadaana ? 'Wadaana Ind.' : 'Aqua Sphere OS'}</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Management</p>
             </div>
           </div>
-          <button className="md:hidden text-slate-400 hover:text-slate-600" onClick={onClose}>
+          <button className="md:hidden absolute top-4 right-4 text-slate-500 hover:text-slate-700" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto py-5 px-4 space-y-2">
         {navItems
-          .filter(item => user?.role !== 'ADMIN' || item.path !== '/users')
+          .filter(item => {
+            const role = user?.role;
+            if (role === 'ADMIN' && item.path === '/users') return false;
+            if (role === 'PRODUCTION_MANAGER' && item.path === '/users') return false;
+            
+            if (isWadaana) {
+              // Wadaana Owner: Hide Bottle Ledger and Counter Sales
+              if (role === 'OWNER' && (item.path === '/bottle-ledger' || item.path === '/counter-sales')) return false;
+              // Wadaana Accountant: Remove Production and Counter Sales
+              if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/counter-sales')) return false;
+            } else {
+              // AquaSphere Accountant: Remove Production and Reports
+              if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/reports')) return false;
+              // Production manager: keep inventory-focused screens only
+              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users')) return false;
+            }
+            return true;
+          })
           .map((item) => {
           const Icon = item.icon;
           return (

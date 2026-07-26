@@ -138,7 +138,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                
                <div>
                  <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Remarks</label>
-                 <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={deliveryData.remarks} onChange={handleChange}></textarea>
+                 <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={deliveryData.remarks} onChange={handleChange} placeholder="Share route notes or WhatsApp handoff"></textarea>
                </div>
             </div>
 

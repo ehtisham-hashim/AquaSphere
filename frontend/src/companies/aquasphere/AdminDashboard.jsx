@@ -106,7 +106,7 @@ export default function AdminDashboard() {
           </div>
           <h1 className="text-2xl font-bold mt-1">Admin Operations Control</h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Monitor daily stock, production output, delivery status, and perform daily lock verification.
+            Monitor daily stock, production output, delivery status, and perform daily lock verification without changing financial margins.
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Today's Orders */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
@@ -160,27 +160,41 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Today's Production Yield */}
+        {/* Today's Production Yield (0.5L & 1.5L PET) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <Factory className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Good Yield Today</p>
-            <h3 className="text-2xl font-bold text-slate-900">{kpis.totalGoodYield || 0} units</h3>
-            <p className="text-xs text-rose-500 font-medium mt-0.5">{kpis.totalWaste || 0} units waste</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">PET Production Today</p>
+            <h3 className="text-xl font-bold text-slate-900">
+              0.5L: {kpis.packs05LToday || 0} / 1.5L: {kpis.packs15LToday || 0}
+            </h3>
+            <p className="text-xs text-emerald-600 font-medium mt-0.5">Total: {kpis.totalGoodYield || 0} packs</p>
           </div>
         </div>
 
-        {/* Cash Collections (No Profit/Cost) */}
+        {/* Read-Only Stock Indicator */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+          <div className="p-3 bg-teal-50 text-teal-600 rounded-xl">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Indicator</p>
+            <h3 className="text-xl font-bold text-slate-900">Optimal</h3>
+            <p className="text-xs text-teal-600 font-medium mt-0.5">Read-Only Stock Monitor</p>
+          </div>
+        </div>
+
+        {/* Read-Only Inventory Expense Indicator */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <Banknote className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash Collected</p>
-            <h3 className="text-2xl font-bold text-slate-900 font-mono">Rs. {(kpis.cashCollected || 0).toLocaleString()}</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Orders + Spot Sales</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inventory Expense</p>
+            <h3 className="text-xl font-bold text-slate-900 font-mono">Rs. {(kpis.cashCollected || 0).toLocaleString()}</h3>
+            <p className="text-xs text-indigo-600 font-medium mt-0.5">Read-Only Cash Summary</p>
           </div>
         </div>
 

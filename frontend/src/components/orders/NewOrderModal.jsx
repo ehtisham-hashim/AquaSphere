@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Droplets, Package, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL;
-const INPUT = 'w-full border border-slate-200 rounded-xl p-3 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none';
+const INPUT = 'input-field';
 const today = new Date().toISOString().split('T')[0];
 
 export default function NewOrderModal({ customer, items, onClose, onOrderPlaced }) {
@@ -186,8 +186,8 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Remarks / Driver Notes</label>
-                <input className={INPUT} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="e.g. call before arriving"/>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Remarks / Delivery Notes</label>
+                <input className={INPUT} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="e.g. call before arriving, share with driver"/>
               </div>
 
               <div className="flex gap-3 pt-2 border-t border-slate-100">

@@ -53,16 +53,16 @@ export const createOrder = asyncHandler(async (req, res) => {
       }
     });
 
-    for (const i of items) {
-      await tx[`${prefix}OrderItem`].create({
-        data: {
-          orderId: o.id,
-          itemId: i.itemId,
-          quantity: parseInt(i.quantity),
-          price: parseFloat(i.price)
-        }
-      });
-    }
+    await tx[`${prefix}AuditLog`].create({
+      data: {
+        action: 'ORDER_CREATED',
+        entityType: 'Order',
+        entityId: o.id,
+        performedBy: req.user?.id || 'Unknown',
+        details: JSON.stringify({ customerId, type, items: items.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price })) })
+      }
+    });
+
     return o;
   });
 
@@ -230,6 +230,16 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const updated = await tx[`${prefix}Order`].update({
       where: { id },
       data: { deliveryStatus: 'DELIVERED', paymentStatus: cash >= orderTotal ? 'PAID' : (cash > 0 ? 'PARTIAL' : 'UNPAID') }
+    });
+
+    await tx[`${prefix}AuditLog`].create({
+      data: {
+        action: 'ORDER_DELIVERED',
+        entityType: 'Order',
+        entityId: updated.id,
+        performedBy: req.user?.id || 'Unknown',
+        details: JSON.stringify({ qtyDelivered: qty, cashReceived: cash, returnedGood: retGood, returnedBroken: retBroken })
+      }
     });
 
     return updated;

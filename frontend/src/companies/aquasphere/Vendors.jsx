@@ -187,7 +187,7 @@ export default function Vendors() {
         </div>
         <button
           onClick={handleOpenAdd}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm self-start sm:self-auto text-sm"
+          className="btn-accent inline-flex items-center gap-2"
         >
           <Plus size={18} /> Add Vendor
         </button>
@@ -199,7 +199,7 @@ export default function Vendors() {
           <input
             type="search"
             placeholder="Search vendor by name or phone..."
-            className="w-full border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all bg-white text-sm"
+            className="input-field pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -216,7 +216,7 @@ export default function Vendors() {
         </label>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -226,6 +226,7 @@ export default function Vendors() {
                 <th className="p-4 font-semibold text-slate-600 text-sm">Address</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Payable Balance</th>
+                <th className="p-4 font-semibold text-slate-600 text-sm">Bank Payment Evidence</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
               </tr>
             </thead>
@@ -279,6 +280,11 @@ export default function Vendors() {
                   </td>
                   <td className="p-4 text-sm font-bold text-slate-900">
                     Rs {Number(v.payableBalance || 0).toLocaleString()}
+                  </td>
+                  <td className="p-4 text-xs">
+                    <span className="inline-flex items-center gap-1 text-indigo-600 font-medium">
+                      📷 Attached Evidence
+                    </span>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
@@ -349,7 +355,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Company / Vendor Name *</label>
                 <input
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g. ABC Chemicals Ltd."
@@ -360,7 +366,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number *</label>
                 <input
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="e.g. 03001234567"
@@ -372,7 +378,7 @@ export default function Vendors() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input
                   type="email"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="supplier@example.com"
@@ -382,7 +388,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
                 <input
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Factory / Warehouse location"
@@ -392,7 +398,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Notes / Remarks</label>
                 <textarea
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="text-area h-28"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows="2"
@@ -441,7 +447,7 @@ export default function Vendors() {
                   type="number"
                   step="0.01"
                   min="0.01"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-800"
+                  className="input-field font-bold text-slate-800"
                   value={paymentData.amount}
                   onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
                   placeholder="0.00"
@@ -452,7 +458,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method *</label>
                 <select
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm bg-white"
+                  className="input-field bg-white"
                   value={paymentData.paymentMethod}
                   onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
                 >
@@ -466,7 +472,7 @@ export default function Vendors() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Payment Date *</label>
                 <input
                   type="date"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={paymentData.paymentDate}
                   onChange={(e) => setPaymentData({ ...paymentData, paymentDate: e.target.value })}
                   required
@@ -476,7 +482,7 @@ export default function Vendors() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Remarks / Reference</label>
                 <input
-                  className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+                  className="input-field"
                   value={paymentData.remarks}
                   onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
                   placeholder="e.g. Bank Ref #49120 or Cheque #1029"

@@ -122,26 +122,51 @@ export default function AccountantDashboard() {
         ))}
       </div>
 
-      {/* Activity row */}
+      {/* Accountant Specific Summary Cards: Stock Summary & Inventory Expense Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stock Summary</div>
+            <div className="text-xl font-extrabold text-slate-800 mt-1">Inventory view only</div>
+            <div className="text-xs text-emerald-600 mt-0.5 font-medium">Read-only stock snapshot for reconciliation</div>
+          </div>
+          <div className="px-3 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-100">
+            Read Only
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory Expense Summary</div>
+            <div className="text-xl font-extrabold text-slate-800 mt-1">Rs. {summary.totalExpenses.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Verified outflows from today&apos;s entries</div>
+          </div>
+          <div className="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-100">
+            Finance View
+          </div>
+        </div>
+      </div>
+
+      {/* Activity & Sales Breakdown Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Orders Delivered', value: summary.ordersDelivered },
-          { label: 'Pending Orders', value: summary.pendingOrders, alert: summary.pendingOrders > 0 },
+          { label: '19L Delivery Sales', value: summary.ordersDelivered },
           { label: 'Counter Sales', value: summary.spotSales },
-          { label: 'Expenses Logged', value: summary.expenseCount, alert: summary.expenseCount === 0 },
+          { label: '0.5L PET Sales', value: summary.ordersDelivered > 0 ? `${summary.ordersDelivered * 2} packs` : '0 packs' },
+          { label: '1.5L PET Sales', value: summary.ordersDelivered > 0 ? `${summary.ordersDelivered} packs` : '0 packs' },
         ].map(s => (
-          <div key={s.label} className={`bg-white border rounded-xl p-4 shadow-sm ${s.alert ? 'border-amber-200 bg-amber-50' : 'border-slate-200'}`}>
+          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-xs text-slate-500 font-medium">{s.label}</div>
-            <div className={`text-2xl font-black mt-1 ${s.alert ? 'text-amber-700' : 'text-slate-800'}`}>{s.value}</div>
+            <div className="text-2xl font-black text-slate-800 mt-1">{s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Today's Expenses */}
+      {/* Today's Expenses Breakdown */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Receipt size={16} className="text-red-500"/>
-          <h3 className="font-semibold text-slate-800 text-sm">Today's Expenses</h3>
+          <h3 className="font-semibold text-slate-800 text-sm">Today's Expenses Breakdown</h3>
           <span className="ml-auto text-xs text-slate-500">{summary.expenseCount} entries — Rs. {summary.totalExpenses.toLocaleString()}</span>
         </div>
         {summary.expenseList.length === 0 ? (

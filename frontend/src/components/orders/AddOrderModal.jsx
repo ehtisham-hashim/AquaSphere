@@ -103,7 +103,10 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
             <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><User size={16}/> Customer Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer *</label>
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <label className="block text-sm font-medium text-slate-700">Select Customer *</label>
+                  <span className="text-xs text-slate-500">Add a new customer inline if needed</span>
+                </div>
                 <select autoFocus name="customerId" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.customerId} onChange={handleChange} required>
                   <option value="">Search and select customer...</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone}) - {c.type}</option>)}

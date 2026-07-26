@@ -33,12 +33,14 @@ export const getCustomers = asyncHandler(async (req, res) => {
 
 export const createCustomer = asyncHandler(async (req, res) => {
   const { 
-    name, phone, type, address, mapLink, deposit, 
+    name, phone, type, address, mapLink, deposit, securityDeposit,
     defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl 
   } = req.body;
   const prefix = getPrefix(req);
   
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
+
+  const normalizedDeposit = securityDeposit ?? deposit;
 
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
     throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
@@ -51,7 +53,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
       type, 
       address,
       mapLink,
-      deposit: deposit ? parseInt(deposit) : 0,
+      deposit: normalizedDeposit ? parseInt(normalizedDeposit) : 0,
       defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
       creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
       creditDuration: creditDuration ? parseInt(creditDuration) : 1,
@@ -60,5 +62,45 @@ export const createCustomer = asyncHandler(async (req, res) => {
     }
   });
 
+  await prisma[`${prefix}AuditLog`].create({
+    data: {
+      action: 'CUSTOMER_ADDED',
+      entityType: 'Customer',
+      entityId: customer.id,
+      performedBy: req.user?.id || 'Unknown',
+      details: `New Customer Added: ${customer.name} (${customer.phone}) | Deposit: ${customer.deposit || 0}`
+    }
+  });
+
   res.status(201).json({ success: true, data: customer });
 });
+
+export const deleteCustomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const prefix = getPrefix(req);
+
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only Owner can delete customer records');
+  }
+
+  const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
+  if (!customer) throw new ApiError(404, 'Customer not found');
+
+  await prisma[`${prefix}Customer`].update({
+    where: { id },
+    data: { archivedAt: new Date() }
+  });
+
+  await prisma[`${prefix}AuditLog`].create({
+    data: {
+      action: 'CUSTOMER_DELETED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy: req.user?.id || 'Unknown',
+      details: `Customer ${customer.name} (${customer.phone}) deleted`
+    }
+  });
+
+  res.json({ success: true, message: 'Customer deleted successfully' });
+});
+

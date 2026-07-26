@@ -122,6 +122,31 @@ export default function AccountantDashboard() {
         ))}
       </div>
 
+      {/* Read-only finance snapshot */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stock Summary</div>
+            <div className="text-xl font-extrabold text-slate-800 mt-1">Inventory view only</div>
+            <div className="text-xs text-emerald-600 mt-0.5 font-medium">Read-only stock snapshot for reconciliation</div>
+          </div>
+          <div className="px-3 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-100">
+            Read Only
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory Expense Summary</div>
+            <div className="text-xl font-extrabold text-slate-800 mt-1">Rs. {summary.totalExpenses.toLocaleString()}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Verified outflows from today&apos;s entries</div>
+          </div>
+          <div className="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-100">
+            Finance View
+          </div>
+        </div>
+      </div>
+
       {/* Activity row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[

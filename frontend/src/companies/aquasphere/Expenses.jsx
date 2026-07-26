@@ -5,8 +5,6 @@ const API = import.meta.env.VITE_API_URL;
 
 const CATEGORIES = ['Fuel', 'Salaries', 'Electricity', 'Plant Rent', 'Vehicle Repair', 'Machine Repair', 'Miscellaneous'];
 
-const INPUT = 'w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none';
-
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
@@ -107,7 +105,7 @@ export default function Expenses() {
             <div className="text-lg font-black text-red-600">Rs. {todayTotal.toLocaleString()}</div>
           </div>
           <button onClick={() => { resetForm(); setIsModalOpen(true); }}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm text-sm">
+            className="btn-danger flex items-center gap-2">
             <Plus size={18}/> Log Expense
           </button>
         </div>
@@ -116,11 +114,11 @@ export default function Expenses() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
         <input type="search" placeholder="Search by category or remarks..."
-          className="w-full border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-white text-sm"
+          className="input-field pl-10"
           value={search} onChange={(e) => setSearch(e.target.value)}/>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
@@ -182,25 +180,25 @@ export default function Expenses() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Category *</label>
-                  <select className={INPUT} value={form.category} onChange={e => setForm({...form, category: e.target.value})} required>
+                  <select className="select-field" value={form.category} onChange={e => setForm({...form, category: e.target.value})} required>
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Amount (Rs) *</label>
-                  <input type="number" step="0.01" min="0.01" className={INPUT} value={form.amount}
+                  <input type="number" step="0.01" min="0.01" className="input-field" value={form.amount}
                     onChange={e => setForm({...form, amount: e.target.value})} placeholder="0.00" required/>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Date *</label>
-                <input type="date" className={INPUT} value={form.expenseDate} onChange={e => setForm({...form, expenseDate: e.target.value})} required/>
+                <input type="date" className="input-field" value={form.expenseDate} onChange={e => setForm({...form, expenseDate: e.target.value})} required/>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
-                <input className={INPUT} value={form.remarks} onChange={e => setForm({...form, remarks: e.target.value})} placeholder="Optional details..."/>
+                <input className="input-field" value={form.remarks} onChange={e => setForm({...form, remarks: e.target.value})} placeholder="Optional details..."/>
               </div>
 
               {/* Receipt Upload — MANDATORY */}

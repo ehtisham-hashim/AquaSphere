@@ -108,13 +108,13 @@ export default function Orders() {
   };
 
   return (
-    <div className="p-6 max-w-[95%] mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       
       {/* Top Navigation Tabs Area */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 mb-6 flex flex-wrap gap-2 items-center">
+      <div className="surface-card p-4 mb-6 flex flex-wrap gap-2 items-center">
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-md font-medium flex items-center gap-2 transition-colors mr-2 group"
+          className="btn-secondary mr-2 flex items-center gap-2 group"
         >
           <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
         </button>
@@ -135,7 +135,7 @@ export default function Orders() {
         
         <div className="flex gap-3 w-full md:w-auto">
           <select 
-            className="border border-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+            className="input-field"
             value={clientFilter}
             onChange={e => setClientFilter(e.target.value)}
           >
@@ -147,7 +147,7 @@ export default function Orders() {
             <input 
               type="search" 
               placeholder="Search customer..." 
-              className="w-full border border-slate-200 rounded-lg py-2 pl-9 pr-4 focus:outline-none focus:border-blue-500"
+              className="input-field pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -155,7 +155,7 @@ export default function Orders() {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200">

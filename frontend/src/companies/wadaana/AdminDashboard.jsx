@@ -106,7 +106,7 @@ export default function AdminDashboard() {
           </div>
           <h1 className="text-2xl font-bold mt-1">Admin Operations Control</h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Monitor daily stock, production output, delivery status, and perform daily lock verification.
+            Monitor daily stock, production output, delivery status, and perform daily lock verification without changing financial margins.
           </p>
         </div>
 

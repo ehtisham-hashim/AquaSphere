@@ -163,16 +163,16 @@ export default function Purchases() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Purchases</h2>
-          <p className="text-slate-500 text-sm">Log raw material purchases — stock & vendor ledger update automatically</p>
+          <h2 className="text-3xl font-semibold text-slate-900">Purchases</h2>
+          <p className="text-slate-500 text-sm mt-1">Log raw material purchases with mandatory receipt upload and automatic ledger updates.</p>
         </div>
         <button
           onClick={handleOpenModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+          className="btn-accent inline-flex items-center gap-2"
         >
-          <Plus size={20} /> Record Purchase
+          <Plus size={18} /> Record Purchase
         </button>
       </div>
 
