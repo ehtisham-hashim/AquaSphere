@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { setCompanyCookie } from '../utils/companyCookie';
 
 const AuthContext = createContext();
 
@@ -27,7 +28,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password, tenant = 'aquasphere') => {
     try {
-      localStorage.setItem('tenant', tenant);
+      setCompanyCookie(tenant);
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

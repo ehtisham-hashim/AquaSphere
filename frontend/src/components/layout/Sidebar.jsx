@@ -16,14 +16,12 @@ import {
   Settings,
   Droplets,
   Building2,
-  ClipboardList,
   X
 } from 'lucide-react';
 
 const navItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Truck, label: 'Orders', path: '/orders' },
-  { icon: ClipboardList, label: 'Order Desk', path: '/mm-orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },
   { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
