@@ -27,6 +27,7 @@
 11. [Open Items That Will Block Specific Phases](#11-open-items-that-will-block-specific-phases)
 12. [Definition of Done per Phase](#12-definition-of-done-per-phase)
 13. [Completed Work Log](#13-completed-work-log)
+14. [Role-Specific Refinements & Verification Action Items (From AquaSphere-Docs)](#14-role-specific-refinements--verification-action-items-from-aquasphere-docs)
 
 ---
 
@@ -72,16 +73,16 @@ Three rules decide the *order*, not just the *list*:
 |---|---|---|---|---|
 | **0** | Foundation | *(none — infra)* | — | Auth + JWT sessions, 5 roles enum, permission-matrix middleware (§4), company-context routing (`aquasphere` vs `wadaana`), base navigation shell, transaction-derived inventory engine (no editable stock fields), daily-close lock table (schema only), audit-log table (schema only) |
 | **1** | Owner Setup Tools | **Owner** | Phase 0 | User management, item/catalog seeding, reorder-level config, Owner dashboard skeleton, Wadaana context shell |
-| **2** | Purchasing & Vendors | **Accountant** (primary), Owner (oversight) | Phase 1 | Vendor CRUD, "vendor must exist first" rule, Purchase entry (mandatory bill photo), auto-increment raw material stock + vendor payable, Vendor Payment recording (§6.1) |
-| **3** | Production | **Production Manager** | Phase 2 | Production batch entry, automatic deductions (exact decimal fractions), broken-bottle logging, finished-goods stock increase, PM dashboard |
-| **4** | CRM & Orders | **Marketing Manager** | Phase 1 + Phase 3 | Customer CRUD (no hard delete, §5.7), search-only lookup, "add customer inline," 19L order + PET order as separate types, dual independent status tracks (§5.2), soft-block credit-limit warnings |
-| **5** | Deliveries & Bottle Ledger | **Marketing Manager** (entry) | Phase 4 | Delivery completion forms, partial-delivery support, bottle return validation (soft-block), full 19L Bottle Asset Ledger with all 6 transaction types (§5.3), auto-updates to customer balance, inventory, cash |
-| **6** | Financial Entry (remainder) | **Accountant** | Phase 5 | Expense entry (categorized, photo mandatory), Counter/spot sales, cash collection reports, invoice generation, customer payment recording (§6.2) |
-| **7** | Admin Verification Layer | **Admin** | Phases 3–6 | View-only dashboards, Daily Closing verification + lock (§5.5), WhatsApp/portal cross-check step, audit trail visibility |
-| **8** | Owner Deep Analytics | **Owner** | Phase 7 | Full profit/margin reports, all 8 report types (§7), daily-close override, bottle ledger reconciliation reports, credit-breach alert automation, inactivity alerts |
-| **9** | Wadaana Mirror Rollout | **All 5 sides** (cloned) | Phases 1–8 stable | Stamp out identical modules into `Wadaana*` schema/DB, separate auth/users per division, separate branding (purple header) |
-| **10** | Cross-Cutting Polish | *(all sides)* | Phase 9 | Google Maps integration, mobile-first pass, order-entry speed tuning (<20s target), photo upload hardening, dark mode polish |
-| **11** | Deferred / Future Scope | — | Everything above | Wadaana specialized B2B blowing logic (Pure/Mix preform, Factory→Warehouse, per-company orders for Deosani/Pivrifine), **driver route assignment** (explicitly listed as future-phase in master doc), public website management module, possible 4th "Super Admin" tier (pending confirmation) |
+| **2** | Purchasing & Vendors | **Accountant** (primary), Owner (oversight) | Phase 1 | Vendor CRUD ("vendor must exist first"), Purchase entry (mandatory receipt photo; remove separate Purchase Bills & Pending Purchase tabs), bank transfer evidence picture upload, auto-increment raw material stock + vendor payable, Vendor Payment recording (§6.1), remove Production/Reports from Accountant |
+| **3** | Production | **Production Manager** | Phase 2 | Production batch entry (0.5L & 1.5L PETs), auto-deduction of chemicals (Sodium, Magnesium, Calcium separately; NO Mineral Set; NO Preform in AquaSphere), broken bottle type selector (0.5L vs 1.5L) with inline form fix, merge Production History & Product Reports, remove PM manual inventory edits (Owner-only theft prevention), remove PM sales/financial cards, PM low-stock alerts |
+| **4** | CRM & Orders | **Marketing Manager**, Admin (view-only) | Phase 1 + Phase 3 | Rename "New Order" to "Order", merge Pending & In-Progress, clickable customer search, inline "Add Customer" modal in Order form, clean customer form (remove `exterior_photo_url`; add bottle checkboxes & security deposit), remove separate Pending Orders & Payment sidebar tabs, direct `OK Payment` action button, soft-block credit warnings with **Snooze Alarm** mechanics |
+| **5** | Deliveries & Bottle Ledger | **Marketing Manager** | Phase 4 | Delivery completion with direct `OK Delivery` action button, merge Completed Orders & Delivery Tracking into main Order module (remove sidebar Deliveries tab), WhatsApp driver order dispatch integration, bottle return validation (soft-block), 19L Bottle Asset Ledger (preforms removed) |
+| **6** | Financial Entry | **Accountant** | Phase 5 | Expense entry (categorized, mandatory receipt photo), expense history revenue stream breakdown (19L delivery vs counter sales vs PETs), Counter/spot sales (AquaSphere only), cash collection reports, professional invoice generation, customer payment recording |
+| **7** | Admin Verification Layer | **Admin** | Phases 3–6 | View-only dashboards (NO profit/cost numbers), Admin Production summary (0.5L/1.5L PET counts only), Admin Inventory (no preforms in AquaSphere), Admin Cash Summary (view-only), Daily Closing verification + lock (MM closing has Pending Sales & Total Credits, NO Expense Billed) |
+| **8** | Owner Deep Analytics & Alerts | **Owner** | Phase 7 | Full profit/margin reports, all 8 report types, Owner Daily-Close override, Customer Deletion & New Customer system alerts, persistent **Snooze Alarm** notifications (must be manually confirmed to clear), Owner manual inventory adjustment (logged) |
+| **9** | Wadaana B2B Rollout & Custom Logic | **All 5 sides** (Wadaana context) | Phases 1–8 stable | Wadaana B2B empty bottle order desk (0.5L/1.5L, Pure vs Mix Preform, bottle quantity), credit limits in **DAYS** (7-day max) with snooze alerts, Wadaana PM (Pure & Mix preforms, individual bottle count sales, Warehouse vs Factory stock tracking, "Add Company" for Dasani/Pivrifine manufacturing), remove Counter Sales & Bottle Ledger from Wadaana Accountant/Owner |
+| **10** | Cross-Cutting Polish | *(all sides)* | Phase 9 | Mobile-first pass, order-entry speed tuning (<20s target), photo upload hardening (receipts & bank evidence), dark mode polish |
+| **11** | Deferred / Future Scope | — | Everything above | Public website management module, multi-factory B2B route dispatching, possible 4th "Super Admin" tier (pending confirmation) |
 
 ---
 
@@ -545,14 +546,15 @@ Resolve these **before** the phase listed, or the feature will need rework:
 
 - **Phase 0:** A user can log in, land on the correct role-specific shell (§4 permission matrix enforced, not just role name), and switch company context without losing session. Inventory tables have no directly-editable quantity field anywhere in the schema (§5.1). Audit-log table exists and captures at least login/logout events. JWT stored in httpOnly cookies, never localStorage.
 - **Phase 1:** Owner can create users, assign roles, seed items with reorder levels, and see a dashboard shell with role-based filtering (profit hidden from non-Owner). Wadaana context shell exists with identical structure but separate data.
-- **Phase 2:** A purchase cannot be submitted without selecting an existing vendor (§6.1); submitting one visibly increases raw material stock and vendor payable in the same transaction, and both are logged to the audit trail. Vendor payment recording reduces payable correctly.
-- **Phase 3:** Logging a production batch deducts bottles/caps/labels/minerals using exact decimal fractions (no rounding) and increases finished-goods stock automatically (§5.1). Broken bottles are logged separately. PM can view inventory but cannot see financials or customer records.
-- **Phase 4–5:** An order can be placed, found via search, delivered (fully or partially), and every downstream number (customer balance §6.2, bottle balance §5.3, inventory, cash) updates without any manual step. Delivery status and payment status are independently correct even when they diverge (§5.2). Bottle return validation soft-blocks with warning, never hard-blocks. Credit limit = 0 is treated as unlimited.
-- **Phase 6:** An expense cannot be submitted without a receipt photo and a category (§6.3); expenses appear in profit calculations but never touch inventory counts. Counter sales can be logged. Cash reports reconcile with delivery records.
-- **Phase 7:** Admin can view the day's numbers, cannot see profit, and clicking "Close Day" locks every entry dated that day for every role except Owner (§5.5); the lock and any later Owner override are both visible in the audit trail (§5.6). Admin is strictly view-only — cannot place orders or edit transactions.
-- **Phase 8:** Profit figure matches the §6.4 formula exactly when checked against raw purchase/production/order/expense data for the same period. All 8 report types (§7) return real, correct numbers, not placeholders. Owner can override closed days with logged reason.
-- **Phase 9:** The exact same feature set exists under the Wadaana context with fully separate data, users, and branding — zero cross-contamination with Aquasphere. Purple header branding for Wadaana.
-- **Phase 10:** Order entry consistently achieves <20 second target. Mobile responsive on all screens. Dark mode toggle works across all modules. Photo upload hardened with validation.
+- **Phase 2:** A purchase cannot be submitted without selecting an existing vendor; submitting one increases raw material stock + vendor payable in the same transaction and logs to audit trail. Receipt photo upload is mandatory. Separate Purchase Bills and Pending Purchase tabs are removed. Bank transfer evidence picture upload column exists in Vendors view. Production & Reports tabs are removed from Accountant portal.
+- **Phase 3:** Production batch entry deducts chemicals (Sodium, Magnesium, Calcium individually; NO Mineral Set; NO Preform in AquaSphere) and adds finished PET goods. Broken bottle type selector (0.5L vs 1.5L) operates inline without tab jumping. Production History and Product Reports are merged. PM manual inventory editing is removed (Owner-only). Sales analytics & financial overview cards are removed from PM dashboard. PM low stock alerts trigger in real-time.
+- **Phase 4:** Rename "New Order" to "Order". Clickable customer search opens profile directly. Inline "Add Customer" modal in Order form creates customer instantly. Customer form has no `exterior_photo_url` field, but includes bottle checkboxes & security deposit amount. Merged Pending & In-Progress order view; separate Pending Orders & Payment sidebar tabs removed. Direct `OK Payment` action button confirms payment. Credit limit warnings trigger **Snooze Alarm** notifications. Admin Orders view is strictly read-only.
+- **Phase 5:** Delivery completion form with direct `OK Delivery` button. Completed Orders & Delivery Tracking merged into main Order module (separate sidebar Deliveries tab removed). WhatsApp driver order dispatch integration shares bottle counts, address, and notes with driver. Bottle return validation soft-blocks with warning. 19L Bottle Asset Ledger active without preform items.
+- **Phase 6:** Expense entry requires mandatory receipt photo + category; expense history includes revenue stream breakdown columns (19L delivery vs counter sales vs PETs). Counter/spot sales active for AquaSphere only (removed from Wadaana Accountant). Admin Cash Summary is strictly read-only. Invoices generate in professional format.
+- **Phase 7:** Admin dashboards active across stock, production (0.5L/1.5L PET counts only), orders, and cash summary (NO profit/cost numbers). Admin Daily Closing locks every entry dated that day for all roles except Owner; MM Daily Closing includes Pending Sales & Total Credits (NO Expense Billed).
+- **Phase 8:** Profit calculation matches formula across all raw data. All 8 report types generate cleanly. Customer Deletion & New Customer system alerts trigger with persistent **Snooze Alarm** notifications (must be manually confirmed to clear). Owner manual inventory adjustment is logged.
+- **Phase 9:** Wadaana B2B empty bottle order desk active (0.5L/1.5L, Pure vs Mix Preform, bottle count quantity). Wadaana credit limits configured in **DAYS** (7-day max) with snooze alerts. Wadaana PM tracks Pure & Mix preforms, sells empty bottles by individual bottle count, tracks Warehouse vs Factory inventory, and includes "Add Company" contract manufacturing feature (Dasani/Pivrifine). Counter Sales & Bottle Ledger removed from Wadaana Accountant/Owner.
+- **Phase 10:** Order entry consistently achieves <20 second target. Mobile responsive on all screens. Dark mode toggle works across all modules. Photo upload hardened (receipts & bank transfer evidence).
 
 ---
 
@@ -593,6 +595,141 @@ Resolve these **before** the phase listed, or the feature will need rework:
 - **Phase 3 (Production):** Build production batch entry with automatic raw material deductions (exact decimal fractions), broken-bottle logging.
 - ⚠️ Before continuing: confirm whether product-stock numbers currently shown on dashboard are real (Phase 3 doesn't exist yet) or placeholder — reconcile against §5.1 (no manual/fake inventory numbers) before Expenses/Vendors work begins.
 - ⚠️ Resolve open item #3 (Super Admin vs Owner) before finalizing role enum in auth schema.
+
+---
+
+## 14. Role-Specific Refinements & Verification Action Items (From AquaSphere-Docs)
+
+> **Source Material:** `Accountant.docx`, `Admin.docx`, `Marketing-manager(Verified).docx`, `Production Manager (Verified).docx`, `owner.docx`  
+> **Date Added:** 2026-07-26
+
+This section details all newly extracted role-specific feature requirements, workflow simplifications, UI consolidations, and verification items directly from the verified role documents in `context/AquaSphere-Docs`.
+
+---
+
+### 👑 14.1 Owner Role
+
+#### What We Need to Do (Action Items):
+* **System Activity & Audit Alerts:**
+  * **Customer Deletion Alert:** Trigger a high-priority system alert whenever Owner (or any user) hard-deletes a customer record.
+  * **New Customer Alert:** Trigger a notification alert whenever a new customer is added to the system.
+  * **Snooze Alarm Feature:** Implement persistent **Snooze** alarm mechanics for alerts — notifications MUST NOT self-dismiss or disappear automatically until the user manually clicks and confirms/acknowledges them.
+* **19L Bottle Ledger Fix:**
+  * Remove preform options/references from the AquaSphere 19L Bottle Ledger view (preforms belong exclusively to Wadaana Industries bottle manufacturing).
+* **Wadaana Owner View Simplifications:**
+  * Remove `Bottle Ledger` and `Counter Sales` modules completely from the Wadaana Owner portal (Wadaana sells B2B empty bottles, no 19L bottle fleet or walk-in counter sales).
+
+#### What We Need to Verify:
+* Re-verify all 8 report generation formulas to ensure real data populates without error across Daily/Weekly/Monthly/Yearly views.
+
+---
+
+### 💰 14.2 Accountant Role
+
+#### What We Need to Do (Action Items):
+* **AquaSphere Accountant Portal:**
+  * **Dashboard Additions:** Add explicit **Stock** and **Inventory Expense** summary cards/indicators.
+  * **Expense Revenue Stream Breakdown:** Track and add breakdown columns in expense history showing expenses origin:
+    * 19L Delivery (note: 19L bottle expenses paid by Marketing Manager)
+    * Counter Sales
+    * 0.5L PET Sales
+    * 1.5L PET Sales
+  * **Purchases UI Cleanup:**
+    * Remove duplicate "Purchase Bills" tab/option (bill/receipt photo is attached directly during Purchase entry).
+    * Remove "Pending Purchase" tab (only active purchase entry is needed).
+  * **Vendor Payments Evidence:** Add a **Bank Payment Receipt / Evidence Picture** column in Vendors view when uploading transfer receipts.
+  * **Section Removals:**
+    * REMOVE `Production` section entirely from Accountant side.
+    * REMOVE `Reports` section entirely from Accountant side (reports belong to Owner).
+  * **Daily Closing:** Simplify Accountant closing to a single final verification step.
+* **Wadaana Accountant Portal:**
+  * REMOVE `Production` and `Counter Sales` sections entirely from Wadaana Accountant side.
+  * Simplify Daily Closing to 2 required verification checkboxes.
+
+#### What We Need to Verify:
+* Verify exact purchase workflow for Wadaana empty bottle preform purchases.
+
+---
+
+### 🛡️ 14.3 Admin Role
+
+#### What We Need to Do (Action Items):
+* **AquaSphere Admin Portal:**
+  * **Dashboard:** Add Stock and Inventory Expense indicators (read-only).
+  * **Orders View:** Mirror Marketing Manager's Orders view as a **strict View-Only** interface (Admin cannot create or edit orders).
+  * **Production View:** Simplify Production module to a read-only daily summary showing ONLY total `0.5L PETs` and `1.5L PETs` produced today. Remove production entry forms.
+  * **Inventory View:** Remove `Pure Preform` and `Mix Preform` from AquaSphere Admin inventory view.
+  * **Cash Summary:** Provide read-only mirror of Accountant's Cash Summary (strictly view-only, no editing privileges).
+* **Wadaana Admin Portal:**
+  * **Orders:** View-only copy of Wadaana orders.
+  * **Production:** View-only count of produced bottles and location breakdown (`Warehouse` vs `Factory`). Remove production entry form.
+  * **Inventory:** Track only `Pure Preform` and `Mix Preform` (0.5L & 1.5L) across company brands (`AquaSphere`, `Pivrifine`, `Dasani`).
+  * **Daily Closing:** Retain only 3 essential closing verification steps.
+
+---
+
+### 📞 14.4 Marketing Manager (Order Desk) Role
+
+#### What We Need to Do (Action Items):
+* **AquaSphere Marketing Manager Portal:**
+  * **Order Workflow Consolidation:**
+    * Rename "New Order" module to **"Order"**.
+    * Merge "Pending Orders" and "In Progress" into a single merged view.
+    * Merge "Completed Orders" and "Delivery Tracking" into a single **"Deliveries"** view.
+    * **Sidebar Simplification:** REMOVE separate "Pending Orders" and "Deliveries" tabs from the left sidebar — access directly from main Order module.
+    * **Remove Payment Tab:** REMOVE separate "Payment" sidebar tab — payment status is updated directly within Order/Customer views.
+    * **Direct Action Buttons:** Add direct inline action buttons in Order list:
+      * `OK Delivery` — marks delivery completed.
+      * `OK Payment` — approves/confirms payment separately (handles credit/outstanding balance).
+  * **Customer & Order Placement Enhancements:**
+    * **Inline Customer Creation:** Add "Add New Customer" button directly inside the Order placement form for instant customer creation if search turns up empty.
+    * **Customer Form Cleanup:** Remove `exterior_photo_url` field from Customer registration form.
+    * **Pricing & Security Deposit:** Add bottle selection checkboxes (0.5L, 1.5L, 19L) and Security Deposit amount to Customer Pricing setup form.
+    * **Clickable Customer Search:** Ensure customer search results are clickable, navigating directly to the selected customer's profile.
+    * **WhatsApp Integration:** Add direct WhatsApp share button to send order details (bottle counts, customer address, notes) to delivery drivers.
+  * **Daily Closing Adjustments:**
+    * REMOVE "Expense Billed" option (MM does not handle expenses).
+    * ADD missing "Pending Sales" and "Total Credits" indicators to MM Daily Closing view.
+* **Wadaana Marketing Manager Portal:**
+  * **B2B Empty Bottle Orders:** Orders track **Empty Bottles (0.5L and 1.5L)** instead of filled water. Form requires specifying:
+    * Bottle size (0.5L / 1.5L)
+    * Preform type (**Pure Preform** vs **Mix Preform**)
+    * Quantity of empty bottles
+    * PM can view pre-orders in advance.
+  * **Customer List Fix:** Resolve bug preventing customer list from populating in Wadaana context.
+  * **Credit Limit in DAYS:** Change customer credit limit configuration from months to **DAYS** (e.g. 7-day credit limit).
+  * **Snooze Alarm Credit Alerts:** Trigger credit limit breach alerts for MM with mandatory Snooze functionality.
+
+---
+
+### 🏭 14.5 Production Manager (PM) Role
+
+#### What We Need to Do (Action Items):
+* **AquaSphere Production Manager Portal:**
+  * **Dashboard Cleanliness:** REMOVE `Sales Analytics` and `Financial Overview` cards from PM dashboard (PM deals strictly with production ops).
+  * **Production Batch Entry:**
+    * Re-align conversion formulas for PET pack production and raw material deductions.
+    * Remove detailed raw material usage specs from daily production entry form — move to Raw Material History.
+    * Add explicit **Broken Bottle Type Selector** (`0.5L` vs `1.5L`).
+    * Consolidate duplicate tabs: Merge `Production History` and `Product Reports`.
+  * **Raw Material Inventory Cleanup:**
+    * REMOVE `Mineral Set` item (minerals managed as separate raw chemicals: Sodium, Magnesium, Calcium).
+    * REMOVE `Preform` item from AquaSphere (Preforms are used exclusively in Wadaana).
+    * **Enforce Theft-Prevention Rule:** REMOVE manual inventory edit options from PM — **ONLY OWNER can edit/adjust inventory**.
+    * REMOVE `Inventory View` tab from PM portal to avoid duplication and security risks.
+  * **Broken Bottles Navigation Fix:** Fix tab-jumping bug so form opens inline/concurrently without redirecting away.
+  * **Daily Closing:** Remove PM closing form — PM simply verifies daily metrics as accurate and clicks "Okay/Confirm", while Admin executes the actual lock.
+* **Wadaana Production Manager Portal:**
+  * **UI Navigation Fix:** Resolve tab-jumping bug where clicking options redirects away from current view.
+  * **Dashboard Cleanup:** Remove sales and financial cards.
+  * **Production & Company Specs:**
+    * Correct brand spelling: **DASANI** (not Deosani).
+    * Add **"Add Company"** feature for contract bottle manufacturing (e.g., Dasani, Pivrifine).
+    * Track bottle inventory location: **Warehouse** vs **Factory**.
+  * **Raw Materials:** Restrict raw materials strictly to **Pure Preform** and **Mix Preform** (categorized by 0.5L vs 1.5L).
+  * **Finished Goods:** Track and sell empty bottles by **individual bottle count (number of bottles)**, NOT PET packs. Remove inventory adjustment controls.
+  * **Broken Bottles:** Set broken bottle tracking to zero/not applicable for Wadaana bottle blowing.
+  * **Alert System:** Implement real-time **Low Stock Alerts** on PM portal when raw materials (Preforms) or finished bottle inventory drop below threshold levels.
 
 ---
 
