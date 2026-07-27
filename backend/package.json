@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "db:generate-schema": "node scripts/generate-schema.js",
     "db:generate": "pnpm db:generate-schema && prisma generate",
     "db:format": "pnpm db:generate-schema && prisma format",
@@ -18,13 +18,26 @@
   "license": "ISC",
   "packageManager": "pnpm@10.33.2",
   "devDependencies": {
+    "nodemon": "^3.1.14",
     "prisma": "^7.8.0"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.10.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "ws": "^8.21.1"
-  }
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "pg": "^8.22.0",
+    "streamifier": "^0.1.1",
+    "zod": "^4.4.3"
+  },
+  "type": "module"
 }

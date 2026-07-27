@@ -8,13 +8,13 @@ AQUA Sphere OS is a custom business management system for AQUA Sphere, a drinkin
    - **19L Reusable Water Bottles** — delivered to homes, offices, restaurants, shops, and distributors. Bottles are refilled at the moment of delivery, so there is no finished-goods stock for this line — instead, the company must track the reusable bottles themselves as they move between the factory and customers.
    - **Packaged Water (PET Bottles)** — 0.5L and 1.5L bottles, produced in advance and stored as finished goods until sold.
 
-2. **Badana Industries (Blowing Machine)** — production of preform-based bottles for client companies (Aqua Sphere, Deosani, Pivrifine), tracked completely separately from the water business.
+2. **Wadaana Industries (Blowing Machine)** — production of preform-based bottles for client companies (Aqua Sphere, Deosani, Pivrifine), tracked completely separately from the water business.
 
 ```mermaid
 graph TD
     AQUA["AQUA Sphere OS"] -->|Login| SELECT{"Select Workspace"}
     SELECT -->|Aquasphere| AQ["Aquasphere<br/>(Water Business)"]
-    SELECT -->|Badana| BA["Badana Industries<br/>(Blowing Machine)"]
+    SELECT -->|Wadaana| BA["Wadaana Industries<br/>(Blowing Machine)"]
     AQ --> D1["19L Reusable Bottles"]
     AQ --> D2["PET Packaged Water<br/>0.5L & 1.5L"]
     BA --> D3["Preform-based Bottles<br/>for Client Companies"]
@@ -38,7 +38,7 @@ The system is being built as a simple, honest reflection of how this business ac
 ## 3. What to Build
 
 - A cloud-hosted, mobile-responsive web application usable from a phone or an office PC.
-- **Two-business workspace** — after login, users select Aquasphere or Badana. All data is fully isolated between the two.
+- **Two-business workspace** — after login, users select Aquasphere or Wadaana. All data is fully isolated between the two.
 - Customer profile management (create, search, view, edit, delete — delete is Owner-only).
 - Order management for two separate order types within Aquasphere: 19L orders and PET orders — never mixed within one order.
 - **Dual independent status tracks** per order: delivery status (pending → partial → delivered) and payment status (unpaid → partial → paid) — each computed from underlying records, never stored as a single flag.
@@ -47,7 +47,7 @@ The system is being built as a simple, honest reflection of how this business ac
 - Raw material inventory tracking with automatic deductions tied to production and delivery.
 - Automatic water and mineral-set consumption calculations (no manual math by any operator) — using **exact decimal fractions, never rounded**.
 - PET production batch entry (operator enters only pack quantities; everything else is derived).
-- **Badana Industries module** — preform inventory (Pure/Mix, Factory/Warehouse), production batch entry with auto-deduction, per-company order management.
+- **Wadaana Industries module** — preform inventory (Pure/Mix, Factory/Warehouse), production batch entry with auto-deduction, per-company order management.
 - Purchasing and vendor management, including partial vendor payments. **Vendor must exist before purchase** — no inline creation.
 - Operating expense tracking (fuel, salaries, electricity, rent, repairs, etc.) — **every expense entry MUST have a receipt photo attached**. Text-only entries are disallowed.
 - **Spot sales / counter sales** — walk-in customers with non-standard containers.
@@ -78,7 +78,7 @@ The system is being built as a simple, honest reflection of how this business ac
 |------|-------------|
 | **Owner / Super Admin** | Oversees both divisions via dashboard and reports, mainly from a phone. Full system control. |
 | **Admin** | View-only supervisor. Checks stock, production, orders. Closes the day. Cannot see profit or place orders. |
-| **Production Manager** | Enters production counts (PET packs, Badana batches). Sees inventory. Cannot see financials or customer records. |
+| **Production Manager** | Enters production counts (PET packs, Wadaana batches). Sees inventory. Cannot see financials or customer records. |
 | **Accountant** | Handles vendor payments, expenses (with receipt photos), spot sales, cash reports. Generates invoices. Cannot adjust inventory directly. |
 | **Marketing Manager** | Takes phone orders, manages customers, checks delivery status. Cannot delete customers or see profit margins. |
 
@@ -115,14 +115,14 @@ Owner / Super Admin
 
 ## 7. Core Features
 
-1. **Two-Business Workspace** — after login, select Aquasphere or Badana. Persistent header shows active workspace. All data fully isolated.
+1. **Two-Business Workspace** — after login, select Aquasphere or Wadaana. Persistent header shows active workspace. All data fully isolated.
 2. **Customer Management** — permanent customer profiles (ID, name, phone as unique lookup key, address, map location, type, deposit, default price, credit limit, remarks, and an optional photo of the house for the delivery driver). Create, search (by ID/name/phone), edit, and delete (Owner-only).
 3. **Order Management** — fast phone-order entry for 19L and PET orders separately, with two independent status tracks per order.
 4. **Delivery Completion** — recording quantity delivered, bottles returned (good/broken), cash received, and payment method; this single action automatically updates bottle balances, customer balances, inventory, cash/profit figures, and the dashboard.
 5. **Bottle Asset Ledger** — an append-only log of every bottle movement (delivery, return, breakage, loss, new purchase), from which all bottle balances are always calculated, never stored as an editable number.
 6. **Raw Material & Mineral Set Tracking** — automatic, exact-fraction deduction of raw materials and mineral sets at the correct time (production time for PET, delivery time for 19L).
 7. **Production Batches** — operator enters only the number of 0.5L and 1.5L packs produced; the system derives all raw material deductions and finished-goods increases.
-8. **Badana Industries** — preform inventory (Pure/Mix), production batch entry with auto-deduction, per-company order management (Aqua Sphere, Deosani, Pivrifine), Factory/Warehouse location tracking.
+8. **Wadaana Industries** — preform inventory (Pure/Mix), production batch entry with auto-deduction, per-company order management (Aqua Sphere, Deosani, Pivrifine), Factory/Warehouse location tracking.
 9. **Purchasing & Vendor Management** — recording purchases (which increase stock and vendor payables) and vendor payments (which reduce payables) as separate transaction types. **Vendor must exist before purchase.**
 10. **Operating Expenses** — fuel, salaries, electricity, rent, repairs, and miscellaneous expenses, which affect profit but never inventory. **Every expense entry MUST have a receipt photo.**
 11. **Spot Sales / Counter Sales** — direct walk-in sales recorded by litres, caps, and cash/credit.
@@ -173,7 +173,7 @@ Owner / Super Admin
 - Operator enters only: number of 0.5L packs produced and number of 1.5L packs produced.
 - The system automatically derives and applies: empty bottle deduction, cap deduction, label deduction (6.72g per 0.5L pack, 7.86g per 1.5L pack), shrink-wrap deduction (pending confirmation), mineral set deduction (exact fraction), and finished-goods increase.
 
-### Badana Industries (Blowing Machine)
+### Wadaana Industries (Blowing Machine)
 - **Client companies**: Aqua Sphere (Pure only), Deosani (Pure + Mix), Pivrifine (Pure + Mix). Not hardcoded — stored in a Companies table.
 - **Preform types**: Pure and Mix — two entirely separate running totals, never merged.
 - **Inventory locations**: Factory (raw preform) and Warehouse (finished bottles). Both can store preform.
@@ -230,7 +230,7 @@ Owner / Super Admin
 - **Auditability**: No back-door edits to balances or inventory — only transactions and explicit, reasoned adjustments.
 - **Decimal precision**: Mineral consumption and all derived fractions must use exact decimal math — no rounding at transaction time to prevent cumulative drift.
 - **Security**: Role-based access control, with admin-level password reset requiring accountant permission.
-- **Division isolation**: Aquasphere and Badana data must never mix — same user, different workspace, zero shared records.
+- **Division isolation**: Aquasphere and Wadaana data must never mix — same user, different workspace, zero shared records.
 
 ## 10. Future Scope
 
@@ -242,10 +242,10 @@ The following are intentionally deferred and should be revisited later:
 - Driver/route assignment and delivery dispatch planning.
 - Individual bottle serialization (barcode/QR per bottle) for more precise loss auditing, if the business decides it's worth the added overhead later.
 - Company website (aquasphere.org) optimization and a public-facing site with customer info, reviews, "work with us," and "find us" sections.
-- Advanced Badana features: adding new client companies beyond the initial three, complex preform pricing models.
+- Advanced Wadaana features: adding new client companies beyond the initial three, complex preform pricing models.
 
 ### Suggested Build Order
 
 - **Phase 1**: Foundation (DB, auth, 5-role system, company context), Customers, item master, core inventory ledger, 19L order desk + delivery + bottle ledger, PET order desk + delivery, basic dashboard.
 - **Phase 2**: Purchasing, vendors, production batches with automatic raw-material/mineral deduction, operating expenses with receipt photos, spot sales, expanded dashboard (stock levels, low-stock alerts, profit), daily closing.
-- **Phase 3**: Full reports module, Badana Industries module (preform, production, per-company orders), price history (if needed), and refinements to user roles/permissions.
+- **Phase 3**: Full reports module, Wadaana Industries module (preform, production, per-company orders), price history (if needed), and refinements to user roles/permissions.

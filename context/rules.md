@@ -8,7 +8,7 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 ## 1. Coding Standards
 
-- **TypeScript everywhere, strict mode on.** Both `frontend/` and `backend/` use TypeScript. No `any` unless there is genuinely no other option — and if `any` is used, leave a comment saying why.
+- **JavaScript (ES6+) everywhere.** Both `frontend/` and `backend/` use JavaScript. Maintain clean code structure and thorough JSDoc documentation where helpful.
 - **One responsibility per file.** Routes define HTTP verb + path. Controllers handle req/res. Services own business logic + DB calls. React components only handle UI. Don't mix database queries into React or business rules into controllers.
 - **Functions should be short and named for what they do**, not how they do it (`calculateMineralFraction()` not `doMath()`).
 - **No magic numbers.** `23` (litres per 19L bottle), `15140` (litres per mineral set), `27` (0.5L Mix preform grams), `15` (0.5L Pure / 1.5L Mix preform grams), `13` (1.5L Pure preform grams), `6.72` (0.5L label grams per pack), `7.86` (1.5L label grams per pack) must be named constants in `backend/src/constants.ts`, not typed inline — these numbers are business rules, not decoration.
@@ -73,19 +73,19 @@ If a rule here ever seems to conflict with a request, **this file wins**, unless
 
 These rules are non-negotiable and specific to the dual-business architecture:
 
-- **Never query across divisions.** A request with `company=aquasphere` must NEVER touch the `badana` schema, and vice versa. The company-context middleware enforces this at the route level.
-- **Never share customer data** between Aquasphere and Badana. A customer in Aquasphere has no relationship to a company in Badana.
-- **Never share inventory** between divisions. Aquasphere's mineral stock and Badana's preform stock are entirely separate ledgers.
-- **Pure and Mix preform are NEVER merged.** They are two entirely separate running totals in Badana — every query, report, and dashboard widget must treat them as distinct quantities.
+- **Never query across divisions.** A request with `company=aquasphere` must NEVER touch the `wadaana` schema, and vice versa. The company-context middleware enforces this at the route level.
+- **Never share customer data** between Aquasphere and Wadaana. A customer in Aquasphere has no relationship to a company in Wadaana.
+- **Never share inventory** between divisions. Aquasphere's mineral stock and Wadaana's preform stock are entirely separate ledgers.
+- **Pure and Mix preform are NEVER merged.** They are two entirely separate running totals in Wadaana — every query, report, and dashboard widget must treat them as distinct quantities.
 - **The 19L bottle asset ledger is separate from regular inventory.** New bottle purchases go into the bottle ledger, not `InventoryTransaction`.
 
 ## 8. Libraries to Use
 
 Stick to the confirmed stack — don't substitute "similar" packages mid-project:
 
-**Frontend:** React 19, Vite, TypeScript, React Router v7, Tailwind CSS v4, Lucide React, React Hook Form, Zod, TanStack Query v5, Axios, TanStack Table, Recharts, date-fns.
+**Frontend:** React 19, Vite, JavaScript, React Router v7, Tailwind CSS v4, Lucide React, React Hook Form, Zod, TanStack Query v5, Axios, TanStack Table, Recharts, date-fns.
 
-**Backend:** Express, TypeScript, Prisma ORM, jsonwebtoken, bcrypt, Multer, Zod, node-cron, cors, helmet, cookie-parser.
+**Backend:** Express, JavaScript, Prisma ORM, jsonwebtoken, bcrypt, Multer, Zod, node-cron, cors, helmet, cookie-parser.
 
 **Other:** PostgreSQL (NeonDB), Prisma Migrate, PDFKit, ExcelJS.
 
@@ -113,8 +113,8 @@ These are hard limits on what an AI assistant working on this codebase should an
 - **Never turn a soft-block into a hard block, or vice versa**, without being told to — this is a deliberate business decision (Section 8 of Master Requirements), not a technical default.
 - **Never remove the two-independent-status model** (delivery status vs payment status) to "simplify" order handling — this is a deliberate design decision, not an accident.
 - **Always keep 19L and PET orders as separate types** — don't refactor them into one generic "order" shape that merges their fields, even if it looks like it would reduce duplication.
-- **Never merge Pure and Mix preform totals** in Badana — they must remain separate running totals in every calculation, query, and report.
-- **Never query across Aquasphere and Badana schemas** in a single request — division isolation is absolute.
+- **Never merge Pure and Mix preform totals** in Wadaana — they must remain separate running totals in every calculation, query, and report.
+- **Never query across Aquasphere and Wadaana schemas** in a single request — division isolation is absolute.
 - **When unsure whether something is a hard rule or a stylistic preference, treat it as a hard rule** and ask, rather than optimizing it away.
 - **Don't add speculative features** ("this might be useful later") beyond what's asked — extra scope adds maintenance weight to a small business system that needs to stay simple.
 

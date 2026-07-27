@@ -1,9 +1,9 @@
 # AQUA Sphere OS — Master Requirements Document
 
-> **Stack:** PERN (PostgreSQL, Express, React, Node.js)  
+> **Stack:** PERN (PostgreSQL, Express, React, Node.js) — JavaScript (ES6+)  
 > **Status:** Requirements Consolidation — Ready for Development  
 > **Last Updated:** July 2026  
-> **Purpose:** Single source of truth combining all manager notes, blueprints, and corrections into one crystal-clear build guide.
+> **Purpose:** Single source of truth combining all manager notes, blueprints, system documentation, and context documents into one crystal-clear build guide.
 
 ---
 
@@ -13,7 +13,7 @@
 2. [Architecture & Database Design](#2-architecture--database-design)
 3. [Role Hierarchy & Permissions](#3-role-hierarchy--permissions)
 4. [Division 1: Aquasphere (Water Business)](#4-division-1-aquasphere-water-business)
-5. [Division 2: Badana Industries (Blowing Machine)](#5-division-2-badana-industries-blowing-machine)
+5. [Division 2: Wadaana Industries (Blowing Machine)](#5-division-2-wadaana-industries-blowing-machine)
 6. [Inventory & Production Calculations](#6-inventory--production-calculations)
 7. [Order & Customer Management](#7-order--customer-management)
 8. [Credit Limits & Alerts](#8-credit-limits--alerts)
@@ -29,20 +29,13 @@
 
 ## 1. System Overview
 
-### 1.1 Two Businesses, One Login
+### 1.1 Two Separate Businesses
 
-AQUA Sphere OS runs **two completely separate businesses** under one login system. After login, every user is asked:
+AQUA Sphere OS runs **two completely separate businesses**. Each division has its own dedicated users, roles, and logins.
 
 ```
-┌─────────────────────────────────────────┐
-│     "Would you like to enter           │
-│      Badana or Aquasphere?"            │
-└─────────────────────────────────────────┘
-                    │
-        ┌───────────┴───────────┐
-        ▼                       ▼
 ┌───────────────┐       ┌───────────────┐
-│ Badana        │       │ Aquasphere    │
+│ Wadaana        │       │ Aquasphere    │
 │ Industries    │       │ (Water        │
 │ (Blowing      │       │ Business)     │
 │  Machine)     │       │               │
@@ -56,14 +49,14 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 └───────────────┘       └───────────────┘
 ```
 
-> **Critical Rule:** These two sides **never share data**. Inventory, orders, customers, and reports are fully isolated. The same 5 roles operate in both, but their actions in one division have zero impact on the other.
+> **Critical Rule:** These two sides **never share data**. Inventory, orders, customers, and reports are fully isolated. The same 5 roles operate in both, but their actions in one division have zero impact on the other. Users and authentication are also completely separate for each division.
 
 ### 1.2 Company Contexts
 
 | Division | Business | Products |
 |----------|----------|----------|
 | **Aquasphere** | Water manufacturing & delivery | 19L reusable bottles, 0.5L PET packs, 1.5L PET packs |
-| **Badana Industries** | Bottle manufacturing (Blowing Machine) | Preform-based bottles for 3 client companies |
+| **Wadaana Industries** | Bottle manufacturing (Blowing Machine) | Preform-based bottles for 3 client companies |
 
 ### 1.3 Tech Stack
 
@@ -86,7 +79,7 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 ┌──────────────┐      ┌──────────────┐
 │ PostgreSQL   │      │ PostgreSQL   │
 │ Database A   │      │ Database B   │
-│ (Aquasphere) │      │ (Badana)     │
+│ (Aquasphere) │      │ (Wadaana)     │
 └──────────────┘      └──────────────┘
 ```
 
@@ -101,13 +94,13 @@ graph TD
     subgraph UI ["Single Shared Frontend App (Mobile Responsive)"]
         MM_UI["Marketing Manager Workspace"]
         Owner_UI["Owner Workspace (Consolidated/Toggle)"]
-        Staff_UI["Staff Workspace (Aquasphere or Badana Portal)"]
+        Staff_UI["Staff Workspace (Aquasphere or Wadaana Portal)"]
     end
 
     Router{"Database Context Router"}
 
     MM_UI -->|"API Session: company=aquasphere"| Router
-    Owner_UI -->|"API Session: company=badana"| Router
+    Owner_UI -->|"API Session: company=wadaana"| Router
     Staff_UI -->|"API Session: company=aquasphere"| Router
 
     subgraph DB1 ["Database A: Aquasphere"]
@@ -117,7 +110,7 @@ graph TD
         AS_Fin["Financial Records"]
     end
 
-    subgraph DB2 ["Database B: Badana Industries"]
+    subgraph DB2 ["Database B: Wadaana Industries"]
         BI_Cust["Customers/Companies Table"]
         BI_Ord["Orders Table"]
         BI_Inv["Inventory & Ledgers"]
@@ -138,9 +131,8 @@ graph TD
 | Rule | Description |
 |------|-------------|
 | **Database Isolation** | All transactional records, sales history, customer databases, credit ledgers, and inventories are completely segregated |
-| **Shared Users** | Marketing Manager, Owner, Admin can switch context between both databases dynamically |
-| **Dedicated Users** | Production Manager, Accountant are typically assigned to one company workspace upon login |
-| **Company Toggle** | A persistent header shows `[Active Workspace: Aquasphere | Badana Industries]` allowing instant context switch |
+| **Separate Users** | Users and authentication are entirely isolated per company. Aquasphere has its own users, Wadaana has its own users. |
+| **Dedicated Roles** | Roles operate within their specific company context. |
 | **Branding** | Invoices and alerts dynamically render branding matching the active database context |
 
 ---
@@ -368,188 +360,19 @@ graph TD
 
 ---
 
-## 5. Division 2: Badana Industries (Blowing Machine)
+## 5. Division 2: Wadaana Industries (Blowing Machine)
 
-### 5.1 Full Workflow — Start to Finish
+### 5.1 Current Architecture & Feature Parity
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│           BADANA INDUSTRIES — 5-STEP CYCLE                  │
-└─────────────────────────────────────────────────────────────┘
+Wadaana Industries currently operates identically to Aquasphere in terms of frontend UI and backend infrastructure. The `wadaana` database schema is a 100% exact mirror of the `aquasphere` schema.
 
-    STEP 1: BUY PREFORM
-    ┌─────────────────┐
-    │  Purchase from  │
-    │  Vendor         │
-    │  (Pure or Mix, │
-    │   measured in   │
-    │   kg)           │
-    └────────┬────────┘
-             │
-             ▼
-    STEP 2: STOCK AT FACTORY
-    ┌─────────────────┐
-    │  Preform Stock  │
-    │  Sits at        │
-    │  Factory        │
-    └────────┬────────┘
-             │
-             ▼
-    STEP 3: BLOW INTO BOTTLES
-    ┌─────────────────┐
-    │  Production     │
-    │  Manager runs   │
-    │  a batch        │
-    │  (System auto   │
-    │   deducts       │
-    │   preform)      │
-    └────────┬────────┘
-             │
-             ▼
-    STEP 4: MOVE TO WAREHOUSE
-    ┌─────────────────┐
-    │  Finished       │
-    │  Bottles move   │
-    │  to Warehouse   │
-    └────────┬────────┘
-             │
-             ▼
-    STEP 5: FULFILL ORDERS
-    ┌─────────────────┐
-    │  Marketing      │
-    │  Manager takes  │
-    │  orders —       │
-    │  reduces        │
-    │  Warehouse      │
-    │  stock          │
-    └─────────────────┘
-```
+- Same CRM and Order Management flows.
+- Same Inventory and Dashboard logic.
+- Same role-based access controls, simply segregated into the `wadaana` context.
 
-### 5.2 Client Companies & Preform Types
+### 5.2 Future B2B Expansion
 
-| Company | Preform Type(s) Used | Notes |
-|---------|---------------------|-------|
-| **Aqua Sphere** | Pure only | Own bottles — only draws from Pure stock. Order form doesn't ask preform type. |
-| **Deosani** | Pure + Mix | Client company — can draw from either preform type. Order form asks which type. |
-| **Pivrifine** | Pure + Mix | Client company — can draw from either preform type. Order form asks which type. |
-
-> **Note:** Marketing Manager must check and filter orders **separately per company** — three independent order lists, not one shared list.
-
-### 5.3 Inventory Locations
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              INVENTORY LOCATIONS — BADANA                   │
-└─────────────────────────────────────────────────────────────┘
-
-         ┌─────────────────────┐
-         │   FACTORY           │
-         │   (Raw Preform)     │
-         │   • Pure (kg)       │
-         │   • Mix (kg)        │
-         │                     │
-         │  "How much raw      │
-         │   preform left      │
-         │   to work with?"    │
-         └──────────┬──────────┘
-                    │
-                    │ Production
-                    │ (Blowing)
-                    │
-                    ▼
-         ┌─────────────────────┐
-         │   WAREHOUSE         │
-         │   (Finished         │
-         │    Bottles)         │
-         │   • Ready to sell   │
-         │   • Per company     │
-         │                     │
-         │  "How many finished  │
-         │   bottles to sell?" │
-         └─────────────────────┘
-```
-
-**Why separate:** The business needs to answer two different questions at any moment:
-- "How much raw preform do we have left to work with?" → **Factory**
-- "How many finished bottles do we have to sell?" → **Warehouse**
-
-### 5.4 Preform Conversion Table
-
-| Bottle Size | Preform Type | Preform Weight (per bottle) |
-|-------------|-------------|----------------------------|
-| 0.5L | Mix | **27g** |
-| 1.5L | Mix | **15g** |
-| 1.5L | Pure | **13g** |
-| 0.5L | Pure | **15g** |
-
-> ⚠️ **Please Confirm:** As written, 0.5L Mix (27g) uses more preform than 1.5L Mix (15g) — the reverse of normal expectation. Verify before building production formulas.
-
-**Worked Examples:**
-
-| If PM Records... | System Auto-Deducts... |
-|-----------------|----------------------|
-| 500 bottles of 1.5L Mix | 500 × 15g = 7,500g = **7.5kg** from Mix preform stock |
-| 200 bottles of 0.5L Pure | 200 × 15g = 3,000g = **3.0kg** from Pure preform stock |
-
-**Rules:**
-- Deduction happens from whichever location (Factory or Warehouse) PM selected for that batch
-- Pure and Mix stock tracked as **two entirely separate running totals** — never merged
-
-### 5.5 Add Customer (Future Companies)
-
-- Add an "Add Customer" (or "Add Company") option to the Blowing Machine portal
-- Aqua Sphere, Deosani, and Pivrifine should **not be hardcoded**
-- They should be the first three rows in a "Companies" table that new entries can be added to
-
-### 5.6 Role Workflows — Badana
-
-#### Production Manager (PM)
-
-- Enters each production batch: bottle size (0.5L/1.5L), preform type (Pure/Mix), quantity
-- System **automatically decreases** correct preform quantity using conversion table
-- For every batch, PM also enters which location preform was drawn from — Factory or Warehouse
-- PM enters simple observable facts; system does all derived math
-
-#### Marketing Manager
-
-- Checks and manages orders **separately** for each of the three client companies
-- Three distinct, filterable order views
-- Looks up current inventory levels (Factory preform + Warehouse finished bottles) before confirming order fulfillment
-
-#### Accountant
-
-Tracks every operating expense specific to Blowing Machine:
-- Electricity bills
-- Workers' salaries
-- Preform cost (paid to vendors for raw Pure/Mix preform)
-- Machine maintenance / upgrade cost
-
-> **Note:** Expenses affect profit reporting only — never directly touch inventory quantities.
-
-#### Admin
-
-- Same view-only, supervisory role as water business
-- Can see companies flagged by system alert (e.g., approaching credit limit)
-- Cannot place orders, cannot edit anything, no visibility into profit or cost
-
-#### Owner / Super Admin
-
-- Can turn on "Edit Inventory" option for correcting stock records (logged adjustment transaction)
-- Can see and correct which inventory items a purchase affected
-- Can edit company credit limit, view last-purchase record
-- Can always view Pure and Mix preform as **two separate, distinct quantities**
-- Even Owner's "Edit Inventory" should be implemented as a **logged adjustment transaction** — not a raw field edit
-
-### 5.7 Full Worked Example — End to End
-
-| Step | What Happens |
-|------|-------------|
-| 1. Purchase | Accountant records purchase of 50kg Mix preform from existing vendor "ABC Plastics". Factory Mix-preform stock increases by 50kg. |
-| 2. Production | PM enters batch: 1,000 bottles of 1.5L Mix produced for Deosani, drawn from Factory. |
-| 3. Auto Deduction | System calculates 1,000 × 15g = 15,000g = 15kg. Factory Mix-preform stock drops from 50kg to 35kg. |
-| 4. Transfer | 1,000 finished 1.5L Deosani bottles now reflected in Warehouse finished-goods stock. |
-| 5. Order | Marketing Manager places order for Deosani for 400 bottles. Warehouse stock drops from 1,000 to 600. |
-| 6. Dashboard | Owner sees: 35kg Mix preform at Factory, 600 finished bottles at Warehouse, expense of original 50kg purchase in profit. |
+The specialized blowing machine features (Preform procurement, Blowing production batches for specific client companies like Deosani/Pivrifine, and complex B2B sales logic) will be integrated in a later phase. Until then, the system will support standard operations natively inherited from the Aquasphere baseline.
 
 ---
 
@@ -1262,13 +1085,20 @@ erDiagram
         text remarks
     }
 
-    USER {
+    AQUASPHERE_USER {
         uuid id PK
         string name
         string email UK
         enum role
         string passwordHash
-        enum companyContext
+    }
+
+    WADAANA_USER {
+        uuid id PK
+        string name
+        string email UK
+        enum role
+        string passwordHash
     }
 ```
 
@@ -1427,7 +1257,7 @@ erDiagram
 | `receipt_image_url` | VARCHAR | REQUIRED — photo of bill |
 | `remarks` | TEXT | |
 
-#### User (System Users)
+#### Aquasphere User
 
 | Field | Type | Constraints |
 |-------|------|-------------|
@@ -1437,7 +1267,19 @@ erDiagram
 | `phone` | VARCHAR | |
 | `role` | ENUM | `owner`, `admin`, `production_manager`, `accountant`, `marketing_manager` |
 | `password_hash` | VARCHAR | bcrypt/argon2 |
-| `company_access` | ENUM | `aquasphere`, `badana`, `both` |
+| `is_active` | BOOLEAN | DEFAULT true |
+| `created_at` | TIMESTAMP | DEFAULT NOW() |
+
+#### Wadaana User
+
+| Field | Type | Constraints |
+|-------|------|-------------|
+| `id` | UUID | PRIMARY KEY |
+| `name` | VARCHAR | NOT NULL |
+| `email` | VARCHAR | UNIQUE |
+| `phone` | VARCHAR | |
+| `role` | ENUM | `owner`, `admin`, `production_manager`, `accountant`, `marketing_manager` |
+| `password_hash` | VARCHAR | bcrypt/argon2 |
 | `is_active` | BOOLEAN | DEFAULT true |
 | `created_at` | TIMESTAMP | DEFAULT NOW() |
 
@@ -1478,94 +1320,10 @@ erDiagram
 
 ## 15. Build Phases
 
-### Phase 1: Core Foundation & 19L Workflow
+The full execution roadmap and prioritized hierarchy has been moved to a dedicated document.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  PHASE 1: HIGHEST-FREQUENCY, HIGHEST-VALUE WORKFLOW         │
-│  Target: 19L order-to-delivery working end-to-end           │
-└─────────────────────────────────────────────────────────────┘
+> **See `context/phases.md` for the official, up-to-date build phases.**
 
-Week 1-2: Foundation
-├── Database setup (PostgreSQL)
-├── Authentication & Role system
-├── Company context middleware
-├── Customer master data
-└── Item master data
-
-Week 3-4: 19L Core
-├── 19L Order desk (search, create, edit)
-├── Customer profile with bottle balance
-├── Delivery completion with auto-updates
-├── Bottle asset ledger (append-only)
-├── Payment recording
-└── Basic Owner dashboard
-
-Week 5-6: PET Core
-├── PET Order desk
-├── PET Delivery with inventory reduction
-├── Production batch entry (manual)
-└── Inventory transaction logging
-```
-
-### Phase 2: Back-Office & Automation
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  PHASE 2: PURCHASING, PRODUCTION, EXPENSES, DASHBOARD       │
-└─────────────────────────────────────────────────────────────┘
-
-Week 7-8: Purchasing & Vendors
-├── Vendor management (CRUD)
-├── Purchase entry with auto-inventory
-├── Vendor payment recording
-├── Vendor balance tracking
-└── Bill photo upload
-
-Week 9-10: Production Automation
-├── Automatic raw material deduction
-├── Mineral set auto-calculation
-├── Label/shrink-wrap auto-deduction
-├── Production batch → inventory link
-└── PM close-of-day workflow
-
-Week 11-12: Expenses & Dashboard
-├── Expense entry with receipt photos
-├── Spot sales (counter sales)
-├── Full Owner dashboard
-├── Low-stock alerts
-└── Admin close-of-day workflow
-```
-
-### Phase 3: Reports, Badana & Refinements
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  PHASE 3: REPORTS, BLOWING MACHINE, REFINEMENTS             │
-└─────────────────────────────────────────────────────────────┘
-
-Week 13-14: Reports Module
-├── Daily / Weekly / Monthly / Yearly reports
-├── Sales, Profit, Expenses, Inventory
-├── Production, Customer Credits
-├── Vendor Balances, Bottle Summary
-└── Export functionality
-
-Week 15-16: Badana Industries (Blowing Machine)
-├── Company management (3 + add new)
-├── Preform inventory (Pure/Mix, Factory/Warehouse)
-├── Production batch with auto-deduction
-├── Order management per company
-├── Accountant expense tracking
-└── Full permission model for Badana
-
-Week 17-18: Polish & Launch
-├── Mobile responsiveness testing
-├── Concurrent user testing
-├── Performance optimization
-├── Manager confirmation of open questions
-└── Production deployment
-```
 
 ---
 

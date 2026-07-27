@@ -235,8 +235,8 @@ The system is **write-heavy** (every order, delivery, production batch, expense 
 
 **Implementation:**
 
-```typescript
-// Inside deliveries.service.ts — delivery completion
+```javascript
+// Inside deliveries.service.js — delivery completion
 await prisma.$transaction(async (tx) => {
   // 1. Insert the delivery record (ledger)
   const delivery = await tx.delivery.create({ data: deliveryData });
@@ -278,7 +278,7 @@ model Item {
 ```
 
 On every `InventoryTransaction` insert:
-```typescript
+```javascript
 await tx.item.update({
   where: { id: itemId },
   data: { cachedQty: { increment: direction === 'IN' ? qty : -qty } },
@@ -291,7 +291,7 @@ await tx.item.update({
 
 Instead of 5 separate `SUM()` queries for the bottle summary:
 
-```typescript
+```javascript
 // BAD: 5 round trips
 const atFactory = await tx.bottleTransaction.aggregate({
   where: { customerId: null, txnType: 'returned_good' },
@@ -374,7 +374,7 @@ UPDATE customers SET search_vector = to_tsvector('english', name || ' ' || phone
 
 **Solution:** Use the cached balance.
 
-```typescript
+```javascript
 // O(1) credit check — reads cached_balance column directly
 const customer = await tx.customer.findUnique({
   where: { id: customerId },
@@ -405,8 +405,8 @@ if (wouldExceed) {
 
 **Critical:** Never instantiate `new PrismaClient()` per request. Connection pool exhaustion = request timeouts.
 
-```typescript
-// backend/src/db/prisma.ts
+```javascript
+// backend/src/db/prisma.js
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -420,7 +420,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 **Connection pool tuning for NeonDB:**
 
-```typescript
+```javascript
 const prisma = new PrismaClient({
   datasources: {
     db: {
@@ -438,7 +438,7 @@ const prisma = new PrismaClient({
 
 **Bad:** Fetching entire rows when you only need 2 columns.
 
-```typescript
+```javascript
 // BAD: Transfers all columns over the wire
 const customer = await prisma.customer.findUnique({ where: { id } });
 // Then uses only customer.name and customer.phone
@@ -446,7 +446,7 @@ const customer = await prisma.customer.findUnique({ where: { id } });
 
 **Good:** Explicit `select` reduces data transfer and memory.
 
-```typescript
+```javascript
 // GOOD: Only fetches 2 columns
 const customer = await prisma.customer.findUnique({
   where: { id },
@@ -460,7 +460,7 @@ const customer = await prisma.customer.findUnique({
 
 **Bad:** Looping over customers and querying orders for each.
 
-```typescript
+```javascript
 // BAD: n+1 queries — 1 for customers, n for orders
 const customers = await prisma.customer.findMany();
 for (const c of customers) {
@@ -471,7 +471,7 @@ for (const c of customers) {
 
 **Good:** Use `include` (2 queries) or `relationLoadStrategy: 'join'` (1 query).
 
-```typescript
+```javascript
 // GOOD: 2 queries total (nested read)
 const customers = await prisma.customer.findMany({
   include: {
@@ -485,7 +485,7 @@ const customers = await prisma.customer.findMany({
 });
 ```
 
-```typescript
+```javascript
 // BEST: 1 query with JOIN (Prisma 5.13+)
 const customers = await prisma.customer.findMany({
   relationLoadStrategy: 'join',
@@ -499,7 +499,7 @@ const customers = await prisma.customer.findMany({
 
 Production batch creates 5-10 inventory transactions. Don't loop `create()`:
 
-```typescript
+```javascript
 // BAD: 5 round trips
 for (const txn of transactions) {
   await prisma.inventoryTransaction.create({ data: txn });
@@ -518,7 +518,7 @@ await prisma.inventoryTransaction.createMany({
 
 Prisma's query builder is excellent for CRUD. For complex dashboard aggregations with multiple JOINs and GROUP BYs, raw SQL is 3-6× faster.
 
-```typescript
+```javascript
 // Dashboard "Today's Sales" — complex aggregation across 3 tables
 const todaySales = await prisma.$queryRaw<{ total_sales: number; cash_collected: number }[]>`
   SELECT 
@@ -549,7 +549,7 @@ const todaySales = await prisma.$queryRaw<{ total_sales: number; cash_collected:
 
 Delivery completion touches 4-6 tables. Must be atomic and prevent race conditions:
 
-```typescript
+```javascript
 await prisma.$transaction(async (tx) => {
   // 1. Lock the customer record (SELECT FOR UPDATE)
   const customer = await tx.customer.findUnique({
@@ -637,8 +637,8 @@ For data that changes rarely but is queried frequently:
 
 **Implementation:** Simple in-memory cache with TTL (no Redis needed at this scale).
 
-```typescript
-// backend/src/utils/cache.ts
+```javascript
+// backend/src/utils/cache.js
 class SimpleCache<T> {
   private cache = new Map<string, { value: T; expiry: number }>();
 
@@ -838,13 +838,13 @@ LIMIT 20;
 
 ---
 
-## 7. Production Batch Optimization (Badana)
+## 7. Production Batch Optimization (Wadaana)
 
 ### 7.1 Preform Deduction — Single Transaction, Bulk Insert
 
-A Badana production batch deducts preform from inventory and creates finished bottles. All in one atomic transaction:
+A Wadaana production batch deducts preform from inventory and creates finished bottles. All in one atomic transaction:
 
-```typescript
+```javascript
 await prisma.$transaction(async (tx) => {
   // 1. Lock preform item record (SELECT FOR UPDATE)
   const preformItem = await tx.item.findUnique({
@@ -887,22 +887,22 @@ await prisma.$transaction(async (tx) => {
 
 ### 7.2 Per-Company Order Filtering
 
-Badana has 3+ client companies with separate order lists. Never fetch all orders then filter in JS.
+Wadaana has 3+ client companies with separate order lists. Never fetch all orders then filter in JS.
 
-```typescript
+```javascript
 // BAD: Fetch all orders, filter in memory
-const allOrders = await prisma.badanaOrder.findMany();
+const allOrders = await prisma.wadaanaOrder.findMany();
 const deosaniOrders = allOrders.filter(o => o.companyId === deosaniId);
 
 // GOOD: Filter at database level
-const deosaniOrders = await prisma.badanaOrder.findMany({
+const deosaniOrders = await prisma.wadaanaOrder.findMany({
   where: { companyId: deosaniId },
   orderBy: { createdAt: 'desc' },
   take: 50,
 });
 ```
 
-**Index:** `@@index([companyId, createdAt(sort: Desc)])` on `badana_order` table.
+**Index:** `@@index([companyId, createdAt(sort: Desc)])` on `wadaana_order` table.
 
 ---
 
@@ -912,8 +912,8 @@ const deosaniOrders = await prisma.badanaOrder.findMany({
 
 Checking `DailyClose` table on every write is O(1) but unnecessary. Cache the latest close date in memory:
 
-```typescript
-// backend/src/utils/daily-close-cache.ts
+```javascript
+// backend/src/utils/daily-close-cache.js
 let cachedLatestCloseDate: Date | null = null;
 let cachedCloseDateExpiry = 0;
 
@@ -941,8 +941,8 @@ export function invalidateCloseDateCache(): void {
 
 **Middleware usage:**
 
-```typescript
-// In daily-close-guard.middleware.ts
+```javascript
+// In daily-close-guard.middleware.js
 const latestClose = await getLatestCloseDate(prisma);
 if (latestClose && transactionDate <= latestClose) {
   throw new ForbiddenError('This date is closed. Only Owner can edit.');
@@ -960,7 +960,7 @@ if (latestClose && transactionDate <= latestClose) {
 
 Expense receipts and purchase bills are photos (JPEG/PNG, typically 1-3MB). Don't buffer entire files in memory.
 
-```typescript
+```javascript
 // Multer config — stream to S3, don't buffer
 import multer from 'multer';
 import multerS3 from 'multer-s3';
@@ -994,7 +994,7 @@ const upload = multer({
 
 Before storing, compress images to reduce S3 costs and load times:
 
-```typescript
+```javascript
 import sharp from 'sharp';
 
 // Compress and resize before upload
@@ -1038,7 +1038,7 @@ const compressedBuffer = await sharp(fileBuffer)
 
 Enable Prisma query logging in development to catch N+1 and slow queries:
 
-```typescript
+```javascript
 const prisma = new PrismaClient({
   log: [
     { emit: 'event', level: 'query' },
@@ -1075,7 +1075,7 @@ LIMIT 10;
 
 ### 11.3 Connection Pool Monitoring
 
-```typescript
+```javascript
 // Health check endpoint
 app.get('/health', async (req, res) => {
   const poolInfo = await prisma.$queryRaw`

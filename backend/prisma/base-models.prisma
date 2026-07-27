@@ -1,79 +1,97 @@
-model [[PREFIX]]Customer {
-  id             String    @id @default(uuid())
-  name           String
-  phone          String
-  address        String?
-  mapLink        String?
-  type           String
-  deposit        Decimal   @default(0.0)
-  defaultPrice   Decimal   @default(0.0)
-  creditLimit    Decimal   @default(0.0)
-  remarks        String?
-  homePictureUrl String?
-  archivedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+model __Prefix__Customer {
+  id                  String    @id @default(uuid())
+  name                String
+  phone               String    @unique
+  address             String?
+  mapLink             String?   @map("map_link")
+  type                String
+  deposit             Int       @default(0)
+  defaultPrice        Decimal   @default(0.0) @map("default_price")
+  creditLimit         Decimal   @default(0.0) @map("credit_limit")
+  creditDuration      Int       @default(1) @map("credit_duration")
+  remarks             String?
+  homePictureUrl      String?   @map("home_picture_url")
+  cachedBalance       Decimal   @default(0.0) @map("cached_balance")
+  cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
+  lastDeliveryAt      DateTime? @map("last_delivery_at")
+  archivedAt          DateTime? @map("archived_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  orders             [[PREFIX]]Order[]
-  bottleTransactions [[PREFIX]]BottleTransaction[]
-  payments           [[PREFIX]]Payment[]
+  orders             __Prefix__Order[]
+  bottleTransactions __Prefix__BottleTransaction[]
+  payments           __Prefix__Payment[]
 
-  @@unique([phone])
-  @@map("Customer")
-  @@schema("[[SCHEMA]]")
+  @@index([name])
+  @@index([createdAt(sort: Desc)])
+  @@map("customers")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Item {
+model __Prefix__Item {
   id           String    @id @default(uuid())
   name         String
-  type         [[PREFIX]]ItemType
-  reorderLevel Int       @default(0)
-  archivedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  type         __Prefix__ItemType
+  unit         String    @default("kg")
+  cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  reorderLevel Decimal   @default(0.0) @map("reorder_level")
+  archivedAt   DateTime? @map("archived_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  inventoryTransactions [[PREFIX]]InventoryTransaction[]
-  orderItems            [[PREFIX]]OrderItem[]
-  purchases             [[PREFIX]]Purchase[]
+  inventoryTransactions __Prefix__InventoryTransaction[]
+  orderItems            __Prefix__OrderItem[]
+  purchaseItems         __Prefix__PurchaseItem[]
+  batchConsumptions     __Prefix__ProductionBatchConsumption[]
+  producedBatches       __Prefix__ProductionBatch[] @relation("ProducedItems")
+  consumedBatches       __Prefix__ProductionBatch[] @relation("ConsumedItems")
+  recipeFinishedGoods   __Prefix__RecipeItem[] @relation("RecipeFinishedGood")
+  recipeRawMaterials    __Prefix__RecipeItem[] @relation("RecipeRawMaterial")
 
-  @@map("Item")
-  @@schema("[[SCHEMA]]")
+  @@map("items")
+  @@schema("__schema__")
 }
 
-enum [[PREFIX]]ItemType {
+enum __Prefix__ItemType {
   RAW_MATERIAL
   FINISHED_GOOD
 
-  @@map("ItemType")
-  @@schema("[[SCHEMA]]")
+  @@map("item_types")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]InventoryTransaction {
+model __Prefix__InventoryTransaction {
   id        String         @id @default(uuid())
-  itemId    String
-  item      [[PREFIX]]Item @relation(fields: [itemId], references: [id])
-  quantity  Int
+  itemId    String         @map("item_id")
+  item      __Prefix__Item @relation(fields: [itemId], references: [id])
+  quantity  Decimal
+  direction __Prefix__TransactionDirection
   reason    String
-  createdAt DateTime       @default(now())
+  refType   String?        @map("ref_type")
+  refId     String?        @map("ref_id")
+  location  String?
+  createdAt DateTime       @default(now()) @map("created_at")
 
-  @@map("InventoryTransaction")
-  @@schema("[[SCHEMA]]")
+  @@index([itemId, createdAt])
+  @@map("inventory_transactions")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]BottleTransaction {
+model __Prefix__BottleTransaction {
   id         String                      @id @default(uuid())
-  customerId String?
-  customer   [[PREFIX]]Customer?         @relation(fields: [customerId], references: [id])
-  type       [[PREFIX]]BottleTransactionType
+  customerId String?                     @map("customer_id")
+  customer   __Prefix__Customer?         @relation(fields: [customerId], references: [id])
+  type       __Prefix__BottleTransactionType @map("txn_type")
   quantity   Int
   reason     String?
-  createdAt  DateTime                    @default(now())
+  createdAt  DateTime                    @default(now()) @map("created_at")
 
-  @@map("BottleTransaction")
-  @@schema("[[SCHEMA]]")
+  @@index([customerId, type, createdAt])
+  @@map("bottle_transactions")
+  @@schema("__schema__")
 }
 
-enum [[PREFIX]]BottleTransactionType {
+enum __Prefix__BottleTransactionType {
   NEW_PURCHASE
   DELIVERED_TO_CUSTOMER
   RETURNED_GOOD
@@ -81,138 +99,351 @@ enum [[PREFIX]]BottleTransactionType {
   MARKED_LOST
   AT_FACTORY_ADJUSTMENT
 
-  @@map("BottleTransactionType")
-  @@schema("[[SCHEMA]]")
+  @@map("bottle_transaction_types")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Order {
-  id         String               @id @default(uuid())
-  customerId String
-  customer   [[PREFIX]]Customer   @relation(fields: [customerId], references: [id])
-  type       [[PREFIX]]OrderType
-  status     String
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-  items      [[PREFIX]]OrderItem[]
-  deliveries [[PREFIX]]Delivery[]
-  payments   [[PREFIX]]Payment[]
+model __Prefix__Order {
+  id               String               @id @default(uuid())
+  customerId       String               @map("customer_id")
+  customer         __Prefix__Customer   @relation(fields: [customerId], references: [id])
+  type             __Prefix__OrderType
+  deliveryStatus   __Prefix__DeliveryStatus       @default(PENDING) @map("delivery_status")
+  paymentStatus    __Prefix__PaymentStatus        @default(UNPAID) @map("payment_status")
+  expectedDelivery DateTime?            @map("expected_delivery")
+  remarks          String?
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  items            __Prefix__OrderItem[]
+  deliveries       __Prefix__Delivery[]
+  payments         __Prefix__Payment[]
 
-  @@map("Order")
-  @@schema("[[SCHEMA]]")
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([deliveryStatus, createdAt])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+  @@schema("__schema__")
 }
 
-enum [[PREFIX]]OrderType {
+enum __Prefix__OrderType {
   NINETEEN_L
   PET
 
-  @@map("OrderType")
-  @@schema("[[SCHEMA]]")
+  @@map("order_types")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]OrderItem {
+model __Prefix__OrderItem {
   id       String         @id @default(uuid())
-  orderId  String
-  order    [[PREFIX]]Order @relation(fields: [orderId], references: [id])
-  itemId   String
-  item     [[PREFIX]]Item  @relation(fields: [itemId], references: [id])
+  orderId  String         @map("order_id")
+  order    __Prefix__Order @relation(fields: [orderId], references: [id])
+  itemId   String         @map("item_id")
+  item     __Prefix__Item  @relation(fields: [itemId], references: [id])
   quantity Int
   price    Decimal
 
-  @@map("OrderItem")
-  @@schema("[[SCHEMA]]")
+  @@map("order_items")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Delivery {
-  id          String         @id @default(uuid())
-  orderId     String
-  order       [[PREFIX]]Order @relation(fields: [orderId], references: [id])
-  deliveredAt DateTime       @default(now())
+model __Prefix__Delivery {
+  id                    String         @id @default(uuid())
+  orderId               String         @map("order_id")
+  order                 __Prefix__Order @relation(fields: [orderId], references: [id])
+  qtyDelivered          Int            @map("qty_delivered")
+  bottlesReturnedGood   Int            @default(0) @map("bottles_returned_good")
+  bottlesReturnedBroken Int            @default(0) @map("bottles_returned_broken")
+  cashReceived          Decimal        @default(0.0) @map("cash_received")
+  paymentMethod         String?        @map("payment_method")
+  remarks               String?
+  deliveredAt           DateTime       @default(now()) @map("delivered_at")
 
-  @@map("Delivery")
-  @@schema("[[SCHEMA]]")
+  @@index([orderId, deliveredAt])
+  @@map("deliveries")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Payment {
+model __Prefix__Payment {
   id         String             @id @default(uuid())
-  orderId    String?
-  order      [[PREFIX]]Order?   @relation(fields: [orderId], references: [id])
-  customerId String
-  customer   [[PREFIX]]Customer @relation(fields: [customerId], references: [id])
+  orderId    String?            @map("order_id")
+  order      __Prefix__Order?   @relation(fields: [orderId], references: [id])
+  customerId String             @map("customer_id")
+  customer   __Prefix__Customer @relation(fields: [customerId], references: [id])
   amount     Decimal
-  type       String
-  createdAt  DateTime           @default(now())
+  type       __Prefix__PaymentType
+  createdAt  DateTime           @default(now()) @map("created_at")
 
-  @@map("Payment")
-  @@schema("[[SCHEMA]]")
+  @@index([customerId, createdAt(sort: Desc)])
+  @@map("payments")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]ProductionBatch {
-  id        String   @id @default(uuid())
-  type      String
-  quantity  Int
-  createdAt DateTime @default(now())
+model __Prefix__ProductionBatch {
+  id                  String   @id @default(uuid())
+  outputItemId        String?  @map("output_item_id")
+  outputItem          __Prefix__Item? @relation("ProducedItems", fields: [outputItemId], references: [id])
+  inputItemId         String?  @map("input_item_id")
+  inputItem           __Prefix__Item? @relation("ConsumedItems", fields: [inputItemId], references: [id])
+  location            __Prefix__Location?
+  quantity            Int?
+  wasteQuantity       Int      @default(0) @map("waste_quantity")
+  remarks             String?
+  packs05L            Int      @default(0) @map("packs_05l")      // 0.5L packs produced (good output)
+  packs15L            Int      @default(0) @map("packs_15l")      // 1.5L packs produced (good output)
+  brokenBottles05L    Int      @default(0) @map("broken_bottles_05l")
+  brokenBottles15L    Int      @default(0) @map("broken_bottles_15l")
+  batchDate           DateTime @default(now()) @map("batch_date")
+  producedBy          String?  @map("produced_by")                // req.user.id
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
 
-  @@map("ProductionBatch")
-  @@schema("[[SCHEMA]]")
+  consumptions __Prefix__ProductionBatchConsumption[]
+
+  @@index([batchDate(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("production_batches")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Vendor {
+model __Prefix__ProductionBatchConsumption {
+  id           String                    @id @default(uuid())
+  batchId      String                    @map("batch_id")
+  batch        __Prefix__ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  itemId       String                    @map("item_id")
+  item         __Prefix__Item            @relation(fields: [itemId], references: [id])
+  quantityUsed Decimal                   @map("quantity_used")  // exact, never rounded
+  createdAt    DateTime                  @default(now()) @map("created_at")
+
+  @@index([batchId])
+  @@map("production_batch_consumptions")
+  @@schema("__schema__")
+}
+
+model __Prefix__Vendor {
   id         String    @id @default(uuid())
   name       String
-  archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  phone      String?
+  email      String?
+  address    String?
+  notes      String?
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  purchases [[PREFIX]]Purchase[]
-  payments  [[PREFIX]]VendorPayment[]
+  purchases     __Prefix__Purchase[]
+  payments      __Prefix__VendorPayment[]
+  ledgerEntries __Prefix__VendorLedgerEntry[]
 
-  @@map("Vendor")
-  @@schema("[[SCHEMA]]")
+  @@map("vendors")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Purchase {
+model __Prefix__Purchase {
+  id           String    @id @default(uuid())
+  vendorId     String    @map("vendor_id")
+  vendor       __Prefix__Vendor @relation(fields: [vendorId], references: [id])
+  invoiceNo    String?   @map("invoice_no")
+  receiptUrl   String?   @map("receipt_url")
+  remarks      String?
+  grandTotal   Decimal   @default(0.0) @map("grand_total")
+  purchaseDate DateTime  @default(now()) @map("purchase_date")
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  items         __Prefix__PurchaseItem[]
+  ledgerEntries __Prefix__VendorLedgerEntry[]
+
+  @@index([vendorId, createdAt])
+  @@map("purchases")
+  @@schema("__schema__")
+}
+
+model __Prefix__PurchaseItem {
   id         String         @id @default(uuid())
-  vendorId   String
-  vendor     [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
-  itemId     String
-  item       [[PREFIX]]Item   @relation(fields: [itemId], references: [id])
-  quantity   Int
-  price      Decimal
-  receiptUrl String
-  createdAt  DateTime       @default(now())
+  purchaseId String         @map("purchase_id")
+  purchase   __Prefix__Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  itemId     String         @map("item_id")
+  item       __Prefix__Item   @relation(fields: [itemId], references: [id])
+  quantity   Decimal
+  unitPrice  Decimal        @map("unit_price")
+  total      Decimal
+  createdAt  DateTime       @default(now()) @map("created_at")
 
-  @@map("Purchase")
-  @@schema("[[SCHEMA]]")
+  @@map("purchase_items")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]VendorPayment {
+enum __Prefix__VendorLedgerType {
+  PURCHASE
+  PAYMENT
+
+  @@map("vendor_ledger_types")
+  @@schema("__schema__")
+}
+
+model __Prefix__VendorLedgerEntry {
+  id         String                 @id @default(uuid())
+  vendorId   String                 @map("vendor_id")
+  vendor     __Prefix__Vendor       @relation(fields: [vendorId], references: [id])
+  purchaseId String?                @map("purchase_id")
+  purchase   __Prefix__Purchase?    @relation(fields: [purchaseId], references: [id])
+  type       __Prefix__VendorLedgerType
+  amount     Decimal
+  remarks    String?
+  createdAt  DateTime               @default(now()) @map("created_at")
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_ledger_entries")
+  @@schema("__schema__")
+}
+
+model __Prefix__AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  details     String?
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+  @@schema("__schema__")
+}
+
+model __Prefix__VendorPayment {
   id        String         @id @default(uuid())
-  vendorId  String
-  vendor    [[PREFIX]]Vendor @relation(fields: [vendorId], references: [id])
+  vendorId  String         @map("vendor_id")
+  vendor    __Prefix__Vendor @relation(fields: [vendorId], references: [id])
   amount    Decimal
-  createdAt DateTime       @default(now())
+  createdAt DateTime       @default(now()) @map("created_at")
 
-  @@map("VendorPayment")
-  @@schema("[[SCHEMA]]")
+  @@index([vendorId, createdAt])
+  @@map("vendor_payments")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]Expense {
+model __Prefix__Expense {
   id         String   @id @default(uuid())
   category   String
   amount     Decimal
-  receiptUrl String
-  createdAt  DateTime @default(now())
+  receiptUrl String   @map("receipt_url")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  @@map("Expense")
-  @@schema("[[SCHEMA]]")
+  @@index([createdAt, category])
+  @@map("expenses")
+  @@schema("__schema__")
 }
 
-model [[PREFIX]]DailyClose {
+model __Prefix__DailyClose {
   id         String   @id @default(uuid())
   date       DateTime @unique @db.Date
-  closedAt   DateTime @default(now())
-  closedById String
+  closedAt   DateTime @default(now()) @map("closed_at")
+  closedById String   @map("closed_by_id")
+  closedBy   __Prefix__User @relation(fields: [closedById], references: [id])
 
-  @@map("DailyClose")
-  @@schema("[[SCHEMA]]")
+  @@map("daily_closes")
+  @@schema("__schema__")
+}
+
+
+model __Prefix__User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         __Prefix__Role
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  dailyCloses  __Prefix__DailyClose[]
+
+  @@map("users")
+  @@schema("__schema__")
+}
+
+enum __Prefix__Role {
+  OWNER
+  ADMIN
+  PRODUCTION_MANAGER
+  ACCOUNTANT
+  MARKETING_MANAGER
+
+  @@map("roles")
+  @@schema("__schema__")
+}
+
+enum __Prefix__TransactionDirection {
+  IN
+  OUT
+
+  @@map("transaction_directions")
+  @@schema("__schema__")
+}
+
+enum __Prefix__DeliveryStatus {
+  PENDING
+  DELIVERED
+  CANCELLED
+
+  @@map("delivery_statuses")
+  @@schema("__schema__")
+}
+
+enum __Prefix__PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+
+  @@map("payment_statuses")
+  @@schema("__schema__")
+}
+
+enum __Prefix__PaymentType {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+
+  @@map("payment_types")
+  @@schema("__schema__")
+}
+
+enum __Prefix__Location {
+  FACTORY
+  WAREHOUSE
+
+  @@map("locations")
+  @@schema("__schema__")
+}
+
+model __Prefix__RecipeItem {
+  id               String         @id @default(uuid())
+  finishedGoodId   String         @map("finished_good_id")
+  rawMaterialId    String         @map("raw_material_id")
+  quantityPerUnit  Decimal        @map("quantity_per_unit")
+  
+  finishedGood     __Prefix__Item @relation("RecipeFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterial      __Prefix__Item @relation("RecipeRawMaterial", fields: [rawMaterialId], references: [id])
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@map("recipe_items")
+  @@schema("__schema__")
+}
+
+model __Prefix__SpotSale {
+  id             String   @id @default(uuid())
+  litresSold     Decimal  @map("litres_sold")
+  capsIssued     Int      @default(0) @map("caps_issued")
+  cashCollected  Decimal  @default(0.0) @map("cash_collected")
+  paymentMethod  String   @default("CASH") @map("payment_method")
+  remarks        String?
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("spot_sales")
+  @@schema("__schema__")
 }

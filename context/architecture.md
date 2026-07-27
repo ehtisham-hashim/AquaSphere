@@ -11,13 +11,13 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 ```
 ┌─────────────────────────────────────────┐
 │     "Would you like to enter           │
-│      Badana or Aquasphere?"            │
+│      Wadaana or Aquasphere?"            │
 └─────────────────────────────────────────┘
                     │
         ┌───────────┴───────────┐
         ▼                       ▼
 ┌───────────────┐       ┌───────────────┐
-│ Badana        │       │ Aquasphere    │
+│ Wadaana        │       │ Aquasphere    │
 │ Industries    │       │ (Water        │
 │ (Blowing      │       │ Business)     │
 │  Machine)     │       │               │
@@ -37,7 +37,7 @@ AQUA Sphere OS runs **two completely separate businesses** under one login syste
 
 ```mermaid
 graph TD
-    A["React Frontend<br/>(Vite + TypeScript)"] -->|REST / JSON / SSE| B["Express API<br/>(Node.js + TypeScript)"]
+    A["React Frontend<br/>(Vite + JavaScript)"] -->|REST / JSON / SSE| B["Express API<br/>(Node.js + JavaScript)"]
     B -->|Prisma Client| C[("PostgreSQL<br/>(NeonDB)")]
     B -->|Uploads| D["S3 / Server Filesystem<br/>(Photos)"]
 ```
@@ -55,39 +55,39 @@ The system uses **one NeonDB project** with **three PostgreSQL schemas**:
 |--------|---------|
 | `auth` | Shared user accounts, roles, sessions, password hashes |
 | `aquasphere` | All transactional data for the water business |
-| `badana` | All transactional data for the blowing machine business |
+| `wadaana` | All transactional data for the blowing machine business |
 
 ```mermaid
 graph TD
     subgraph UI ["Single Shared Frontend App (Mobile Responsive)"]
         MM_UI["Marketing Manager Workspace"]
         Owner_UI["Owner Workspace (Consolidated/Toggle)"]
-        Staff_UI["Staff Workspace (Aquasphere or Badana Portal)"]
+        Staff_UI["Staff Workspace (Aquasphere or Wadaana Portal)"]
     end
 
-    Router{"Company Context Router<br/>Header: company=aquasphere|badana"}
+    Router{"Company Context Router<br/>Header: company=aquasphere|wadaana"}
 
     MM_UI -->|"API Session: company=aquasphere"| Router
-    Owner_UI -->|"API Session: company=badana"| Router
+    Owner_UI -->|"API Session: company=wadaana"| Router
     Staff_UI -->|"API Session: company=aquasphere"| Router
 
     subgraph DB ["NeonDB — Single Project"]
         Auth["Schema: auth<br/>Users, Roles, Sessions"]
         AS["Schema: aquasphere<br/>Customers, Orders, Inventory, Ledgers"]
-        BI["Schema: badana<br/>Companies, Orders, Preform, Ledgers"]
+        BI["Schema: wadaana<br/>Companies, Orders, Preform, Ledgers"]
     end
 
     Router -->|"Prisma Client → aquasphere.*"| AS
-    Router -->|"Prisma Client → badana.*"| BI
+    Router -->|"Prisma Client → wadaana.*"| BI
     Auth -->|"Referenced by both"| Router
 
 ```
 
 **Separation Rules:**
 - All transactional records, sales history, customer databases, credit ledgers, and inventories are completely segregated by schema.
-- The `schema.prisma` file is **generated dynamically** via `scripts/generate-schema.js` from `base-models.prisma` to ensure perfectly identical schemas for `aquasphere` and `badana` without manual duplication.
+- The `schema.prisma` file is **generated dynamically** via `scripts/generate-schema.js` from `base-models.prisma` to ensure perfectly identical schemas for `aquasphere` and `wadaana` without manual duplication.
 - The `auth` schema is global — shared users log in once and switch context dynamically.
-- A persistent header shows `[Active Workspace: Aquasphere | Badana Industries]` allowing instant context switch.
+- A persistent header shows `[Active Workspace: Aquasphere | Wadaana Industries]` allowing instant context switch.
 - Invoices and alerts dynamically render branding matching the active schema context.
 - **No browser localStorage/sessionStorage** is used for business-critical data. Company context is stored in an httpOnly cookie or JWT claim.
 
@@ -146,11 +146,11 @@ flowchart LR
     end
 ```
 
-### 2.3 Badana Industries — Full 5-Step Cycle
+### 2.3 Wadaana Industries — Full 5-Step Cycle
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│           BADANA INDUSTRIES — 5-STEP CYCLE                  │
+│           WADAANA INDUSTRIES — 5-STEP CYCLE                  │
 └─────────────────────────────────────────────────────────────┘
 
     STEP 1: BUY PREFORM
@@ -241,7 +241,7 @@ flowchart LR
 - Passwords hashed with **bcrypt**; never stored or logged in plain text.
 - **Access token** stored in httpOnly cookie. Short-lived (~1h). Refresh via a `/auth/refresh` endpoint using a longer-lived refresh token (also httpOnly cookie).
 - **Admin password reset requires accountant confirmation** — implemented as a two-step flow: Admin initiates reset → Accountant approves → new temporary password issued.
-- **Company context** (`aquasphere` or `badana`) is stored in the JWT claim `companyContext` and sent with every request. The API router uses this to select the correct Prisma schema.
+- **Company context** (`aquasphere` or `wadaana`) is stored in the JWT claim `companyContext` and sent with every request. The API router uses this to select the correct Prisma schema.
 
 ```mermaid
 sequenceDiagram
@@ -255,10 +255,10 @@ sequenceDiagram
     API->>DB: bcrypt validation + role fetch
     DB-->>API: Success + User Role + Company Access
     API-->>User: Set httpOnly Cookie (JWT with role + companyContext)
-    User->>UI: Select Workspace (Aquasphere | Badana)
+    User->>UI: Select Workspace (Aquasphere | Wadaana)
     UI->>API: Request with Cookie + Company Header
     API->>API: authMiddleware verifies JWT + Role + Company Context
-    API->>API: Route to aquasphere.* or badana.* schema
+    API->>API: Route to aquasphere.* or wadaana.* schema
 ```
 
 ---
@@ -315,10 +315,10 @@ Express backend is organized by domain — one folder per business area, each wi
 
 ```mermaid
 graph LR
-    A[Route<br/>e.g. routes/orders.ts] --> B[Controller<br/>orders.controller.ts]
+    A[Route<br/>e.g. routes/orders.js] --> B[Controller<br/>orders.controller.js]
     B --> C{Zod Validation}
     C -->|Invalid| D["res.status(400)"]
-    C -->|Valid| E[Service<br/>orders.service.ts]
+    C -->|Valid| E[Service<br/>orders.service.js]
     E --> F[Prisma DB Query]
     F --> G[Return JSON]
 ```
@@ -352,7 +352,7 @@ aqua-sphere-os/
 │   │   │   ├── vendors/             # Vendor CRUD (must exist first)
 │   │   │   ├── purchases/           # Purchase entry with bill photo
 │   │   │   ├── dashboard/
-│   │   │   └── badana/              # Badana Industries portal
+│   │   │   └── wadaana/              # Wadaana Industries portal
 │   │   │       ├── companies/       # Client companies (Aqua Sphere, Deosani, Pivrifine)
 │   │   │       ├── preform/         # Pure/Mix inventory
 │   │   │       ├── production/      # Blowing machine batches
@@ -362,27 +362,26 @@ aqua-sphere-os/
 │   │   │   └── layout/              # Sidebar, Header, ProtectedRoute, CompanyToggle
 │   │   ├── lib/                     # Axios instance, global utils
 │   │   ├── hooks/                   # useCompanyContext, useAuth
-│   │   ├── App.tsx
-│   │   └── main.tsx
+│   │   ├── App.jsx
+│   │   └── main.jsx
 │   ├── index.html
-│   ├── tailwind.config.ts
-│   └── vite.config.ts
+│   ├── tailwind.config.js
+│   └── vite.config.js
 │
 ├── backend/                          # Express backend
 │   ├── src/
 │   │   ├── controllers/             # Request handling and response formatting
 │   │   ├── db/                      # Database connection and Prisma client wrappers
-│   │   │   ├── prisma-aquasphere.ts # Prisma client for aquasphere schema
-│   │   │   ├── prisma-badana.ts     # Prisma client for badana schema
-│   │   │   └── prisma-auth.ts       # Prisma client for auth schema
+│   │   │   ├── prisma-aquasphere.js # Prisma client for aquasphere schema
+│   │   │   ├── prisma-wadaana.js     # Prisma client for wadaana schema
+│   │   │   └── prisma-auth.js       # Prisma client for auth schema
 │   │   ├── middlewares/             # Express middlewares
-│   │   │   ├── auth.ts              # JWT verification + role checking
-│   │   │   ├── company-context.ts   # Routes request to correct schema
-│   │   │   ├── validation.ts        # Zod request validation
-│   │   │   ├── error-handler.ts     # Global error handler
-│   │   │   └── daily-close-guard.ts # Blocks edits on closed dates
+│   │   │   ├── auth.js              # JWT verification + role checking
+│   │   │   ├── company-context.js   # Routes request to correct schema
+│   │   │   ├── validation.js        # Zod request validation
+│   │   │   ├── error-handler.js     # Global error handler
+│   │   │   └── daily-close-guard.js # Blocks edits on closed dates
 │   │   ├── routes/                  # API route definitions
-│   │   │   ├── auth.routes.ts
 │   │   │   ├── customer.routes.ts
 │   │   │   ├── order.routes.ts
 │   │   │   ├── delivery.routes.ts
@@ -396,7 +395,7 @@ aqua-sphere-os/
 │   │   │   ├── spot-sale.routes.ts
 │   │   │   ├── daily-close.routes.ts
 │   │   │   ├── report.routes.ts
-│   │   │   └── badana/              # Badana-specific routes
+│   │   │   └── wadaana/              # Wadaana-specific routes
 │   │   │       ├── company.routes.ts
 │   │   │       ├── preform.routes.ts
 │   │   │       ├── production.routes.ts
@@ -404,7 +403,7 @@ aqua-sphere-os/
 │   │   ├── services/                # Business logic and complex operations
 │   │   │   ├── mineral-calc.service.ts
 │   │   │   ├── balance.service.ts
-│   │   │   └── badana/              # Badana-specific services
+│   │   │   └── wadaana/              # Wadaana-specific services
 │   │   ├── utils/                   # Generic utilities and helpers
 │   │   ├── app.ts                   # Express app setup and middleware registration
 │   │   ├── constants.ts             # Global constants and business rules
@@ -424,7 +423,7 @@ aqua-sphere-os/
 │       ├── delivery.schema.ts
 │       ├── expense.schema.ts
 │       ├── vendor.schema.ts
-│       └── badana/
+│       └── wadaana/
 │           ├── production.schema.ts
 │           └── order.schema.ts
 │
@@ -439,7 +438,7 @@ aqua-sphere-os/
 
 | Layer | Choice |
 |---|---|
-| Frontend framework | React 19 + Vite + TypeScript |
+| Frontend framework | React 19 + Vite + JavaScript |
 | Routing (client) | React Router v7 |
 | Styling | Tailwind CSS v4 + Lucide React icons |
 | Forms & validation | React Hook Form + Zod |
@@ -448,7 +447,7 @@ aqua-sphere-os/
 | Tables | TanStack Table |
 | Charts | Recharts |
 | Dates | date-fns |
-| Backend framework | Express (TypeScript) |
+| Backend framework | Express (JavaScript) |
 | Security | helmet, cookie-parser, cors |
 | ORM | Prisma (+ Prisma Migrate) with multi-schema support |
 | Database | PostgreSQL (NeonDB) |
@@ -464,12 +463,12 @@ aqua-sphere-os/
 
 ## 8. Naming Conventions
 
-- **Files & folders**: `kebab-case` (`bottle-ledger.service.ts`, `customer-form.tsx`).
+- **Files & folders**: `kebab-case` (`bottle-ledger.service.js`, `customer-form.jsx`).
 - **Classes / Interfaces / Types**: `PascalCase` (`CreateOrderInput`, `BottleTransaction`).
 - **Variables & functions**: `camelCase` (`getCustomerBalance`, `mineralFraction`).
 - **Database tables (Prisma models)**: singular `PascalCase` in schema (`Customer`, `BottleTransaction`), mapped to snake_case tables via `@@map` for Postgres convention.
 - **Enums**: `PascalCase` type, `SCREAMING_SNAKE_CASE` members (`OrderType.NINETEEN_L`, `DeliveryStatus.PARTIAL`).
-- **React components**: `PascalCase` (`CustomerSearchBar.tsx`); hooks prefixed `use` (`useCustomerBalance.ts`).
+- **React components**: `PascalCase` (`CustomerSearchBar.jsx`); hooks prefixed `use` (`useCustomerBalance.js`).
 - **API routes**: plural, kebab-case (`/api/v1/customers`, `/api/v1/bottle-ledger`).
 - **Environment variables**: `SCREAMING_SNAKE_CASE`, prefixed by concern (`DATABASE_URL`, `JWT_SECRET`, `S3_BUCKET`).
 
@@ -555,17 +554,17 @@ GET    /api/v1/events/stream                    # SSE endpoint — auth required
 ```
 ```
 
-### 9.8 Badana Industries (Blowing Machine)
+### 9.8 Wadaana Industries (Blowing Machine)
 ```text
-GET    /api/v1/badana/companies
-POST   /api/v1/badana/companies
-GET    /api/v1/badana/companies/:id/orders
-POST   /api/v1/badana/companies/:id/orders
+GET    /api/v1/wadaana/companies
+POST   /api/v1/wadaana/companies
+GET    /api/v1/wadaana/companies/:id/orders
+POST   /api/v1/wadaana/companies/:id/orders
 
-GET    /api/v1/badana/preform/summary           # Pure kg, Mix kg, per location
-POST   /api/v1/badana/production/batch          # Auto-deducts preform
-GET    /api/v1/badana/production/batches
-GET    /api/v1/badana/warehouse/finished
+GET    /api/v1/wadaana/preform/summary           # Pure kg, Mix kg, per location
+POST   /api/v1/wadaana/production/batch          # Auto-deducts preform
+GET    /api/v1/wadaana/production/batches
+GET    /api/v1/wadaana/warehouse/finished
 ```
 
 ### 9.9 File Upload
@@ -587,7 +586,7 @@ POST   /api/v1/files/upload                     # Generic upload endpoint
 
 - **TanStack Query** owns all server state — customer records, orders, inventory, dashboard numbers. Handles caching, background refetch, and optimistic updates.
 - **React state** (`useState` / `useContext`) for true frontend/UI state: sidebar toggles, active draft order, active company context.
-- **Company Context** is stored in React Context at the app root and synchronized with the API via a custom header (`X-Company-Context: aquasphere | badana`) on every request. It is **never stored in localStorage**.
+- **Company Context** is stored in React Context at the app root and synchronized with the API via a custom header (`X-Company-Context: aquasphere | wadaana`) on every request. It is **never stored in localStorage**.
 - After any mutation, the relevant Query keys are invalidated to fetch the latest derived balances.
 - **Real-time strategy:** Dashboard and credit-breach alerts use **Server-Sent Events (SSE)** for one-way server→client push. An `/api/v1/events` SSE endpoint streams events (new order, delivery completed, credit breach, low stock alert) to connected clients. This gives near-real-time updates without the overhead of WebSockets. For the initial phase with low concurrent users, SSE is sufficient and simpler to implement over standard HTTP. TanStack Query listens to SSE events and invalidates relevant query keys to refresh data. Fallback to 30s polling if SSE connection drops.
 
@@ -629,7 +628,7 @@ Every architectural choice traces to a specific requirement:
 
 | Architecture Decision | Requirement Rule |
 |---|---|
-| Multi-schema database (`auth` + `aquasphere` + `badana`) | §1.1, §2.1 — Two businesses, zero shared data |
+| Multi-schema database (`auth` + `aquasphere` + `wadaana`) | §1.1, §2.1 — Two businesses, zero shared data |
 | 5-role JWT hierarchy | §3 — Owner, Admin, PM, Accountant, Marketing Manager |
 | Ledger-first database (transaction tables + `SUM()`) | §6.1 — No manually-edited numbers |
 | Soft-block API contract (`warning` + `confirm`) | §8 — Credit philosophy, never hard-block |
