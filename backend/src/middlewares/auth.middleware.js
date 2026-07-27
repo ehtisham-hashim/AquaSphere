@@ -16,10 +16,17 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired token');
   }
 
-  const user = await prisma.aquasphereUser.findUnique({
+  let user = await prisma.aquasphereUser.findUnique({
     where: { id: decodedToken.id },
     select: { id: true, email: true, name: true, role: true, isActive: true }
   });
+
+  if (!user) {
+    user = await prisma.wadaanaUser.findUnique({
+      where: { id: decodedToken.id },
+      select: { id: true, email: true, name: true, role: true, isActive: true }
+    });
+  }
 
   if (!user || !user.isActive) {
     throw new ApiError(401, 'Invalid Access Token or User is inactive');

@@ -34,7 +34,9 @@ export const getCustomers = asyncHandler(async (req, res) => {
 export const createCustomer = asyncHandler(async (req, res) => {
   const { 
     name, phone, type, address, mapLink, deposit, securityDeposit,
-    defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl 
+    defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl,
+    buys19L, buys05LPet, buys15LPet,
+    buysPure05L, buysPure15L, buysMix05L, buysMix15L
   } = req.body;
   const prefix = getPrefix(req);
   
@@ -46,20 +48,33 @@ export const createCustomer = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
   }
 
+  const customerData = { 
+    name, 
+    phone, 
+    type, 
+    address,
+    mapLink,
+    deposit: normalizedDeposit ? parseInt(normalizedDeposit) : 0,
+    defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
+    creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
+    creditDuration: creditDuration ? parseInt(creditDuration) : 1,
+    remarks,
+    homePictureUrl
+  };
+
+  if (prefix === 'aquasphere') {
+    customerData.buys19L = Boolean(buys19L);
+    customerData.buys05LPet = Boolean(buys05LPet);
+    customerData.buys15LPet = Boolean(buys15LPet);
+  } else {
+    customerData.buysPure05L = Boolean(buysPure05L);
+    customerData.buysPure15L = Boolean(buysPure15L);
+    customerData.buysMix05L = Boolean(buysMix05L);
+    customerData.buysMix15L = Boolean(buysMix15L);
+  }
+
   const customer = await prisma[`${prefix}Customer`].create({
-    data: { 
-      name, 
-      phone, 
-      type, 
-      address,
-      mapLink,
-      deposit: normalizedDeposit ? parseInt(normalizedDeposit) : 0,
-      defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
-      creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
-      creditDuration: creditDuration ? parseInt(creditDuration) : 1,
-      remarks,
-      homePictureUrl
-    }
+    data: customerData
   });
 
   await prisma[`${prefix}AuditLog`].create({
@@ -68,11 +83,61 @@ export const createCustomer = asyncHandler(async (req, res) => {
       entityType: 'Customer',
       entityId: customer.id,
       performedBy: req.user?.id || 'Unknown',
-      details: `New Customer Added: ${customer.name} (${customer.phone}) | Deposit: ${customer.deposit || 0}`
+      details: `New Customer Added: ${customer.name} (${customer.phone})`
     }
   });
 
   res.status(201).json({ success: true, data: customer });
+});
+
+export const updateCustomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { 
+    name, phone, type, address, mapLink, deposit,
+    defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl,
+    buys19L, buys05LPet, buys15LPet,
+    buysPure05L, buysPure15L, buysMix05L, buysMix15L
+  } = req.body;
+  const prefix = getPrefix(req);
+
+  const existing = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, 'Customer not found');
+
+  if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
+    throw new ApiError(400, 'Invalid Google Maps URL');
+  }
+
+  const updateData = {
+    ...(name !== undefined && { name }),
+    ...(phone !== undefined && { phone }),
+    ...(type !== undefined && { type }),
+    ...(address !== undefined && { address }),
+    ...(mapLink !== undefined && { mapLink }),
+    ...(deposit !== undefined && { deposit: parseInt(deposit || 0) }),
+    ...(defaultPrice !== undefined && { defaultPrice: parseFloat(defaultPrice || 0) }),
+    ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit || 0) }),
+    ...(creditDuration !== undefined && { creditDuration: parseInt(creditDuration || 1) }),
+    ...(remarks !== undefined && { remarks }),
+    ...(homePictureUrl !== undefined && { homePictureUrl })
+  };
+
+  if (prefix === 'aquasphere') {
+    if (buys19L !== undefined) updateData.buys19L = Boolean(buys19L);
+    if (buys05LPet !== undefined) updateData.buys05LPet = Boolean(buys05LPet);
+    if (buys15LPet !== undefined) updateData.buys15LPet = Boolean(buys15LPet);
+  } else {
+    if (buysPure05L !== undefined) updateData.buysPure05L = Boolean(buysPure05L);
+    if (buysPure15L !== undefined) updateData.buysPure15L = Boolean(buysPure15L);
+    if (buysMix05L !== undefined) updateData.buysMix05L = Boolean(buysMix05L);
+    if (buysMix15L !== undefined) updateData.buysMix15L = Boolean(buysMix15L);
+  }
+
+  const customer = await prisma[`${prefix}Customer`].update({
+    where: { id },
+    data: updateData
+  });
+
+  res.json({ success: true, data: customer });
 });
 
 export const deleteCustomer = asyncHandler(async (req, res) => {
@@ -103,4 +168,3 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
 
   res.json({ success: true, message: 'Customer deleted successfully' });
 });
-
