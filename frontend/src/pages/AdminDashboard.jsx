@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 
+const API = import.meta.env.VITE_API_URL || '/api/v1';
+
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [cashData, setCashData] = useState(null);
@@ -30,9 +32,9 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const [dashRes, cashRes, alertRes] = await Promise.all([
-        fetch('/api/admin/dashboard', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/admin/cash-summary', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/admin/customer-alerts', { headers: { 'x-tenant': tenant }, credentials: 'include' })
+        fetch(`${API}/admin/dashboard`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/admin/cash-summary`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/admin/customer-alerts`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
 
       const dashJson = await dashRes.json();
@@ -58,7 +60,7 @@ export default function AdminDashboard() {
     setClosing(true);
     try {
       const todayStr = new Date().toISOString().split('T')[0];
-      const res = await fetch('/api/daily-close/close', {
+      const res = await fetch(`${API}/daily-close/close`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

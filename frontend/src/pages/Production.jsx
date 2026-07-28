@@ -17,6 +17,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 
+const API = import.meta.env.VITE_API_URL || '/api/v1';
+
 export default function Production() {
   const { user } = useAuth();
   const tenant = getCompanyFromCookie();
@@ -43,9 +45,9 @@ export default function Production() {
     setLoading(true);
     try {
       const [itemsRes, batchesRes, statsRes] = await Promise.all([
-        fetch('/api/items', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/production', { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch('/api/production/stats', { headers: { 'x-tenant': tenant }, credentials: 'include' }).catch(() => ({ json: () => ({ success: true, data: null }) }))
+        fetch(`${API}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/production/stats`, { headers: { 'x-tenant': tenant }, credentials: 'include' }).catch(() => ({ json: () => ({ success: true, data: null }) }))
       ]);
 
       const itemsData = await itemsRes.json();
@@ -87,7 +89,7 @@ export default function Production() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/production', {
+      const res = await fetch(`${API}/production`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

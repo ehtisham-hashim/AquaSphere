@@ -8,9 +8,9 @@ const originalFetch = window.fetch;
 window.fetch = async (url, options = {}) => {
   const urlString = typeof url === 'string' ? url : url instanceof Request ? url.url : String(url);
   
-  // Check if request targets our backend API (relative path, localhost:5000, or VITE_API_URL)
-  const VITE_API_URL = import.meta?.env?.VITE_API_URL || 'http://localhost:5000/api';
-  const isApiRequest = urlString.includes('/api') || urlString.includes('localhost:5000') || urlString.includes(VITE_API_URL);
+  // Check if request targets our backend API (relative path, localhost:3000, or VITE_API_URL)
+  const VITE_API_URL = import.meta?.env?.VITE_API_URL || 'http://localhost:3000/api/v1';
+  const isApiRequest = urlString.includes('/api') || urlString.includes('localhost:3000') || urlString.includes('localhost:5000') || urlString.includes(VITE_API_URL);
 
   if (isApiRequest) {
     const tenant = localStorage.getItem('tenant') || 'aquasphere';
