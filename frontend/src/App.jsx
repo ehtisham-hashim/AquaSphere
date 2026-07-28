@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import Login from './pages/Login';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
@@ -16,6 +16,7 @@ import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import MMOrders from './pages/MMOrders';
 import AccountantDashboard from './pages/AccountantDashboard';
+import Reports from './pages/Reports';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ function PublicRoute({ children }) {
 function DashboardRoleWrapper() {
   const { user } = useAuth();
   if (user?.role === 'ADMIN') return <AdminDashboard />;
+  if (user?.role === 'ACCOUNTANT') return <AccountantDashboard />;
   return <Dashboard />;
 }
 
@@ -54,6 +56,7 @@ function AppRoutes() {
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
         <Route path="bottle-ledger" element={<BottleLedger />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>

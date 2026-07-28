@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { setCompanyCookie } from '../utils/companyCookie';
+import { setCompanyCookie } from '../../utils/companyCookie';
 
 const AuthContext = createContext();
 const API = import.meta.env.VITE_API_URL || '/api/v1';

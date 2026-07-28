@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Lock, Unlock, AlertCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth/AuthContext';
 
 export default function DailyCloseModal({ onClose, onClosed }) {
   const { user } = useAuth();
