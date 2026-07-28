@@ -11,6 +11,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
@@ -70,13 +71,13 @@ export default function AdminDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        alert('Day closed successfully! Operational records locked.');
+        toast.success('Day closed successfully! Operational records locked.');
         fetchData();
       } else {
-        alert(json.message || 'Failed to close day');
+        toast.error(json.message || 'Failed to close day');
       }
     } catch (err) {
-      alert('Error closing day');
+      toast.error('Error closing day');
     } finally {
       setClosing(false);
     }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, DollarSign, User, Package, Calendar, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
@@ -61,13 +62,14 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
       }
 
       if (json.success) {
+        toast.success('Order created successfully!');
         onOrderAdded();
       } else {
-        alert(json.message || 'Failed to create order');
+        toast.error(json.message || 'Failed to create order');
       }
     } catch (err) {
       console.error(err);
-      alert('Error creating order');
+      toast.error('Error creating order');
     } finally {
       setIsSubmitting(false);
     }

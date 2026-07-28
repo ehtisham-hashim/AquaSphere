@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
@@ -38,13 +39,14 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
       }
 
       if (json.success) {
+        toast.success('Delivery processed successfully!');
         onDeliveryProcessed();
       } else {
-        alert(json.message || 'Failed to process delivery');
+        toast.error(json.message || 'Failed to process delivery');
       }
     } catch (err) {
       console.error(err);
-      alert('Error processing delivery');
+      toast.error('Error processing delivery');
     } finally {
       setIsSubmitting(false);
     }

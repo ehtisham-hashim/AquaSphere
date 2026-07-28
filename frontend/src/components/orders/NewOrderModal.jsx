@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Droplets, Package, AlertTriangle, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { API_URL as API } from '../../utils/api';
 const INPUT = 'input-field';
@@ -65,9 +66,12 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
       });
       const json = await res.json();
       if (json.softBlock) { setSoftBlock(json); return; }
-      if (json.success) onOrderPlaced();
-      else alert(json.message || 'Failed to place order');
-    } catch { alert('Network error'); }
+      if (json.success) {
+        toast.success('Order placed successfully!');
+        onOrderPlaced();
+      }
+      else toast.error(json.message || 'Failed to place order');
+    } catch { toast.error('Network error'); }
     finally { setSubmitting(false); }
   };
 

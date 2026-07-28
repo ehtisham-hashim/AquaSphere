@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Search, Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 
 export default function Vendors() {
@@ -98,7 +99,7 @@ export default function Vendors() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
-      alert('Vendor Name and Phone are required');
+      toast.error('Vendor Name and Phone are required');
       return;
     }
 
@@ -117,20 +118,20 @@ export default function Vendors() {
       });
       const json = await res.json();
       if (!json.success) {
-        alert(json.message || 'Error saving vendor');
+        toast.error(json.message || 'Error saving vendor');
         return;
       }
       setIsModalOpen(false);
       fetchVendors();
     } catch (err) {
-      alert('Failed to save vendor');
+      toast.error('Failed to save vendor');
     }
   };
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
-      alert('Please enter a valid payment amount greater than zero');
+      toast.error('Please enter a valid payment amount greater than zero');
       return;
     }
 
@@ -144,7 +145,7 @@ export default function Vendors() {
       });
       const json = await res.json();
       if (!json.success) {
-        alert(json.message || 'Failed to record payment');
+        toast.error(json.message || 'Failed to record payment');
         return;
       }
       setIsPaymentModalOpen(false);
@@ -153,7 +154,7 @@ export default function Vendors() {
         handleViewDetails(selectedVendorForPayment);
       }
     } catch (err) {
-      alert('Error submitting payment');
+      toast.error('Error submitting payment');
     } finally {
       setPaymentSubmitting(false);
     }
@@ -171,7 +172,7 @@ export default function Vendors() {
       });
       fetchVendors();
     } catch (err) {
-      alert(`Failed to ${action} vendor`);
+      toast.error(`Failed to ${action} vendor`);
     }
   };
 

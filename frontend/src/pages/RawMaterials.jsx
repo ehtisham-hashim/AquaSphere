@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
+import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
@@ -59,7 +60,7 @@ export default function RawMaterials() {
       });
       fetchMaterials();
     } catch (err) {
-      alert(`Failed to ${action} material`);
+      toast.error(`Failed to ${action} material`);
     }
   };
 

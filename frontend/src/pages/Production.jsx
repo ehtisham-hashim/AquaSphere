@@ -9,6 +9,7 @@ import {
   ShieldCheck, 
   RefreshCw
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
@@ -78,7 +79,7 @@ export default function Production() {
     const b15 = parseInt(brokenBottles15L || 0);
 
     if (p05 === 0 && p15 === 0) {
-      alert('Please enter at least one pack quantity (0.5L or 1.5L)');
+      toast.error('Please enter at least one pack quantity (0.5L or 1.5L)');
       return;
     }
 
@@ -103,7 +104,7 @@ export default function Production() {
 
       const json = await res.json();
       if (json.success) {
-        alert('Production batch logged successfully! Raw materials auto-deducted.');
+        toast.success('Production batch logged successfully! Raw materials auto-deducted.');
         setPacks05L('');
         setPacks15L('');
         setBrokenBottles05L('');
@@ -112,10 +113,10 @@ export default function Production() {
         setIsModalOpen(false);
         fetchData();
       } else {
-        alert(json.message || 'Failed to log production batch');
+        toast.error(json.message || 'Failed to log production batch');
       }
     } catch (err) {
-      alert('Error submitting batch');
+      toast.error('Error submitting batch');
     } finally {
       setSubmitting(false);
     }
@@ -160,7 +161,7 @@ export default function Production() {
           <button
             onClick={() => {
               setPmConfirmed(!pmConfirmed);
-              alert(pmConfirmed ? 'Production status unconfirmed.' : 'Production numbers confirmed for today! Admin can now execute Daily Close.');
+              toast.info(pmConfirmed ? 'Production status unconfirmed.' : 'Production numbers confirmed for today! Admin can now execute Daily Close.');
             }}
             className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 border ${
               pmConfirmed 

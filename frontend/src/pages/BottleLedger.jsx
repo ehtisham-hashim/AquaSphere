@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RefreshCcw, Filter, Plus, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Package, Truck, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 
 export default function BottleLedger() {
@@ -80,16 +81,17 @@ export default function BottleLedger() {
       });
       const json = await res.json();
       if (json.success) {
+        toast.success('Transaction recorded successfully!');
         setIsModalOpen(false);
         setFormData({ type: 'NEW_PURCHASE', quantity: '', reason: '' });
         fetchSummary();
         fetchTransactions(1);
       } else {
-        alert(json.message || 'Failed to record transaction');
+        toast.error(json.message || 'Failed to record transaction');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while recording transaction');
+      toast.error('Network error while recording transaction');
     }
   };
 
