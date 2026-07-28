@@ -3,7 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 
-const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = (req) => (req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 
 /**
  * Feature 2: Admin View-Only Dashboard
@@ -224,7 +224,11 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
   const allCustomers = await prisma[`${prefix}Customer`].findMany({
+    where: { archivedAt: null },
     select: {
       id: true,
       name: true,
@@ -237,7 +241,7 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       orders: {
         orderBy: { createdAt: 'desc' },
         take: 1,
-        select: { createdAt: true }
+        select: { createdAt: true, deliveryStatus: true, paymentStatus: true }
       }
     }
   });
@@ -258,14 +262,25 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     alertType: 'CREDIT_BREACH'
   }));
 
-  // Inactivity: last order > 7 days ago (or no orders at all, but created > 7 days ago)
+  // Unpaid bill > 7 days (B2B spec): balance > 0 and last order > 7 days ago
+  const unpaidBillOver7Days = allCustomers.filter(c => {
+    const balance = Number(c.cachedBalance);
+    const lastOrderDate = c.orders[0]?.createdAt;
+    return balance > 0 && lastOrderDate && new Date(lastOrderDate) < sevenDaysAgo;
+  }).map(c => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    balance: Number(c.cachedBalance),
+    lastOrderDate: c.orders[0].createdAt,
+    alertType: 'UNPAID_BILL_7d'
+  }));
+
+  // Inactivity / No repeat order > 30 days
   const inactiveCustomers = allCustomers.filter(c => {
     const lastOrderDate = c.orders[0]?.createdAt;
-    if (!lastOrderDate) {
-      // No orders ever — only flag if customer created more than 7 days ago
-      return new Date(c.createdAt) < sevenDaysAgo;
-    }
-    return new Date(lastOrderDate) < sevenDaysAgo;
+    if (!lastOrderDate) return new Date(c.createdAt) < thirtyDaysAgo;
+    return new Date(lastOrderDate) < thirtyDaysAgo;
   }).map(c => ({
     id: c.id,
     name: c.name,
@@ -275,12 +290,13 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     daysSinceLastOrder: c.orders[0]?.createdAt
       ? Math.floor((Date.now() - new Date(c.orders[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
       : 'Never ordered',
-    alertType: 'INACTIVE'
+    alertType: 'INACTIVE_30d'
   }));
 
   res.status(200).json(new ApiResponse(200, {
     creditBreaches,
+    unpaidBillOver7Days,
     inactiveCustomers,
-    totalAlerts: creditBreaches.length + inactiveCustomers.length
+    totalAlerts: creditBreaches.length + unpaidBillOver7Days.length + inactiveCustomers.length
   }, 'Customer alerts fetched'));
 });

@@ -39,41 +39,116 @@ export const getItemById = asyncHandler(async (req, res) => {
 });
 
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0 } = req.body;
+  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0 } = req.body;
   const prefix = getTenantPrefix(req);
 
-  if (!name) throw new ApiError(400, 'Item name is required');
+  if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
+  const cleanName = name.trim();
+  const addQty = parseFloat(initialStock || quantityToAdd || 0);
 
-  const item = await prisma[`${prefix}Item`].create({
-    data: {
-      name,
-      type,
-      unit,
-      reorderLevel: parseFloat(reorderLevel),
-      cachedQty: 0
+  // Check if active item with same name exists to avoid duplicate rows
+  const existingItem = await prisma[`${prefix}Item`].findFirst({
+    where: {
+      name: { equals: cleanName, mode: 'insensitive' },
+      archivedAt: null
     }
   });
-  
+
+  if (existingItem) {
+    const updated = await prisma.$transaction(async (tx) => {
+      if (addQty > 0) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: existingItem.id,
+            quantity: addQty,
+            direction: 'IN',
+            reason: 'STOCK_ADDED',
+            refType: 'MANUAL',
+            refId: 'SYSTEM'
+          }
+        });
+      }
+
+      return await tx[`${prefix}Item`].update({
+        where: { id: existingItem.id },
+        data: {
+          cachedQty: { increment: addQty > 0 ? addQty : 0 },
+          reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
+          unit: unit || existingItem.unit
+        }
+      });
+    });
+
+    return res.status(200).json({ success: true, data: updated, message: 'Stock appended to existing item' });
+  }
+
+  const item = await prisma.$transaction(async (tx) => {
+    const newItem = await tx[`${prefix}Item`].create({
+      data: {
+        name: cleanName,
+        type,
+        unit,
+        reorderLevel: parseFloat(reorderLevel) || 0,
+        cachedQty: addQty > 0 ? addQty : 0
+      }
+    });
+
+    if (addQty > 0) {
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: {
+          itemId: newItem.id,
+          quantity: addQty,
+          direction: 'IN',
+          reason: 'INITIAL_STOCK',
+          refType: 'MANUAL',
+          refId: 'SYSTEM'
+        }
+      });
+    }
+
+    return newItem;
+  });
+
   res.status(201).json({ success: true, data: item });
 });
 
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0 } = req.body;
   const prefix = getTenantPrefix(req);
 
-  if (!name) throw new ApiError(400, 'Item name is required');
+  if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
+  const addQty = parseFloat(initialStock || quantityToAdd || 0);
 
-  const item = await prisma[`${prefix}Item`].update({
-    where: { id },
-    data: {
-      name,
-      unit,
-      reorderLevel: parseFloat(reorderLevel)
+  const updated = await prisma.$transaction(async (tx) => {
+    const item = await tx[`${prefix}Item`].findUnique({ where: { id } });
+    if (!item) throw new ApiError(404, 'Item not found');
+
+    if (addQty > 0) {
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: {
+          itemId: item.id,
+          quantity: addQty,
+          direction: 'IN',
+          reason: 'STOCK_ADDED',
+          refType: 'MANUAL',
+          refId: 'SYSTEM'
+        }
+      });
     }
+
+    return await tx[`${prefix}Item`].update({
+      where: { id },
+      data: {
+        name: name.trim(),
+        unit: unit || item.unit,
+        reorderLevel: parseFloat(reorderLevel) || item.reorderLevel,
+        cachedQty: { increment: addQty > 0 ? addQty : 0 }
+      }
+    });
   });
-  
-  res.json({ success: true, data: item });
+
+  res.json({ success: true, data: updated });
 });
 
 export const archiveItem = asyncHandler(async (req, res) => {

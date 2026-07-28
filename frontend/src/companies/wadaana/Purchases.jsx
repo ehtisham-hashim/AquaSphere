@@ -29,13 +29,14 @@ export default function Purchases() {
   const fileInputRef = useRef(null);
 
   const API = import.meta.env.VITE_API_URL;
+  const tenant = 'wadaana';
 
   const fetchData = async () => {
     try {
       const [purchasesRes, vendorsRes, materialsRes] = await Promise.all([
-        fetch(`${API}/purchases`, { credentials: 'include' }),
-        fetch(`${API}/vendors`, { credentials: 'include' }),
-        fetch(`${API}/items?type=RAW_MATERIAL`, { credentials: 'include' })
+        fetch(`${API}/purchases`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/vendors`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/items?type=RAW_MATERIAL`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
       const pData = await purchasesRes.json();
       const vData = await vendorsRes.json();
@@ -107,6 +108,7 @@ export default function Purchases() {
       formData.append('receipt', receiptFile);
       const res = await fetch(`${API}/purchases/upload-receipt`, {
         method: 'POST',
+        headers: { 'x-tenant': tenant },
         body: formData,
         credentials: 'include'
       });
@@ -135,7 +137,7 @@ export default function Purchases() {
     try {
       const res = await fetch(`${API}/purchases`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
         credentials: 'include',
         body: JSON.stringify({
           vendorId,
@@ -165,14 +167,14 @@ export default function Purchases() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Purchases</h2>
-          <p className="text-slate-500 text-sm">Log raw material purchases — stock & vendor ledger update automatically</p>
+          <h2 className="text-2xl font-bold text-slate-800">Wadaana Preform Purchases</h2>
+          <p className="text-slate-500 text-sm">Log preform stock purchases (Pure / Mix hierarchy in kg) — inventory & vendor ledger update automatically</p>
         </div>
         <button
           onClick={handleOpenModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+          className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
         >
-          <Plus size={20} /> Record Purchase
+          <Plus size={20} /> Record Preform Purchase
         </button>
       </div>
 

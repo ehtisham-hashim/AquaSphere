@@ -26,9 +26,9 @@
 function calculateProductionBatch(params, items) {
   const { packs05L = 0, packs15L = 0, brokenBottles05L = 0, brokenBottles15L = 0 } = params;
 
-  const LITRES_PER_05L_PACK = 6;  // 12 bottles * 0.5L
-  const LITRES_PER_15L_PACK = 9;  // 6 bottles * 1.5L
-  const WATER_PER_MINERAL_SET = 15140; // Litres treated per mineral set
+  const LITRES_PER_05L_PACK = 9;  // 12 bottles * 0.5L + flush/wash (owner spec)
+  const LITRES_PER_15L_PACK = 12; // 6 bottles * 1.5L + flush/wash (owner spec)
+  const WATER_PER_MINERAL_SET = 15141; // Litres treated per mineral set (owner spec)
 
   const decPacks05L = new Prisma.Decimal(packs05L);
   const decPacks15L = new Prisma.Decimal(packs15L);
@@ -68,7 +68,7 @@ function calculateProductionBatch(params, items) {
     }
   };
 
-  // 1. Mineral Set Chemicals (Calcium 2kg, Magnesium 1kg, Sodium 0.5kg per 15,140L)
+  // 1. Mineral Set Chemicals (Calcium 2kg, Magnesium 1kg, Sodium 0.5kg per 15,141L)
   if (totalLitres.greaterThan(0)) {
     const calcium = findRawItem(['calcium']);
     if (calcium) addDeduction(calcium, mineralSetFraction.mul(2), 'kg');
@@ -80,8 +80,14 @@ function calculateProductionBatch(params, items) {
     if (sodium) addDeduction(sodium, mineralSetFraction.mul(0.5), 'kg');
   }
 
-  // 2. Caps (Shared or specific)
-  const capItem = findRawItem(['cap', 'small cap']);
+  // 2. Caps (Small PET caps — explicitly avoid 19L / large / big caps)
+  const capItem = items.find(i => 
+    i.type === 'RAW_MATERIAL' && 
+    i.name.toLowerCase().includes('cap') && 
+    !i.name.toLowerCase().includes('19l') && 
+    !i.name.toLowerCase().includes('large') && 
+    !i.name.toLowerCase().includes('big')
+  );
 
   // 3. Labels & Shrink Wrap
   const labelItem = findRawItem(['label']);
@@ -89,8 +95,8 @@ function calculateProductionBatch(params, items) {
 
   // --- 0.5L Pack Deductions ---
   if (packs05L > 0) {
-    // 12 Empty Bottles per pack
-    const empty05L = findRawItem(['500ml', '0.5l', 'bottle']);
+    // 12 Empty Bottles per pack (match 500ml / 0.5L explicitly without generic 'bottle')
+    const empty05L = findRawItem(['500ml', '0.5l']);
     if (empty05L) addDeduction(empty05L, decPacks05L.mul(12), 'pcs');
 
     // 12 Caps per pack
@@ -105,15 +111,15 @@ function calculateProductionBatch(params, items) {
 
   // --- 1.5L Pack Deductions ---
   if (packs15L > 0) {
-    // 6 Empty Bottles per pack
-    const empty15L = findRawItem(['1.5l', '1500ml', 'bottle']);
+    // 6 Empty Bottles per pack (match 1.5L / 1500ml explicitly without generic 'bottle')
+    const empty15L = findRawItem(['1.5l', '1500ml']);
     if (empty15L) addDeduction(empty15L, decPacks15L.mul(6), 'pcs');
 
     // 6 Caps per pack
     if (capItem) addDeduction(capItem, decPacks15L.mul(6), 'pcs');
 
-    // 7.86g (0.00786 kg) Labels per pack
-    if (labelItem) addDeduction(labelItem, decPacks15L.mul(0.00786), 'kg');
+    // 7.80g (0.00780 kg) Labels per pack
+    if (labelItem) addDeduction(labelItem, decPacks15L.mul(0.00780), 'kg');
 
     // 50g (0.050 kg) Shrink Wrap per pack
     if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.050), 'kg');
@@ -121,14 +127,14 @@ function calculateProductionBatch(params, items) {
 
   // 4. Finished Goods Additions
   if (packs05L > 0) {
-    const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.includes('500ml') || i.name.includes('0.5L')));
+    const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('500ml') || i.name.toLowerCase().includes('0.5l')));
     if (fg05L) {
       finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: decPacks05L, unit: 'packs' });
     }
   }
 
   if (packs15L > 0) {
-    const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.includes('1.5L') || i.name.includes('1500ml')));
+    const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('1.5l') || i.name.toLowerCase().includes('1500ml')));
     if (fg15L) {
       finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: decPacks15L, unit: 'packs' });
     }
@@ -136,14 +142,14 @@ function calculateProductionBatch(params, items) {
 
   // 5. Broken Bottles Logging
   if (brokenBottles05L > 0) {
-    const empty05L = findRawItem(['500ml', '0.5l', 'bottle']);
+    const empty05L = findRawItem(['500ml', '0.5l']);
     if (empty05L) {
       broken.push({ itemId: empty05L.id, name: empty05L.name, quantityBroken: new Prisma.Decimal(brokenBottles05L), unit: 'pcs' });
     }
   }
 
   if (brokenBottles15L > 0) {
-    const empty15L = findRawItem(['1.5l', '1500ml', 'bottle']);
+    const empty15L = findRawItem(['1.5l', '1500ml']);
     if (empty15L) {
       broken.push({ itemId: empty15L.id, name: empty15L.name, quantityBroken: new Prisma.Decimal(brokenBottles15L), unit: 'pcs' });
     }
