@@ -1,6 +1,6 @@
 import { MapPin, Phone, DollarSign, Package } from 'lucide-react';
 
-export default function CustomersTable({ customers = [], isLoading = false, onEdit }) {
+export default function CustomersTable({ customers = [], isLoading = false, onEdit, onRowClick }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
 
@@ -14,16 +14,13 @@ export default function CustomersTable({ customers = [], isLoading = false, onEd
               <th className="p-4 font-semibold text-slate-600 text-sm">Contact</th>
               <th className="p-4 font-semibold text-slate-600 text-sm">Products Buying</th>
               <th className="p-4 font-semibold text-slate-600 text-sm">Financials</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Pricing & Deposit</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Terms & Activity</th>
               {!isWadaana && <th className="p-4 font-semibold text-slate-600 text-sm">Bottles</th>}
-              <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan={isWadaana ? "7" : "8"} className="p-12 text-center text-slate-500">
+                <td colSpan={isWadaana ? "5" : "6"} className="p-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className={`w-8 h-8 border-4 ${isWadaana ? 'border-[#0ea5e9]' : 'border-emerald-600'} border-t-transparent rounded-full animate-spin`}></div>
                     <p>Loading customers...</p>
@@ -32,13 +29,17 @@ export default function CustomersTable({ customers = [], isLoading = false, onEd
               </tr>
             ) : customers.length === 0 ? (
               <tr>
-                <td colSpan={isWadaana ? "7" : "8"} className="p-12 text-center text-slate-500">
+                <td colSpan={isWadaana ? "5" : "6"} className="p-12 text-center text-slate-500">
                   No customers found.
                 </td>
               </tr>
             ) : (
               customers.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                <tr 
+                  key={c.id} 
+                  onClick={() => onRowClick && onRowClick(c)}
+                  className="hover:bg-slate-50 transition-colors cursor-pointer"
+                >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className={`h-10 w-10 rounded-full ${isWadaana ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} flex items-center justify-center font-bold`}>
@@ -105,14 +106,6 @@ export default function CustomersTable({ customers = [], isLoading = false, onEd
                   </td>
                   <td className="p-4">
                     <div className="flex flex-col gap-1 text-sm">
-                      <span className="text-slate-700">
-                        Price: <strong>Rs. {c.defaultPrice}</strong>
-                      </span>
-                      <span className="text-xs text-slate-500">Dep: Rs. {c.deposit}</span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1 text-sm">
                       <span className="text-slate-700">{c.creditDuration} Days Credit</span>
                       <span className="text-xs text-slate-500">
                         {c.lastDeliveryAt ? new Date(c.lastDeliveryAt).toLocaleDateString() : 'No deliveries'}
@@ -127,14 +120,6 @@ export default function CustomersTable({ customers = [], isLoading = false, onEd
                       </div>
                     </td>
                   )}
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => onEdit && onEdit(c)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors"
-                    >
-                      Edit
-                    </button>
-                  </td>
                 </tr>
               ))
             )}

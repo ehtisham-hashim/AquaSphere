@@ -23,8 +23,7 @@ model AquasphereCustomer {
   address             String?
   mapLink             String?   @map("map_link")
   type                String
-  deposit             Int       @default(0)
-  defaultPrice        Decimal   @default(0.0) @map("default_price")
+  securityDeposit     Int       @default(0) @map("security_deposit")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
   remarks             String?
@@ -482,8 +481,7 @@ model WadaanaCustomer {
   address             String?
   mapLink             String?   @map("map_link")
   type                String
-  deposit             Int       @default(0)
-  defaultPrice        Decimal   @default(0.0) @map("default_price")
+  securityDeposit     Int       @default(0) @map("security_deposit")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
   remarks             String?

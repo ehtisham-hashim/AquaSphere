@@ -13,7 +13,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
 
   // 19L fields
   const [qty19L, setQty19L] = useState('');
-  const [price19L, setPrice19L] = useState(customer?.defaultPrice || '');
+  const [price19L, setPrice19L] = useState('');
 
   // PET fields
   const [qty05, setQty05] = useState('');
@@ -139,7 +139,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Price / bottle (Rs) *</label>
                     <input type="number" step="0.01" className={INPUT} value={price19L}
-                      onChange={e => setPrice19L(e.target.value)} placeholder={customer.defaultPrice || '200'}/>
+                      onChange={e => setPrice19L(e.target.value)} placeholder="200"/>
                   </div>
                 </div>
               ) : (

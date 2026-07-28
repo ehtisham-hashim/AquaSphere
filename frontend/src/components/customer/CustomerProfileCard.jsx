@@ -77,8 +77,8 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
           <span className={`font-semibold ${parseFloat(c.creditLimit) === 0 ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-700'}`}>{limitText}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Default Price</span>
-          <span className="font-semibold text-slate-700">Rs. {c.defaultPrice || 0}</span>
+          <span className="text-slate-400">Security Deposit</span>
+          <span className="font-semibold text-slate-700">Rs. {c.securityDeposit || 0}</span>
         </div>
         {c.address && (
           <div className="flex items-start gap-1 pt-1 border-t border-slate-100">

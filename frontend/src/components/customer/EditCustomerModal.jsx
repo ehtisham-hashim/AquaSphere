@@ -1,37 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { X, UserPlus, Image as ImageIcon, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { X, Edit3, Image as ImageIcon, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
 
 import { API_URL as API } from '../../utils/api';
 
-const initialFormData = {
-  name: '',
-  phone: '',
-  type: 'Home',
-  address: '',
-  mapLink: '',
-  securityDeposit: 0,
-  creditLimit: 0,
-  creditDuration: 1,
-  remarks: '',
-  homePictureUrl: '',
-  buys19L: false,
-  buys05LPet: false,
-  buysPure05L: false,
-  buysPure15L: false,
-  buysMix05L: false,
-  buysMix15L: false
-};
-
-export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
+export default function EditCustomerModal({ isOpen, customer, onClose, onCustomerUpdated }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
 
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (customer && isOpen) {
+      setFormData({
+        name: customer.name || '',
+        phone: customer.phone || '',
+        type: customer.type || 'Home',
+        address: customer.address || '',
+        mapLink: customer.mapLink || '',
+        securityDeposit: customer.securityDeposit !== undefined ? parseInt(customer.securityDeposit) : 0,
+        creditLimit: customer.creditLimit ? parseFloat(customer.creditLimit) : 0,
+        creditDuration: customer.creditDuration || 1,
+        remarks: customer.remarks || '',
+        homePictureUrl: customer.homePictureUrl || '',
+        buys19L: Boolean(customer.buys19L),
+        buys05LPet: Boolean(customer.buys05LPet),
+        buys15LPet: Boolean(customer.buys15LPet),
+        buysPure05L: Boolean(customer.buysPure05L),
+        buysPure15L: Boolean(customer.buysPure15L),
+        buysMix05L: Boolean(customer.buysMix05L),
+        buysMix15L: Boolean(customer.buysMix15L)
+      });
+      setError('');
+    }
+  }, [customer, isOpen]);
+
+  if (!isOpen || !customer) return null;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -44,11 +50,12 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.mapLink) {
-      const isValid = ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'].some((d) =>
-        formData.mapLink.includes(d)
-      );
+      const validDomains = ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'];
+      const isValid = validDomains.some((d) => formData.mapLink.includes(d));
       if (!isValid) {
-        setError('Please enter a valid Google Maps URL (e.g. maps.google.com, google.com/maps, or goo.gl)');
+        const msg = 'Invalid Google Maps Link. Must contain maps.google.com, google.com/maps, or goo.gl';
+        setError(msg);
+        toast.error(msg);
         return;
       }
     }
@@ -57,48 +64,58 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
     setError('');
 
     try {
-      const res = await fetch(`${API}/customers`, {
-        method: 'POST',
+      const res = await fetch(`${API}/customers/${customer.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'x-tenant': tenant
         },
         body: JSON.stringify({
           ...formData,
-          securityDeposit: formData.securityDeposit ? parseInt(formData.securityDeposit) : 0,
-          creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
+          securityDeposit: formData.securityDeposit !== undefined && formData.securityDeposit !== '' ? parseInt(formData.securityDeposit) : 0,
+          creditLimit: formData.creditLimit !== undefined && formData.creditLimit !== '' ? parseFloat(formData.creditLimit) : 0,
           creditDuration: formData.creditDuration ? parseInt(formData.creditDuration) : 1
         }),
         credentials: 'include'
       });
       const json = await res.json();
       if (json.success || res.ok) {
-        toast.success('Customer created successfully!');
-        setFormData(initialFormData);
-        if (onCustomerAdded) onCustomerAdded(json.data);
+        toast.success('Customer updated successfully!');
+        if (onCustomerUpdated) onCustomerUpdated(json.data || { ...customer, ...formData });
         onClose();
       } else {
-        toast.error(json.message || 'Failed to add customer');
-        setError(json.message || 'Failed to add customer');
+        toast.error(json.message || 'Failed to update customer');
+        setError(json.message || 'Failed to update customer');
       }
-    } catch {
-      toast.error('Network error. Please try again.');
-      setError('Network error. Please try again.');
+    } catch (err) {
+      console.error('Update Customer Error:', err);
+      toast.error('An unexpected error occurred. Please check your network.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70] animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl border border-slate-100">
+        
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
-          <div className="flex items-center gap-2">
-            <UserPlus size={20} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
-            <h3 className="text-lg font-bold text-slate-800">Add New Customer</h3>
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
+          <div className="flex items-center gap-2.5">
+            <div className={`p-2 rounded-xl ${isWadaana ? 'bg-sky-100 text-[#0ea5e9]' : 'bg-emerald-100 text-emerald-600'}`}>
+              <Edit3 size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Edit Customer Profile</h3>
+              <p className="text-xs text-slate-500">Update information for {customer.name}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50 transition-colors"
+          >
             <X size={24} />
           </button>
         </div>
@@ -113,7 +130,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
           {/* Section 1: Basic Information */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase tracking-wider">
-              <UserPlus size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
+              <Edit3 size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
               <span>Basic Details</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,7 +140,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   name="name"
                   type="text"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.name}
+                  value={formData.name || ''}
                   onChange={handleChange}
                   placeholder="e.g. John Doe"
                   required
@@ -135,7 +152,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   name="phone"
                   type="tel"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.phone}
+                  value={formData.phone || ''}
                   onChange={handleChange}
                   placeholder="e.g. 03001234567"
                   required
@@ -146,7 +163,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 <select
                   name="type"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.type}
+                  value={formData.type || 'Home'}
                   onChange={handleChange}
                 >
                   <option value="Home">Home</option>
@@ -160,7 +177,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             </div>
           </div>
 
-          {/* Section 2: What Customer is Buying */}
+          {/* Section 2: Purchasing Products */}
           <div className="space-y-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-500 uppercase tracking-wider">
               <ShoppingBag size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
@@ -168,13 +185,12 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             </div>
             
             {!isWadaana ? (
-              /* Aquasphere Buying Options */
               <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
                   <input
                     type="checkbox"
                     name="buys19L"
-                    checked={formData.buys19L}
+                    checked={formData.buys19L || false}
                     onChange={handleChange}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                   />
@@ -184,7 +200,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   <input
                     type="checkbox"
                     name="buys05LPet"
-                    checked={formData.buys05LPet}
+                    checked={formData.buys05LPet || false}
                     onChange={handleChange}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                   />
@@ -194,7 +210,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   <input
                     type="checkbox"
                     name="buys15LPet"
-                    checked={formData.buys15LPet}
+                    checked={formData.buys15LPet || false}
                     onChange={handleChange}
                     className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                   />
@@ -202,7 +218,6 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 </label>
               </div>
             ) : (
-              /* Wadaana Pure/Mix Preform Bottles Hierarchy */
               <div className="space-y-3.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                   <div className="text-xs font-bold text-[#0ea5e9] uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -214,7 +229,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                       <input
                         type="checkbox"
                         name="buysPure05L"
-                        checked={formData.buysPure05L}
+                        checked={formData.buysPure05L || false}
                         onChange={handleChange}
                         className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
                       />
@@ -224,7 +239,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                       <input
                         type="checkbox"
                         name="buysPure15L"
-                        checked={formData.buysPure15L}
+                        checked={formData.buysPure15L || false}
                         onChange={handleChange}
                         className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
                       />
@@ -243,7 +258,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                       <input
                         type="checkbox"
                         name="buysMix05L"
-                        checked={formData.buysMix05L}
+                        checked={formData.buysMix05L || false}
                         onChange={handleChange}
                         className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
                       />
@@ -253,7 +268,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                       <input
                         type="checkbox"
                         name="buysMix15L"
-                        checked={formData.buysMix15L}
+                        checked={formData.buysMix15L || false}
                         onChange={handleChange}
                         className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
                       />
@@ -278,7 +293,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   name="address"
                   rows="2"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.address}
+                  value={formData.address || ''}
                   onChange={handleChange}
                   placeholder="Street address, house/shop number, area..."
                 ></textarea>
@@ -289,7 +304,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   name="mapLink"
                   type="url"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.mapLink}
+                  value={formData.mapLink || ''}
                   onChange={handleChange}
                   placeholder="https://maps.google.com/..."
                 />
@@ -301,7 +316,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     name="homePictureUrl"
                     type="url"
                     className="w-full border border-slate-200 rounded-lg p-2.5 pl-9 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    value={formData.homePictureUrl}
+                    value={formData.homePictureUrl || ''}
                     onChange={handleChange}
                     placeholder="https://example.com/image.jpg"
                   />
@@ -325,7 +340,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   type="number"
                   min="0"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.securityDeposit}
+                  value={formData.securityDeposit !== undefined ? formData.securityDeposit : ''}
                   onChange={handleChange}
                 />
               </div>
@@ -337,7 +352,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   step="0.01"
                   min="0"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.creditLimit}
+                  value={formData.creditLimit || ''}
                   onChange={handleChange}
                 />
               </div>
@@ -348,7 +363,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                   type="number"
                   min="1"
                   className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.creditDuration}
+                  value={formData.creditDuration || ''}
                   onChange={handleChange}
                 />
               </div>
@@ -366,7 +381,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 name="remarks"
                 rows="2"
                 className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                value={formData.remarks}
+                value={formData.remarks || ''}
                 onChange={handleChange}
                 placeholder="Any special instructions or remarks..."
               ></textarea>
@@ -387,9 +402,9 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
               disabled={saving}
               className={`${
                 isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'
-              } text-white px-6 py-2.5 rounded-lg font-medium shadow-sm transition-colors w-full md:w-auto disabled:opacity-50`}
+              } text-white px-6 py-2.5 rounded-lg font-medium shadow-sm transition-colors w-full md:w-auto disabled:opacity-50 flex items-center justify-center gap-2`}
             >
-              {saving ? 'Saving...' : 'Save Customer'}
+              {saving ? 'Updating...' : 'Save Changes'}
             </button>
           </div>
         </form>

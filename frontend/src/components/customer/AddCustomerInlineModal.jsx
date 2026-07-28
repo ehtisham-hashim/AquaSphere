@@ -11,7 +11,7 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
 
   const [form, setForm] = useState({
     name: '', phone: '', type: 'Home', address: '', mapLink: '',
-    deposit: 0, securityDeposit: 0, defaultPrice: 0, creditLimit: 0, creditDuration: 1, remarks: '',
+    securityDeposit: 0, creditLimit: 0, creditDuration: 1, remarks: '',
     buys19L: false, buys05LPet: false, buys15LPet: false,
     buysPure05L: false, buysPure15L: false, buysMix05L: false, buysMix15L: false
   });
@@ -147,14 +147,10 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
             <input name="mapLink" type="url" className={INPUT} value={form.mapLink} onChange={handleChange} placeholder="https://maps.google.com/..."/>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">{isWadaana ? 'Deposit Amount' : 'Security Deposit (19L bottles)'}</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Security Deposit</label>
               <input name="securityDeposit" type="number" className={INPUT} value={form.securityDeposit} onChange={handleChange}/>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Default Price</label>
-              <input name="defaultPrice" type="number" className={INPUT} value={form.defaultPrice} onChange={handleChange}/>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Credit Limit (0=∞)</label>

@@ -27,13 +27,6 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setOrderData(prev => ({ ...prev, [name]: value }));
-    
-    if (name === 'customerId' && value) {
-       const cust = customers.find(c => c.id === value);
-       if(cust && cust.defaultPrice > 0) {
-         setOrderData(prev => ({ ...prev, price: cust.defaultPrice }));
-       }
-    }
   };
 
   const submitOrder = async (e, bypassCreditCheck = false) => {

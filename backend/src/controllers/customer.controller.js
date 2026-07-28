@@ -31,18 +31,17 @@ export const getCustomers = asyncHandler(async (req, res) => {
   res.json({ success: true, data: customers });
 });
 
+// Handles customer creation; uses regenerated Prisma schema with securityDeposit synced
 export const createCustomer = asyncHandler(async (req, res) => {
   const { 
-    name, phone, type, address, mapLink, deposit, securityDeposit,
-    defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl,
+    name, phone, type, address, mapLink, securityDeposit,
+    creditLimit, creditDuration, remarks, homePictureUrl,
     buys19L, buys05LPet, buys15LPet,
     buysPure05L, buysPure15L, buysMix05L, buysMix15L
   } = req.body;
   const prefix = getPrefix(req);
   
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
-
-  const normalizedDeposit = securityDeposit ?? deposit;
 
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
     throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
@@ -54,8 +53,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     type, 
     address,
     mapLink,
-    deposit: normalizedDeposit ? parseInt(normalizedDeposit) : 0,
-    defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
+    securityDeposit: securityDeposit ? parseInt(securityDeposit) : 0,
     creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
     creditDuration: creditDuration ? parseInt(creditDuration) : 1,
     remarks,
@@ -93,8 +91,8 @@ export const createCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { 
-    name, phone, type, address, mapLink, deposit,
-    defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl,
+    name, phone, type, address, mapLink, securityDeposit,
+    creditLimit, creditDuration, remarks, homePictureUrl,
     buys19L, buys05LPet, buys15LPet,
     buysPure05L, buysPure15L, buysMix05L, buysMix15L
   } = req.body;
@@ -113,8 +111,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     ...(type !== undefined && { type }),
     ...(address !== undefined && { address }),
     ...(mapLink !== undefined && { mapLink }),
-    ...(deposit !== undefined && { deposit: parseInt(deposit || 0) }),
-    ...(defaultPrice !== undefined && { defaultPrice: parseFloat(defaultPrice || 0) }),
+    ...(securityDeposit !== undefined && { securityDeposit: parseInt(securityDeposit || 0) }),
     ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit || 0) }),
     ...(creditDuration !== undefined && { creditDuration: parseInt(creditDuration || 1) }),
     ...(remarks !== undefined && { remarks }),
