@@ -1,4 +1,13 @@
-export { default } from '../features/orders/Orders';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Clock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
+
+import AddOrderModal from '../components/orders/AddOrderModal';
+import EditOrderModal from '../components/orders/EditOrderModal';
+import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
+
+export default function Orders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -19,9 +28,9 @@ export { default } from '../features/orders/Orders';
   const fetchData = async () => {
     setIsLoading(true);
     const [ordRes, custRes, itmRes] = await Promise.all([
-      fetch(`${import.meta.env.VITE_API_URL}/orders`, { credentials: 'include' }),
-      fetch(`${import.meta.env.VITE_API_URL}/customers`, { credentials: 'include' }),
-      fetch(`${import.meta.env.VITE_API_URL}/items`, { credentials: 'include' })
+      fetch(`${API_URL}/orders`, { credentials: 'include' }),
+      fetch(`${API_URL}/customers`, { credentials: 'include' }),
+      fetch(`${API_URL}/items`, { credentials: 'include' })
     ]);
     const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
     if (ord.success) setOrders(ord.data);
@@ -69,25 +78,6 @@ export { default } from '../features/orders/Orders';
     if (searchQuery && !o.customer?.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'DELIVERED': return 'bg-emerald-100 text-emerald-700';
-      case 'PENDING': return 'bg-orange-100 text-orange-700';
-      case 'DISPATCHED': return 'bg-blue-100 text-blue-700';
-      case 'CANCELLED': return 'bg-red-100 text-red-700';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const getPaymentColor = (status) => {
-    switch (status) {
-      case 'PAID': return 'bg-emerald-100 text-emerald-700';
-      case 'UNPAID': return 'bg-red-100 text-red-700';
-      case 'PARTIAL': return 'bg-amber-100 text-amber-700';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
 
   const tabs = ['All Orders', 'Pending Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];

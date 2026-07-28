@@ -1,4 +1,4 @@
-import { Clock, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Truck, CheckCircle } from 'lucide-react';
 
 const deliveryBadge = (s) => {
   const map = {

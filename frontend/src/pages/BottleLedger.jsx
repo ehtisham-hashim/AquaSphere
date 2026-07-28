@@ -1,4 +1,8 @@
-export { default } from '../features/bottleLedger/BottleLedger';
+import { useState, useEffect } from 'react';
+import { RefreshCcw, Filter, Plus, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Package, Truck, AlertTriangle } from 'lucide-react';
+import { API_URL } from '../utils/api';
+
+export default function BottleLedger() {
   const [summary, setSummary] = useState({
     totalPurchased: 0,
     totalOwned: 0,
@@ -24,7 +28,7 @@ export { default } from '../features/bottleLedger/BottleLedger';
 
   const fetchSummary = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/bottles/summary`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/bottles/summary`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) setSummary(json.data);
     } catch (err) {
@@ -35,7 +39,7 @@ export { default } from '../features/bottleLedger/BottleLedger';
   const fetchTransactions = async (page = 1) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/bottles/transactions?page=${page}&limit=${pagination.limit}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/bottles/transactions?page=${page}&limit=${pagination.limit}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) {
         setTransactions(json.data);
@@ -51,6 +55,7 @@ export { default } from '../features/bottleLedger/BottleLedger';
   useEffect(() => {
     fetchSummary();
     fetchTransactions(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePageChange = (newPage) => {
@@ -67,7 +72,7 @@ export { default } from '../features/bottleLedger/BottleLedger';
   const submitTransaction = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/bottles/transactions`, {
+      const res = await fetch(`${API_URL}/bottles/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

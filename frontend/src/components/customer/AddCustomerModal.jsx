@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, UserPlus, Image as ImageIcon, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL;
+import { API_URL as API } from '../../utils/api';
 
 const initialFormData = {
   name: '',

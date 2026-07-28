@@ -1,4 +1,9 @@
-export { default } from '../features/customers/Customers';
+import { useState, useEffect } from 'react';
+import { Plus, Search } from 'lucide-react';
+import { CustomersTable, AddCustomerModal } from '../components/customer';
+import { API_URL } from '../utils/api';
+
+export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -7,7 +12,7 @@ export { default } from '../features/customers/Customers';
   const fetchCustomers = async (q = '') => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/customers?search=${q}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/customers?search=${q}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) setCustomers(json.data);
     } catch {

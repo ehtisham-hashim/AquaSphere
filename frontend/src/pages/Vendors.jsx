@@ -1,4 +1,204 @@
-export { default } from '../features/purchasing/Vendors';
+import { useState, useEffect } from 'react';
+import { Plus, X, Search, Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2 } from 'lucide-react';
+import { API_URL } from '../utils/api';
+
+export default function Vendors() {
+  const [vendors, setVendors] = useState([]);
+  const [search, setSearch] = useState('');
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+
+  // Vendor Detail & Ledger State
+  const [selectedVendorDetail, setSelectedVendorDetail] = useState(null);
+  const [, setLoadingDetail] = useState(false);
+
+  // Vendor Payment Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedVendorForPayment, setSelectedVendorForPayment] = useState(null);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    paymentMethod: 'CASH',
+    remarks: '',
+    paymentDate: new Date().toISOString().split('T')[0]
+  });
+
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    notes: ''
+  });
+
+  const fetchVendors = async () => {
+    try {
+      const res = await fetch(`${API_URL}/vendors?includeArchived=${includeArchived}`, {
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) setVendors(json.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchVendors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [includeArchived]);
+
+  const handleOpenAdd = () => {
+    setEditingVendor(null);
+    setFormData({ name: '', phone: '', email: '', address: '', notes: '' });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (v) => {
+    setEditingVendor(v);
+    setFormData({
+      name: v.name || '',
+      phone: v.phone || '',
+      email: v.email || '',
+      address: v.address || '',
+      notes: v.notes || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenPayment = (v) => {
+    setSelectedVendorForPayment(v);
+    setPaymentData({
+      amount: '',
+      paymentMethod: 'CASH',
+      remarks: '',
+      paymentDate: new Date().toISOString().split('T')[0]
+    });
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleViewDetails = async (v) => {
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`${API_URL}/vendors/${v.id}`, {
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSelectedVendorDetail(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching vendor details:', err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.phone) {
+      alert('Vendor Name and Phone are required');
+      return;
+    }
+
+    const url = editingVendor
+      ? `${API_URL}/vendors/${editingVendor.id}`
+      : `${API_URL}/vendors`;
+
+    const method = editingVendor ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert(json.message || 'Error saving vendor');
+        return;
+      }
+      setIsModalOpen(false);
+      fetchVendors();
+    } catch (err) {
+      alert('Failed to save vendor');
+    }
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
+      alert('Please enter a valid payment amount greater than zero');
+      return;
+    }
+
+    setPaymentSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/vendors/${selectedVendorForPayment.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentData),
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert(json.message || 'Failed to record payment');
+        return;
+      }
+      setIsPaymentModalOpen(false);
+      fetchVendors();
+      if (selectedVendorDetail && selectedVendorDetail.id === selectedVendorForPayment.id) {
+        handleViewDetails(selectedVendorForPayment);
+      }
+    } catch (err) {
+      alert('Error submitting payment');
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  const handleToggleArchive = async (v) => {
+    const isArchived = !!v.archivedAt;
+    const action = isArchived ? 'restore' : 'archive';
+    if (!confirm(`Are you sure you want to ${action} ${v.name}?`)) return;
+
+    try {
+      await fetch(`${API_URL}/vendors/${v.id}/${action}`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
+      fetchVendors();
+    } catch (err) {
+      alert(`Failed to ${action} vendor`);
+    }
+  };
+
+  const filteredVendors = vendors.filter(v =>
+    v.name.toLowerCase().includes(search.toLowerCase()) ||
+    (v.phone && v.phone.includes(search))
+  );
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Vendor Directory</h2>
+          <p className="text-slate-500 text-sm">Manage raw material suppliers & accounts payable</p>
+        </div>
+        <button
+          onClick={handleOpenAdd}
+          className="btn-accent inline-flex items-center gap-2"
+        >
+          <Plus size={18} /> Add Vendor
+        </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input
             type="search"
             placeholder="Search vendor by name or phone..."
             className="input-field pl-10"

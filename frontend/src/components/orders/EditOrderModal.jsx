@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Calendar } from 'lucide-react';
+import { API_URL } from '../../utils/api';
 
 export default function EditOrderModal({ order, onClose, onOrderEdited }) {
   const [editData, setEditData] = useState({
@@ -11,7 +12,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited }) {
 
   const submitEdit = async (e) => {
     e.preventDefault();
-    await fetch(`${import.meta.env.VITE_API_URL}/orders/${order.id}`, {
+    await fetch(`${API_URL}/orders/${order.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editData),

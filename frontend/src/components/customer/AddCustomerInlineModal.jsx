@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, UserPlus, ShoppingBag } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL;
+import { API_URL as API } from '../../utils/api';
 
 export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();

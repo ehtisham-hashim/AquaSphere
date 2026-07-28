@@ -1,4 +1,4 @@
-import { MapPin, Phone, DollarSign, Package, ShoppingBag } from 'lucide-react';
+import { MapPin, Phone, DollarSign, Package } from 'lucide-react';
 
 export default function CustomersTable({ customers = [], isLoading = false, onEdit }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();

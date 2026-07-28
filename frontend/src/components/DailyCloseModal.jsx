@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Lock, Unlock, AlertCircle } from 'lucide-react';
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
 
 export default function DailyCloseModal({ onClose, onClosed }) {
   const { user } = useAuth();
@@ -17,13 +18,9 @@ export default function DailyCloseModal({ onClose, onClosed }) {
   const [reopenReason, setReopenReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
   const fetchMetrics = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/daily-close/summary`, {
+      const res = await fetch(`${API_URL}/daily-close/summary`, {
         credentials: 'include'
       });
       const data = await res.json();
@@ -39,12 +36,16 @@ export default function DailyCloseModal({ onClose, onClosed }) {
     }
   };
 
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
+
   const allChecked = checks.stock && checks.production && checks.route;
 
   const handleCloseDay = async () => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/daily-close`, {
+      const res = await fetch(`${API_URL}/daily-close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
@@ -70,7 +71,7 @@ export default function DailyCloseModal({ onClose, onClosed }) {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/daily-close/reopen`, {
+      const res = await fetch(`${API_URL}/daily-close/reopen`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reopenReason }),

@@ -1,4 +1,83 @@
-export { default } from '../features/dashboard/AccountantDashboard';
+import { useState, useEffect } from 'react';
+import { DollarSign, Receipt, ShoppingCart, CheckCircle, AlertCircle, Clock, Lock, TrendingDown } from 'lucide-react';
+import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
+
+const API = API_URL;
+
+export default function AccountantDashboard() {
+  const [summary, setSummary] = useState(null);
+  const [closeStatus, setCloseStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [closing, setClosing] = useState(false);
+  const [closeMsg, setCloseMsg] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [ordRes, expRes, spotRes, closeRes] = await Promise.all([
+        fetch(`${API}/orders`, { credentials: 'include' }),
+        fetch(`${API}/expenses?startDate=${today}&endDate=${today}`, { credentials: 'include' }),
+        fetch(`${API}/spot-sales`, { credentials: 'include' }),
+        fetch(`${API}/daily-close/status?date=${today}`, { credentials: 'include' })
+      ]);
+      const [ord, exp, spot, close] = await Promise.all([
+        ordRes.json(), expRes.json(), spotRes.json(), closeRes.json()
+      ]);
+
+      const todayStr = new Date().toDateString();
+      const todayOrders = (ord.data || []).filter(o => new Date(o.createdAt).toDateString() === todayStr);
+      const todayDelivered = todayOrders.filter(o => o.deliveryStatus === 'DELIVERED');
+      const cashFromOrders = todayDelivered.reduce((sum, o) => {
+        return sum + (o.deliveries || []).reduce((s, d) => s + parseFloat(d.cashReceived || 0), 0);
+      }, 0);
+
+      const todaySpot = (spot.data || []).filter(s => new Date(s.createdAt).toDateString() === todayStr);
+      const cashFromSpot = todaySpot.reduce((s, sale) => s + parseFloat(sale.cashCollected || 0), 0);
+
+      const todayExpenses = exp.data || [];
+      const totalExpenses = todayExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+
+      setSummary({
+        cashFromOrders,
+        cashFromSpot,
+        totalCash: cashFromOrders + cashFromSpot,
+        totalExpenses,
+        netCash: cashFromOrders + cashFromSpot - totalExpenses,
+        ordersDelivered: todayDelivered.length,
+        ordersTotal: todayOrders.length,
+        spotSales: todaySpot.length,
+        expenseCount: todayExpenses.length,
+        pendingOrders: todayOrders.filter(o => o.deliveryStatus === 'PENDING').length,
+        expenseList: todayExpenses
+      });
+
+      setCloseStatus(close.data || { isClosed: false });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchData(); }, []);
+
+  const confirmClose = async () => {
+    if (!window.confirm(`Confirm that all financial entries for ${today} are complete and accurate?\n\nNote: Only Admin can lock the day — this is your confirmation.`)) return;
+    setClosing(true);
+    setCloseMsg('');
+    try {
+      // Accountant confirms — but only ADMIN actually locks
+      // We store a "confirmed" note in audit log here
+      setCloseMsg('✅ You have confirmed today\'s entries. The Admin will now lock the day.');
+    } catch (e) {
+      setCloseMsg('Error: ' + e.message);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   if (loading) {
     return (

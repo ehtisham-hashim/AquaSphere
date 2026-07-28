@@ -1,4 +1,11 @@
-export { default } from '../features/purchasing/Purchases';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Plus, X, Receipt, ShoppingCart, Calendar, Building2,
+  Trash2, Eye, Upload, CheckCircle, Loader2, AlertCircle
+} from 'lucide-react';
+import { API_URL as API } from '../utils/api';
+
+export default function Purchases() {
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -22,7 +29,6 @@ export { default } from '../features/purchasing/Purchases';
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
 
-  const API = import.meta.env.VITE_API_URL;
 
   const fetchData = async () => {
     try {

@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 /**
  * Calculates raw material deductions and finished goods additions for a production batch.
  * Implements exact-decimal formulas per §8 PM specs in development.md.

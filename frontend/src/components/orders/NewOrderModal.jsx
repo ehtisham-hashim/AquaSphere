@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Droplets, Package, AlertTriangle, CheckCircle } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL;
+import { API_URL as API } from '../../utils/api';
 const INPUT = 'input-field';
 const today = new Date().toISOString().split('T')[0];
 
@@ -31,14 +31,6 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
   const total = orderType === 'NINETEEN_L'
     ? (parseFloat(qty19L) || 0) * (parseFloat(price19L) || 0)
     : ((parseFloat(qty05) || 0) * (parseFloat(price05) || 0)) + ((parseFloat(qty15) || 0) * (parseFloat(price15) || 0));
-
-  useEffect(() => {
-    const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitOrder(false);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [qty19L, price19L, qty05, price05, qty15, price15, delivery, remarks, orderType]);
 
   const buildItems = () => {
     if (orderType === 'NINETEEN_L') {
@@ -78,6 +70,15 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
     } catch { alert('Network error'); }
     finally { setSubmitting(false); }
   };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitOrder(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qty19L, price19L, qty05, price05, qty15, price15, delivery, remarks, orderType]);
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">

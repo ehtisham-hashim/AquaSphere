@@ -1,4 +1,198 @@
-export { default } from '../features/production/Production';
+import { useState, useEffect } from 'react';
+import { 
+  Factory, 
+  AlertTriangle, 
+  Plus, 
+  X, 
+  Layers, 
+  Scale, 
+  ShieldCheck, 
+  RefreshCw
+} from 'lucide-react';
+import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
+
+const API = API_URL;
+
+export default function Production() {
+  const tenant = getCompanyFromCookie();
+
+  const [rawMaterials, setRawMaterials] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form State (§8 PM Spec)
+  const [packs05L, setPacks05L] = useState('');
+  const [packs15L, setPacks15L] = useState('');
+  const [brokenBottles05L, setBrokenBottles05L] = useState('');
+  const [brokenBottles15L, setBrokenBottles15L] = useState('');
+  const [batchDate, setBatchDate] = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes] = useState('');
+
+  // Daily Closing State
+  const [pmConfirmed, setPmConfirmed] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [itemsRes, batchesRes, statsRes] = await Promise.all([
+        fetch(`${API}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/production/stats`, { headers: { 'x-tenant': tenant }, credentials: 'include' }).catch(() => ({ json: () => ({ success: true, data: null }) }))
+      ]);
+
+      const itemsData = await itemsRes.json();
+      const batchesData = await batchesRes.json();
+      const statsData = await statsRes.json();
+
+      if (itemsData.success) {
+        setRawMaterials(itemsData.data.filter(i => i.type === 'RAW_MATERIAL'));
+      }
+      if (batchesData.success) {
+        setBatches(batchesData.data || []);
+      }
+      if (statsData.success) {
+        setStats(statsData.data);
+      }
+    } catch (err) {
+      console.error('Error fetching PM production data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Submit Production Batch (§8 PM Feature 2 & 3)
+  const handleLogBatch = async (e) => {
+    e.preventDefault();
+    const p05 = parseInt(packs05L || 0);
+    const p15 = parseInt(packs15L || 0);
+    const b05 = parseInt(brokenBottles05L || 0);
+    const b15 = parseInt(brokenBottles15L || 0);
+
+    if (p05 === 0 && p15 === 0) {
+      alert('Please enter at least one pack quantity (0.5L or 1.5L)');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/production`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': tenant 
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          packs05L: p05,
+          packs15L: p15,
+          brokenBottles05L: b05,
+          brokenBottles15L: b15,
+          batchDate,
+          notes
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        alert('Production batch logged successfully! Raw materials auto-deducted.');
+        setPacks05L('');
+        setPacks15L('');
+        setBrokenBottles05L('');
+        setBrokenBottles15L('');
+        setNotes('');
+        setIsModalOpen(false);
+        fetchData();
+      } else {
+        alert(json.message || 'Failed to log production batch');
+      }
+    } catch (err) {
+      alert('Error submitting batch');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Preview Formulas Live
+  const p05Num = parseInt(packs05L || 0);
+  const p15Num = parseInt(packs15L || 0);
+  const totalLitres = (p05Num * 9) + (p15Num * 12);
+  const mineralSetFraction = (totalLitres / 15141).toFixed(6);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+          <p className="text-sm text-slate-500 font-medium">Loading Production Management...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-2xl shadow-xl border border-slate-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              PRODUCTION MANAGER
+            </span>
+            <span className="text-xs text-slate-400">Strict Chemical & Raw Material Formula Control</span>
+          </div>
+          <h1 className="text-2xl font-bold mt-1">Factory Floor & Batch Execution</h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            Log pack output to trigger exact-decimal raw material auto-deductions and breakage tracking.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Feature 6: PM Daily Confirmation */}
+          <button
+            onClick={() => {
+              setPmConfirmed(!pmConfirmed);
+              alert(pmConfirmed ? 'Production status unconfirmed.' : 'Production numbers confirmed for today! Admin can now execute Daily Close.');
+            }}
+            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition flex items-center gap-2 border ${
+              pmConfirmed 
+                ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40' 
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            {pmConfirmed ? 'PM Confirmed Today' : 'Confirm Daily Production'}
+          </button>
+
+          {/* Feature 2: Production Batch Entry Modal Trigger */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Log Production Batch
+          </button>
+        </div>
+      </div>
+
+      {/* Feature 1: Raw Material Inventory View (Read-Only Gauges & Thresholds) */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-slate-600" />
+              Raw Material Stock & Reorder Thresholds
+            </h3>
+            <p className="text-xs text-slate-500">Read-only view of factory raw materials and chemicals</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

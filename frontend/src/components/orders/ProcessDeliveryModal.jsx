@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle } from 'lucide-react';
+import { API_URL } from '../../utils/api';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
   const [deliveryData, setDeliveryData] = useState({
@@ -21,7 +22,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders/${order.id}/deliver`, {
+      const res = await fetch(`${API_URL}/orders/${order.id}/deliver`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...deliveryData, bypassBottleCheck }),

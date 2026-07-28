@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '../../features/auth/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { 
   BarChart3, 
@@ -12,9 +12,7 @@ import {
   Users as VendorsIcon, 
   Banknote,
   Store,
-  LineChart,
   UserCog,
-  Settings,
   Droplets,
   Building2,
   X
@@ -42,7 +40,6 @@ export default function Sidebar({ isOpen, onClose }) {
   // Dynamic colors based on tenant
   const activeBgColor = isWadaana ? 'bg-purple-600/10' : 'bg-[#059669]/10';
   const activeTextColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
-  const brandIconColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
 
   return (
     <>

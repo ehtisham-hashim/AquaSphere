@@ -1,4 +1,12 @@
-export { default } from '../features/expenses/Expenses';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, X, Search, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Calendar } from 'lucide-react';
+import { API_URL } from '../utils/api';
+
+const API = API_URL;
+
+const CATEGORIES = ['Fuel', 'Salaries', 'Electricity', 'Plant Rent', 'Vehicle Repair', 'Machine Repair', 'Miscellaneous'];
+
+export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);

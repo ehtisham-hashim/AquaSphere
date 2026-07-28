@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, DollarSign, User, Package, Calendar, AlertTriangle } from 'lucide-react';
+import { API_URL } from '../../utils/api';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
   const todayDate = new Date().toISOString().split('T')[0];
@@ -43,7 +44,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
     const orderType = (item?.name || '').toLowerCase().includes('19l') ? 'NINETEEN_L' : 'PET';
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+      const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -1,4 +1,120 @@
-export { default } from '../features/users/Users';
+import { useState, useEffect } from 'react';
+import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
+
+export default function Users() {
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // New/Edit User Form State
+  const [formData, setFormData] = useState({
+    name: '', email: '', password: '', role: 'ADMIN', company: 'aquasphere', isActive: true
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    // Fetch users for both companies since the owner might want to see both
+    // If not owner, just fetch current company
+    const companyToFetch = currentUser?.role === 'OWNER' ? 'aquasphere' : currentUser?.company || 'aquasphere';
+    const res = await fetch(`${API_URL}/users?company=${companyToFetch}`, { credentials: 'include' });
+    const json = await res.json();
+    if (json.success) setUsers(json.data);
+    setIsLoading(false);
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchUsers(); }, []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const openAddModal = () => {
+    setIsEditing(false);
+    setEditingId(null);
+    setFormData({ name: '', email: '', password: '', role: 'ADMIN', company: 'aquasphere', isActive: true });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (u) => {
+    setIsEditing(true);
+    setEditingId(u.id);
+    setFormData({ 
+      name: u.name || '', 
+      email: u.email || '', 
+      password: '', // blank password for editing
+      role: u.role || 'ADMIN', 
+      company: 'aquasphere', // assuming fetching from current context
+      isActive: u.isActive !== false
+    });
+    setIsModalOpen(true);
+  };
+
+  const submitUser = async (e) => {
+    e.preventDefault();
+    if (isEditing) {
+      const payload = { ...formData };
+      if (!payload.password) delete payload.password; // Don't send empty password if not changing
+      
+      await fetch(`${API_URL}/users/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+    } else {
+      await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+        credentials: 'include'
+      });
+    }
+    setIsModalOpen(false);
+    fetchUsers();
+  };
+
+  const toggleStatus = async (id, currentStatus) => {
+    await fetch(`${API_URL}/users/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: 'aquasphere', isActive: !currentStatus }),
+      credentials: 'include'
+    });
+    fetchUsers();
+  };
+
+  const filteredUsers = users.filter(u => 
+    (u.name || '').toLowerCase().includes(search.toLowerCase()) || 
+    (u.email || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Users & Roles</h2>
+          <p className="text-slate-500 text-sm">Manage system access, roles, and employee accounts</p>
+        </div>
+        <button 
+          onClick={openAddModal}
+          className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+        >
+          <Plus size={20} /> Add User
+        </button>
+      </div>
+      
+      <div className="mb-6 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+        <input 
+          type="search" 
           placeholder="Search by name or email..." 
           className="w-full border border-slate-200 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] transition-all bg-white"
           value={search}

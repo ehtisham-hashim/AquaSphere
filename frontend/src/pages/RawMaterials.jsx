@@ -1,4 +1,11 @@
-export { default } from '../features/inventory/RawMaterials';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
+import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
+
+const API = API_URL;
+
+export default function RawMaterials() {
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +30,7 @@ export { default } from '../features/inventory/RawMaterials';
     } finally {
       setIsLoading(false);
     }
-  }, [includeArchived]);
+  }, [includeArchived, tenant]);
 
   useEffect(() => {
     fetchMaterials();

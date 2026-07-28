@@ -1,4 +1,15 @@
-export { default } from '../features/orders/MMOrders';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, Plus, X, ClipboardList, Phone } from 'lucide-react';
+import NewOrderModal from '../components/orders/NewOrderModal';
+import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
+import AddCustomerInlineModal from '../components/customer/AddCustomerInlineModal';
+import OrdersTable from '../components/orders/OrdersTable';
+import CustomerProfileCard from '../components/customer/CustomerProfileCard';
+import { API_URL } from '../utils/api';
+
+const API = API_URL;
+
+export default function MMOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
