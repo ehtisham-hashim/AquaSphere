@@ -23,14 +23,18 @@ model AquasphereCustomer {
   address             String?
   mapLink             String?   @map("map_link")
   type                String
-  securityDeposit     Int       @default(0) @map("security_deposit")
+  deposit             Int       @default(0)
+  defaultPrice        Decimal   @default(0.0) @map("default_price")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
   remarks             String?
   homePictureUrl      String?   @map("home_picture_url")
   buys19L             Boolean   @default(false) @map("buys_19l")
+  qty19L              Int       @default(0) @map("qty_19l")
   buys05LPet          Boolean   @default(false) @map("buys_05l_pet")
+  qty05LPet           Int       @default(0) @map("qty_05l_pet")
   buys15LPet          Boolean   @default(false) @map("buys_15l_pet")
+  qty15LPet           Int       @default(0) @map("qty_15l_pet")
   cachedBalance       Decimal   @default(0.0) @map("cached_balance")
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")
@@ -481,15 +485,20 @@ model WadaanaCustomer {
   address             String?
   mapLink             String?   @map("map_link")
   type                String
-  securityDeposit     Int       @default(0) @map("security_deposit")
+  deposit             Int       @default(0)
+  defaultPrice        Decimal   @default(0.0) @map("default_price")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
   remarks             String?
   homePictureUrl      String?   @map("home_picture_url")
   buysPure05L         Boolean   @default(false) @map("buys_pure_05l")
+  qtyPure05L          Int       @default(0) @map("qty_pure_05l")
   buysPure15L         Boolean   @default(false) @map("buys_pure_15l")
+  qtyPure15L          Int       @default(0) @map("qty_pure_15l")
   buysMix05L          Boolean   @default(false) @map("buys_mix_05l")
+  qtyMix05L           Int       @default(0) @map("qty_mix_05l")
   buysMix15L          Boolean   @default(false) @map("buys_mix_15l")
+  qtyMix15L           Int       @default(0) @map("qty_mix_15l")
   cachedBalance       Decimal   @default(0.0) @map("cached_balance")
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")

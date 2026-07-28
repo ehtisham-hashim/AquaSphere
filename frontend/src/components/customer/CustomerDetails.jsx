@@ -2,24 +2,52 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, DollarSign, Package, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Edit3
+  FileText, ExternalLink, ShoppingBag, User, Edit3, MessageCircle, MapPinIcon
 } from 'lucide-react';
 import { Badge } from '../ui';
 import EditCustomerModal from './EditCustomerModal';
+import CustomerHistory from './CustomerHistory';
+import CustomerAlerts from './CustomerAlerts';
+import { API_URL as API } from '../../utils/api';
 
 // ponytail: two-column flat layout eliminates container fatigue; inline image placeholder uses lucide User icon
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated }) {
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
-
-  useEffect(() => {
-    setC(initialCustomer);
-  }, [initialCustomer]);
-
-  if (!c) return null;
+  const [isLoading, setIsLoading] = useState(false);
 
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
+
+  // Fetch full customer details with history
+  useEffect(() => {
+    const fetchCustomerDetails = async () => {
+      if (!initialCustomer?.id) return;
+      
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API}/customers/${initialCustomer.id}`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (json.success) {
+          setC(json.data);
+        }
+      } catch (err) {
+        console.error('Failed to load customer details:', err);
+        setC(initialCustomer);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCustomerDetails();
+  }, [initialCustomer?.id, tenant]);
+
+  if (!c) return null;
+
+  // tenant and isWadaana already declared above (lines 19-20)
 
   // Tenant-aware theme classes
   const theme = {
@@ -76,22 +104,45 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
         <div className="w-full border-t border-slate-100 mt-6 pt-6 space-y-4 text-left text-sm">
           <div className="flex items-center gap-3 text-slate-700">
             <Phone size={16} className="text-slate-400 flex-shrink-0" />
-            <span className="font-semibold">{c.phone || 'No phone provided'}</span>
+            <span className="font-semibold flex-1">{c.phone || 'No phone provided'}</span>
+            {c.phone && (
+              <a
+                href={`https://wa.me/${c.phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex-shrink-0"
+                title="Send WhatsApp Message"
+              >
+                <MessageCircle size={18} />
+              </a>
+            )}
           </div>
           <div className="flex items-start gap-3 text-slate-600">
             <MapPin size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
             <span className="leading-relaxed">{c.address || 'No physical address provided.'}</span>
           </div>
           {c.mapLink && (
-            <a
-              href={c.mapLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-2 font-bold ${theme.primaryText} hover:underline pt-2 text-xs`}
-            >
-              <span>View on Google Maps</span>
-              <ExternalLink size={14} />
-            </a>
+            <div className="flex items-center gap-2 pt-2">
+              <a
+                href={c.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 font-bold ${theme.primaryText} hover:underline text-xs`}
+              >
+                <span>View on Google Maps</span>
+                <ExternalLink size={14} />
+              </a>
+              <a
+                href={c.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isWadaana ? 'bg-sky-100 text-[#0ea5e9] hover:bg-sky-200' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'} transition-colors flex items-center gap-1`}
+                title="Open location in maps"
+              >
+                <MapPinIcon size={14} />
+                Open Location
+              </a>
+            </div>
           )}
           {c.createdAt && (
             <div className="pt-2 text-slate-400 text-xs flex items-center gap-2">
@@ -150,7 +201,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Security Deposit</span>
                 <span className="text-lg font-bold text-slate-800 block mt-1">
-                  Rs. {(c.securityDeposit || 0).toLocaleString()}
+                  Rs. {(c.deposit || 0).toLocaleString()}
                 </span>
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
                   Refundable deposit
@@ -233,12 +284,32 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
         </div>
       </div>
 
+      {/* Alerts Section */}
+      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <CustomerAlerts customer={c} isWadaana={isWadaana} />
+      </div>
+
+      {/* History Section */}
+      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin">
+              <div className="w-6 h-6 border-2 border-slate-300 border-t-emerald-600 rounded-full"></div>
+            </div>
+            <span className="ml-2 text-slate-600">Loading customer history...</span>
+          </div>
+        ) : (
+          <CustomerHistory customer={c} isWadaana={isWadaana} />
+        )}
+      </div>
+
       <EditCustomerModal
         isOpen={isEditOpen}
         customer={c}
         onClose={() => setIsEditOpen(false)}
         onCustomerUpdated={(updated) => {
           setC(updated);
+          toast.success('Customer information updated');
           if (onCustomerUpdated) onCustomerUpdated(updated);
         }}
       />

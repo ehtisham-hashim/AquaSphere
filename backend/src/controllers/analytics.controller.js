@@ -118,6 +118,107 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   res.json({ success: true, data: cachedDashboardData[prefix] });
 });
 
+export const getPurchasingSummary = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const [recentPurchases, vendors, ledgerSums, topMaterials] = await Promise.all([
+    // Recent purchases (last 7)
+    prisma[`${prefix}Purchase`].findMany({
+      take: 7,
+      orderBy: { purchaseDate: 'desc' },
+      include: {
+        vendor: { select: { id: true, name: true } },
+        items: { include: { item: { select: { name: true, unit: true } } } }
+      }
+    }),
+
+    // All active vendors
+    prisma[`${prefix}Vendor`].findMany({
+      where: { archivedAt: null },
+      select: { id: true, name: true, phone: true }
+    }),
+
+    // Ledger sums grouped by vendor + type
+    prisma[`${prefix}VendorLedgerEntry`].groupBy({
+      by: ['vendorId', 'type'],
+      _sum: { amount: true }
+    }),
+
+    // Top purchased materials this month
+    prisma[`${prefix}PurchaseItem`].groupBy({
+      by: ['itemId'],
+      _sum: { total: true, quantity: true },
+      where: { purchase: { purchaseDate: { gte: startOfMonth, lte: endOfDay } } },
+      orderBy: { _sum: { total: 'desc' } },
+      take: 6
+    })
+  ]);
+
+  // Build vendor balance map
+  const balanceMap = {};
+  for (const entry of ledgerSums) {
+    if (!balanceMap[entry.vendorId]) balanceMap[entry.vendorId] = { purchases: 0, payments: 0 };
+    if (entry.type === 'PURCHASE') balanceMap[entry.vendorId].purchases = Number(entry._sum.amount);
+    if (entry.type === 'PAYMENT') balanceMap[entry.vendorId].payments = Number(entry._sum.amount);
+  }
+
+  // Format top vendors (sorted by outstanding balance)
+  const topVendors = vendors
+    .map(v => ({
+      id: v.id,
+      name: v.name,
+      phone: v.phone,
+      totalPurchases: balanceMap[v.id]?.purchases || 0,
+      totalPayments: balanceMap[v.id]?.payments || 0,
+      outstanding: (balanceMap[v.id]?.purchases || 0) - (balanceMap[v.id]?.payments || 0)
+    }))
+    .sort((a, b) => b.totalPurchases - a.totalPurchases)
+    .slice(0, 5);
+
+  // Resolve material names for top materials
+  const materialIds = topMaterials.map(m => m.itemId);
+  const materialDetails = materialIds.length > 0
+    ? await prisma[`${prefix}Item`].findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, name: true, unit: true }
+      })
+    : [];
+  const matMap = Object.fromEntries(materialDetails.map(m => [m.id, m]));
+
+  const formattedMaterials = topMaterials.map(m => ({
+    itemId: m.itemId,
+    name: matMap[m.itemId]?.name || 'Unknown',
+    unit: matMap[m.itemId]?.unit || '',
+    totalSpend: Number(m._sum.total),
+    totalQty: Number(m._sum.quantity)
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      recentPurchases: recentPurchases.map(p => ({
+        id: p.id,
+        invoiceNo: p.invoiceNo,
+        vendorName: p.vendor?.name || 'N/A',
+        grandTotal: Number(p.grandTotal),
+        purchaseDate: p.purchaseDate,
+        itemCount: p.items.length,
+        items: p.items.map(i => ({
+          name: i.item?.name || 'N/A',
+          qty: Number(i.quantity),
+          unit: i.item?.unit || '',
+          total: Number(i.total)
+        }))
+      })),
+      topVendors,
+      topMaterials: formattedMaterials
+    }
+  });
+});
+
 export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   res.setHeader('Content-Type', 'text/event-stream');
