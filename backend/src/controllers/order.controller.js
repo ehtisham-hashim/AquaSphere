@@ -5,8 +5,8 @@ import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { Prisma } from '@prisma/client';
 
 const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
+  const rawTenant = req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
+  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
 export const getOrders = asyncHandler(async (req, res) => {
@@ -151,9 +151,17 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
     // 19L Deductions & Transactions
     if (o.type === '19L' && qty > 0) {
-      // Deduct 1 Large Cap per bottle
+      // Deduct 1 Large/Big 19L Cap per bottle
       const largeCap = await tx[`${prefix}Item`].findFirst({
-        where: { type: 'RAW_MATERIAL', name: { contains: 'large cap', mode: 'insensitive' } }
+        where: {
+          type: 'RAW_MATERIAL',
+          OR: [
+            { name: { contains: 'large cap', mode: 'insensitive' } },
+            { name: { contains: 'big cap', mode: 'insensitive' } },
+            { name: { contains: '19l cap', mode: 'insensitive' } },
+            { name: { contains: 'big 19l', mode: 'insensitive' } }
+          ]
+        }
       });
       if (largeCap) {
         await tx[`${prefix}Item`].update({ where: { id: largeCap.id }, data: { cachedQty: { decrement: qty } } });
@@ -162,9 +170,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         });
       }
 
-      // Deduct Mineral Fraction (23L treated water per bottle / 15,140L per mineral set)
-      const WATER_PER_BOTTLE = 23;
-      const WATER_PER_MINERAL_SET = 15140;
+      // Deduct Mineral Fraction (24L treated water per bottle / 15,141L per mineral set per owner specs)
+      const WATER_PER_BOTTLE = 24;
+      const WATER_PER_MINERAL_SET = 15141;
       const mineralSetFraction = new Prisma.Decimal(qty * WATER_PER_BOTTLE).dividedBy(WATER_PER_MINERAL_SET);
 
       const items = await tx[`${prefix}Item`].findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null } });
@@ -247,4 +255,25 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
   broadcastDashboardUpdate();
   res.json({ success: true, data: order });
+});
+
+export const getOrderPDF = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  const order = await prisma[`${prefix}Order`].findUnique({
+    where: { id },
+    include: { customer: true, items: { include: { item: true } } }
+  });
+
+  if (!order) {
+    throw new ApiError(404, 'Order not found');
+  }
+
+  const { generateInvoicePDF } = await import('../utils/pdfGenerator.js');
+  const pdfBuffer = await generateInvoicePDF(order, prefix);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="invoice-${id.substring(0, 8)}.pdf"`);
+  res.send(pdfBuffer);
 });

@@ -407,6 +407,7 @@ enum AquasphereTransactionDirection {
 
 enum AquasphereDeliveryStatus {
   PENDING
+  PARTIAL
   DELIVERED
   CANCELLED
 
@@ -866,6 +867,7 @@ enum WadaanaTransactionDirection {
 
 enum WadaanaDeliveryStatus {
   PENDING
+  PARTIAL
   DELIVERED
   CANCELLED
 

@@ -126,8 +126,8 @@ export default function Production() {
   // Preview Formulas Live
   const p05Num = parseInt(packs05L || 0);
   const p15Num = parseInt(packs15L || 0);
-  const totalLitres = (p05Num * 6) + (p15Num * 9);
-  const mineralSetFraction = (totalLitres / 15140).toFixed(6);
+  const totalLitres = (p05Num * 9) + (p15Num * 12);
+  const mineralSetFraction = (totalLitres / 15141).toFixed(6);
 
   if (loading) {
     return (

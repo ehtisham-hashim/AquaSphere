@@ -3,7 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = (req) => (req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 
 export const getReportData = asyncHandler(async (req, res) => {
   const { reportType } = req.params;
@@ -269,19 +269,24 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'fleet':
     case 'bottle-summary': {
-      const transactions = await prisma[`${prefix}BottleTransaction`].findMany();
-      let totalOwned = 0, atFactory = 0, withCustomers = 0, broken = 0, lost = 0;
+      const [transactions, customerBottleSum] = await Promise.all([
+        prisma[`${prefix}BottleTransaction`].findMany(),
+        prisma[`${prefix}Customer`].aggregate({
+          _sum: { cachedBottleBalance: true },
+          where: { archivedAt: null }
+        })
+      ]);
+
+      let totalOwned = 0, broken = 0, lost = 0;
       
       transactions.forEach(t => {
         if (t.type === 'NEW_PURCHASE') totalOwned += t.quantity;
         if (t.type === 'RETURNED_BROKEN') broken += t.quantity;
         if (t.type === 'MARKED_LOST') lost += t.quantity;
-        if (t.type === 'DELIVERED_TO_CUSTOMER') withCustomers += t.quantity;
-        if (t.type === 'RETURNED_GOOD') {
-          withCustomers -= t.quantity;
-        }
       });
-      atFactory = Math.max(0, totalOwned - withCustomers - broken - lost);
+
+      const withCustomers = Math.max(0, Number(customerBottleSum._sum.cachedBottleBalance || 0));
+      const atFactory = Math.max(0, totalOwned - withCustomers - broken - lost);
 
       kpis = [
         { label: 'Total Fleet Owned', value: totalOwned.toString() },

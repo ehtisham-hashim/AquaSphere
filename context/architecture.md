@@ -548,7 +548,9 @@ GET    /api/v1/reports/:period/export           # ExcelJS export
 
 ### 9.9 Server-Sent Events (SSE)
 ```text
-GET    /api/v1/events/stream                    # SSE endpoint — auth required via cookie
+GET    /api/v1/analytics/dashboard/stream      # Live real-time dashboard analytics stream (auth via cookie)
+                                            # Heartbeat every 30s; auto-broadcasts on delivery or batch entry.
+GET    /api/v1/events/stream                    # Event stream — auth required via cookie
                                             # Events: order.created, delivery.completed,
                                             #         credit.breach, stock.low, daily.close
 ```

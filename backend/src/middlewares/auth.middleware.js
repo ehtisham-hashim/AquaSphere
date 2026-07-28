@@ -16,13 +16,18 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired token');
   }
 
-  let user = await prisma.aquasphereUser.findUnique({
+  const rawTenant = req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
+  const tenantPrefix = rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+
+  let user = await prisma[`${tenantPrefix}User`].findUnique({
     where: { id: decodedToken.id },
     select: { id: true, email: true, name: true, role: true, isActive: true }
   });
 
+  // Fallback check if user exists in other schema (for multi-tenant owners/admins)
   if (!user) {
-    user = await prisma.wadaanaUser.findUnique({
+    const fallbackPrefix = tenantPrefix === 'wadaana' ? 'aquasphere' : 'wadaana';
+    user = await prisma[`${fallbackPrefix}User`].findUnique({
       where: { id: decodedToken.id },
       select: { id: true, email: true, name: true, role: true, isActive: true }
     });
@@ -33,5 +38,6 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 
   req.user = user;
+  req.tenant = tenantPrefix;
   next();
 });
