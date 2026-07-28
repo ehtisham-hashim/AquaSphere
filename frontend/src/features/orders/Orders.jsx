@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Search, CheckCircle, Truck, Package, Edit, Clock, XCircle, Map, LayoutList } from 'lucide-react';
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 
-import AddOrderModal from '../components/orders/AddOrderModal';
-import EditOrderModal from '../components/orders/EditOrderModal';
-import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
+import AddOrderModal from './AddOrderModal';
+import EditOrderModal from './EditOrderModal';
+import ProcessDeliveryModal from './ProcessDeliveryModal';
 
 export default function Orders() {
   const { user } = useAuth();

@@ -1,1 +1,1 @@
-export { default } from '../customer/CustomerProfileCard';
+export { default } from '../../features/orders/CustomerProfileCard';

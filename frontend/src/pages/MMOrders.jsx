@@ -1,14 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, X, ClipboardList, Phone, MapPin, Package, AlertCircle } from 'lucide-react';
-import NewOrderModal from '../components/orders/NewOrderModal';
-import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
-import AddCustomerInlineModal from '../components/orders/AddCustomerInlineModal';
-import OrdersTable from '../components/orders/OrdersTable';
-import CustomerProfileCard from '../components/orders/CustomerProfileCard';
-
-const API = import.meta.env.VITE_API_URL;
-
-export default function MMOrders() {
+export { default } from '../features/orders/MMOrders';
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);

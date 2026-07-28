@@ -1,7 +1,4 @@
-import { useState, useEffect } from 'react';
-import { Plus, X, Search, DollarSign, Calendar, Droplets, CreditCard } from 'lucide-react';
-
-export default function CounterSales() {
+export { default } from '../features/counterSales/CounterSales';
   const [sales, setSales] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);

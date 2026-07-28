@@ -1,22 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
-import Login from './pages/Login';
+import Login from './features/auth/Login';
 import MainLayout from './components/layout/MainLayout';
-import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import Vendors from './pages/Vendors';
-import Purchases from './pages/Purchases';
-import RawMaterials from './pages/RawMaterials';
-import Production from './pages/Production';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
-import Expenses from './pages/Expenses';
-import CounterSales from './pages/CounterSales';
-import Users from './pages/Users';
-import BottleLedger from './pages/BottleLedger';
-import MMOrders from './pages/MMOrders';
-import AccountantDashboard from './pages/AccountantDashboard';
-import Reports from './pages/Reports';
+import { Dashboard, AdminDashboard, AccountantDashboard } from './features/dashboard';
+import { Vendors, Purchases } from './features/purchasing';
+import RawMaterials from './features/inventory/RawMaterials';
+import Production from './features/production/Production';
+import { Customers } from './features/customers';
+import { Orders, MMOrders } from './features/orders';
+import Expenses from './features/expenses/Expenses';
+import CounterSales from './features/counterSales/CounterSales';
+import Users from './features/users/Users';
+import BottleLedger from './features/bottleLedger/BottleLedger';
+import Reports from './features/reports/Reports';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();

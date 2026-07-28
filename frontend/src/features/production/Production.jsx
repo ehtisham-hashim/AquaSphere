@@ -14,8 +14,8 @@ import {
   FileText,
   RefreshCw
 } from 'lucide-react';
-import { useAuth } from '../features/auth/AuthContext';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useAuth } from '../auth/AuthContext';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 const API = import.meta.env.VITE_API_URL || '/api/v1';
 

@@ -1,11 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, X, Search, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Calendar, DollarSign } from 'lucide-react';
-
-const API = import.meta.env.VITE_API_URL;
-
-const CATEGORIES = ['Fuel', 'Salaries', 'Electricity', 'Plant Rent', 'Vehicle Repair', 'Machine Repair', 'Miscellaneous'];
-
-export default function Expenses() {
+export { default } from '../features/expenses/Expenses';
   const [expenses, setExpenses] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);

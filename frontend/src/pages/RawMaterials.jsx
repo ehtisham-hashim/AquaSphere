@@ -1,10 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
-import { getCompanyFromCookie } from '../utils/companyCookie';
-
-const API = import.meta.env.VITE_API_URL || '/api';
-
-export default function RawMaterials() {
+export { default } from '../features/inventory/RawMaterials';
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

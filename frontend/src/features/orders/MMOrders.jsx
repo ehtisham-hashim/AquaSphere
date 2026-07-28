@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Plus, X, ClipboardList, Phone, MapPin, Package, AlertCircle } from 'lucide-react';
-import NewOrderModal from '../components/orders/NewOrderModal';
-import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
-import AddCustomerInlineModal from '../components/orders/AddCustomerInlineModal';
-import OrdersTable from '../components/orders/OrdersTable';
-import CustomerProfileCard from '../components/orders/CustomerProfileCard';
+import NewOrderModal from './NewOrderModal';
+import ProcessDeliveryModal from './ProcessDeliveryModal';
+import AddCustomerInlineModal from '../customers/AddCustomerInlineModal';
+import OrdersTable from './OrdersTable';
+import CustomerProfileCard from './CustomerProfileCard';
 
 const API = import.meta.env.VITE_API_URL;
 

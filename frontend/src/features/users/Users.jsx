@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Search, User, Briefcase, Building, ShieldCheck, Mail } from 'lucide-react';
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 
 export default function Users() {
   const { user: currentUser } = useAuth();

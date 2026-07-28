@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from './index';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 

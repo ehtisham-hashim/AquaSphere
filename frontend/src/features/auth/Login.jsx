@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from './AuthContext';
 import { Droplet, Lock, Mail, ArrowRight, Loader2, Building2 } from 'lucide-react';
 
 export default function Login() {

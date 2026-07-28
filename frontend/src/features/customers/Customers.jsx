@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search } from 'lucide-react';
-import { CustomersTable, AddCustomerModal } from '../components/customer';
+import { CustomersTable, AddCustomerModal } from './index';
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);

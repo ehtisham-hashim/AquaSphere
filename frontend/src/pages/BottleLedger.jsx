@@ -1,7 +1,4 @@
-import { useState, useEffect } from 'react';
-import { RefreshCcw, Search, Filter, Plus, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Package, Truck, CornerDownLeft, AlertTriangle } from 'lucide-react';
-
-export default function BottleLedger() {
+export { default } from '../features/bottleLedger/BottleLedger';
   const [summary, setSummary] = useState({
     totalPurchased: 0,
     totalOwned: 0,

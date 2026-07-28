@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { 
   BarChart2, Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 

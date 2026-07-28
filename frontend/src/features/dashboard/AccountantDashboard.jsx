@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Receipt, ShoppingCart, CheckCircle, AlertCircle, Clock, Lock, TrendingDown } from 'lucide-react';
-import { useAuth } from '../features/auth/AuthContext';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useAuth } from '../auth/AuthContext';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 const API = import.meta.env.VITE_API_URL;
 

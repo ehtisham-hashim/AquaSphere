@@ -1,10 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import {
-  Plus, X, Receipt, ShoppingCart, Calendar, Building2,
-  Trash2, Eye, Upload, CheckCircle, Loader2, AlertCircle
-} from 'lucide-react';
-
-export default function Purchases() {
+export { default } from '../features/purchasing/Purchases';
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materials, setMaterials] = useState([]);

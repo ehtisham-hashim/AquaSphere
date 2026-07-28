@@ -1,4 +1,4 @@
-import { useAuth } from '../features/auth/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 import { useState, useEffect } from 'react';
 import { Wallet, TrendingUp, CreditCard, Receipt, LineChart, Package, ShoppingCart, Beaker, AlertTriangle } from 'lucide-react';
 
