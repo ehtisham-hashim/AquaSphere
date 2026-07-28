@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { 
   BarChart3, 
   Truck, 
@@ -35,7 +36,7 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth();
-  const currentTenant = localStorage.getItem('tenant') || 'aquasphere';
+  const currentTenant = getCompanyFromCookie();
   const isWadaana = currentTenant === 'wadaana';
 
   // Dynamic colors based on tenant

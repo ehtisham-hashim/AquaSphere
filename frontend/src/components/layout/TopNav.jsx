@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { getCompanyFromCookie, setCompanyCookie } from '../../utils/companyCookie';
 import { Calendar, Building2, Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
 
 export default function TopNav({ onMenuClick }) {
@@ -19,12 +20,12 @@ export default function TopNav({ onMenuClick }) {
     year: 'numeric'
   }).format(new Date());
 
-  const currentTenant = localStorage.getItem('tenant') || 'aquasphere';
+  const currentTenant = getCompanyFromCookie();
   const isWadaana = currentTenant === 'wadaana';
 
   const handleTenantSwitch = (newTenant) => {
     if (newTenant !== currentTenant) {
-      localStorage.setItem('tenant', newTenant);
+      setCompanyCookie(newTenant);
       window.location.reload();
     }
   };

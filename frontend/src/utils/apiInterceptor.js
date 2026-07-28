@@ -2,6 +2,7 @@
  * Intercepts all global fetch requests to inject the `x-tenant` header.
  * Correctly matches both relative (`/api/`) and absolute (`http://localhost:5000/api`) paths from VITE_API_URL.
  */
+import { getCompanyFromCookie } from './companyCookie';
 
 const originalFetch = window.fetch;
 
@@ -13,7 +14,7 @@ window.fetch = async (url, options = {}) => {
   const isApiRequest = urlString.includes('/api') || urlString.includes('localhost:3000') || urlString.includes('localhost:5000') || urlString.includes(VITE_API_URL);
 
   if (isApiRequest) {
-    const tenant = localStorage.getItem('tenant') || 'aquasphere';
+    const tenant = getCompanyFromCookie();
     
     // Properly merge headers whether they are a Headers object or a plain object
     const existingHeaders = options.headers instanceof Headers 
@@ -22,7 +23,7 @@ window.fetch = async (url, options = {}) => {
 
     options.headers = {
       ...existingHeaders,
-      'x-tenant': existingHeaders['x-tenant'] || existingHeaders['X-Tenant'] || tenant
+      'x-tenant': tenant
     };
   }
 
