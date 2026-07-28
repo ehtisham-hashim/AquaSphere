@@ -3,30 +3,23 @@
  */
 
 export function getCompanyFromCookie() {
-  if (typeof document === 'undefined') return 'aquasphere';
-
-  const cookies = document.cookie.split(';');
-  let companyValue = null;
-
-  for (let i = 0; i < cookies.length; i++) {
-    const cookie = cookies[i].trim();
-    if (cookie.startsWith('company=')) {
-      companyValue = cookie.substring('company='.length).trim();
-      break;
-    }
-    if (cookie.startsWith('tenant=') && !companyValue) {
-      companyValue = cookie.substring('tenant='.length).trim();
+  if (typeof window !== 'undefined') {
+    const localVal = localStorage.getItem('tenant') || localStorage.getItem('company');
+    if (localVal) {
+      const normalized = localVal.trim().toLowerCase();
+      if (normalized === 'wadaana' || normalized === 'aquasphere') return normalized;
     }
   }
 
-  if (!companyValue) {
-    companyValue = localStorage.getItem('company') || localStorage.getItem('tenant');
-  }
-
-  if (companyValue) {
-    const normalized = companyValue.toLowerCase();
-    if (normalized === 'wadaana') return 'wadaana';
-    if (normalized === 'aquasphere') return 'aquasphere';
+  if (typeof document !== 'undefined') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.startsWith('company=') || cookie.startsWith('tenant=')) {
+        const val = cookie.split('=')[1]?.trim().toLowerCase();
+        if (val === 'wadaana' || val === 'aquasphere') return val;
+      }
+    }
   }
 
   return 'aquasphere';

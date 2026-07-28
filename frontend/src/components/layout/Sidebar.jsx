@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { 
   BarChart3, 
   Truck, 
@@ -35,7 +36,7 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth();
-  const currentTenant = localStorage.getItem('tenant') || 'aquasphere';
+  const currentTenant = getCompanyFromCookie();
   const isWadaana = currentTenant === 'wadaana';
 
   // Dynamic colors based on tenant
@@ -52,7 +53,7 @@ export default function Sidebar({ isOpen, onClose }) {
           onClick={onClose}
         />
       )}
-      <aside className={`fixed md:sticky top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-72 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`fixed md:relative top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-72 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         {/* Brand Header */}
         <div className="h-20 flex flex-col justify-center px-6 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-3">

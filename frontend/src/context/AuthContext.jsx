@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { setCompanyCookie } from '../utils/companyCookie';
 
 const AuthContext = createContext();
+const API = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -10,7 +11,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        const response = await fetch(`${API}/auth/me`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           setUser(data.data.user);
@@ -29,7 +30,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password, tenant = 'aquasphere') => {
     try {
       setCompanyCookie(tenant);
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, tenant }),
@@ -51,7 +52,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch (err) {
       // Ignore network errors on logout
     }

@@ -11,33 +11,39 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 
   const decodedToken = verifyToken(token);
-
   if (!decodedToken) {
     throw new ApiError(401, 'Invalid or expired token');
   }
 
-  const rawTenant = req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
-  const tenantPrefix = rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+  // Determine tenant from header (set by frontend interceptor)
+  const rawTenant = (req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase();
+  const requestedPrefix = rawTenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 
-  let user = await prisma[`${tenantPrefix}User`].findUnique({
+  // Look up user in requested tenant first
+  let user = await prisma[`${requestedPrefix}User`].findUnique({
     where: { id: decodedToken.id },
     select: { id: true, email: true, name: true, role: true, isActive: true }
   });
 
-  // Fallback check if user exists in other schema (for multi-tenant owners/admins)
+  // Fallback: check the other tenant (handles cross-context owners/admins)
+  let resolvedPrefix = requestedPrefix;
   if (!user) {
-    const fallbackPrefix = tenantPrefix === 'wadaana' ? 'aquasphere' : 'wadaana';
+    const fallbackPrefix = requestedPrefix === 'wadaana' ? 'aquasphere' : 'wadaana';
     user = await prisma[`${fallbackPrefix}User`].findUnique({
       where: { id: decodedToken.id },
       select: { id: true, email: true, name: true, role: true, isActive: true }
     });
+    // IMPORTANT: update resolvedPrefix to where we actually found the user
+    if (user) resolvedPrefix = fallbackPrefix;
   }
 
   if (!user || !user.isActive) {
-    throw new ApiError(401, 'Invalid Access Token or User is inactive');
+    throw new ApiError(401, 'Invalid access token or user is inactive');
   }
 
   req.user = user;
-  req.tenant = tenantPrefix;
+  // Use the tenant from the request header (not where the user was found)
+  // This allows owners to switch context freely
+  req.tenant = requestedPrefix;
   next();
 });
