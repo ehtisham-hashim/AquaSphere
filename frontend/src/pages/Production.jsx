@@ -4,9 +4,7 @@ import {
   AlertTriangle, 
   Plus, 
   X, 
-  Layers, 
   Scale, 
-  ShieldCheck, 
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,7 +16,7 @@ const API = API_URL;
 export default function Production() {
   const tenant = getCompanyFromCookie();
 
-  const [rawMaterials, setRawMaterials] = useState([]);
+
   const [batches, setBatches] = useState([]);
   const [, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,8 +37,6 @@ export default function Production() {
   const [batchDate, setBatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
-  // Daily Closing State
-  const [pmConfirmed, setPmConfirmed] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -56,7 +52,7 @@ export default function Production() {
       const statsData = await statsRes.json();
 
       if (itemsData.success) {
-        setRawMaterials(itemsData.data.filter(i => i.type === 'RAW_MATERIAL'));
+        // Raw materials data fetched
       }
       if (batchesData.success) {
         setBatches(batchesData.data || []);

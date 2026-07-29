@@ -1,6 +1,6 @@
-import { MapPin, Phone, DollarSign, Package } from 'lucide-react';
+import { MapPin, Phone, Package } from 'lucide-react';
 
-export default function CustomersTable({ customers = [], isLoading = false, onEdit, onRowClick }) {
+export default function CustomersTable({ customers = [], isLoading = false, onRowClick }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
 

@@ -14,15 +14,18 @@ import {
 const router = Router();
 
 router.use(verifyJWT);
-router.use(requireRoles('OWNER', 'ACCOUNTANT'));
 
-router.get('/', getVendors);
-router.get('/:id', getVendorById);
-router.post('/', createVendor);
-router.post('/:id/payments', recordVendorPayment);
-router.put('/:id', updateVendor);
-router.patch('/:id/archive', archiveVendor);
-router.patch('/:id/restore', restoreVendor);
+// View Vendors & Vendor Profiles: OWNER, ACCOUNTANT, PRODUCTION_MANAGER, MARKETING_MANAGER
+router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendors);
+router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendorById);
+
+// Create & Edit Vendors: OWNER, ACCOUNTANT, PRODUCTION_MANAGER
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), createVendor);
+router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), updateVendor);
+
+// Record Payment & Archive/Restore: OWNER, ACCOUNTANT
+router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT'), recordVendorPayment);
+router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveVendor);
+router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreVendor);
 
 export default router;
-

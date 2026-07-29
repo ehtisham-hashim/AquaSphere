@@ -81,10 +81,11 @@ export default function Sidebar({ isOpen, onClose }) {
             if ((role === 'OWNER' || role === 'ACCOUNTANT') && item.path === '/bottle-ledger') return false;
 
             if (isWadaana) {
-              // Wadaana Owner: Hide Counter Sales
-              if (role === 'OWNER' && item.path === '/counter-sales') return false;
-              // Wadaana Accountant: Remove Production and Counter Sales
-              if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/counter-sales')) return false;
+              // Counter Sales is exclusively for AquaSphere
+              if (item.path === '/counter-sales') return false;
+              
+              // Wadaana Accountant: Remove Production
+              if (role === 'ACCOUNTANT' && item.path === '/production') return false;
             } else {
               // AquaSphere Accountant: Remove Production and Reports
               if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/reports')) return false;

@@ -5,11 +5,23 @@ import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
 
 const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'];
+  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
-const VALID_CATEGORIES = ['Fuel', 'Salaries', 'Electricity', 'Plant Rent', 'Vehicle Repair', 'Machine Repair', 'Miscellaneous'];
+const VALID_CATEGORIES = [
+  'Fuel / Transport', 'Fuel',
+  'Salaries',
+  'Electricity',
+  'Plant Rent',
+  'Vehicle Repairs', 'Vehicle Repair',
+  'Machine Repairs', 'Machine Repair',
+  'Maintenance',
+  'Office Supplies',
+  'Miscellaneous'
+];
 
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -29,8 +41,18 @@ export const getExpenses = asyncHandler(async (req, res) => {
   const expenses = await prisma[`${prefix}Expense`].findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    take: 100
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          role: true
+        }
+      }
+    },
+    take: 5000
   });
+
   res.json({ success: true, data: expenses });
 });
 
@@ -40,9 +62,14 @@ export const createExpense = asyncHandler(async (req, res) => {
 
   if (!category) throw new ApiError(400, 'Category is required');
   if (!VALID_CATEGORIES.includes(category)) {
-    throw new ApiError(400, `Category must be one of: ${VALID_CATEGORIES.join(', ')}`);
+    throw new ApiError(400, `Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
   }
-  if (!amount || parseFloat(amount) <= 0) throw new ApiError(400, 'Amount must be greater than zero');
+
+  const parsedAmount = Math.round(parseFloat(amount));
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    throw new ApiError(400, 'Amount must be a valid integer greater than zero');
+  }
+
   if (!receiptUrl || !receiptUrl.trim()) {
     throw new ApiError(400, 'Receipt photo is mandatory — text-only entries are not allowed');
   }
@@ -50,10 +77,20 @@ export const createExpense = asyncHandler(async (req, res) => {
   const expense = await prisma[`${prefix}Expense`].create({
     data: {
       category,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       receiptUrl: receiptUrl.trim(),
       remarks: remarks || '',
+      createdById: req.user?.id || null,
       createdAt: expenseDate ? new Date(expenseDate) : new Date()
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+          role: true
+        }
+      }
     }
   });
 

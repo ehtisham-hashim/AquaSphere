@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getOrderPrice as getPrice, getOrderCleanName as getCleanName } from '../../constants/orders';
 
-export default function EditOrderModal({ order, onClose, onOrderEdited, customers, items }) {
+export default function EditOrderModal({ order, onClose, onOrderEdited, items }) {
   const [editData, setEditData] = useState({
     expectedDelivery: order.expectedDelivery ? new Date(order.expectedDelivery).toISOString().split('T')[0] : '',
     remarks: order.remarks || ''

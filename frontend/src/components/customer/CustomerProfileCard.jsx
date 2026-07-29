@@ -1,4 +1,4 @@
-import { Phone, MapPin, Package, AlertCircle, Plus, X, Clock, ShoppingBag } from 'lucide-react';
+import { Phone, MapPin, Package, Plus, X, Clock, ShoppingBag } from 'lucide-react';
 
 export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }) {
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();

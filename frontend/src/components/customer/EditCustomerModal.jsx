@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { X, Edit3, Image as ImageIcon, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { X, Edit3, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
 
 import { API_URL as API } from '../../utils/api';
 

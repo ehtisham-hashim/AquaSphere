@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Plus, X, Receipt, ShoppingCart, Calendar, Building2,
   Trash2, Eye, Upload, CheckCircle, Loader2, AlertCircle,
-  Search, Filter, Printer, Check, MapPin, ShieldCheck
+  Search, Filter, Printer, ShieldCheck
 } from 'lucide-react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +63,7 @@ export default function Purchases() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, [searchQuery, dateFilter]);
 
   const resetForm = () => {

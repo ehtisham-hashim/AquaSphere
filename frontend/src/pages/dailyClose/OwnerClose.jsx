@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { API_URL } from '../../utils/api';
 import { 
-  ChevronDown, ChevronUp, Calendar, Box, AlertTriangle, UserCheck, 
+  ChevronDown, ChevronUp, Calendar, Box, UserCheck, 
   ShieldCheck, Lock, Unlock, ShoppingBag, Factory, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';

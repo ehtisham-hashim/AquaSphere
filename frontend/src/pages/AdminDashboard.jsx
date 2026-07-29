@@ -2,13 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { 
   Lock, 
   Unlock, 
-  AlertTriangle, 
   Package, 
   Truck, 
   Factory, 
   Banknote, 
   ShieldAlert, 
-  Clock,
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';

@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, Clock, Droplet, DollarSign, Lock, TrendingUp, CalendarClock } from 'lucide-react';
+import { AlertCircle, Clock, Droplet, DollarSign, Lock, TrendingUp, CalendarClock } from 'lucide-react';
 
 export default function CustomerAlerts({ customer, isWadaana }) {
   const generateAlerts = () => {

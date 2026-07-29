@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
-  X, Phone, MapPin, DollarSign, Package, Calendar, 
+  X, Phone, MapPin, Calendar, 
   FileText, ExternalLink, ShoppingBag, User, Edit3, MessageCircle, MapPinIcon
 } from 'lucide-react';
 import { Badge } from '../ui';
@@ -45,7 +45,24 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
     };
 
     fetchCustomerDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCustomer?.id, tenant]);
+
+  const currentBalance = parseFloat(c?.currentBalance || 0);
+  const limitVal = parseFloat(c?.creditLimit || 0);
+  const isOverLimit = currentBalance > limitVal; 
+  const isInactive30Days = c?.lastDeliveryAt && (new Date() - new Date(c.lastDeliveryAt)) > (30 * 24 * 60 * 60 * 1000);
+
+  useEffect(() => {
+    if (!c) return;
+    if (isOverLimit) {
+      toast.error(`Credit Warning: Debt (Rs. ${currentBalance.toLocaleString()}) exceeds limit.`, { duration: 6000 });
+    }
+    if (isInactive30Days) {
+      toast.warning('Inactivity Alert: No order repeat recorded for over 30 days.', { duration: 6000 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c?.id, isOverLimit, isInactive30Days, currentBalance]);
 
   if (!c) return null;
 
@@ -83,20 +100,6 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
     iconColor: isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600',
     badgeVariant: isWadaana ? 'sky' : 'emerald',
   };
-
-  const currentBalance = parseFloat(c.currentBalance || 0);
-  const limitVal = parseFloat(c.creditLimit || 0);
-  const isOverLimit = currentBalance > limitVal; 
-  const isInactive30Days = c.lastDeliveryAt && (new Date() - new Date(c.lastDeliveryAt)) > (30 * 24 * 60 * 60 * 1000);
-
-  useEffect(() => {
-    if (isOverLimit) {
-      toast.error(`Credit Warning: Debt (Rs. ${currentBalance.toLocaleString()}) exceeds limit.`, { duration: 6000 });
-    }
-    if (isInactive30Days) {
-      toast.warning('Inactivity Alert: No order repeat recorded for over 30 days.', { duration: 6000 });
-    }
-  }, [c.id, isOverLimit, isInactive30Days, currentBalance]);
 
   const lastOrderDate = c.lastDeliveryAt ? new Date(c.lastDeliveryAt).toLocaleDateString() : 'Never';
 

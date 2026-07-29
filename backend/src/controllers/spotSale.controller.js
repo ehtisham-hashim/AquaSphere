@@ -6,7 +6,9 @@ import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
 const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'];
+  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
@@ -20,7 +22,15 @@ export const getSpotSales = asyncHandler(async (req, res) => {
     prisma[`${prefix}SpotSale`].findMany({
       skip,
       take: Number(limit),
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true }
+        },
+        createdBy: {
+          select: { id: true, name: true, role: true }
+        }
+      }
     }),
     prisma[`${prefix}SpotSale`].count()
   ]);
@@ -40,17 +50,45 @@ export const getSpotSales = asyncHandler(async (req, res) => {
 // POST /api/v1/spot-sales
 export const createSpotSale = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { litresSold, capsIssued = 0, cashCollected, paymentMethod = 'CASH', remarks } = req.body;
+  const { 
+    litresSold, 
+    capsIssued = 0, 
+    cashCollected = 0, 
+    creditAmount = 0, 
+    paymentMethod = 'CASH', 
+    customerId, 
+    remarks 
+  } = req.body;
 
   const litres = parseFloat(litresSold);
   const caps = parseInt(capsIssued || 0);
-  const cash = parseFloat(cashCollected);
+  const cash = parseFloat(cashCollected || 0);
+  const credit = parseFloat(creditAmount || 0);
 
   if (isNaN(litres) || litres <= 0) {
     throw new ApiError(400, 'Litres sold must be a positive number');
   }
   if (isNaN(cash) || cash < 0) {
     throw new ApiError(400, 'Cash collected must be a non-negative number');
+  }
+  if (isNaN(credit) || credit < 0) {
+    throw new ApiError(400, 'Credit amount must be a non-negative number');
+  }
+
+  // Business Rule: Customer selection is MANDATORY for credit sales
+  if (credit > 0 && (!customerId || !customerId.trim())) {
+    throw new ApiError(400, 'Customer selection is mandatory for credit sales (Credit Amount > 0)');
+  }
+
+  // Validate customer exists if customerId is passed
+  let customerObj = null;
+  if (customerId) {
+    customerObj = await prisma[`${prefix}Customer`].findUnique({
+      where: { id: customerId }
+    });
+    if (!customerObj) {
+      throw new ApiError(404, 'Selected customer not found');
+    }
   }
 
   const spotSale = await prisma.$transaction(async (tx) => {
@@ -60,13 +98,33 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         litresSold: litres,
         capsIssued: caps,
         cashCollected: cash,
+        creditAmount: credit,
         paymentMethod: paymentMethod || 'CASH',
         remarks: remarks || null,
-        createdById: req.user?.id || 'SYSTEM'
+        customerId: customerId || null,
+        createdById: req.user?.id || null
+      },
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true }
+        },
+        createdBy: {
+          select: { id: true, name: true, role: true }
+        }
       }
     });
 
-    // 2. Deduct caps from inventory if issued
+    // 2. If credit sale, update Customer outstanding balance
+    if (credit > 0 && customerId) {
+      await tx[`${prefix}Customer`].update({
+        where: { id: customerId },
+        data: {
+          currentBalance: { increment: credit }
+        }
+      });
+    }
+
+    // 3. Deduct caps from inventory if issued
     if (caps > 0) {
       const capItem = await tx[`${prefix}Item`].findFirst({
         where: {
@@ -95,7 +153,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       }
     }
 
-    // 3. Deduct mineral fractions for water treated (1 mineral set = 15,140 Litres)
+    // 4. Deduct mineral fractions for water treated (1 mineral set = 15,140 Litres)
     const WATER_PER_MINERAL_SET = 15140;
     const mineralSetFraction = new Prisma.Decimal(litres).dividedBy(WATER_PER_MINERAL_SET);
 
@@ -134,6 +192,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     return sale;
   });
 
-  broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   res.status(201).json({ success: true, data: spotSale });
 });
