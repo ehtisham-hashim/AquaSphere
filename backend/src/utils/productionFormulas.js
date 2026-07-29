@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 
 /**
  * Calculates raw material deductions and finished goods additions for a production batch.

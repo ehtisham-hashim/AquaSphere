@@ -2,7 +2,8 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { calculateProductionBatch } from '../utils/productionFormulas.js';
-import { Prisma } from '@prisma/client';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 
 // Dynamic tenant helper
 const getTenantPrefix = (req) => {
