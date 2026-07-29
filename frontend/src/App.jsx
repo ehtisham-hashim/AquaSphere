@@ -18,6 +18,7 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import Reports from './pages/Reports';
+import DailyClose from './pages/dailyClose/index';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="users" element={<Users />} />
         <Route path="bottle-ledger" element={<BottleLedger />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="daily-close" element={<DailyClose />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>

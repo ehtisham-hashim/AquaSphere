@@ -1,7 +1,8 @@
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, CreditCard, Receipt, ShoppingCart, AlertTriangle, Package, Building2, Loader2, Calendar } from 'lucide-react';
+import { Wallet, TrendingUp, CreditCard, Receipt, ShoppingCart, AlertTriangle, Package, Building2, Loader2, Calendar, ShieldAlert } from 'lucide-react';
+import AlertsSection from '../components/dashboard/AlertsSection';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -64,9 +65,11 @@ export default function Dashboard() {
   const isAccountant = user?.role === 'ACCOUNTANT';
   const isAdmin = user?.role === 'ADMIN';
   const isProductionManager = user?.role === 'PRODUCTION_MANAGER';
+  const isMarketingManager = user?.role === 'MARKETING_MANAGER';
 
   const canViewFinancials = isOwner || isAccountant;
   const canViewInventory = isOwner || isAdmin || isProductionManager;
+  const canViewMMAlerts = isOwner || isMarketingManager;
 
   const formatDate = (d) => {
     const date = new Date(d);
@@ -98,6 +101,17 @@ export default function Dashboard() {
             <KpiCard icon={<Receipt />} title="EXPENSES TODAY" value={`Rs. ${Number(data.expenses).toLocaleString()}`} subtitle="Logged operating cost" color="text-rose-600" bg="bg-rose-50" border="border-rose-100" />
             <KpiCard icon={<ShoppingCart />} title="TODAY'S PURCHASES" value={`Rs. ${Number(data.todaysPurchases).toLocaleString()}`} subtitle={`${data.todaysPurchasesCount} purchase logs`} color="text-purple-600" bg="bg-purple-50" border="border-purple-100" />
           </div>
+        </section>
+      )}
+
+      {/* Marketing Manager Alerts */}
+      {canViewMMAlerts && (
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldAlert size={20} className="text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-800 tracking-tight">Marketing & Operations Alerts</h2>
+          </div>
+          <AlertsSection />
         </section>
       )}
 

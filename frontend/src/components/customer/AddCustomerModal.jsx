@@ -82,7 +82,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       });
       const json = await res.json();
       if (json.success || res.ok) {
-        toast.success('Customer created successfully!');
+        toast.success('✅ Customer created successfully.');
         setFormData(initialFormData);
         if (onCustomerAdded) onCustomerAdded(json.data);
         onClose();

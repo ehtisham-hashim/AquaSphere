@@ -109,6 +109,8 @@ model AquasphereBottleTransaction {
   type       AquasphereBottleTransactionType @map("txn_type")
   quantity   Int
   reason     String?
+  orderId    String?                     @map("order_id")
+  runningBalance Int?                    @map("running_balance")
   createdAt  DateTime                    @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
@@ -123,6 +125,9 @@ enum AquasphereBottleTransactionType {
   RETURNED_BROKEN
   MARKED_LOST
   AT_FACTORY_ADJUSTMENT
+  AT_WAREHOUSE_ADJUSTMENT
+  MOVED_TO_WAREHOUSE
+  MOVED_TO_FACTORY
 
   @@map("bottle_transaction_types")
   @@schema("aquasphere")
@@ -220,6 +225,7 @@ model AquasphereProductionBatch {
   batchDate           DateTime @default(now()) @map("batch_date")
   producedBy          String?  @map("produced_by")                // req.user.id
   notes               String?
+  status              String   @default("PENDING")
   createdAt           DateTime @default(now()) @map("created_at")
 
   consumptions AquasphereProductionBatchConsumption[]
@@ -363,11 +369,18 @@ model AquasphereExpense {
 }
 
 model AquasphereDailyClose {
-  id         String   @id @default(uuid())
-  date       DateTime @unique @db.Date
-  closedAt   DateTime @default(now()) @map("closed_at")
-  closedById String   @map("closed_by_id")
-  closedBy   AquasphereUser @relation(fields: [closedById], references: [id])
+  id              String   @id @default(uuid())
+  date            DateTime @unique @db.Date
+  
+  pmConfirmed     Boolean  @default(false) @map("pm_confirmed")
+  pmConfirmedAt   DateTime? @map("pm_confirmed_at")
+  pmConfirmedById String?  @map("pm_confirmed_by_id")
+  pmConfirmedBy   AquasphereUser? @relation("PMConfirmer", fields: [pmConfirmedById], references: [id])
+
+  adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
+  closedAt        DateTime @default(now()) @map("closed_at")
+  closedById      String?  @map("closed_by_id")
+  closedBy        AquasphereUser? @relation("AdminConfirmer", fields: [closedById], references: [id])
 
   @@map("daily_closes")
   @@schema("aquasphere")
@@ -384,7 +397,8 @@ model AquasphereUser {
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  dailyCloses  AquasphereDailyClose[]
+  pmConfirmedCloses AquasphereDailyClose[] @relation("PMConfirmer")
+  adminConfirmedCloses AquasphereDailyClose[] @relation("AdminConfirmer")
 
   @@map("users")
   @@schema("aquasphere")
@@ -574,6 +588,8 @@ model WadaanaBottleTransaction {
   type       WadaanaBottleTransactionType @map("txn_type")
   quantity   Int
   reason     String?
+  orderId    String?                     @map("order_id")
+  runningBalance Int?                    @map("running_balance")
   createdAt  DateTime                    @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
@@ -588,6 +604,9 @@ enum WadaanaBottleTransactionType {
   RETURNED_BROKEN
   MARKED_LOST
   AT_FACTORY_ADJUSTMENT
+  AT_WAREHOUSE_ADJUSTMENT
+  MOVED_TO_WAREHOUSE
+  MOVED_TO_FACTORY
 
   @@map("bottle_transaction_types")
   @@schema("wadaana")
@@ -685,6 +704,7 @@ model WadaanaProductionBatch {
   batchDate           DateTime @default(now()) @map("batch_date")
   producedBy          String?  @map("produced_by")                // req.user.id
   notes               String?
+  status              String   @default("PENDING")
   createdAt           DateTime @default(now()) @map("created_at")
 
   consumptions WadaanaProductionBatchConsumption[]
@@ -828,11 +848,18 @@ model WadaanaExpense {
 }
 
 model WadaanaDailyClose {
-  id         String   @id @default(uuid())
-  date       DateTime @unique @db.Date
-  closedAt   DateTime @default(now()) @map("closed_at")
-  closedById String   @map("closed_by_id")
-  closedBy   WadaanaUser @relation(fields: [closedById], references: [id])
+  id              String   @id @default(uuid())
+  date            DateTime @unique @db.Date
+  
+  pmConfirmed     Boolean  @default(false) @map("pm_confirmed")
+  pmConfirmedAt   DateTime? @map("pm_confirmed_at")
+  pmConfirmedById String?  @map("pm_confirmed_by_id")
+  pmConfirmedBy   WadaanaUser? @relation("PMConfirmerW", fields: [pmConfirmedById], references: [id])
+
+  adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
+  closedAt        DateTime @default(now()) @map("closed_at")
+  closedById      String?  @map("closed_by_id")
+  closedBy        WadaanaUser? @relation("AdminConfirmerW", fields: [closedById], references: [id])
 
   @@map("daily_closes")
   @@schema("wadaana")
@@ -849,7 +876,8 @@ model WadaanaUser {
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  dailyCloses  WadaanaDailyClose[]
+  pmConfirmedCloses WadaanaDailyClose[] @relation("PMConfirmerW")
+  adminConfirmedCloses WadaanaDailyClose[] @relation("AdminConfirmerW")
 
   @@map("users")
   @@schema("wadaana")

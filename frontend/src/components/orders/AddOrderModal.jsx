@@ -138,7 +138,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
       }
 
       if (json.success) {
-        toast.success('Order created successfully!');
+        toast.success('✅ Order placed successfully.');
         onOrderAdded();
       } else {
         toast.error(json.message || 'Failed to create order');
