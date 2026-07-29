@@ -88,8 +88,8 @@ export default function Sidebar({ isOpen, onClose }) {
             } else {
               // AquaSphere Accountant: Remove Production and Reports
               if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/reports')) return false;
-              // Production manager: keep inventory-focused screens only
-              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users' || item.path === '/counter-sales' || item.path === '/expenses' || item.path === '/purchases' || item.path === '/vendors' || item.path === '/reports')) return false;
+              // Production manager: keep inventory & purchase-focused screens
+              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users' || item.path === '/counter-sales' || item.path === '/expenses' || item.path === '/vendors' || item.path === '/reports')) return false;
             }
             return true;
           })

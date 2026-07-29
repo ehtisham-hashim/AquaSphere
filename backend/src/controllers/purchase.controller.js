@@ -11,7 +11,33 @@ const getTenantPrefix = (req) => {
 
 export const getPurchases = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
+  const { search, dateFilter } = req.query;
+
+  const where = {};
+  if (search) {
+    where.OR = [
+      { invoiceNo: { contains: search, mode: 'insensitive' } },
+      { vendor: { name: { contains: search, mode: 'insensitive' } } }
+    ];
+  }
+
+  if (dateFilter && dateFilter !== 'ALL') {
+    const today = new Date();
+    if (dateFilter === 'TODAY') {
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+      where.createdAt = { gte: startOfDay, lte: endOfDay };
+    } else if (dateFilter === 'WEEK') {
+      const weekAgo = new Date(today.setDate(today.getDate() - 7));
+      where.createdAt = { gte: weekAgo };
+    } else if (dateFilter === 'MONTH') {
+      const monthAgo = new Date(today.setMonth(today.getMonth() - 1));
+      where.createdAt = { gte: monthAgo };
+    }
+  }
+
   const purchases = await prisma[`${prefix}Purchase`].findMany({
+    where,
     ...paginationArgs(req.query),
     include: {
       vendor: true,
@@ -48,7 +74,7 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
 
 export const createPurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { vendorId, invoiceNo, purchaseDate, receiptUrl, remarks, items } = req.body;
+  const { vendorId, invoiceNo, purchaseDate, receiptUrl, remarks, items, deliveredTo } = req.body;
 
   if (!vendorId) throw new ApiError(400, 'Vendor is required');
 
@@ -63,6 +89,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ApiError(400, 'Purchase must contain at least one item');
   }
+
+  const destination = (deliveredTo || 'FACTORY').toUpperCase();
 
   let grandTotal = 0;
   const validatedItems = [];
@@ -99,9 +127,11 @@ export const createPurchase = asyncHandler(async (req, res) => {
         invoiceNo: invoiceNo || `INV-${Date.now()}`,
         receiptUrl,
         remarks: remarks || '',
+        deliveredTo: destination,
+        status: 'COMPLETED',
         grandTotal,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-        createdBy: req.user?.id || 'SYSTEM'
+        createdBy: req.user?.name || req.user?.id || 'SYSTEM'
       }
     });
 
@@ -174,4 +204,96 @@ export const uploadReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required. Please attach an image or PDF.');
   const receiptUrl = await uploadToCloudinary(req.file.buffer, `${prefix}/receipts`);
   res.status(200).json({ success: true, receiptUrl });
+});
+
+export const approvePurchase = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  const purchase = await prisma[`${prefix}Purchase`].findUnique({ where: { id } });
+  if (!purchase) throw new ApiError(404, 'Purchase not found');
+
+  const updated = await prisma[`${prefix}Purchase`].update({
+    where: { id },
+    data: {
+      verifiedBy: req.user?.name || req.user?.id || 'Accountant',
+      verifiedAt: new Date()
+    }
+  });
+
+  await prisma[`${prefix}AuditLog`].create({
+    data: {
+      action: 'PURCHASE_VERIFIED',
+      entityType: 'PURCHASE',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Accountant',
+      details: JSON.stringify({ invoiceNo: purchase.invoiceNo })
+    }
+  });
+
+  res.status(200).json({ success: true, data: updated, message: 'Purchase verified successfully' });
+});
+
+export const deletePurchase = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(430, 'Only the OWNER can delete purchase records');
+  }
+
+  const purchase = await prisma[`${prefix}Purchase`].findUnique({
+    where: { id },
+    include: { items: true }
+  });
+
+  if (!purchase) throw new ApiError(404, 'Purchase not found');
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Reverse inventory cached quantities
+    for (const pItem of purchase.items) {
+      await tx[`${prefix}Item`].update({
+        where: { id: pItem.itemId },
+        data: { cachedQty: { decrement: pItem.quantity } }
+      });
+
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: {
+          itemId: pItem.itemId,
+          quantity: pItem.quantity,
+          direction: 'OUT',
+          reason: 'PURCHASE_DELETED_REVERSAL',
+          refType: 'PURCHASE',
+          refId: purchase.id
+        }
+      });
+    }
+
+    // 2. Delete Vendor Ledger Entry
+    await tx[`${prefix}VendorLedgerEntry`].deleteMany({
+      where: { purchaseId: purchase.id }
+    });
+
+    // 3. Delete Purchase Items & Purchase Record
+    await tx[`${prefix}PurchaseItem`].deleteMany({
+      where: { purchaseId: purchase.id }
+    });
+
+    await tx[`${prefix}Purchase`].delete({
+      where: { id: purchase.id }
+    });
+
+    // 4. Audit log
+    await tx[`${prefix}AuditLog`].create({
+      data: {
+        action: 'PURCHASE_DELETED',
+        entityType: 'PURCHASE',
+        entityId: id,
+        performedBy: req.user?.name || req.user?.id || 'OWNER',
+        details: JSON.stringify({ invoiceNo: purchase.invoiceNo, grandTotal: purchase.grandTotal })
+      }
+    });
+  });
+
+  res.status(200).json({ success: true, message: 'Purchase deleted and stock/ledger reversed successfully' });
 });

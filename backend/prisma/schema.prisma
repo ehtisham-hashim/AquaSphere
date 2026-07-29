@@ -277,6 +277,10 @@ model AquaspherePurchase {
   receiptUrl   String?   @map("receipt_url")
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
+  deliveredTo  String    @default("FACTORY") @map("delivered_to")
+  status       String    @default("COMPLETED")
+  verifiedBy   String?   @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")
   createdBy    String?   @map("created_by")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -756,6 +760,10 @@ model WadaanaPurchase {
   receiptUrl   String?   @map("receipt_url")
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
+  deliveredTo  String    @default("FACTORY") @map("delivered_to")
+  status       String    @default("COMPLETED")
+  verifiedBy   String?   @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")
   createdBy    String?   @map("created_by")
   createdAt    DateTime  @default(now()) @map("created_at")

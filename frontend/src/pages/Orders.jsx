@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Clock, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
+import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
@@ -107,12 +108,7 @@ export default function Orders() {
   const tabs = ['All Orders', 'Pending Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
 
-  const formatItemName = (name) => {
-    if (!name) return '';
-    if (name.toLowerCase().includes('500ml')) return '0.5L Bottles';
-    if (name.toLowerCase().includes('19l')) return '19L Refill';
-    return name;
-  };
+
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

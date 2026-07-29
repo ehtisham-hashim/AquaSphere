@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
+import { getOrderPrice as getPrice, getOrderCleanName as getCleanName } from '../../constants/orders';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
   const todayDate = new Date().toISOString().split('T')[0];
@@ -38,21 +39,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getPrice = (item, customer) => {
-    const name = item.name.toLowerCase();
-    if (name.includes('19l')) return parseFloat(customer?.defaultPrice || 0) || 150;
-    if (name.includes('500ml') || name.includes('0.5l')) return 250;
-    if (name.includes('1500ml') || name.includes('1.5l')) return 300;
-    return 100;
-  };
 
-  const getCleanName = (item) => {
-    const name = item.name.toLowerCase();
-    if (name.includes('500ml') || name.includes('0.5l')) return '0.5L Pack (12 bottles)';
-    if (name.includes('1500ml') || name.includes('1.5l')) return '1.5L Pack (6 bottles)';
-    if (name.includes('19l')) return '19L Refill';
-    return item.name;
-  };
 
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = items.find(i => i.id === itemId);
