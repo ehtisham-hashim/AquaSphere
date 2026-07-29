@@ -33,9 +33,12 @@ export default function TopNav({ onMenuClick }) {
   };
 
   useEffect(() => {
+    if (user?.role !== 'OWNER' && user?.role !== 'ADMIN') return;
+
     const fetchAuditAlerts = async () => {
       try {
         const res = await fetch(`${API_URL}/audit-logs`, { credentials: 'include' });
+        if (!res.ok) return;
         const json = await res.json();
         if (json.success && json.data) {
           setAlerts(json.data.filter(log => ['CUSTOMER_ADDED', 'CUSTOMER_DELETED', 'ORDER_CREATED', 'ORDER_DELIVERED', 'PRODUCTION_BATCH_CREATED'].includes(log.action)));
@@ -47,7 +50,7 @@ export default function TopNav({ onMenuClick }) {
     fetchAuditAlerts();
     const interval = setInterval(fetchAuditAlerts, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.role]);
 
   const handleSnooze = (alertId) => {
     const expireTime = new Date().getTime() + 3600 * 1000; // Snooze for 1 hour
