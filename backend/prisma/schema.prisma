@@ -381,6 +381,11 @@ model AquasphereDailyClose {
   pmConfirmedById String?  @map("pm_confirmed_by_id")
   pmConfirmedBy   AquasphereUser? @relation("PMConfirmer", fields: [pmConfirmedById], references: [id])
 
+  mmConfirmed     Boolean  @default(false) @map("mm_confirmed")
+  mmConfirmedAt   DateTime? @map("mm_confirmed_at")
+  mmConfirmedById String?  @map("mm_confirmed_by_id")
+  mmConfirmedBy   AquasphereUser? @relation("MMConfirmer", fields: [mmConfirmedById], references: [id])
+
   adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
   closedAt        DateTime @default(now()) @map("closed_at")
   closedById      String?  @map("closed_by_id")
@@ -402,6 +407,7 @@ model AquasphereUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   pmConfirmedCloses AquasphereDailyClose[] @relation("PMConfirmer")
+  mmConfirmedCloses AquasphereDailyClose[] @relation("MMConfirmer")
   adminConfirmedCloses AquasphereDailyClose[] @relation("AdminConfirmer")
 
   @@map("users")
@@ -864,6 +870,11 @@ model WadaanaDailyClose {
   pmConfirmedById String?  @map("pm_confirmed_by_id")
   pmConfirmedBy   WadaanaUser? @relation("PMConfirmerW", fields: [pmConfirmedById], references: [id])
 
+  mmConfirmed     Boolean  @default(false) @map("mm_confirmed")
+  mmConfirmedAt   DateTime? @map("mm_confirmed_at")
+  mmConfirmedById String?  @map("mm_confirmed_by_id")
+  mmConfirmedBy   WadaanaUser? @relation("MMConfirmerW", fields: [mmConfirmedById], references: [id])
+
   adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
   closedAt        DateTime @default(now()) @map("closed_at")
   closedById      String?  @map("closed_by_id")
@@ -885,6 +896,7 @@ model WadaanaUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   pmConfirmedCloses WadaanaDailyClose[] @relation("PMConfirmerW")
+  mmConfirmedCloses WadaanaDailyClose[] @relation("MMConfirmerW")
   adminConfirmedCloses WadaanaDailyClose[] @relation("AdminConfirmerW")
 
   @@map("users")

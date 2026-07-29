@@ -1,204 +1,489 @@
 import { useState, useEffect } from 'react';
-import { X, Lock, Unlock, AlertCircle } from 'lucide-react';
+import { 
+  X, Lock, Unlock, AlertCircle, ShieldCheck, Factory, 
+  ShoppingBag, CheckCircle2, RefreshCw 
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
+import { getCompanyFromCookie } from '../utils/companyCookie';
+import { toast } from 'sonner';
 
 export default function DailyCloseModal({ onClose, onClosed }) {
   const { user } = useAuth();
-  const [metrics, setMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  const [checks, setChecks] = useState({
-    stock: false,
-    production: false,
-    route: false
-  });
-  
-  const [reopenReason, setReopenReason] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const tenant = getCompanyFromCookie();
 
-  const fetchMetrics = async () => {
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [reopenReason, setReopenReason] = useState('');
+
+  // Role Tab Selection
+  const initialTab = user?.role === 'MARKETING_MANAGER' ? 'mm' : user?.role === 'PRODUCTION_MANAGER' ? 'pm' : 'finalize';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Checklists
+  const [pmChecks, setPmChecks] = useState({ batchesLogged: false, materialsDeducted: false, wasteRecorded: false });
+  const [mmChecks, setMmChecks] = useState({ ordersInRightState: false, customerBottlesInRightState: false });
+  const [adminChecks, setAdminChecks] = useState({ stockVerified: false, cashVerified: false, expensesLogged: false, mmOrdersVerified: false });
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${API_URL}/daily-close/summary`, {
+      const res = await fetch(`${API_URL}/daily-close/status?date=${date}`, {
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const data = await res.json();
       if (data.success) {
-        setMetrics(data.data);
+        setStatus(data.data);
       } else {
-        setError(data.message || 'Failed to load daily metrics');
+        setError(data.message || 'Failed to load daily close status');
       }
     } catch (err) {
-      setError('Network error loading metrics');
+      setError('Network error loading daily close status');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMetrics();
-  }, []);
+    fetchStatus();
+    setPmChecks({ batchesLogged: false, materialsDeducted: false, wasteRecorded: false });
+    setMmChecks({ ordersInRightState: false, customerBottlesInRightState: false });
+    setAdminChecks({ stockVerified: false, cashVerified: false, expensesLogged: false, mmOrdersVerified: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, tenant]);
 
-  const allChecked = checks.stock && checks.production && checks.route;
+  const allPmChecked = Object.values(pmChecks).every(Boolean);
+  const allMmChecked = Object.values(mmChecks).every(Boolean);
+  const allAdminChecked = Object.values(adminChecks).every(Boolean);
 
-  const handleCloseDay = async () => {
-    setIsSubmitting(true);
+  const handlePmConfirm = async () => {
+    if (!allPmChecked) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/daily-close/pm-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+        credentials: 'include',
+        body: JSON.stringify({ date })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Production confirmed successfully.');
+        fetchStatus();
+      } else {
+        toast.error(json.message || 'Failed to confirm PM daily close');
+      }
+    } catch (err) {
+      toast.error('Error confirming PM daily close');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleMmConfirm = async () => {
+    if (!allMmChecked) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/daily-close/mm-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+        credentials: 'include',
+        body: JSON.stringify({ date })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('MM daily close confirmed successfully.');
+        fetchStatus();
+      } else {
+        toast.error(json.message || 'Failed to confirm MM daily close');
+      }
+    } catch (err) {
+      toast.error('Error confirming MM daily close');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!allAdminChecked) return;
+    setSubmitting(true);
     try {
       const res = await fetch(`${API_URL}/daily-close`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+        credentials: 'include',
+        body: JSON.stringify({ date })
       });
-      const data = await res.json();
-      if (data.success) {
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Day successfully finalized and locked.');
         if (onClosed) onClosed();
-        onClose();
+        fetchStatus();
       } else {
-        setError(data.message || 'Failed to close day');
+        toast.error(json.message || 'Failed to lock day');
       }
     } catch (err) {
-      setError('Network error during daily close');
+      toast.error('Error locking day');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const handleReopenDay = async () => {
+  const handleReopen = async () => {
     if (!reopenReason.trim()) {
-      setError('Reason required to reopen day');
+      toast.error('Reason required to reopen day');
       return;
     }
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
       const res = await fetch(`${API_URL}/daily-close/reopen`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reopenReason }),
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+        credentials: 'include',
+        body: JSON.stringify({ date, reason: reopenReason })
       });
-      const data = await res.json();
-      if (data.success) {
-        fetchMetrics();
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Day reopened successfully.');
         setReopenReason('');
-        setError(null);
+        fetchStatus();
       } else {
-        setError(data.message || 'Failed to reopen day');
+        toast.error(json.message || 'Failed to reopen day');
       }
     } catch (err) {
-      setError('Network error during reopen');
+      toast.error('Error reopening day');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
+  const pTotals = status?.productionTotals || {};
+  const mTotals = status?.marketingTotals || {};
+  const isClosed = status?.isClosed;
+
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-[5vh] border border-slate-200">
+        
+        {/* Light Clean Header */}
+        <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2">
-            <Lock className="text-slate-500" size={20} />
-            <h3 className="text-lg font-bold text-slate-800">Daily Closing</h3>
+            <ShieldCheck className="text-emerald-600" size={22} />
+            <h3 className="text-lg font-bold text-slate-800">Daily Closing Protocol</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+          <div className="flex items-center gap-3">
+            <input 
+              type="date" 
+              value={date} 
+              onChange={e => setDate(e.target.value)}
+              className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:border-emerald-500"
+            />
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        {/* Tabs */}
+        <div className="bg-slate-50 border-b border-slate-200 px-6 pt-3 flex gap-2 shrink-0 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('pm')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              activeTab === 'pm' 
+                ? 'bg-white border-slate-200 text-blue-700 border-b-2 border-b-blue-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Factory size={14} /> Production (PM)
+            {status?.pmConfirmed && <CheckCircle2 size={12} className="text-emerald-600 ml-1" />}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('mm')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              activeTab === 'mm' 
+                ? 'bg-white border-slate-200 text-purple-700 border-b-2 border-b-purple-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <ShoppingBag size={14} /> Marketing (MM)
+            {status?.mmConfirmed && <CheckCircle2 size={12} className="text-emerald-600 ml-1" />}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('finalize')}
+            className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              activeTab === 'finalize' 
+                ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600' 
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Lock size={14} /> Double Check & Lock
+            {isClosed && <Lock size={12} className="text-emerald-600 ml-1" />}
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg flex items-center gap-2 text-sm font-medium">
-              <AlertCircle size={18} />
-              {error}
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-xs font-semibold">
+              <AlertCircle size={16} /> {error}
             </div>
           )}
 
           {loading ? (
-            <div className="text-center py-8 text-slate-500">Loading today's metrics...</div>
-          ) : metrics ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+            </div>
+          ) : (
             <>
-              {metrics.isLocked ? (
-                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start gap-3">
-                  <Lock className="text-emerald-500 shrink-0 mt-0.5" size={20} />
-                  <div>
-                    <h4 className="font-bold text-emerald-800">Day is Closed</h4>
-                    <p className="text-sm text-emerald-600 mt-1">Today's transactions are locked and financial metrics have been finalized.</p>
+              {/* TAB 1: PM TAB */}
+              {activeTab === 'pm' && (
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-slate-800 text-sm">PM Production Verification</h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      status?.pmConfirmed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {status?.pmConfirmed ? 'PM Confirmed' : 'Pending PM Confirmation'}
+                    </span>
                   </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 p-4 rounded-xl">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">Orders</p>
-                    <p className="text-xl font-bold text-slate-800">{metrics.ordersCount}</p>
+
+                  <div className="grid grid-cols-4 gap-3 bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-xs">
+                    <div>
+                      <span className="text-slate-500 block">19L Bottles</span>
+                      <strong className="text-sm font-bold text-blue-900">{pTotals.total19L || 0}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">1.5L Packs</span>
+                      <strong className="text-sm font-bold text-indigo-900">{pTotals.packs15L || 0}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">0.5L Packs</span>
+                      <strong className="text-sm font-bold text-purple-900">{pTotals.packs05L || 0}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Waste / Breakage</span>
+                      <strong className="text-sm font-bold text-rose-600">
+                        {(pTotals.waste19L || 0) + (pTotals.broken15L || 0) + (pTotals.broken05L || 0)}
+                      </strong>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl">
-                    <p className="text-xs font-semibold text-slate-500 uppercase">Production</p>
-                    <p className="text-xl font-bold text-slate-800">{metrics.productionBatchesCount} batches</p>
+
+                  <div className="space-y-3 pt-2">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" disabled={status?.pmConfirmed}
+                        checked={status?.pmConfirmed || pmChecks.batchesLogged}
+                        onChange={e => setPmChecks({...pmChecks, batchesLogged: e.target.checked})}
+                        className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                      <span className="text-xs font-medium text-slate-700">All production batches logged for today.</span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" disabled={status?.pmConfirmed}
+                        checked={status?.pmConfirmed || pmChecks.materialsDeducted}
+                        onChange={e => setPmChecks({...pmChecks, materialsDeducted: e.target.checked})}
+                        className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                      <span className="text-xs font-medium text-slate-700">Raw materials properly deducted from stock.</span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" disabled={status?.pmConfirmed}
+                        checked={status?.pmConfirmed || pmChecks.wasteRecorded}
+                        onChange={e => setPmChecks({...pmChecks, wasteRecorded: e.target.checked})}
+                        className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                      <span className="text-xs font-medium text-slate-700">Waste & broken bottles fully recorded.</span>
+                    </label>
                   </div>
-                  <div className="bg-emerald-50 p-4 rounded-xl">
-                    <p className="text-xs font-semibold text-emerald-600 uppercase">Cash Collected</p>
-                    <p className="text-xl font-bold text-emerald-700">Rs. {Number(metrics.cashCollected || 0).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-rose-50 p-4 rounded-xl">
-                    <p className="text-xs font-semibold text-rose-600 uppercase">Expenses</p>
-                    <p className="text-xl font-bold text-rose-700">Rs. {Number(metrics.expenses || 0).toLocaleString()}</p>
-                  </div>
+
+                  {!status?.pmConfirmed && (
+                    <button
+                      onClick={handlePmConfirm}
+                      disabled={!allPmChecked || submitting}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-200 text-white font-bold text-xs rounded-xl shadow-sm"
+                    >
+                      Confirm PM Production Close
+                    </button>
+                  )}
                 </div>
               )}
 
-              {!metrics.isLocked && (
-                <div className="space-y-3 pt-2 border-t border-slate-100">
-                  <h4 className="font-semibold text-slate-700">Closing Checklist</h4>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="checkbox" checked={checks.stock} onChange={e => setChecks({...checks, stock: e.target.checked})} className="w-5 h-5 rounded border-slate-300 text-sky-500 focus:ring-sky-500" />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-800">Stock counts verified in warehouse</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="checkbox" checked={checks.production} onChange={e => setChecks({...checks, production: e.target.checked})} className="w-5 h-5 rounded border-slate-300 text-sky-500 focus:ring-sky-500" />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-800">Production counts cross-checked</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="checkbox" checked={checks.route} onChange={e => setChecks({...checks, route: e.target.checked})} className="w-5 h-5 rounded border-slate-300 text-sky-500 focus:ring-sky-500" />
-                    <span className="text-sm text-slate-600 group-hover:text-slate-800">WhatsApp route reports matched</span>
-                  </label>
+              {/* TAB 2: MM TAB */}
+              {activeTab === 'mm' && (
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-slate-800 text-sm">MM Sales & Bottle Holdings Verification</h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      status?.mmConfirmed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {status?.mmConfirmed ? 'MM Confirmed' : 'Pending MM Confirmation'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 bg-purple-50/60 p-3 rounded-xl border border-purple-100 text-xs">
+                    <div>
+                      <span className="text-slate-500 block">Total Orders</span>
+                      <strong className="text-sm font-bold text-purple-900">{mTotals.ordersCount || 0}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Total Orders Worth</span>
+                      <strong className="text-sm font-bold text-emerald-700">Rs {Number(mTotals.ordersTotalWorth || 0).toLocaleString()}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">19L With Customers</span>
+                      <strong className="text-sm font-bold text-blue-900">{mTotals.customerBottlesCount || 0}</strong>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" disabled={status?.mmConfirmed}
+                        checked={status?.mmConfirmed || mmChecks.ordersInRightState}
+                        onChange={e => setMmChecks({...mmChecks, ordersInRightState: e.target.checked})}
+                        className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300" />
+                      <div>
+                        <span className="text-xs font-bold text-slate-800">Orders are in the right state</span>
+                        <p className="text-[11px] text-slate-500">Verified {mTotals.ordersCount || 0} orders totaling Rs {Number(mTotals.ordersTotalWorth || 0).toLocaleString()}</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input type="checkbox" disabled={status?.mmConfirmed}
+                        checked={status?.mmConfirmed || mmChecks.customerBottlesInRightState}
+                        onChange={e => setMmChecks({...mmChecks, customerBottlesInRightState: e.target.checked})}
+                        className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300" />
+                      <div>
+                        <span className="text-xs font-bold text-slate-800">Customers hold the right state of bottles</span>
+                        <p className="text-[11px] text-slate-500">Verified customer 19L bottle balances ({mTotals.customerBottlesCount || 0} bottles with customers)</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {!status?.mmConfirmed && (
+                    <button
+                      onClick={handleMmConfirm}
+                      disabled={!allMmChecked || submitting}
+                      className="w-full py-2.5 bg-purple-700 hover:bg-purple-800 disabled:bg-purple-200 text-white font-bold text-xs rounded-xl shadow-sm"
+                    >
+                      Confirm MM Sales & Customer Bottle Close
+                    </button>
+                  )}
                 </div>
               )}
 
-              {metrics.isLocked && user?.role === 'OWNER' && (
-                <div className="pt-4 border-t border-slate-100 space-y-3">
-                  <h4 className="font-semibold text-slate-700 flex items-center gap-2"><Unlock size={16}/> Owner Override: Reopen Day</h4>
-                  <input
-                    type="text"
-                    placeholder="Reason for reopening..."
-                    value={reopenReason}
-                    onChange={e => setReopenReason(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm"
-                  />
-                  <button
-                    onClick={handleReopenDay}
-                    disabled={isSubmitting || !reopenReason.trim()}
-                    className="w-full py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Processing...' : 'Reopen Day'}
-                  </button>
+              {/* TAB 3: FINALIZE / LOCK */}
+              {activeTab === 'finalize' && (
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-slate-800 text-sm">Master Double-Check & Lock</h4>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      isClosed ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {isClosed ? 'Day Closed & Locked' : 'Day Open'}
+                    </span>
+                  </div>
+
+                  {isClosed ? (
+                    <div className="space-y-4">
+                      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl text-emerald-800 text-xs font-semibold">
+                        Day was locked at {new Date(status.closedAt).toLocaleTimeString()} by {status.closedBy?.name || 'Admin'}.
+                      </div>
+
+                      {user?.role === 'OWNER' && (
+                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-2">
+                          <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                            <Unlock size={14} /> Owner Override: Reopen Day
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="Reason for reopening..."
+                            value={reopenReason}
+                            onChange={e => setReopenReason(e.target.value)}
+                            className="w-full border border-amber-300 rounded-lg p-2 text-xs bg-white outline-none"
+                          />
+                          <button
+                            onClick={handleReopen}
+                            disabled={submitting || !reopenReason.trim()}
+                            className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition disabled:opacity-50"
+                          >
+                            Reopen Day
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-slate-500 block">PM Status:</span>
+                          <strong className={status?.pmConfirmed ? 'text-emerald-700' : 'text-amber-600'}>
+                            {status?.pmConfirmed ? 'Confirmed' : 'Pending'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">MM Status:</span>
+                          <strong className={status?.mmConfirmed ? 'text-emerald-700' : 'text-amber-600'}>
+                            {status?.mmConfirmed ? 'Confirmed' : 'Pending'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input type="checkbox" checked={adminChecks.stockVerified}
+                            onChange={e => setAdminChecks({...adminChecks, stockVerified: e.target.checked})}
+                            className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                          <span className="text-xs font-medium text-slate-700">Production numbers match physical stock.</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input type="checkbox" checked={adminChecks.mmOrdersVerified}
+                            onChange={e => setAdminChecks({...adminChecks, mmOrdersVerified: e.target.checked})}
+                            className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                          <span className="text-xs font-medium text-slate-700">MM order states & customer bottle holdings verified.</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input type="checkbox" checked={adminChecks.cashVerified}
+                            onChange={e => setAdminChecks({...adminChecks, cashVerified: e.target.checked})}
+                            className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                          <span className="text-xs font-medium text-slate-700">Cash collected matches system records.</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <input type="checkbox" checked={adminChecks.expensesLogged}
+                            onChange={e => setAdminChecks({...adminChecks, expensesLogged: e.target.checked})}
+                            className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                          <span className="text-xs font-medium text-slate-700">Expenses and raw material purchases logged.</span>
+                        </label>
+                      </div>
+
+                      <button
+                        onClick={handleFinalize}
+                        disabled={!allAdminChecked || submitting}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-200 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2"
+                      >
+                        <Lock size={16} />
+                        Finalize & Lock Daily Close
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
-          ) : null}
+          )}
         </div>
 
-        <div className="bg-slate-50 border-t border-slate-100 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 font-medium rounded-xl transition-colors">
-            {metrics?.isLocked ? 'Close' : 'Cancel'}
+        {/* Footer */}
+        <div className="bg-slate-50 border-t border-slate-100 px-6 py-3 flex justify-end shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition">
+            Close
           </button>
-          {(!metrics || !metrics.isLocked) && (
-            <button
-              onClick={handleCloseDay}
-              disabled={!allChecked || isSubmitting}
-              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Lock size={18} />
-              {isSubmitting ? 'Closing...' : 'Close Day'}
-            </button>
-          )}
         </div>
       </div>
     </div>

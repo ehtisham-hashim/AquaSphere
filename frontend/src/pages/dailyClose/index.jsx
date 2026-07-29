@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import OperationsClose from './OperationsClose';
 import OwnerClose from './OwnerClose';
+import MarketingClose from './MarketingClose';
 import { ShieldCheck, Filter } from 'lucide-react';
 
 export default function DailyCloseIndex() {
@@ -10,14 +11,14 @@ export default function DailyCloseIndex() {
   // Possible views: 'all', 'operations', 'accounting', 'sales'
   const [activeView, setActiveView] = useState('all');
 
-  const isOwner = user?.role === 'OWNER';
-  const isPMOrAdmin = user?.role === 'PRODUCTION_MANAGER' || user?.role === 'ADMIN';
+  const isOwner = user?.role === 'OWNER' || user?.role === 'ADMIN';
+  const isPM = user?.role === 'PRODUCTION_MANAGER';
+  const isMM = user?.role === 'MARKETING_MANAGER';
 
-  // If not owner, they only get the Operations view
+  // Role routing
   if (!isOwner) {
-    if (isPMOrAdmin) {
-      return <OperationsClose />;
-    }
+    if (isPM) return <OperationsClose />;
+    if (isMM) return <MarketingClose />;
     return (
       <div className="p-8 text-center text-slate-500">
         You do not have permission to view Daily Close modules.
@@ -77,12 +78,7 @@ export default function DailyCloseIndex() {
           <p>This module will be developed in the next phase for the Accountant role.</p>
         </div>
       )}
-      {activeView === 'sales' && (
-        <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-12 text-center text-slate-500">
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Marketing Manager Daily Close</h3>
-          <p>This module will be developed in the next phase for the Marketing Manager role.</p>
-        </div>
-      )}
+      {activeView === 'sales' && <MarketingClose />}
     </div>
   );
 }
