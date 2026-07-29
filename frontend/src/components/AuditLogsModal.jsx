@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Filter } from 'lucide-react';
+import { API_URL } from '../utils/api';
 
 export default function AuditLogsModal({ onClose }) {
   const [logs, setLogs] = useState([]);
@@ -10,7 +11,7 @@ export default function AuditLogsModal({ onClose }) {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/audit-logs`, {
+        const res = await fetch(`${API_URL}/audit-logs`, {
           credentials: 'include'
         });
         const data = await res.json();

@@ -1,49 +1,120 @@
-import { useState } from 'react';
-import { X, DollarSign, User, Package, Calendar, AlertTriangle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
+import { API_URL } from '../../utils/api';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
   const todayDate = new Date().toISOString().split('T')[0];
   const [orderData, setOrderData] = useState({
     customerId: '', 
-    type: 'NINETEEN_L', 
-    itemId: '', 
-    quantity: '', 
-    price: '', 
     expectedDelivery: todayDate, 
     paymentStatus: 'UNPAID',
     remarks: ''
   });
 
+  const [selectedItems, setSelectedItems] = useState({});
   const [softBlockData, setSoftBlockData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Combobox state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const selectedCustomer = customers.find(c => c.id === orderData.customerId);
 
-  const orderTotal = (orderData.quantity && orderData.price) 
-    ? (parseFloat(orderData.quantity) * parseFloat(orderData.price)).toFixed(2) 
-    : '0.00';
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (c.phone && c.phone.includes(searchTerm))
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getPrice = (item, customer) => {
+    const name = item.name.toLowerCase();
+    if (name.includes('19l')) return parseFloat(customer?.defaultPrice || 0) || 150;
+    if (name.includes('500ml') || name.includes('0.5l')) return 250;
+    if (name.includes('1500ml') || name.includes('1.5l')) return 300;
+    return 100;
+  };
+
+  const getCleanName = (item) => {
+    const name = item.name.toLowerCase();
+    if (name.includes('500ml') || name.includes('0.5l')) return '0.5L Pack (12 bottles)';
+    if (name.includes('1500ml') || name.includes('1.5l')) return '1.5L Pack (6 bottles)';
+    if (name.includes('19l')) return '19L Refill';
+    return item.name;
+  };
+
+  const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return sum;
+    const price = getPrice(item, selectedCustomer);
+    return sum + (price * data.quantity);
+  }, 0).toFixed(2);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setOrderData(prev => ({ ...prev, [name]: value }));
-    
-    if (name === 'customerId' && value) {
-       const cust = customers.find(c => c.id === value);
-       if(cust && cust.defaultPrice > 0) {
-         setOrderData(prev => ({ ...prev, price: cust.defaultPrice }));
-       }
-    }
+  };
+
+  const handleItemToggle = (itemId) => {
+    setSelectedItems(prev => {
+      const next = { ...prev };
+      if (next[itemId]) {
+        delete next[itemId];
+      } else {
+        next[itemId] = { quantity: 1 };
+      }
+      return next;
+    });
+  };
+
+  const handleItemQuantityChange = (itemId, qty) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: { quantity: parseInt(qty) || 0 }
+    }));
   };
 
   const submitOrder = async (e, bypassCreditCheck = false) => {
     if (e) e.preventDefault();
+    if (!orderData.customerId) {
+      toast.error('Please select a customer');
+      return;
+    }
+    if (Object.keys(selectedItems).length === 0) {
+      toast.error('Please select at least one item');
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    const item = items.find(i => i.id === orderData.itemId);
-    const orderType = (item?.name || '').toLowerCase().includes('19l') ? 'NINETEEN_L' : 'PET';
+    const has19L = Object.keys(selectedItems).some(itemId => {
+      const item = items.find(i => i.id === itemId);
+      return item?.name.toLowerCase().includes('19l');
+    });
+    const orderType = has19L ? 'NINETEEN_L' : 'PET';
+
+    const orderItemsPayload = Object.entries(selectedItems).map(([itemId, data]) => {
+      const item = items.find(i => i.id === itemId);
+      return {
+        itemId,
+        quantity: data.quantity,
+        price: getPrice(item, selectedCustomer)
+      };
+    }).filter(i => i.quantity > 0);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+      const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -53,7 +124,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
           remarks: orderData.remarks,
           paymentStatus: orderData.paymentStatus,
           bypassCreditCheck,
-          items: [{ itemId: orderData.itemId, quantity: orderData.quantity, price: orderData.price }] 
+          items: orderItemsPayload
         }),
         credentials: 'include'
       });
@@ -67,13 +138,14 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
       }
 
       if (json.success) {
+        toast.success('✅ Order placed successfully.');
         onOrderAdded();
       } else {
-        alert(json.message || 'Failed to create order');
+        toast.error(json.message || 'Failed to create order');
       }
     } catch (err) {
       console.error(err);
-      alert('Error creating order');
+      toast.error('Error creating order');
     } finally {
       setIsSubmitting(false);
     }
@@ -102,15 +174,60 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
           <div>
             <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><User size={16}/> Customer Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between gap-3 mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Select Customer *</label>
-                  <span className="text-xs text-slate-500">Add a new customer inline if needed</span>
+              <div className="md:col-span-2 relative" ref={dropdownRef}>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer *</label>
+                <div 
+                  className="w-full border border-slate-200 rounded-xl p-3 focus-within:border-blue-500 bg-white cursor-pointer flex justify-between items-center"
+                  onClick={() => setDropdownOpen(true)}
+                >
+                  <div className="flex-1 truncate">
+                    {selectedCustomer ? (
+                      <span className="text-slate-800 font-medium">{selectedCustomer.name} <span className="text-slate-500 text-sm">({selectedCustomer.phone})</span></span>
+                    ) : (
+                      <span className="text-slate-400">Search and select customer...</span>
+                    )}
+                  </div>
+                  <ChevronDown size={18} className="text-slate-400 ml-2" />
                 </div>
-                <select autoFocus name="customerId" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.customerId} onChange={handleChange} required>
-                  <option value="">Search and select customer...</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone}) - {c.type}</option>)}
-                </select>
+
+                {dropdownOpen && (
+                  <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 flex flex-col overflow-hidden">
+                    <div className="p-3 border-b border-slate-100 flex items-center gap-2 sticky top-0 bg-white">
+                      <Search size={16} className="text-slate-400" />
+                      <input 
+                        type="text"
+                        autoFocus
+                        placeholder="Type name or phone to search..."
+                        className="w-full outline-none text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="overflow-y-auto flex-1 p-2">
+                      {filteredCustomers.length === 0 ? (
+                        <div className="p-3 text-center text-sm text-slate-500">No customers found</div>
+                      ) : (
+                        filteredCustomers.map(c => (
+                          <div 
+                            key={c.id} 
+                            className={`p-3 rounded-lg cursor-pointer hover:bg-slate-50 flex justify-between items-center ${c.id === orderData.customerId ? 'bg-blue-50 border border-blue-100' : 'border border-transparent'}`}
+                            onClick={() => {
+                              setOrderData(prev => ({ ...prev, customerId: c.id }));
+                              setDropdownOpen(false);
+                              setSearchTerm('');
+                            }}
+                          >
+                            <div>
+                              <div className="font-semibold text-slate-800">{c.name}</div>
+                              <div className="text-xs text-slate-500">{c.phone} &bull; {c.type}</div>
+                            </div>
+                            <div className="text-xs font-medium text-slate-400">Select</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {selectedCustomer && (
@@ -120,9 +237,12 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
                     <div className="text-xs text-slate-500">{selectedCustomer.address}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-slate-500 uppercase tracking-wide">Current Balance</div>
-                    <div className={`font-bold ${selectedCustomer.cachedBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                      Rs. {selectedCustomer.cachedBalance}
+                    <div className="text-xs text-slate-500 uppercase tracking-wide">Financial Status</div>
+                    <div className={`font-bold ${parseFloat(selectedCustomer.currentBalance || 0) > parseFloat(selectedCustomer.creditLimit || 0) ? 'text-red-500' : (parseFloat(selectedCustomer.currentBalance || 0) > 0 ? 'text-amber-500' : 'text-emerald-500')}`}>
+                      Debt: Rs. {parseFloat(selectedCustomer.currentBalance || 0)}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      (Limit: Rs. {selectedCustomer.creditLimit || 0})
                     </div>
                   </div>
                 </div>
@@ -132,34 +252,43 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
 
           {/* Product Details Section */}
           <div className="border-t border-slate-100 pt-6">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Package size={16}/> Order Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="md:col-span-4">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select Item *</label>
-                <select name="itemId" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.itemId} onChange={handleChange} required>
-                  <option value="">Search or select item...</option>
-                  {items.map(i => {
-                    const cleanName = i.name.toLowerCase().includes('500ml') ? '0.5L Bottles' : 
-                                      i.name.toLowerCase().includes('19l') ? '19L Refill' : i.name;
-                    return <option key={i.id} value={i.id}>{cleanName}</option>;
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Quantity *</label>
-                <input name="quantity" type="number" min="1" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.quantity} onChange={handleChange} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Unit Price (Rs) *</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-                  <input name="price" type="number" step="0.01" min="0" className="w-full border border-slate-200 rounded-xl py-3 pl-9 pr-3 focus:border-blue-500 outline-none" value={orderData.price} onChange={handleChange} required />
-                </div>
-              </div>
-              <div className="lg:col-span-2 bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col justify-center items-end">
-                <div className="text-xs text-blue-600 font-medium uppercase">Estimated Total</div>
-                <div className="text-xl font-bold text-blue-900">Rs. {orderTotal}</div>
-              </div>
+            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Package size={16}/> Order Items</h4>
+            
+            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              {items.map(item => {
+                const isSelected = !!selectedItems[item.id];
+                const price = getPrice(item, selectedCustomer);
+                return (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleItemToggle(item.id)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                      />
+                      <span>{getCleanName(item)}</span>
+                      <span className="text-slate-400 font-normal ml-1">(Rs. {price})</span>
+                    </label>
+                    {isSelected && (
+                      <input
+                        type="number"
+                        min="1"
+                        value={selectedItems[item.id].quantity || ''}
+                        onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
+                        placeholder="Qty"
+                        className="w-24 border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"
+                        required
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="text-sm text-blue-600 font-bold uppercase">Estimated Total</div>
+              <div className="text-2xl font-bold text-blue-900">Rs. {orderTotal}</div>
             </div>
           </div>
 
@@ -200,7 +329,11 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
               <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
                 <AlertTriangle size={28} />
               </div>
-              <h4 className="text-lg font-bold text-slate-800">Credit Limit Soft-Block Warning</h4>
+              <h4 className="text-lg font-bold text-slate-800">
+                {softBlockData.blockReason === 'UNUSUAL_QUANTITY' ? 'Unusual Quantity Alert' : 
+                 softBlockData.blockReason === 'BOTTLE_SECURITY_EXCEEDED' ? 'Bottle Security Warning' : 
+                 'Credit Limit Soft-Block'}
+              </h4>
               <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-3 rounded-xl">
                 {softBlockData.message}
               </p>

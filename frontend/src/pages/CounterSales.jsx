@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Search, DollarSign, Calendar, Droplets, CreditCard } from 'lucide-react';
+import { API_URL } from '../utils/api';
 
 export default function CounterSales() {
   const [sales, setSales] = useState([]);
@@ -13,7 +14,7 @@ export default function CounterSales() {
   const [remarks, setRemarks] = useState('');
 
   const fetchSales = async () => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/spot-sales`, { credentials: 'include' });
+    const res = await fetch(`${API_URL}/spot-sales`, { credentials: 'include' });
     const json = await res.json();
     if (json.success) setSales(json.data);
   };
@@ -22,7 +23,7 @@ export default function CounterSales() {
 
   const addSale = async (e) => {
     e.preventDefault();
-    await fetch(`${import.meta.env.VITE_API_URL}/spot-sales`, {
+    await fetch(`${API_URL}/spot-sales`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ litresSold, capsIssued, cashCollected, paymentMethod, remarks }),

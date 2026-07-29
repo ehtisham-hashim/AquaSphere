@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getCompanyFromCookie, setCompanyCookie } from '../../utils/companyCookie';
-import { Calendar, Building2, Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
+import { API_URL } from '../../utils/api';
+import { Calendar, Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
 
 export default function TopNav({ onMenuClick }) {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ export default function TopNav({ onMenuClick }) {
   const [confirmedAlerts, setConfirmedAlerts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('confirmed_alerts') || '[]'); } catch { return []; }
   });
+  const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
 
   const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -33,7 +35,7 @@ export default function TopNav({ onMenuClick }) {
   useEffect(() => {
     const fetchAuditAlerts = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/audit-logs`, { credentials: 'include' });
+        const res = await fetch(`${API_URL}/audit-logs`, { credentials: 'include' });
         const json = await res.json();
         if (json.success && json.data) {
           setAlerts(json.data.filter(log => ['CUSTOMER_ADDED', 'CUSTOMER_DELETED', 'ORDER_CREATED', 'ORDER_DELIVERED', 'PRODUCTION_BATCH_CREATED'].includes(log.action)));
@@ -48,7 +50,7 @@ export default function TopNav({ onMenuClick }) {
   }, []);
 
   const handleSnooze = (alertId) => {
-    const expireTime = Date.now() + 3600 * 1000; // Snooze for 1 hour
+    const expireTime = new Date().getTime() + 3600 * 1000; // Snooze for 1 hour
     const updated = { ...snoozedAlerts, [alertId]: expireTime };
     setSnoozedAlerts(updated);
     localStorage.setItem('snoozed_alerts', JSON.stringify(updated));
@@ -63,7 +65,7 @@ export default function TopNav({ onMenuClick }) {
   const activeAlerts = alerts.filter(a => {
     if (confirmedAlerts.includes(a.id)) return false;
     const snoozeTime = snoozedAlerts[a.id];
-    if (snoozeTime && snoozeTime > Date.now()) return false;
+    if (snoozeTime && snoozeTime > now) return false;
     return true;
   });
 

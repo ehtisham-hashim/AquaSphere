@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, X, ClipboardList, Phone, MapPin, Package, AlertCircle } from 'lucide-react';
+import { Search, Plus, X, ClipboardList, Phone } from 'lucide-react';
+import { toast } from 'sonner';
 import NewOrderModal from '../components/orders/NewOrderModal';
 import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
-import AddCustomerInlineModal from '../components/orders/AddCustomerInlineModal';
+import AddCustomerInlineModal from '../components/customer/AddCustomerInlineModal';
 import OrdersTable from '../components/orders/OrdersTable';
-import CustomerProfileCard from '../components/orders/CustomerProfileCard';
+import CustomerProfileCard from '../components/customer/CustomerProfileCard';
+import { API_URL } from '../utils/api';
 
-const API = import.meta.env.VITE_API_URL;
+const API = API_URL;
 
 export default function MMOrders() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,7 +211,7 @@ export default function MMOrders() {
                   </button>
                 ))}
               </div>
-              <button onClick={() => { if (selectedCustomer) setShowNewOrder(true); else alert('Select a customer first'); }}
+              <button onClick={() => { if (selectedCustomer) setShowNewOrder(true); else toast.error('Select a customer first'); }}
                 className="mb-2 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">
                 <Plus size={14}/> New Order <span className="opacity-60 ml-1">Alt+N</span>
               </button>

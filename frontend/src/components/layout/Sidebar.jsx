@@ -12,12 +12,11 @@ import {
   Users as VendorsIcon, 
   Banknote,
   Store,
-  LineChart,
   UserCog,
-  Settings,
   Droplets,
   Building2,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 
 const navItems = [
@@ -32,6 +31,7 @@ const navItems = [
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
+  { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -42,7 +42,6 @@ export default function Sidebar({ isOpen, onClose }) {
   // Dynamic colors based on tenant
   const activeBgColor = isWadaana ? 'bg-purple-600/10' : 'bg-[#059669]/10';
   const activeTextColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
-  const brandIconColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
 
   return (
     <>
@@ -78,16 +77,19 @@ export default function Sidebar({ isOpen, onClose }) {
             if (role === 'ADMIN' && item.path === '/users') return false;
             if (role === 'PRODUCTION_MANAGER' && item.path === '/users') return false;
             
+            // Owner and Accountant have NO bottle ledger page per role spec
+            if ((role === 'OWNER' || role === 'ACCOUNTANT') && item.path === '/bottle-ledger') return false;
+
             if (isWadaana) {
-              // Wadaana Owner: Hide Bottle Ledger and Counter Sales
-              if (role === 'OWNER' && (item.path === '/bottle-ledger' || item.path === '/counter-sales')) return false;
+              // Wadaana Owner: Hide Counter Sales
+              if (role === 'OWNER' && item.path === '/counter-sales') return false;
               // Wadaana Accountant: Remove Production and Counter Sales
               if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/counter-sales')) return false;
             } else {
               // AquaSphere Accountant: Remove Production and Reports
               if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/reports')) return false;
               // Production manager: keep inventory-focused screens only
-              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users')) return false;
+              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users' || item.path === '/counter-sales' || item.path === '/expenses' || item.path === '/purchases' || item.path === '/vendors' || item.path === '/reports')) return false;
             }
             return true;
           })

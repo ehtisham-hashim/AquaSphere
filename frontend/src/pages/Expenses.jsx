@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, Search, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Calendar, DollarSign } from 'lucide-react';
+import { Plus, X, Search, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Calendar } from 'lucide-react';
+import { API_URL } from '../utils/api';
 
-const API = import.meta.env.VITE_API_URL;
+const API = API_URL;
 
 const CATEGORIES = ['Fuel', 'Salaries', 'Electricity', 'Plant Rent', 'Vehicle Repair', 'Machine Repair', 'Miscellaneous'];
 

@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Receipt, ShoppingCart, CheckCircle, AlertCircle, Clock, Lock, TrendingDown } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
 
-const API = import.meta.env.VITE_API_URL;
+const API = API_URL;
 
 export default function AccountantDashboard() {
-  const { user } = useAuth();
   const [summary, setSummary] = useState(null);
   const [closeStatus, setCloseStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +61,7 @@ export default function AccountantDashboard() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
   const confirmClose = async () => {

@@ -1,4 +1,5 @@
-import { Clock, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Truck, CheckCircle, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -20,6 +21,21 @@ const paymentBadge = (s) => {
 };
 
 export default function OrdersTable({ orders, isLoading, onProcess, showCustomerName }) {
+  const handleShareWhatsApp = (order) => {
+    try {
+      const text = `*New Delivery*\nOrder: #${order.id.slice(0,6).toUpperCase()}\nCustomer: ${order.customer?.name || 'Unknown'}\nPhone: ${order.customer?.phone || 'Unknown'}\nTotal: Rs. ${order.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0}\nAddress: ${order.customer?.address || 'See customer profile'}`;
+      const encoded = encodeURIComponent(text);
+      const url = `https://wa.me/?text=${encoded}`;
+      const win = window.open(url, '_blank');
+      if (win) {
+        toast.success('✅ Order details ready to send to the driver.');
+      } else {
+        toast.error('❌ WhatsApp could not be opened.');
+      }
+    } catch (err) {
+      toast.error('❌ WhatsApp could not be opened.');
+    }
+  };
   if (isLoading) {
     return (
       <div className="p-12 text-center text-slate-500">
@@ -94,12 +110,18 @@ export default function OrdersTable({ orders, isLoading, onProcess, showCustomer
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                    <button onClick={() => onProcess(o)}
-                      className="bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ml-auto">
-                      <Truck size={12}/> Process
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => handleShareWhatsApp(o)} title="Share via WhatsApp"
+                      className="bg-green-500 hover:bg-green-600 text-white p-1.5 rounded-lg transition-colors">
+                      <MessageCircle size={14}/>
                     </button>
-                  )}
+                    {o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
+                      <button onClick={() => onProcess(o)}
+                        className="bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
+                        <Truck size={12}/> Process
+                      </button>
+                    )}
+                  </div>
                   {o.deliveryStatus === 'DELIVERED' && (
                     <span className="text-xs text-emerald-600 font-medium flex items-center gap-1 justify-end">
                       <CheckCircle size={12}/> Done

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
 import { 
   BarChart2, Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 
@@ -25,7 +25,6 @@ const PERIODS = [
 ];
 
 export default function Reports() {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('sales');
   const [period, setPeriod] = useState('monthly');
   const [startDate, setStartDate] = useState('');
@@ -39,7 +38,7 @@ export default function Reports() {
     setLoading(true);
     setError(null);
     try {
-      let url = `${import.meta.env.VITE_API_URL}/reports/${activeTab}?period=${period}`;
+      let url = `${API_URL}/reports/${activeTab}?period=${period}`;
       if (period === 'custom') {
         url += `&startDate=${startDate}&endDate=${endDate}`;
       }
@@ -70,6 +69,7 @@ export default function Reports() {
     } else if (period !== 'custom') {
       fetchReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, period]);
 
   // fetch when custom dates change
@@ -77,6 +77,7 @@ export default function Reports() {
     if (period === 'custom' && startDate && endDate) {
       fetchReport();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   const handleExportCSV = () => {

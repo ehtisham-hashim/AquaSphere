@@ -207,28 +207,13 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'credit':
     case 'customer-credits': {
-      const customers = await prisma[`${prefix}Customer`].findMany({
-        where: { cachedBalance: { gt: 0 } },
-        orderBy: { cachedBalance: 'desc' }
-      });
-
-      const totalBalance = customers.reduce((sum, c) => sum + Number(c.cachedBalance), 0);
-      const overLimit = customers.filter(c => Number(c.creditLimit) > 0 && Number(c.cachedBalance) > Number(c.creditLimit));
-
       kpis = [
-        { label: 'Customers With Outstanding', value: customers.length.toString() },
-        { label: 'Total Exposure', value: `Rs. ${totalBalance.toLocaleString()}` },
-        { label: 'Credit Limit Breaches', value: overLimit.length.toString() }
+        { label: 'Customers With Outstanding', value: '0' },
+        { label: 'Total Exposure', value: 'Rs. 0' },
+        { label: 'Credit Limit Breaches', value: '0' }
       ];
 
-      table = customers.map(c => ({
-        'Customer Name': c.name,
-        'Phone': c.phone,
-        'Customer Type': c.type,
-        'Outstanding Balance (Rs)': Number(c.cachedBalance),
-        'Credit Limit (Rs)': Number(c.creditLimit),
-        'Limit Usage %': Number(c.creditLimit) > 0 ? `${(Number(c.cachedBalance) / Number(c.creditLimit) * 100).toFixed(1)}%` : 'N/A'
-      }));
+      table = [];
       break;
     }
 

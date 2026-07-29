@@ -2,7 +2,8 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
-import { Prisma } from '@prisma/client';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 
 const getTenantPrefix = (req) => {
   const rawTenant = req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
@@ -28,18 +29,70 @@ export const createOrder = asyncHandler(async (req, res) => {
   if (!customer) throw new ApiError(404, 'Customer not found');
 
   const orderTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.quantity)), 0);
+  const totalQty = items.reduce((sum, i) => sum + parseInt(i.quantity), 0);
 
-  // Credit limit soft-block check
-  const currentBalance = parseFloat(customer.cachedBalance || 0);
-  const limit = parseFloat(customer.creditLimit || 0);
+  // Quantity soft-block check based on customer type
+  const qtyThresholds = {
+    Home: 5,
+    Office: 20,
+    Shop: 30,
+    Restaurant: 50,
+    Commercial: 100,
+    Distributor: 500
+  };
   
-  if (limit > 0 && (currentBalance + orderTotal > limit) && !bypassCreditCheck) {
+  const maxQty = qtyThresholds[customer.type] || 20;
+
+  if (totalQty > maxQty && !bypassCreditCheck) {
     return res.status(200).json({
       success: false,
       softBlock: true,
-      blockReason: 'CREDIT_LIMIT_EXCEEDED',
-      message: `Order pushes customer over credit limit. Balance: ${currentBalance}, Order: ${orderTotal}, Limit: ${limit}. Proceed?`
+      blockReason: 'UNUSUAL_QUANTITY',
+      message: `Unusual quantity detected. A ${customer.type} customer typically does not order ${totalQty} items at once (Limit: ${maxQty}). Are you sure you want to proceed?`
     });
+  }
+
+  // 1. Check Credit Limit Soft-Block (only if limit > 0)
+  const currentBalance = parseFloat(customer.currentBalance || 0);
+  const creditLimit = parseFloat(customer.creditLimit || 0);
+  
+  if (creditLimit > 0 && (currentBalance + orderTotal) > creditLimit && !bypassCreditCheck) {
+    return res.status(200).json({
+      success: false,
+      softBlock: true,
+      blockReason: 'BALANCE_EXCEEDED',
+      message: `Order amount exceeds credit limit. Order: Rs. ${orderTotal}, Current Debt: Rs. ${currentBalance}, Limit: Rs. ${creditLimit}. Proceed?`
+    });
+  }
+
+  // 2. Check Bottle Security Deposit Soft-Block (for 19L orders)
+  // Assuming a standard security deposit of Rs 1000 per 19L bottle
+  const BOTTLE_SECURITY_RATE = 1000;
+  
+  const itemIds = items.map(i => i.itemId);
+  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } });
+  
+  const qty19LOrdered = items.reduce((sum, i) => {
+    const dbItem = dbItems.find(di => di.id === i.itemId);
+    if (dbItem && dbItem.name.toLowerCase().includes('19l')) {
+      return sum + parseInt(i.quantity);
+    }
+    return sum;
+  }, 0);
+
+  if (qty19LOrdered > 0 && !bypassCreditCheck) { // Re-using bypassCreditCheck flag for both for now, or could use a separate one
+    const currentBottles = parseInt(customer.cachedBottleBalance || 0);
+    const newBottleBalance = currentBottles + qty19LOrdered;
+    const coveredBottles = Math.floor(parseInt(customer.deposit || 0) / BOTTLE_SECURITY_RATE);
+
+    if (newBottleBalance > coveredBottles) {
+      return res.status(200).json({
+        success: false,
+        softBlock: true,
+        blockReason: 'BOTTLE_SECURITY_EXCEEDED',
+        message: `Customer's bottle security deposit (Rs. ${customer.deposit || 0}) covers ${coveredBottles} bottles only.\nBottles after this order: ${newBottleBalance}\nIncrease deposit or continue with override?`
+      });
+    }
   }
 
   const order = await prisma.$transaction(async (tx) => {
@@ -49,8 +102,16 @@ export const createOrder = asyncHandler(async (req, res) => {
         type,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null,
         remarks,
-        paymentStatus: paymentStatus || 'UNPAID'
-      }
+        paymentStatus: paymentStatus || 'UNPAID',
+        items: {
+          create: items.map(i => ({
+            itemId: i.itemId,
+            quantity: parseInt(i.quantity),
+            price: parseFloat(i.price)
+          }))
+        }
+      },
+      include: { items: { include: { item: true } } }
     });
 
     await tx[`${prefix}AuditLog`].create({
@@ -72,21 +133,38 @@ export const createOrder = asyncHandler(async (req, res) => {
 export const updateOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
-  const { expectedDelivery, remarks } = req.body;
+  const { expectedDelivery, remarks, items, type } = req.body;
 
-  const order = await prisma[`${prefix}Order`].findUnique({ where: { id } });
+  const order = await prisma[`${prefix}Order`].findUnique({ where: { id }, include: { items: true } });
   if (!order) throw new ApiError(404, 'Order not found');
   
   if (order.deliveryStatus === 'DELIVERED') {
     throw new ApiError(400, 'Cannot edit a delivered order');
   }
 
-  const updated = await prisma[`${prefix}Order`].update({
-    where: { id },
-    data: {
-      expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null,
-      remarks
+  const updated = await prisma.$transaction(async (tx) => {
+    // If items are provided, delete old and recreate
+    if (items && items.length > 0) {
+      await tx[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
+      await tx[`${prefix}OrderItem`].createMany({
+        data: items.map(i => ({
+          orderId: id,
+          itemId: i.itemId,
+          quantity: parseInt(i.quantity),
+          price: parseFloat(i.price)
+        }))
+      });
     }
+
+    return await tx[`${prefix}Order`].update({
+      where: { id },
+      data: {
+        expectedDelivery: expectedDelivery !== undefined ? (expectedDelivery ? new Date(expectedDelivery) : null) : order.expectedDelivery,
+        remarks: remarks !== undefined ? remarks : order.remarks,
+        ...(type && { type })
+      },
+      include: { items: { include: { item: true } } }
+    });
   });
 
   res.json({ success: true, data: updated });
@@ -108,7 +186,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
   } = req.body;
 
   const order = await prisma.$transaction(async (tx) => {
-    const o = await tx[`${prefix}Order`].findUnique({ where: { id }, include: { items: true, customer: true } });
+    const o = await tx[`${prefix}Order`].findUnique({ 
+      where: { id }, 
+      include: { 
+        items: { include: { item: true } }, 
+        customer: true 
+      } 
+    });
     if (!o) throw new ApiError(404, 'Order not found');
     if (o.deliveryStatus === 'DELIVERED') throw new ApiError(400, 'Order is already delivered');
 
@@ -120,9 +204,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const cash = parseFloat(cashReceived || 0);
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
 
+    // 19L Calculations
+    const has19L = o.items.some(i => i.item.name.toLowerCase().includes('19l'));
+    const qty19L = o.items.filter(i => i.item.name.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
+
     // Soft-block check for bottle returns
     const currentBottles = o.customer.cachedBottleBalance || 0;
-    if ((retGood + retBroken > currentBottles) && !bypassBottleCheck) {
+    if ((retGood + retBroken > currentBottles + qty19L) && !bypassBottleCheck) {
       throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning ${retGood + retBroken}. Proceed anyway?`);
     }
 
@@ -149,8 +237,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // 19L Deductions & Transactions
-    if (o.type === '19L' && qty > 0) {
+    if (has19L && qty19L > 0) {
       // Deduct 1 Large/Big 19L Cap per bottle
       const largeCap = await tx[`${prefix}Item`].findFirst({
         where: {
@@ -164,16 +251,16 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
       });
       if (largeCap) {
-        await tx[`${prefix}Item`].update({ where: { id: largeCap.id }, data: { cachedQty: { decrement: qty } } });
+        await tx[`${prefix}Item`].update({ where: { id: largeCap.id }, data: { cachedQty: { decrement: qty19L } } });
         await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: largeCap.id, quantity: qty, direction: 'OUT', reason: '19L_DELIVERY_CAPS', refType: 'ORDER', refId: o.id }
+          data: { itemId: largeCap.id, quantity: qty19L, direction: 'OUT', reason: '19L_DELIVERY_CAPS', refType: 'ORDER', refId: o.id }
         });
       }
 
       // Deduct Mineral Fraction (24L treated water per bottle / 15,141L per mineral set per owner specs)
       const WATER_PER_BOTTLE = 24;
       const WATER_PER_MINERAL_SET = 15141;
-      const mineralSetFraction = new Prisma.Decimal(qty * WATER_PER_BOTTLE).dividedBy(WATER_PER_MINERAL_SET);
+      const mineralSetFraction = new Prisma.Decimal(qty19L * WATER_PER_BOTTLE).dividedBy(WATER_PER_MINERAL_SET);
 
       const items = await tx[`${prefix}Item`].findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null } });
       const minerals = [
@@ -194,11 +281,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       }
 
       // Bottle Ledger Transactions
-      if (qty > 0) {
-        await tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty, reason: `Order ${o.id}` }
-        });
-      }
+      await tx[`${prefix}BottleTransaction`].create({
+        data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
+      });
     }
 
     if (retGood > 0) {
@@ -212,25 +297,25 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // PET Deductions
-    if (o.type === 'PET') {
-      for (const orderItem of o.items) {
-        await tx[`${prefix}Item`].update({
-          where: { id: orderItem.itemId },
-          data: { cachedQty: { decrement: orderItem.quantity } }
-        });
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: orderItem.itemId, quantity: orderItem.quantity, direction: 'OUT', reason: 'PET_DELIVERY', refType: 'ORDER', refId: o.id }
-        });
-      }
+    // PET Deductions (deduct any item that isn't 19L)
+    const petItems = o.items.filter(i => !i.item.name.toLowerCase().includes('19l'));
+    for (const orderItem of petItems) {
+      await tx[`${prefix}Item`].update({
+        where: { id: orderItem.itemId },
+        data: { cachedQty: { decrement: orderItem.quantity } }
+      });
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: { itemId: orderItem.itemId, quantity: orderItem.quantity, direction: 'OUT', reason: 'PET_DELIVERY', refType: 'ORDER', refId: o.id }
+      });
     }
 
-    // Update Customer Balance and Bottle Balance
+    // Update Customer Bottle Balance and Financial Balance (Debt)
+    const balanceChange = orderTotal - cash; // Positive = debt increases
     await tx[`${prefix}Customer`].update({
       where: { id: o.customerId },
       data: { 
-        cachedBottleBalance: { increment: qty - retGood - retBroken },
-        cachedBalance: { increment: orderTotal - cash }
+        cachedBottleBalance: { increment: qty19L - retGood - retBroken },
+        currentBalance: { increment: balanceChange }
       }
     });
 
@@ -276,4 +361,37 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="invoice-${id.substring(0, 8)}.pdf"`);
   res.send(pdfBuffer);
+});
+
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  if (!['OWNER', 'MARKETING_MANAGER'].includes(req.user?.role)) {
+    throw new ApiError(403, 'Only Owner or Marketing Manager can delete orders');
+  }
+
+  const order = await prisma[`${prefix}Order`].findUnique({ where: { id } });
+  if (!order) throw new ApiError(404, 'Order not found');
+
+  if (order.deliveryStatus === 'DELIVERED') {
+    throw new ApiError(400, 'Cannot delete an order that has already been delivered. Please contact support to reverse transactions manually.');
+  }
+
+  // Delete related items
+  await prisma[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
+  await prisma[`${prefix}Order`].delete({ where: { id } });
+
+  await prisma[`${prefix}AuditLog`].create({
+    data: {
+      action: 'ORDER_DELETED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.id || 'Unknown',
+      details: `Order ${id} deleted`
+    }
+  });
+
+  broadcastDashboardUpdate();
+  res.json({ success: true, message: 'Order deleted successfully' });
 });

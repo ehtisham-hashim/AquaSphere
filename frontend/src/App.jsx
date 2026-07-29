@@ -1,21 +1,24 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import AccountantDashboard from './pages/AccountantDashboard';
 import Vendors from './pages/Vendors';
 import Purchases from './pages/Purchases';
 import RawMaterials from './pages/RawMaterials';
 import Production from './pages/Production';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
+import MMOrders from './pages/MMOrders';
 import Expenses from './pages/Expenses';
 import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
-import MMOrders from './pages/MMOrders';
-import AccountantDashboard from './pages/AccountantDashboard';
+import Reports from './pages/Reports';
+import DailyClose from './pages/dailyClose/index';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -34,6 +37,7 @@ function PublicRoute({ children }) {
 function DashboardRoleWrapper() {
   const { user } = useAuth();
   if (user?.role === 'ADMIN') return <AdminDashboard />;
+  if (user?.role === 'ACCOUNTANT') return <AccountantDashboard />;
   return <Dashboard />;
 }
 
@@ -54,6 +58,8 @@ function AppRoutes() {
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
         <Route path="bottle-ledger" element={<BottleLedger />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="daily-close" element={<DailyClose />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Route>
     </Routes>
@@ -64,6 +70,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Toaster position="top-right" richColors />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

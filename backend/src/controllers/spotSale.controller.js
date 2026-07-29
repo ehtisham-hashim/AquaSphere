@@ -2,7 +2,8 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
-import { Prisma } from '@prisma/client';
+import pkg from '@prisma/client';
+const { Prisma } = pkg;
 
 const getTenantPrefix = (req) => {
   const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();

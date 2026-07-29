@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Package, Flame, Layers } from 'lucide-react';
+import { X, Sparkles, Package, Flame } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || '/api';
+import { API_URL as API } from '../../utils/api';
 
 const WADAANA_PRESETS = [
   { name: 'Pure Preform (0.5L - 15g)', unit: 'kg', reorderLevel: 100 },

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Search, User, Briefcase, Building, ShieldCheck, Mail } from 'lucide-react';
+import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
@@ -21,12 +22,13 @@ export default function Users() {
     // Fetch users for both companies since the owner might want to see both
     // If not owner, just fetch current company
     const companyToFetch = currentUser?.role === 'OWNER' ? 'aquasphere' : currentUser?.company || 'aquasphere';
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/users?company=${companyToFetch}`, { credentials: 'include' });
+    const res = await fetch(`${API_URL}/users?company=${companyToFetch}`, { credentials: 'include' });
     const json = await res.json();
     if (json.success) setUsers(json.data);
     setIsLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchUsers(); }, []);
 
   const handleChange = (e) => {
@@ -61,14 +63,14 @@ export default function Users() {
       const payload = { ...formData };
       if (!payload.password) delete payload.password; // Don't send empty password if not changing
       
-      await fetch(`${import.meta.env.VITE_API_URL}/users/${editingId}`, {
+      await fetch(`${API_URL}/users/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         credentials: 'include'
       });
     } else {
-      await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+      await fetch(`${API_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -80,7 +82,7 @@ export default function Users() {
   };
 
   const toggleStatus = async (id, currentStatus) => {
-    await fetch(`${import.meta.env.VITE_API_URL}/users/${id}/status`, {
+    await fetch(`${API_URL}/users/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ company: 'aquasphere', isActive: !currentStatus }),

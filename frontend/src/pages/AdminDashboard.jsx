@@ -3,20 +3,20 @@ import {
   Lock, 
   Unlock, 
   AlertTriangle, 
-  CheckCircle2, 
-  TrendingUp, 
   Package, 
   Truck, 
   Factory, 
   Banknote, 
   ShieldAlert, 
-  Users, 
   Clock,
   RefreshCw
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
+import AlertsSection from '../components/dashboard/AlertsSection';
 
-const API = import.meta.env.VITE_API_URL || '/api/v1';
+const API = API_URL;
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
@@ -53,6 +53,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCloseDay = async () => {
@@ -71,13 +72,13 @@ export default function AdminDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        alert('Day closed successfully! Operational records locked.');
+        toast.success('Day closed successfully! Operational records locked.');
         fetchData();
       } else {
-        alert(json.message || 'Failed to close day');
+        toast.error(json.message || 'Failed to close day');
       }
     } catch (err) {
-      alert('Error closing day');
+      toast.error('Error closing day');
     } finally {
       setClosing(false);
     }
@@ -394,59 +395,8 @@ export default function AdminDashboard() {
 
       {/* Tab 4: Customer Alerts */}
       {activeTab === 'alerts' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Credit Limit Breaches */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-500" />
-              Credit Limit Breaches
-            </h3>
-            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {alerts?.creditBreaches?.length === 0 ? (
-                <p className="text-sm text-slate-400 py-2">No credit limit breaches detected.</p>
-              ) : (
-                alerts?.creditBreaches?.map(c => (
-                  <div key={c.id} className="py-3 flex items-center justify-between text-sm">
-                    <div>
-                      <span className="font-semibold text-slate-800">{c.name}</span>
-                      <span className="text-xs text-slate-400 block">{c.phone}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-rose-600 block">Rs. {c.balance.toLocaleString()}</span>
-                      <span className="text-xs text-slate-400">Limit: Rs. {c.creditLimit.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Inactive Customers (>7 Days) */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-500" />
-              Inactive Customers ({'>'}7 Days)
-            </h3>
-            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {alerts?.inactiveCustomers?.length === 0 ? (
-                <p className="text-sm text-slate-400 py-2">No inactive customers.</p>
-              ) : (
-                alerts?.inactiveCustomers?.map(c => (
-                  <div key={c.id} className="py-3 flex items-center justify-between text-sm">
-                    <div>
-                      <span className="font-semibold text-slate-800">{c.name}</span>
-                      <span className="text-xs text-slate-400 block">{c.phone}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="px-2 py-0.5 bg-amber-50 text-amber-700 font-semibold text-xs rounded-md">
-                        {c.daysSinceLastOrder} days inactive
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+        <div className="pt-2">
+          <AlertsSection />
         </div>
       )}
     </div>

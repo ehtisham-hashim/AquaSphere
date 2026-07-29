@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
+import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
+import { API_URL } from '../utils/api';
 
-const API = import.meta.env.VITE_API_URL || '/api';
+const API = API_URL;
 
 export default function RawMaterials() {
   const tenant = getCompanyFromCookie();
@@ -29,7 +31,7 @@ export default function RawMaterials() {
     } finally {
       setIsLoading(false);
     }
-  }, [includeArchived]);
+  }, [includeArchived, tenant]);
 
   useEffect(() => {
     fetchMaterials();
@@ -58,7 +60,7 @@ export default function RawMaterials() {
       });
       fetchMaterials();
     } catch (err) {
-      alert(`Failed to ${action} material`);
+      toast.error(`Failed to ${action} material`);
     }
   };
 

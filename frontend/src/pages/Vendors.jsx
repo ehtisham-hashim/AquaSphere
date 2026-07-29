@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Search, Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2, DollarSign } from 'lucide-react';
+import { Plus, X, Search, Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { API_URL } from '../utils/api';
 
 export default function Vendors() {
   const [vendors, setVendors] = useState([]);
@@ -10,7 +12,7 @@ export default function Vendors() {
 
   // Vendor Detail & Ledger State
   const [selectedVendorDetail, setSelectedVendorDetail] = useState(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [, setLoadingDetail] = useState(false);
 
   // Vendor Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -33,7 +35,7 @@ export default function Vendors() {
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/vendors?includeArchived=${includeArchived}`, {
+      const res = await fetch(`${API_URL}/vendors?includeArchived=${includeArchived}`, {
         credentials: 'include'
       });
       const json = await res.json();
@@ -45,6 +47,7 @@ export default function Vendors() {
 
   useEffect(() => {
     fetchVendors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeArchived]);
 
   const handleOpenAdd = () => {
@@ -79,7 +82,7 @@ export default function Vendors() {
   const handleViewDetails = async (v) => {
     setLoadingDetail(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/vendors/${v.id}`, {
+      const res = await fetch(`${API_URL}/vendors/${v.id}`, {
         credentials: 'include'
       });
       const json = await res.json();
@@ -96,13 +99,13 @@ export default function Vendors() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
-      alert('Vendor Name and Phone are required');
+      toast.error('Vendor Name and Phone are required');
       return;
     }
 
     const url = editingVendor
-      ? `${import.meta.env.VITE_API_URL}/vendors/${editingVendor.id}`
-      : `${import.meta.env.VITE_API_URL}/vendors`;
+      ? `${API_URL}/vendors/${editingVendor.id}`
+      : `${API_URL}/vendors`;
 
     const method = editingVendor ? 'PUT' : 'POST';
 
@@ -115,26 +118,26 @@ export default function Vendors() {
       });
       const json = await res.json();
       if (!json.success) {
-        alert(json.message || 'Error saving vendor');
+        toast.error(json.message || 'Error saving vendor');
         return;
       }
       setIsModalOpen(false);
       fetchVendors();
     } catch (err) {
-      alert('Failed to save vendor');
+      toast.error('Failed to save vendor');
     }
   };
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
-      alert('Please enter a valid payment amount greater than zero');
+      toast.error('Please enter a valid payment amount greater than zero');
       return;
     }
 
     setPaymentSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/vendors/${selectedVendorForPayment.id}/payments`, {
+      const res = await fetch(`${API_URL}/vendors/${selectedVendorForPayment.id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentData),
@@ -142,7 +145,7 @@ export default function Vendors() {
       });
       const json = await res.json();
       if (!json.success) {
-        alert(json.message || 'Failed to record payment');
+        toast.error(json.message || 'Failed to record payment');
         return;
       }
       setIsPaymentModalOpen(false);
@@ -151,7 +154,7 @@ export default function Vendors() {
         handleViewDetails(selectedVendorForPayment);
       }
     } catch (err) {
-      alert('Error submitting payment');
+      toast.error('Error submitting payment');
     } finally {
       setPaymentSubmitting(false);
     }
@@ -163,13 +166,13 @@ export default function Vendors() {
     if (!confirm(`Are you sure you want to ${action} ${v.name}?`)) return;
 
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/vendors/${v.id}/${action}`, {
+      await fetch(`${API_URL}/vendors/${v.id}/${action}`, {
         method: 'PATCH',
         credentials: 'include'
       });
       fetchVendors();
     } catch (err) {
-      alert(`Failed to ${action} vendor`);
+      toast.error(`Failed to ${action} vendor`);
     }
   };
 

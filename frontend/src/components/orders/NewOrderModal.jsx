@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Droplets, Package, AlertTriangle, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
-const API = import.meta.env.VITE_API_URL;
+import { API_URL as API } from '../../utils/api';
 const INPUT = 'input-field';
 const today = new Date().toISOString().split('T')[0];
 
@@ -13,7 +14,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
 
   // 19L fields
   const [qty19L, setQty19L] = useState('');
-  const [price19L, setPrice19L] = useState(customer?.defaultPrice || '');
+  const [price19L, setPrice19L] = useState('');
 
   // PET fields
   const [qty05, setQty05] = useState('');
@@ -31,14 +32,6 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
   const total = orderType === 'NINETEEN_L'
     ? (parseFloat(qty19L) || 0) * (parseFloat(price19L) || 0)
     : ((parseFloat(qty05) || 0) * (parseFloat(price05) || 0)) + ((parseFloat(qty15) || 0) * (parseFloat(price15) || 0));
-
-  useEffect(() => {
-    const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitOrder(false);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [qty19L, price19L, qty05, price05, qty15, price15, delivery, remarks, orderType]);
 
   const buildItems = () => {
     if (orderType === 'NINETEEN_L') {
@@ -73,11 +66,23 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
       });
       const json = await res.json();
       if (json.softBlock) { setSoftBlock(json); return; }
-      if (json.success) onOrderPlaced();
-      else alert(json.message || 'Failed to place order');
-    } catch { alert('Network error'); }
+      if (json.success) {
+        toast.success('Order placed successfully!');
+        onOrderPlaced();
+      }
+      else toast.error(json.message || 'Failed to place order');
+    } catch { toast.error('Network error'); }
     finally { setSubmitting(false); }
   };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitOrder(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qty19L, price19L, qty05, price05, qty15, price15, delivery, remarks, orderType]);
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -87,9 +92,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
           <div>
             <div className="text-white font-bold text-sm">New Order — {customer.name}</div>
             <div className="text-slate-400 text-xs mt-0.5">
-              Balance: <span className={parseFloat(customer.cachedBalance) > 0 ? 'text-red-400' : 'text-emerald-400'}>
-                Rs. {parseFloat(customer.cachedBalance || 0).toFixed(0)}
-              </span>
+
               {parseFloat(customer.creditLimit) > 0 && <span className="text-slate-500"> / limit Rs. {customer.creditLimit}</span>}
             </div>
           </div>
@@ -138,7 +141,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Price / bottle (Rs) *</label>
                     <input type="number" step="0.01" className={INPUT} value={price19L}
-                      onChange={e => setPrice19L(e.target.value)} placeholder={customer.defaultPrice || '200'}/>
+                      onChange={e => setPrice19L(e.target.value)} placeholder="200"/>
                   </div>
                 </div>
               ) : (

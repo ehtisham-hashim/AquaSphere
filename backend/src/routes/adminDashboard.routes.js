@@ -9,7 +9,7 @@ router.use(verifyJWT);
 
 // Middleware: restrict to ADMIN and OWNER only
 const adminOnly = (req, res, next) => {
-  if (!['ADMIN', 'OWNER'].includes(req.user.role)) {
+  if (!['ADMIN', 'OWNER', 'MARKETING_MANAGER'].includes(req.user.role)) {
     return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
   }
   next();
