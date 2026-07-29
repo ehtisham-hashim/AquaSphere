@@ -97,9 +97,8 @@ export default function CustomersTable({ customers = [], isLoading = false, onEd
                   </td>
                   <td className="p-4">
                     <div className="flex flex-col gap-1 text-sm">
-                      <span className="flex items-center gap-1">
-                        <DollarSign size={14} className="text-red-400" /> Bal:{' '}
-                        <strong className="text-red-500">Rs. {c.cachedBalance}</strong>
+                      <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-red-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                        Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
                       </span>
                       <span className="text-xs text-slate-500">Limit: Rs. {c.creditLimit}</span>
                     </div>

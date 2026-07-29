@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Clock } from 'lucide-react';
+import { Plus, Search, Clock, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
+import { toast } from 'sonner';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
 import EditOrderModal from '../components/orders/EditOrderModal';
 import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
+import AddCustomerModal from '../components/customer/AddCustomerModal';
 
 export default function Orders() {
   const { user } = useAuth();
@@ -19,6 +21,7 @@ export default function Orders() {
   const [clientFilter, setClientFilter] = useState('All Clients');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -62,7 +65,29 @@ export default function Orders() {
     setIsEditModalOpen(true);
   };
 
+  const handleDeleteOrder = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this order? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`${API_URL}/orders/${id}`, { 
+        method: 'DELETE', 
+        headers: { 'x-tenant': localStorage.getItem('tenant') || 'aquasphere' },
+        credentials: 'include' 
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Order deleted successfully');
+        fetchData();
+      } else {
+        toast.error(json.message || 'Failed to delete order');
+      }
+    } catch (err) {
+      toast.error('Error deleting order');
+    }
+  };
+
   const isOwner = user?.role === 'OWNER';
+  const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
+  const canDeleteOrder = ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
 
   // Filter Orders
   const filteredOrders = orders.filter(o => {
@@ -100,6 +125,15 @@ export default function Orders() {
         >
           <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
         </button>
+        
+        {canAddCustomer && (
+          <button 
+            onClick={() => setIsAddCustomerModalOpen(true)}
+            className="btn-secondary mr-4 flex items-center gap-2 group"
+          >
+            <UserPlus size={18} /> New Customer
+          </button>
+        )}
         
         {tabs.map(tab => (
           <button 
@@ -176,7 +210,7 @@ export default function Orders() {
                     <div className="font-bold text-slate-800">{o.customer?.name}</div>
                     <div className="flex gap-2 items-center text-xs mt-1">
                       <span className="text-slate-500">{o.customer?.phone}</span>
-                      <span className="text-red-500 font-medium border border-red-100 bg-red-50 px-1.5 py-0.5 rounded">Bal: Rs. {o.customer?.cachedBalance || 0}</span>
+            
                     </div>
                   </td>
                   <td className="p-4">
@@ -223,6 +257,11 @@ export default function Orders() {
                           Process
                         </button>
                       )}
+                      {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && (
+                        <button onClick={() => handleDeleteOrder(o.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -242,6 +281,15 @@ export default function Orders() {
         />
       )}
 
+      {/* Add Customer Modal Component */}
+      {isAddCustomerModalOpen && (
+        <AddCustomerModal 
+          isOpen={isAddCustomerModalOpen}
+          onClose={() => setIsAddCustomerModalOpen(false)} 
+          onCustomerAdded={() => { setIsAddCustomerModalOpen(false); fetchData(); }} 
+        />
+      )}
+
       {/* Process Delivery Modal Component */}
       {isDeliverModalOpen && selectedOrder && (
         <ProcessDeliveryModal 
@@ -257,6 +305,8 @@ export default function Orders() {
           order={selectedOrder}
           onClose={() => { setIsEditModalOpen(false); setSelectedOrder(null); }}
           onOrderEdited={() => { setIsEditModalOpen(false); setSelectedOrder(null); fetchData(); }}
+          customers={customers}
+          items={items}
         />
       )}
     </div>

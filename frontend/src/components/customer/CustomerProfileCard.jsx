@@ -4,7 +4,7 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
   const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
 
-  const balanceColor = parseFloat(c.cachedBalance) > 0 ? 'text-red-600' : (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600');
+
   const limitText = parseFloat(c.creditLimit) === 0 ? 'Unlimited' : `Rs. ${c.creditLimit}`;
   const lastDelivery = c.lastDeliveryAt
     ? new Date(c.lastDeliveryAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })
@@ -40,11 +40,7 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
 
       {/* Stats */}
       <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
-        <div className="p-3 text-center">
-          <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Balance</div>
-          <div className={`text-sm font-bold mt-0.5 ${balanceColor}`}>Rs. {parseFloat(c.cachedBalance || 0).toFixed(0)}</div>
-        </div>
-        
+
         {!isWadaana ? (
           <div className="p-3 text-center">
             <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">19L Bottles</div>
@@ -89,12 +85,7 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
       </div>
 
       {/* Alerts */}
-      {parseFloat(c.creditLimit) > 0 && parseFloat(c.cachedBalance) >= parseFloat(c.creditLimit) && (
-        <div className="mx-3 mb-2 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
-          <AlertCircle size={14} className="flex-shrink-0"/>
-          <span>At or over credit limit</span>
-        </div>
-      )}
+
 
       {isInactive30Days && (
         <div className="mx-3 mb-3 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700">

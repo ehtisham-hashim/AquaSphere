@@ -65,8 +65,7 @@ async function reconcileLedgers(prefix = 'aquasphere') {
     await prisma[`${prefix}Customer`].update({
       where: { id: c.id },
       data: {
-        cachedBottleBalance: bottleBal,
-        cachedBalance: cashBal
+        cachedBottleBalance: bottleBal
       }
     });
     console.log(`Reconciled Customer [${c.name}]: bottles=${bottleBal}, balance=Rs. ${cashBal}`);

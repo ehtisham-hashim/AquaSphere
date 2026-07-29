@@ -9,9 +9,11 @@ import EditCustomerModal from './EditCustomerModal';
 import CustomerHistory from './CustomerHistory';
 import CustomerAlerts from './CustomerAlerts';
 import { API_URL as API } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 // ponytail: two-column flat layout eliminates container fatigue; inline image placeholder uses lucide User icon
-export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated }) {
+export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted }) {
+  const { user } = useAuth();
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +49,30 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
   if (!c) return null;
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${c.name}? This action cannot be undone.`)) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API}/customers/${c.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Customer deleted successfully');
+        if (onCustomerDeleted) onCustomerDeleted(c.id);
+        onClose();
+      } else {
+        toast.error(json.message || 'Failed to delete customer');
+      }
+    } catch (err) {
+      toast.error('Error deleting customer');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // tenant and isWadaana already declared above (lines 19-20)
 
   // Tenant-aware theme classes
@@ -58,19 +84,19 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
     badgeVariant: isWadaana ? 'sky' : 'emerald',
   };
 
-  const balanceVal = parseFloat(c.cachedBalance || 0);
+  const currentBalance = parseFloat(c.currentBalance || 0);
   const limitVal = parseFloat(c.creditLimit || 0);
-  const isOverLimit = limitVal > 0 && balanceVal >= limitVal;
+  const isOverLimit = currentBalance > limitVal; 
   const isInactive30Days = c.lastDeliveryAt && (new Date() - new Date(c.lastDeliveryAt)) > (30 * 24 * 60 * 60 * 1000);
 
   useEffect(() => {
     if (isOverLimit) {
-      toast.error(`Credit Warning: Balance (Rs. ${balanceVal.toLocaleString()}) reached or exceeded limit (Rs. ${limitVal.toLocaleString()}).`, { duration: 6000 });
+      toast.error(`Credit Warning: Debt (Rs. ${currentBalance.toLocaleString()}) exceeds limit.`, { duration: 6000 });
     }
     if (isInactive30Days) {
       toast.warning('Inactivity Alert: No order repeat recorded for over 30 days.', { duration: 6000 });
     }
-  }, [c.id, isOverLimit, isInactive30Days, balanceVal, limitVal]);
+  }, [c.id, isOverLimit, isInactive30Days, currentBalance]);
 
   const lastOrderDate = c.lastDeliveryAt ? new Date(c.lastDeliveryAt).toLocaleDateString() : 'Never';
 
@@ -173,6 +199,15 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <Edit3 size={16} />
                 <span>Edit Customer</span>
               </button>
+              {['OWNER', 'MARKETING_MANAGER'].includes(user?.role) && (
+                <button
+                  onClick={handleDelete}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-medium text-sm transition-colors shadow-sm"
+                >
+                  <X size={16} />
+                  <span>Delete</span>
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors shadow-sm"
@@ -189,12 +224,12 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-y md:divide-y-0 md:divide-x divide-slate-200">
               
               <div className="p-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Current Balance</span>
-                <span className={`text-lg font-bold block mt-1 ${balanceVal > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-                  Rs. {balanceVal.toLocaleString()}
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Current Debt</span>
+                <span className={`text-lg font-bold block mt-1 ${isOverLimit ? 'text-red-600' : (currentBalance > 0 ? 'text-amber-600' : 'text-slate-800')}`}>
+                  Rs. {currentBalance.toLocaleString()}
                 </span>
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {limitVal > 0 ? `Limit: Rs. ${limitVal.toLocaleString()}` : 'Unlimited'}
+                  {limitVal > 0 ? `Limit: Rs. ${limitVal.toLocaleString()}` : 'No Limit'}
                 </span>
               </div>
 

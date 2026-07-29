@@ -38,19 +38,19 @@ async function main() {
   const customer1 = await prisma.aquasphereCustomer.create({
     data: { 
       name: 'Ahmed Khan', phone: '03001234567', type: 'Home', address: 'DHA Phase 5, Lahore', 
-      creditLimit: 5000, cachedBalance: 0, cachedBottleBalance: 4 
+      creditLimit: 5000, cachedBottleBalance: 4 
     }
   });
   const customer2 = await prisma.aquasphereCustomer.create({
     data: { 
       name: 'Cafe Zouk', phone: '03009876543', type: 'Restaurant', address: 'MM Alam Road, Lahore', 
-      creditLimit: 20000, cachedBalance: 5000, cachedBottleBalance: 15 
+      creditLimit: 20000, cachedBottleBalance: 15 
     }
   });
   const customer3 = await prisma.aquasphereCustomer.create({
     data: { 
       name: 'Ali Raza', phone: '03211112222', type: 'Corporate', address: 'Gulberg III, Lahore', 
-      creditLimit: 15000, cachedBalance: 0, cachedBottleBalance: 10 
+      creditLimit: 15000, cachedBottleBalance: 10 
     }
   });
 

@@ -37,6 +37,10 @@ export default function Customers() {
             setSelectedCustomer(updated);
             fetchCustomers(search);
           }}
+          onCustomerDeleted={() => {
+            setSelectedCustomer(null);
+            fetchCustomers(search);
+          }}
         />
       ) : (
         <>

@@ -234,7 +234,6 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       name: true,
       phone: true,
       type: true,
-      cachedBalance: true,
       creditLimit: true,
       cachedBottleBalance: true,
       createdAt: true,
@@ -246,35 +245,11 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     }
   });
 
-  // Credit breaches: balance > creditLimit (where creditLimit > 0; 0 = unlimited)
-  const creditBreaches = allCustomers.filter(c => {
-    const balance = Number(c.cachedBalance);
-    const limit = Number(c.creditLimit);
-    return limit > 0 && balance > limit;
-  }).map(c => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    type: c.type,
-    balance: Number(c.cachedBalance),
-    creditLimit: Number(c.creditLimit),
-    overageAmount: Number(c.cachedBalance) - Number(c.creditLimit),
-    alertType: 'CREDIT_BREACH'
-  }));
+  // Credit breaches disabled since balance tracking is removed
+  const creditBreaches = [];
 
-  // Unpaid bill > 7 days (B2B spec): balance > 0 and last order > 7 days ago
-  const unpaidBillOver7Days = allCustomers.filter(c => {
-    const balance = Number(c.cachedBalance);
-    const lastOrderDate = c.orders[0]?.createdAt;
-    return balance > 0 && lastOrderDate && new Date(lastOrderDate) < sevenDaysAgo;
-  }).map(c => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    balance: Number(c.cachedBalance),
-    lastOrderDate: c.orders[0].createdAt,
-    alertType: 'UNPAID_BILL_7d'
-  }));
+  // Unpaid bill alerts disabled since balance tracking is removed
+  const unpaidBillOver7Days = [];
 
   // Inactivity / No repeat order > 30 days
   const inactiveCustomers = allCustomers.filter(c => {

@@ -80,7 +80,7 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
 // Handles customer creation; uses regenerated Prisma schema with deposit synced
 export const createCustomer = asyncHandler(async (req, res) => {
   const { 
-    name, phone, type, address, mapLink, securityDeposit,
+    name, phone, type, address, mapLink, securityDeposit, currentBalance,
     creditLimit, creditDuration, remarks, homePictureUrl,
     buys19L, qty19L, buys05LPet, qty05LPet, buys15LPet, qty15LPet,
     buysPure05L, qtyPure05L, buysPure15L, qtyPure15L, 
@@ -101,6 +101,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     address,
     mapLink,
     deposit: securityDeposit ? parseInt(securityDeposit) : 0,
+    currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
     creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
     creditDuration: creditDuration ? parseInt(creditDuration) : 1,
     remarks,
@@ -145,7 +146,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { 
-    name, phone, type, address, mapLink, securityDeposit,
+    name, phone, type, address, mapLink, securityDeposit, currentBalance,
     creditLimit, creditDuration, remarks, homePictureUrl,
     buys19L, qty19L, buys05LPet, qty05LPet, buys15LPet, qty15LPet,
     buysPure05L, qtyPure05L, buysPure15L, qtyPure15L,
@@ -167,6 +168,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     ...(address !== undefined && { address }),
     ...(mapLink !== undefined && { mapLink }),
     ...(securityDeposit !== undefined && { deposit: parseInt(securityDeposit || 0) }),
+    ...(currentBalance !== undefined && { currentBalance: parseFloat(currentBalance || 0) }),
     ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit || 0) }),
     ...(creditDuration !== undefined && { creditDuration: parseInt(creditDuration || 1) }),
     ...(remarks !== undefined && { remarks }),
@@ -203,8 +205,8 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getPrefix(req);
 
-  if (req.user?.role !== 'OWNER') {
-    throw new ApiError(403, 'Only Owner can delete customer records');
+  if (!['OWNER', 'MARKETING_MANAGER'].includes(req.user?.role)) {
+    throw new ApiError(403, 'Only Owner or Marketing Manager can delete customer records');
   }
 
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });

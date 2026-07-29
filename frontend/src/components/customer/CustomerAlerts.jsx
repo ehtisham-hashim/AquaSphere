@@ -6,35 +6,11 @@ export default function CustomerAlerts({ customer, isWadaana }) {
     const today = new Date();
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 1. Outstanding Balance Alert
-    const balance = parseFloat(customer?.cachedBalance || 0);
-    if (balance > 0) {
-      alerts.push({
-        id: 'balance',
-        type: 'warning',
-        icon: DollarSign,
-        title: 'Outstanding Balance',
-        message: `Rs. ${balance.toLocaleString()} pending`,
-        severity: balance > 10000 ? 'high' : 'medium'
-      });
-    }
 
-    // 2. Credit Limit Alert
-    const creditLimit = parseFloat(customer?.creditLimit || 0);
-    if (creditLimit > 0 && balance >= creditLimit) {
-      alerts.push({
-        id: 'credit',
-        type: 'error',
-        icon: AlertTriangle,
-        title: 'Credit Limit Exceeded',
-        message: `Balance reached limit of Rs. ${creditLimit.toLocaleString()}`,
-        severity: 'high'
-      });
-    }
 
     // 3. Credit Duration Overdue Alert
     const creditDuration = customer?.creditDuration || 0;
-    if (creditDuration > 0 && balance > 0 && customer?.orders?.length > 0) {
+    if (creditDuration > 0 && customer?.orders?.length > 0) {
       // Find the oldest unpaid order
       const unpaidOrders = customer.orders.filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL');
       if (unpaidOrders.length > 0) {

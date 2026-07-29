@@ -24,6 +24,7 @@ model AquasphereCustomer {
   mapLink             String?   @map("map_link")
   type                String
   deposit             Int       @default(0)
+  currentBalance      Decimal   @default(0.0) @map("current_balance")
   defaultPrice        Decimal   @default(0.0) @map("default_price")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
@@ -35,7 +36,7 @@ model AquasphereCustomer {
   qty05LPet           Int       @default(0) @map("qty_05l_pet")
   buys15LPet          Boolean   @default(false) @map("buys_15l_pet")
   qty15LPet           Int       @default(0) @map("qty_15l_pet")
-  cachedBalance       Decimal   @default(0.0) @map("cached_balance")
+
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")
   archivedAt          DateTime? @map("archived_at")
@@ -486,6 +487,7 @@ model WadaanaCustomer {
   mapLink             String?   @map("map_link")
   type                String
   deposit             Int       @default(0)
+  currentBalance      Decimal   @default(0.0) @map("current_balance")
   defaultPrice        Decimal   @default(0.0) @map("default_price")
   creditLimit         Decimal   @default(0.0) @map("credit_limit")
   creditDuration      Int       @default(1) @map("credit_duration")
@@ -499,7 +501,7 @@ model WadaanaCustomer {
   qtyMix05L           Int       @default(0) @map("qty_mix_05l")
   buysMix15L          Boolean   @default(false) @map("buys_mix_15l")
   qtyMix15L           Int       @default(0) @map("qty_mix_15l")
-  cachedBalance       Decimal   @default(0.0) @map("cached_balance")
+
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")
   archivedAt          DateTime? @map("archived_at")

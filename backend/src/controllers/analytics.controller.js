@@ -41,9 +41,7 @@ const computeDashboardAnalytics = async (prefix) => {
       _sum: { amount: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     }),
-    prisma[`${prefix}Customer`].aggregate({
-      _sum: { cachedBalance: true }
-    }),
+    { _sum: { deposit: 0 } },
     prisma[`${prefix}Purchase`].aggregate({
       _sum: { grandTotal: true },
       _count: { id: true },
@@ -84,7 +82,7 @@ const computeDashboardAnalytics = async (prefix) => {
     sales: todaysSalesAmount,
     cash: parseFloat(todaysPayments._sum.amount || 0) + spotSalesCash,
     expenses: parseFloat(todaysExpenses._sum.amount || 0),
-    credit: parseFloat(marketCredit._sum.cachedBalance || 0),
+    credit: 0, // Market credit tracking disabled
     bottlesSold: todaysSalesOrders.length,
     todaysPurchases: parseFloat(todaysPurchasesAgg._sum.grandTotal || 0),
     todaysPurchasesCount: todaysPurchasesAgg._count.id || 0,

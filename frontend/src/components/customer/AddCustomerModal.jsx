@@ -8,9 +8,9 @@ const initialFormData = {
   name: '',
   phone: '',
   type: 'Home',
-  address: '',
   mapLink: '',
   securityDeposit: 0,
+  currentBalance: 0,
   creditLimit: 0,
   creditDuration: 1,
   remarks: '',
@@ -74,6 +74,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
         body: JSON.stringify({
           ...formData,
           securityDeposit: formData.securityDeposit ? parseInt(formData.securityDeposit) : 0,
+          currentBalance: formData.currentBalance ? parseFloat(formData.currentBalance) : 0,
           creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
           creditDuration: formData.creditDuration ? parseInt(formData.creditDuration) : 1
         }),
@@ -402,7 +403,18 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
               <DollarSign size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
               <span>Financial Setup</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Current Debt (Rs)</label>
+                <input
+                  name="currentBalance"
+                  type="number"
+                  step="0.01"
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
+                  value={formData.currentBalance}
+                  onChange={handleChange}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Security Deposit (Rs)</label>
                 <input

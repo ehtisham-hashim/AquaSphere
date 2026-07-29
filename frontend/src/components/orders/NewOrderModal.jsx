@@ -92,9 +92,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
           <div>
             <div className="text-white font-bold text-sm">New Order — {customer.name}</div>
             <div className="text-slate-400 text-xs mt-0.5">
-              Balance: <span className={parseFloat(customer.cachedBalance) > 0 ? 'text-red-400' : 'text-emerald-400'}>
-                Rs. {parseFloat(customer.cachedBalance || 0).toFixed(0)}
-              </span>
+
               {parseFloat(customer.creditLimit) > 0 && <span className="text-slate-500"> / limit Rs. {customer.creditLimit}</span>}
             </div>
           </div>

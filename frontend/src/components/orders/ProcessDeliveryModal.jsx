@@ -4,11 +4,20 @@ import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
+  const calculateDefaultQtyDelivered = () => {
+    if (!order.items || order.items.length === 0) return 0;
+    if (order.type === 'NINETEEN_L') {
+      const qty19L = order.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
+      return qty19L > 0 ? qty19L : order.items[0].quantity;
+    }
+    return order.items.reduce((sum, i) => sum + i.quantity, 0);
+  };
+
   const [deliveryData, setDeliveryData] = useState({
-    qtyDelivered: order.items[0]?.quantity || 0,
+    qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
-    cashReceived: order.paymentStatus === 'PAID' ? 0 : (order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0)),
+    cashReceived: order.paymentStatus === 'PAID' ? 0 : (order.items?.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) || 0),
     paymentMethod: 'CASH',
     remarks: ''
   });
@@ -90,12 +99,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                  {order.paymentStatus}
                </span>
              </div>
-             <div className="flex flex-col">
-               <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Cust. Balance</span>
-               <span className={`text-lg font-bold ${order.customer?.cachedBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                 Rs. {order.customer?.cachedBalance || 0}
-               </span>
-             </div>
+
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
