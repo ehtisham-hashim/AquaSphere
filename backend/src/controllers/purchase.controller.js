@@ -74,17 +74,23 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
 
 export const createPurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { vendorId, invoiceNo, purchaseDate, receiptUrl, remarks, items, deliveredTo } = req.body;
+  const { 
+    vendorId, 
+    invoiceNo, 
+    purchaseDate, 
+    receiptUrl, 
+    remarks, 
+    items, 
+    deliveredTo,
+    status = 'RECEIVED',
+    paymentStatus = 'PAID'
+  } = req.body;
 
   if (!vendorId) throw new ApiError(400, 'Vendor is required');
 
   const vendor = await prisma[`${prefix}Vendor`].findUnique({ where: { id: vendorId } });
   if (!vendor) throw new ApiError(404, 'Vendor not found');
   if (vendor.archivedAt) throw new ApiError(400, 'Cannot record purchase for an archived vendor');
-
-  if (!receiptUrl || typeof receiptUrl !== 'string' || !receiptUrl.trim()) {
-    throw new ApiError(400, 'Bill photo/receipt URL is required');
-  }
 
   if (!Array.isArray(items) || items.length === 0) {
     throw new ApiError(400, 'Purchase must contain at least one item');
@@ -125,10 +131,11 @@ export const createPurchase = asyncHandler(async (req, res) => {
       data: {
         vendorId,
         invoiceNo: invoiceNo || `INV-${Date.now()}`,
-        receiptUrl,
+        receiptUrl: receiptUrl || null,
         remarks: remarks || '',
         deliveredTo: destination,
-        status: 'COMPLETED',
+        status: status || 'RECEIVED',
+        paymentStatus: paymentStatus || 'PAID',
         grandTotal,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
         createdBy: req.user?.name || req.user?.id || 'SYSTEM'
@@ -296,4 +303,32 @@ export const deletePurchase = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({ success: true, message: 'Purchase deleted and stock/ledger reversed successfully' });
+});
+
+export const updatePurchaseStatus = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+  const { status, paymentStatus } = req.body;
+
+  const existing = await prisma[`${prefix}Purchase`].findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, 'Purchase not found');
+
+  const updateData = {};
+  if (status) updateData.status = status;
+  if (paymentStatus) updateData.paymentStatus = paymentStatus;
+
+  const updated = await prisma[`${prefix}Purchase`].update({
+    where: { id },
+    data: updateData,
+    include: {
+      vendor: true,
+      items: {
+        include: {
+          item: true
+        }
+      }
+    }
+  });
+
+  res.json({ success: true, data: updated });
 });

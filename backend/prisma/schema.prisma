@@ -279,7 +279,8 @@ model AquaspherePurchase {
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
   deliveredTo  String    @default("FACTORY") @map("delivered_to")
-  status       String    @default("COMPLETED")
+  status       String    @default("RECEIVED")                  // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  paymentStatus String   @default("PAID") @map("payment_status") // PAID, PARTIAL, CREDIT
   verifiedBy   String?   @map("verified_by")
   verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")
@@ -794,7 +795,8 @@ model WadaanaPurchase {
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
   deliveredTo  String    @default("FACTORY") @map("delivered_to")
-  status       String    @default("COMPLETED")
+  status       String    @default("RECEIVED")                  // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  paymentStatus String   @default("PAID") @map("payment_status") // PAID, PARTIAL, CREDIT
   verifiedBy   String?   @map("verified_by")
   verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")

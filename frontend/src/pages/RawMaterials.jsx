@@ -4,9 +4,13 @@ import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
+import { useAuth } from '../context/AuthContext';
+
 const API = API_URL;
 
 export default function RawMaterials() {
+  const { user } = useAuth();
+  const isMarketingManager = user?.role === 'MARKETING_MANAGER';
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,16 +42,28 @@ export default function RawMaterials() {
   }, [fetchMaterials]);
 
   const handleOpenAdd = () => {
+    if (isMarketingManager) {
+      toast.error('Marketing Manager cannot edit or add stock directly');
+      return;
+    }
     setEditingItem(null);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (item) => {
+    if (isMarketingManager) {
+      toast.error('Marketing Manager cannot edit stock directly');
+      return;
+    }
     setEditingItem(item);
     setIsModalOpen(true);
   };
 
   const handleToggleArchive = async (item) => {
+    if (isMarketingManager) {
+      toast.error('Marketing Manager cannot archive or delete materials');
+      return;
+    }
     const isArchived = !!item.archivedAt;
     const action = isArchived ? 'restore' : 'archive';
     if (!confirm(`Are you sure you want to ${action} "${item.name}"?`)) return;
@@ -85,6 +101,7 @@ export default function RawMaterials() {
         onToggleArchived={setIncludeArchived}
         onOpenAdd={handleOpenAdd}
         tenant={tenant}
+        isMarketingManager={isMarketingManager}
       />
 
       <RawMaterialsTable 
@@ -93,6 +110,7 @@ export default function RawMaterials() {
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
         tenant={tenant}
+        isMarketingManager={isMarketingManager}
       />
 
       <AddEditRawMaterialModal 
