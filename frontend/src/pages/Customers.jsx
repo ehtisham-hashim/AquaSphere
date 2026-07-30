@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, RotateCcw } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { API_URL } from '../utils/api';
+import { toast } from 'sonner';
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCustomers = async (q = '') => {
+  const fetchCustomers = async (q = search, tab = activeTab) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/customers?search=${q}`, { credentials: 'include' });
+      const statusParam = tab === 'Archived' ? 'archived' : 'active';
+      const res = await fetch(`${API_URL}/customers?search=${q}&status=${statusParam}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) setCustomers(json.data);
     } catch {
@@ -24,8 +27,36 @@ export default function Customers() {
   };
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    fetchCustomers(search, activeTab);
+  }, [activeTab]);
+
+  const handleRestoreCustomer = async (c) => {
+    if (!window.confirm(`Are you sure you want to restore ${c.name}?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/customers/${c.id}/restore`, {
+        method: 'PATCH',
+        headers: { 'x-tenant': localStorage.getItem('tenant') || 'aquasphere' },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Customer ${c.name} unarchived successfully!`);
+        fetchCustomers(search, activeTab);
+      } else {
+        toast.error(json.message || 'Failed to restore customer');
+      }
+    } catch {
+      toast.error('Error restoring customer');
+    }
+  };
+
+  const handleRowClick = (customer, action = 'view') => {
+    if (action === 'restore') {
+      handleRestoreCustomer(customer);
+    } else {
+      setSelectedCustomer(customer);
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -35,11 +66,11 @@ export default function Customers() {
           onClose={() => setSelectedCustomer(null)}
           onCustomerUpdated={(updated) => {
             setSelectedCustomer(updated);
-            fetchCustomers(search);
+            fetchCustomers(search, activeTab);
           }}
           onCustomerDeleted={() => {
             setSelectedCustomer(null);
-            fetchCustomers(search);
+            fetchCustomers(search, activeTab);
           }}
         />
       ) : (
@@ -49,29 +80,45 @@ export default function Customers() {
               <h2 className="text-2xl font-bold text-slate-800">Customers</h2>
               <p className="text-slate-500 text-sm">Manage your customer database and credit limits</p>
             </div>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="btn-accent inline-flex items-center gap-2 w-full sm:w-auto justify-center"
-            >
-              <Plus size={20} /> Add Customer
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border border-slate-200">
+                <button
+                  onClick={() => setActiveTab('Active')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'Active' ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Active Customers
+                </button>
+                <button
+                  onClick={() => setActiveTab('Archived')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'Archived' ? 'bg-white text-red-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Archived (Soft Deleted)
+                </button>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="btn-accent inline-flex items-center gap-2 justify-center"
+              >
+                <Plus size={18} /> Add Customer
+              </button>
+            </div>
           </div>
           
           <div className="mb-6 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="search" 
               placeholder="Search by phone or name..." 
               className="input-field pl-10"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); fetchCustomers(e.target.value); }}
+              onChange={(e) => { setSearch(e.target.value); fetchCustomers(e.target.value, activeTab); }}
             />
           </div>
 
           <CustomersTable
             customers={customers}
             isLoading={isLoading}
-            onRowClick={(c) => setSelectedCustomer(c)}
+            onRowClick={handleRowClick}
           />
         </>
       )}
@@ -79,7 +126,7 @@ export default function Customers() {
       <AddCustomerModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onCustomerAdded={() => fetchCustomers(search)} 
+        onCustomerAdded={() => fetchCustomers(search, activeTab)} 
       />
     </div>
   );

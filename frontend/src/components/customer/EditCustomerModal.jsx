@@ -329,15 +329,10 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Current Debt (Rs)</label>
-                <input
-                  name="currentBalance"
-                  type="number"
-                  step="0.01"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.currentBalance !== undefined ? formData.currentBalance : ''}
-                  onChange={handleChange}
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Current Debt (Auto-Calculated)</label>
+                <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-800 cursor-not-allowed">
+                  Rs. {parseFloat(formData.currentBalance || 0).toLocaleString()}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Security Deposit (Rs)</label>

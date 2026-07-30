@@ -249,16 +249,24 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
       });
 
-      // Reduce customer debt / deposit
+      // Reduce customer debt and restore security deposit if drawn previously
       let debtReduction = 0;
+      let depositRestored = 0;
+
       if (currentDebt > 0) {
         debtReduction = Math.min(currentDebt, cash);
+      }
+
+      const remainingCashAfterDebt = cash - debtReduction;
+      if (remainingCashAfterDebt > 0) {
+        depositRestored = remainingCashAfterDebt;
       }
 
       await tx[`${prefix}Customer`].update({
         where: { id: o.customerId },
         data: {
-          ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } })
+          ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } }),
+          ...(depositRestored > 0 && { deposit: { increment: depositRestored } })
         }
       });
 
