@@ -53,12 +53,18 @@ export default function RawMaterials() {
     if (!confirm(`Are you sure you want to ${action} "${item.name}"?`)) return;
 
     try {
-      await fetch(`${API}/items/${item.id}/${action}`, {
+      const res = await fetch(`${API}/items/${item.id}/${action}`, {
         method: 'PATCH',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
-      fetchMaterials();
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Material ${action}d successfully`);
+        fetchMaterials();
+      } else {
+        toast.error(data.message || `Only Owner and Accountant can ${action} materials`);
+      }
     } catch (err) {
       toast.error(`Failed to ${action} material`);
     }

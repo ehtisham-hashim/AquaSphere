@@ -728,6 +728,14 @@ model WadaanaProductionBatch {
   remarks             String?
   packs05L            Int      @default(0) @map("packs_05l")      // 0.5L packs produced (good output)
   packs15L            Int      @default(0) @map("packs_15l")      // 1.5L packs produced (good output)
+  qtyPure05L          Int      @default(0) @map("qty_pure_05l")   // 0.5L Pure preform bottles produced
+  qtyPure15L          Int      @default(0) @map("qty_pure_15l")   // 1.5L Pure preform bottles produced
+  qtyMix05L           Int      @default(0) @map("qty_mix_05l")    // 0.5L Mix preform bottles produced
+  qtyMix15L           Int      @default(0) @map("qty_mix_15l")    // 1.5L Mix preform bottles produced
+  brokenPure05L       Int      @default(0) @map("broken_pure_05l")
+  brokenPure15L       Int      @default(0) @map("broken_pure_15l")
+  brokenMix05L        Int      @default(0) @map("broken_mix_05l")
+  brokenMix15L        Int      @default(0) @map("broken_mix_15l")
   brokenBottles05L    Int      @default(0) @map("broken_bottles_05l")
   brokenBottles15L    Int      @default(0) @map("broken_bottles_15l")
   batchDate           DateTime @default(now()) @map("batch_date")

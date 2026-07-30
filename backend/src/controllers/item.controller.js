@@ -220,3 +220,26 @@ export const adjustInventory = asyncHandler(async (req, res) => {
 
   res.json({ success: true, data: updatedItem });
 });
+
+export const getInventoryTransactions = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { type, limit = 100 } = req.query;
+
+  const whereClause = {};
+  if (type) {
+    whereClause.item = { type };
+  }
+
+  const txns = await prisma[`${prefix}InventoryTransaction`].findMany({
+    where: whereClause,
+    include: {
+      item: {
+        select: { id: true, name: true, type: true, unit: true, cachedQty: true }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: parseInt(limit) || 100
+  });
+
+  res.json({ success: true, data: txns });
+});
