@@ -19,6 +19,7 @@ import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import Reports from './pages/Reports';
 import DailyClose from './pages/dailyClose/index';
+import Inventory from './pages/Inventory';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -50,6 +51,7 @@ function AppRoutes() {
         <Route path="vendors" element={<Vendors />} />
         <Route path="purchases" element={<Purchases />} />
         <Route path="raw-materials" element={<RawMaterials />} />
+        <Route path="inventory" element={<Inventory />} />
         <Route path="production" element={<Production />} />
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />

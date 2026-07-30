@@ -34,6 +34,7 @@ export const SIDEBAR_ROUTES = {
   COUNTER_SALES: '/counter-sales',
   USERS: '/users',
   DAILY_CLOSE: '/daily-close',
+  INVENTORY: '/inventory',
 };
 
 /**

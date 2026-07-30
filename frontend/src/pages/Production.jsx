@@ -5,8 +5,7 @@ import {
   Plus, 
   X, 
   Scale, 
-  RefreshCw,
-  PackageCheck
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
@@ -22,7 +21,6 @@ export default function Production() {
   const [items, setItems] = useState([]);
   const [, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('batches'); // 'batches' | 'inventory'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -298,230 +296,144 @@ export default function Production() {
         </div>
       </div>
 
-      {/* Navigation Tab Bar (Matching Orders.jsx Tab Bar UI) */}
-      <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200/80 gap-1.5 w-fit">
-        <button 
-          onClick={() => setActiveTab('batches')}
-          className={`px-5 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center gap-2 ${
-            activeTab === 'batches' 
-              ? 'bg-white shadow-sm text-slate-800 border border-slate-200' 
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-          }`}
-        >
-          <Factory className="w-4 h-4 text-slate-600" />
-          <span>Production Batches & Audit Trail</span>
-          <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-black">
-            {batches.length}
-          </span>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('inventory')}
-          className={`px-5 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center gap-2 ${
-            activeTab === 'inventory' 
-              ? 'bg-white shadow-sm text-slate-800 border border-slate-200' 
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-          }`}
-        >
-          <PackageCheck className={`w-4 h-4 ${isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'}`} />
-          <span>Finished Goods Stock</span>
-        </button>
-      </div>
-
-      {/* Finished Goods Stock Table (Visible when Finished Goods Stock Tab is active) */}
-      {activeTab === 'inventory' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+      {/* Finished Goods Inventory Summary Cards */}
+      {!isWadaana ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <PackageCheck className={`w-5 h-5 ${isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'}`} />
-                Finished Goods Available Stock
-              </h3>
-              <p className="text-xs text-slate-500">Live finished goods inventory levels updated from production output</p>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Finished 0.5L Packs</span>
+              <div className="text-xl font-black text-emerald-700">
+                {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('0.5'))?.cachedQty || 0).toLocaleString()} Packs
+              </div>
+              <span className="text-[11px] text-slate-500">12 bottles per pack (9L water)</span>
             </div>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-              {isWadaana ? 'Bulk Single Preforms' : 'Packs & 19L Refills'}
-            </span>
+            <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-xs">0.5L PET</div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="p-3.5">Finished Product</th>
-                  <th className="p-3.5">Category / Specification</th>
-                  <th className="p-3.5">Available Stock</th>
-                  <th className="p-3.5">Reorder Alert Level</th>
-                  <th className="p-3.5">Stock Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isWadaana ? (
-                  /* Wadaana 4 Preform Bottle Rows */
-                  [
-                    { name: '0.5L Pure Preform Bottle (15g)', weight: '15g', type: 'Pure Preform', search: ['pure', '0.5'] },
-                    { name: '1.5L Pure Preform Bottle (30g)', weight: '30g', type: 'Pure Preform', search: ['pure', '1.5'] },
-                    { name: '0.5L Mix Preform Bottle (13g)', weight: '13g', type: 'Mix Preform', search: ['mix', '0.5'] },
-                    { name: '1.5L Mix Preform Bottle (27g)', weight: '27g', type: 'Mix Preform', search: ['mix', '1.5'] },
-                  ].map((p, idx) => {
-                    const item = items.find(i => p.search.every(s => i.name.toLowerCase().includes(s)));
-                    const qty = Number(item?.cachedQty || 0);
-                    const reorder = Number(item?.reorderLevel || 100);
-                    const isLow = qty <= reorder;
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Finished 1.5L Packs</span>
+              <div className="text-xl font-black text-purple-700">
+                {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('1.5'))?.cachedQty || 0).toLocaleString()} Packs
+              </div>
+              <span className="text-[11px] text-slate-500">6 bottles per pack (12L water)</span>
+            </div>
+            <div className="p-3 bg-purple-50 text-purple-700 rounded-xl font-bold text-xs">1.5L PET</div>
+          </div>
 
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3.5 font-bold text-slate-800">{p.name}</td>
-                        <td className="p-3.5">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${p.type.includes('Pure') ? 'bg-cyan-50 text-cyan-700 border border-cyan-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                            {p.type} &bull; {p.weight}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono text-base font-black text-slate-800">
-                          {qty.toLocaleString()} <span className="text-xs font-normal text-slate-500">pcs</span>
-                        </td>
-                        <td className="p-3.5 font-mono text-xs font-semibold text-slate-500">{reorder} pcs</td>
-                        <td className="p-3.5">
-                          {isLow ? (
-                            <span className="px-2.5 py-1 rounded text-rose-700 bg-rose-50 border border-rose-200 font-bold text-xs">Low Stock</span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs">In Stock</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  /* AquaSphere 3 Product Rows */
-                  [
-                    { name: 'AquaSphere 0.5L PET Pack (12 bottles)', spec: '12 bottles / pack', type: '0.5L PET', search: ['0.5'] },
-                    { name: 'AquaSphere 1.5L PET Pack (6 bottles)', spec: '6 bottles / pack', type: '1.5L PET', search: ['1.5'] },
-                    { name: 'AquaSphere 19L PC Refill Bottle', spec: '24L water / bottle', type: '19L PC', search: ['19'] },
-                  ].map((p, idx) => {
-                    const item = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes(p.search[0]));
-                    const qty = Number(item?.cachedQty || 0);
-                    const reorder = Number(item?.reorderLevel || 10);
-                    const isLow = qty <= reorder;
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">19L Bottle Stock</span>
+              <div className="text-xl font-black text-blue-900">
+                {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('19'))?.cachedQty || 0).toLocaleString()} Bottles
+              </div>
+              <span className="text-[11px] text-slate-500">24L water per refill bottle</span>
+            </div>
+            <div className="p-3 bg-blue-50 text-blue-700 rounded-xl font-bold text-xs">19L PC</div>
+          </div>
+        </div>
+      ) : (
+        /* Wadaana 4 Single Preform Bottle Cards */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-cyan-600 uppercase tracking-wider block mb-0.5">0.5L Pure Bottles</span>
+              <div className="text-xl font-black text-cyan-700">
+                {(items.find(i => i.name.toLowerCase().includes('pure') && i.name.toLowerCase().includes('0.5'))?.cachedQty || 0).toLocaleString()} Pcs
+              </div>
+              <span className="text-[11px] text-slate-500">15g Preform Bottle</span>
+            </div>
+            <div className="p-2.5 bg-cyan-50 text-cyan-700 rounded-xl font-bold text-xs">Pure 0.5L</div>
+          </div>
 
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3.5 font-bold text-slate-800">{p.name}</td>
-                        <td className="p-3.5">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                            {p.type} &bull; {p.spec}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-mono text-base font-black text-slate-800">
-                          {qty.toLocaleString()} <span className="text-xs font-normal text-slate-500">{p.type.includes('19L') ? 'bottles' : 'packs'}</span>
-                        </td>
-                        <td className="p-3.5 font-mono text-xs font-semibold text-slate-500">{reorder} {p.type.includes('19L') ? 'bottles' : 'packs'}</td>
-                        <td className="p-3.5">
-                          {isLow ? (
-                            <span className="px-2.5 py-1 rounded text-rose-700 bg-rose-50 border border-rose-200 font-bold text-xs">Low Stock</span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs">In Stock</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-sky-600 uppercase tracking-wider block mb-0.5">1.5L Pure Bottles</span>
+              <div className="text-xl font-black text-sky-700">
+                {(items.find(i => i.name.toLowerCase().includes('pure') && i.name.toLowerCase().includes('1.5'))?.cachedQty || 0).toLocaleString()} Pcs
+              </div>
+              <span className="text-[11px] text-slate-500">30g Preform Bottle</span>
+            </div>
+            <div className="p-2.5 bg-sky-50 text-sky-700 rounded-xl font-bold text-xs">Pure 1.5L</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block mb-0.5">0.5L Mix Bottles</span>
+              <div className="text-xl font-black text-amber-700">
+                {(items.find(i => i.name.toLowerCase().includes('mix') && i.name.toLowerCase().includes('0.5'))?.cachedQty || 0).toLocaleString()} Pcs
+              </div>
+              <span className="text-[11px] text-slate-500">13g Preform Bottle</span>
+            </div>
+            <div className="p-2.5 bg-amber-50 text-amber-700 rounded-xl font-bold text-xs">Mix 0.5L</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <span className="text-xs font-bold text-orange-600 uppercase tracking-wider block mb-0.5">1.5L Mix Bottles</span>
+              <div className="text-xl font-black text-orange-700">
+                {(items.find(i => i.name.toLowerCase().includes('mix') && i.name.toLowerCase().includes('1.5'))?.cachedQty || 0).toLocaleString()} Pcs
+              </div>
+              <span className="text-[11px] text-slate-500">27g Preform Bottle</span>
+            </div>
+            <div className="p-2.5 bg-orange-50 text-orange-700 rounded-xl font-bold text-xs">Mix 1.5L</div>
           </div>
         </div>
       )}
 
-      {/* Production History Table (Visible when Batches Tab is active) */}
-      {activeTab === 'batches' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <Factory className="w-5 h-5 text-slate-600" />
-                Production History & Batch Audit Trail
-              </h3>
-              <p className="text-xs text-slate-500">Read-only audit log of past production runs</p>
-            </div>
-            <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200">
-              Total Batches: {batches.length}
-            </span>
+      {/* Production History Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Factory className="w-5 h-5 text-slate-600" />
+              Production History & Batch Audit Trail
+            </h3>
+            <p className="text-xs text-slate-500">Read-only audit log of past production runs</p>
           </div>
+          <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200">
+            Total Batches: {batches.length}
+          </span>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="p-3.5">Batch ID & Date</th>
-                  {!isWadaana ? (
-                    <>
-                      <th className="p-3.5">Output (0.5L Packs)</th>
-                      <th className="p-3.5">Output (1.5L Packs)</th>
-                      <th className="p-3.5">Output (19L)</th>
-                      <th className="p-3.5">Total Water Treated</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="p-3.5">0.5L Pure</th>
-                      <th className="p-3.5">1.5L Pure</th>
-                      <th className="p-3.5">0.5L Mix</th>
-                      <th className="p-3.5">1.5L Mix</th>
-                      <th className="p-3.5">Total Output</th>
-                    </>
-                  )}
-                  {!isWadaana && <th className="p-3.5">Breakage / Waste</th>}
-                  <th className="p-3.5">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {batches.length === 0 ? (
-                  <tr>
-                    <td colSpan={isWadaana ? "7" : "7"} className="p-8 text-center text-slate-400">No production batches recorded.</td>
-                  </tr>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th className="p-3.5">Batch ID & Date</th>
+                {!isWadaana ? (
+                  <>
+                    <th className="p-3.5">Output (0.5L Packs)</th>
+                    <th className="p-3.5">Output (1.5L Packs)</th>
+                    <th className="p-3.5">Output (19L)</th>
+                    <th className="p-3.5">Total Water Treated</th>
+                  </>
                 ) : (
-                  batches.map(b => {
-                    if (isWadaana) {
-                      const p05 = b.qtyPure05L || 0;
-                      const p15 = b.qtyPure15L || 0;
-                      const m05 = b.qtyMix05L || 0;
-                      const m15 = b.qtyMix15L || 0;
-                      const totalBottles = p05 + p15 + m05 + m15;
-
-                      return (
-                        <tr key={b.id} className="hover:bg-slate-50">
-                          <td className="p-3.5">
-                            <span className="font-mono font-bold text-slate-800">#{b.id.substring(0, 8).toUpperCase()}</span>
-                            <span className="text-xs text-slate-400 block">{new Date(b.createdAt).toLocaleString()}</span>
-                          </td>
-                          <td className="p-3.5 font-bold text-cyan-600">+{p05} pcs</td>
-                          <td className="p-3.5 font-bold text-sky-600">+{p15} pcs</td>
-                          <td className="p-3.5 font-bold text-amber-600">+{m05} pcs</td>
-                          <td className="p-3.5 font-bold text-orange-600">+{m15} pcs</td>
-                          <td className="p-3.5 font-bold text-slate-800">{totalBottles.toLocaleString()} Bottles</td>
-                          <td className="p-3.5 text-xs">
-                            {b.status === 'COMPLETED' ? (
-                              <span className="px-2 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-medium">Completed</span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>
-                                <button onClick={() => { setCompletingBatchId(b.id); setIsCompleteModalOpen(true); }} className="px-2 py-1 bg-[#0ea5e9] text-white rounded text-xs hover:bg-sky-500 font-medium transition shadow-sm">
-                                  Confirm & Complete
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    // AquaSphere Row
-                    const p05 = b.packs05L || 0;
-                    const p15 = b.packs15L || 0;
-                    const qty = b.quantity || 0;
-                    const litres = (p05 * 6) + (p15 * 9) + (qty * 19);
-                    const b05 = b.brokenBottles05L || 0;
-                    const b15 = b.brokenBottles15L || 0;
-                    const w19 = b.wasteQuantity || 0;
+                  <>
+                    <th className="p-3.5">0.5L Pure</th>
+                    <th className="p-3.5">1.5L Pure</th>
+                    <th className="p-3.5">0.5L Mix</th>
+                    <th className="p-3.5">1.5L Mix</th>
+                    <th className="p-3.5">Total Output</th>
+                  </>
+                )}
+                {!isWadaana && <th className="p-3.5">Breakage / Waste</th>}
+                <th className="p-3.5">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {batches.length === 0 ? (
+                <tr>
+                  <td colSpan={isWadaana ? "7" : "7"} className="p-8 text-center text-slate-400">No production batches recorded.</td>
+                </tr>
+              ) : (
+                batches.map(b => {
+                  if (isWadaana) {
+                    const p05 = b.qtyPure05L || 0;
+                    const p15 = b.qtyPure15L || 0;
+                    const m05 = b.qtyMix05L || 0;
+                    const m15 = b.qtyMix15L || 0;
+                    const totalBottles = p05 + p15 + m05 + m15;
 
                     return (
                       <tr key={b.id} className="hover:bg-slate-50">
@@ -529,26 +441,18 @@ export default function Production() {
                           <span className="font-mono font-bold text-slate-800">#{b.id.substring(0, 8).toUpperCase()}</span>
                           <span className="text-xs text-slate-400 block">{new Date(b.createdAt).toLocaleString()}</span>
                         </td>
-                        <td className="p-3.5 font-bold text-emerald-600">+{p05} packs</td>
-                        <td className="p-3.5 font-bold text-purple-600">+{p15} packs</td>
-                        <td className="p-3.5 font-bold text-blue-600">+{qty} bottles</td>
-                        <td className="p-3.5 font-mono font-medium text-slate-700">{litres} Litres</td>
-                        <td className="p-3.5">
-                          {(b05 > 0 || b15 > 0 || w19 > 0) ? (
-                            <span className="text-rose-600 font-semibold text-xs bg-rose-50 px-2 py-1 rounded-md">
-                              {b05 + b15 + w19} broken/waste
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Clean</span>
-                          )}
-                        </td>
+                        <td className="p-3.5 font-bold text-cyan-600">+{p05} pcs</td>
+                        <td className="p-3.5 font-bold text-sky-600">+{p15} pcs</td>
+                        <td className="p-3.5 font-bold text-amber-600">+{m05} pcs</td>
+                        <td className="p-3.5 font-bold text-orange-600">+{m15} pcs</td>
+                        <td className="p-3.5 font-bold text-slate-800">{totalBottles.toLocaleString()} Bottles</td>
                         <td className="p-3.5 text-xs">
                           {b.status === 'COMPLETED' ? (
                             <span className="px-2 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-medium">Completed</span>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>
-                              <button onClick={() => { setCompletingBatchId(b.id); setIsCompleteModalOpen(true); }} className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm">
+                              <button onClick={() => { setCompletingBatchId(b.id); setIsCompleteModalOpen(true); }} className="px-2 py-1 bg-[#0ea5e9] text-white rounded text-xs hover:bg-sky-500 font-medium transition shadow-sm">
                                 Confirm & Complete
                               </button>
                             </div>
@@ -556,13 +460,56 @@ export default function Production() {
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  }
+
+                  // AquaSphere Row
+                  const p05 = b.packs05L || 0;
+                  const p15 = b.packs15L || 0;
+                  const qty = b.quantity || 0;
+                  const litres = (p05 * 6) + (p15 * 9) + (qty * 19);
+                  const b05 = b.brokenBottles05L || 0;
+                  const b15 = b.brokenBottles15L || 0;
+                  const w19 = b.wasteQuantity || 0;
+
+                  return (
+                    <tr key={b.id} className="hover:bg-slate-50">
+                      <td className="p-3.5">
+                        <span className="font-mono font-bold text-slate-800">#{b.id.substring(0, 8).toUpperCase()}</span>
+                        <span className="text-xs text-slate-400 block">{new Date(b.createdAt).toLocaleString()}</span>
+                      </td>
+                      <td className="p-3.5 font-bold text-emerald-600">+{p05} packs</td>
+                      <td className="p-3.5 font-bold text-purple-600">+{p15} packs</td>
+                      <td className="p-3.5 font-bold text-blue-600">+{qty} bottles</td>
+                      <td className="p-3.5 font-mono font-medium text-slate-700">{litres} Litres</td>
+                      <td className="p-3.5">
+                        {(b05 > 0 || b15 > 0 || w19 > 0) ? (
+                          <span className="text-rose-600 font-semibold text-xs bg-rose-50 px-2 py-1 rounded-md">
+                            {b05 + b15 + w19} broken/waste
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Clean</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-xs">
+                        {b.status === 'COMPLETED' ? (
+                          <span className="px-2 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-medium">Completed</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>
+                            <button onClick={() => { setCompletingBatchId(b.id); setIsCompleteModalOpen(true); }} className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm">
+                              Confirm & Complete
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* Log Production Run Modal */}
       {isModalOpen && (

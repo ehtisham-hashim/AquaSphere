@@ -17,7 +17,8 @@ import {
   Droplets,
   Building2,
   X,
-  ShieldCheck
+  ShieldCheck,
+  Boxes
 } from 'lucide-react';
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { icon: Truck, label: 'Orders', path: '/orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },
+  { icon: Boxes, label: 'Finished Goods', path: '/inventory' },
   { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
   { icon: RefreshCcw, label: 'Bottle Ledger', path: '/bottle-ledger' },
   { icon: ShoppingCart, label: 'Purchases', path: '/purchases' },
