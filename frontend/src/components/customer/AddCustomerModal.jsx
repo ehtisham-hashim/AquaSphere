@@ -178,76 +178,37 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             
             {!isWadaana ? (
               /* Aquasphere Buying Options */
-              <div className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys19L"
-                      checked={formData.buys19L}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>19L Bottles</span>
-                  </label>
-                  {formData.buys19L && (
-                    <input
-                      type="number"
-                      name="qty19L"
-                      min="0"
-                      value={formData.qty19L}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys05LPet"
-                      checked={formData.buys05LPet}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>0.5L PET</span>
-                  </label>
-                  {formData.buys05LPet && (
-                    <input
-                      type="number"
-                      name="qty05LPet"
-                      min="0"
-                      value={formData.qty05LPet}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys15LPet"
-                      checked={formData.buys15LPet}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>1.5L PET</span>
-                  </label>
-                  {formData.buys15LPet && (
-                    <input
-                      type="number"
-                      name="qty15LPet"
-                      min="0"
-                      value={formData.qty15LPet}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
+              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys19L"
+                    checked={formData.buys19L}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>19L Bottles</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys05LPet"
+                    checked={formData.buys05LPet}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>0.5L PET</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys15LPet"
+                    checked={formData.buys15LPet}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>1.5L PET</span>
+                </label>
               </div>
             ) : (
               /* Wadaana Pure/Mix Preform Bottles Hierarchy */
@@ -257,53 +218,27 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     <span className="w-2 h-2 rounded-full bg-[#0ea5e9]"></span>
                     Pure Preform Bottles
                   </div>
-                  <div className="space-y-2 pl-3.5 border-l-2 border-[#0ea5e9]/30">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysPure05L"
-                          checked={formData.buysPure05L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
-                        />
-                        <span>0.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(15g)</span></span>
-                      </label>
-                      {formData.buysPure05L && (
-                        <input
-                          type="number"
-                          name="qtyPure05L"
-                          min="0"
-                          value={formData.qtyPure05L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysPure15L"
-                          checked={formData.buysPure15L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
-                        />
-                        <span>1.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(30g)</span></span>
-                      </label>
-                      {formData.buysPure15L && (
-                        <input
-                          type="number"
-                          name="qtyPure15L"
-                          min="0"
-                          value={formData.qtyPure15L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                        />
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 pl-3.5 border-l-2 border-[#0ea5e9]/30">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysPure05L"
+                        checked={formData.buysPure05L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
+                      />
+                      <span>0.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(15g)</span></span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysPure15L"
+                        checked={formData.buysPure15L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
+                      />
+                      <span>1.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(30g)</span></span>
+                    </label>
                   </div>
                 </div>
 
@@ -312,53 +247,27 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                     Mix Preform Bottles
                   </div>
-                  <div className="space-y-2 pl-3.5 border-l-2 border-amber-500/30">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysMix05L"
-                          checked={formData.buysMix05L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                        />
-                        <span>0.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(13g)</span></span>
-                      </label>
-                      {formData.buysMix05L && (
-                        <input
-                          type="number"
-                          name="qtyMix05L"
-                          min="0"
-                          value={formData.qtyMix05L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysMix15L"
-                          checked={formData.buysMix15L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                        />
-                        <span>1.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(27g)</span></span>
-                      </label>
-                      {formData.buysMix15L && (
-                        <input
-                          type="number"
-                          name="qtyMix15L"
-                          min="0"
-                          value={formData.qtyMix15L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                        />
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 pl-3.5 border-l-2 border-amber-500/30">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysMix05L"
+                        checked={formData.buysMix05L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <span>0.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(13g)</span></span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysMix15L"
+                        checked={formData.buysMix15L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <span>1.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(27g)</span></span>
+                    </label>
                   </div>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { isPageAllowedForRole } from '../../constants/roleAccess';
 import { 
   BarChart3, 
   Truck, 
@@ -72,28 +73,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-5 px-4 space-y-2">
         {navItems
-          .filter(item => {
-            const role = user?.role;
-            if (role === 'ADMIN' && item.path === '/users') return false;
-            if (role === 'PRODUCTION_MANAGER' && item.path === '/users') return false;
-            
-            // Owner and Accountant have NO bottle ledger page per role spec
-            if ((role === 'OWNER' || role === 'ACCOUNTANT') && item.path === '/bottle-ledger') return false;
-
-            if (isWadaana) {
-              // Counter Sales is exclusively for AquaSphere
-              if (item.path === '/counter-sales') return false;
-              
-              // Wadaana Accountant: Remove Production
-              if (role === 'ACCOUNTANT' && item.path === '/production') return false;
-            } else {
-              // AquaSphere Accountant: Remove Production and Reports
-              if (role === 'ACCOUNTANT' && (item.path === '/production' || item.path === '/reports')) return false;
-              // Production manager: keep inventory & purchase-focused screens
-              if (role === 'PRODUCTION_MANAGER' && (item.path === '/orders' || item.path === '/customers' || item.path === '/users' || item.path === '/counter-sales' || item.path === '/expenses' || item.path === '/vendors' || item.path === '/reports')) return false;
-            }
-            return true;
-          })
+          .filter(item => isPageAllowedForRole(user?.role, item.path, currentTenant))
           .map((item) => {
           const Icon = item.icon;
           return (

@@ -13,7 +13,7 @@ const getTenantPrefix = (req) => {
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
-    include: { customer: true, items: { include: { item: true } } },
+    include: { customer: true, items: { include: { item: true } }, payments: true },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
@@ -28,8 +28,28 @@ export const createOrder = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  const orderTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.quantity)), 0);
-  const totalQty = items.reduce((sum, i) => sum + parseInt(i.quantity), 0);
+  // Resolve each order item to a real DB Item record (find-or-create by productName)
+  const resolvedItems = [];
+  for (const i of items) {
+    let dbItemId = i.itemId;
+    // If itemId is not a UUID (catalog-only ID like PURE_05L), find or create the Item
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbItemId);
+    if (!isUUID && i.productName) {
+      let dbItem = await prisma[`${prefix}Item`].findFirst({
+        where: { name: { equals: i.productName, mode: 'insensitive' }, archivedAt: null }
+      });
+      if (!dbItem) {
+        dbItem = await prisma[`${prefix}Item`].create({
+          data: { name: i.productName, type: 'FINISHED_GOOD', unit: 'Bottles', cachedQty: 0 }
+        });
+      }
+      dbItemId = dbItem.id;
+    }
+    resolvedItems.push({ itemId: dbItemId, quantity: parseInt(i.quantity), price: parseFloat(i.price) });
+  }
+
+  const orderTotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const totalQty = resolvedItems.reduce((sum, i) => sum + i.quantity, 0);
 
   // Quantity soft-block check based on customer type
   const qtyThresholds = {
@@ -66,21 +86,20 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   // 2. Check Bottle Security Deposit Soft-Block (for 19L orders)
-  // Assuming a standard security deposit of Rs 1000 per 19L bottle
   const BOTTLE_SECURITY_RATE = 1000;
   
-  const itemIds = items.map(i => i.itemId);
-  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } });
+  const resolvedItemIds = resolvedItems.map(i => i.itemId);
+  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItemIds } } });
   
-  const qty19LOrdered = items.reduce((sum, i) => {
+  const qty19LOrdered = resolvedItems.reduce((sum, i) => {
     const dbItem = dbItems.find(di => di.id === i.itemId);
     if (dbItem && dbItem.name.toLowerCase().includes('19l')) {
-      return sum + parseInt(i.quantity);
+      return sum + i.quantity;
     }
     return sum;
   }, 0);
 
-  if (qty19LOrdered > 0 && !bypassCreditCheck) { // Re-using bypassCreditCheck flag for both for now, or could use a separate one
+  if (qty19LOrdered > 0 && !bypassCreditCheck) {
     const currentBottles = parseInt(customer.cachedBottleBalance || 0);
     const newBottleBalance = currentBottles + qty19LOrdered;
     const coveredBottles = Math.floor(parseInt(customer.deposit || 0) / BOTTLE_SECURITY_RATE);
@@ -104,10 +123,10 @@ export const createOrder = asyncHandler(async (req, res) => {
         remarks,
         paymentStatus: paymentStatus || 'UNPAID',
         items: {
-          create: items.map(i => ({
+          create: resolvedItems.map(i => ({
             itemId: i.itemId,
-            quantity: parseInt(i.quantity),
-            price: parseFloat(i.price)
+            quantity: i.quantity,
+            price: i.price
           }))
         }
       },
@@ -120,7 +139,7 @@ export const createOrder = asyncHandler(async (req, res) => {
         entityType: 'Order',
         entityId: o.id,
         performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ customerId, type, items: items.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price })) })
+        details: JSON.stringify({ customerId, type, items: resolvedItems.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price })) })
       }
     });
 
@@ -190,11 +209,11 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       where: { id }, 
       include: { 
         items: { include: { item: true } }, 
-        customer: true 
+        customer: true,
+        payments: true
       } 
     });
     if (!o) throw new ApiError(404, 'Order not found');
-    if (o.deliveryStatus === 'DELIVERED') throw new ApiError(400, 'Order is already delivered');
 
     const qty = parseInt(qtyDelivered || 0); // 19L delivered
     const retGood = parseInt(bottlesReturnedGood || 0);
@@ -203,6 +222,67 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const q15 = parseInt(qty15LDelivered || 0);
     const cash = parseFloat(cashReceived || 0);
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    
+    // Calculate total already paid on this order across all payment entries
+    const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+    const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
+
+    const currentDebt = Math.max(0, parseFloat(o.customer.currentBalance || 0));
+    const maxPayable = remainingOrderBalance + currentDebt;
+
+    if (cash > maxPayable && maxPayable > 0) {
+      throw new ApiError(400, `Cash received (Rs. ${cash}) cannot exceed total customer payable balance (Rs. ${maxPayable}).`);
+    }
+
+    // CASE 1: Order is ALREADY DELIVERED — Process Payment Settlement Run
+    if (o.deliveryStatus === 'DELIVERED') {
+      if (cash <= 0) {
+        throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
+      }
+
+      await tx[`${prefix}Payment`].create({
+        data: {
+          orderId: o.id,
+          customerId: o.customerId,
+          amount: cash,
+          type: paymentMethod || 'CASH'
+        }
+      });
+
+      // Reduce customer debt / deposit
+      let debtReduction = 0;
+      if (currentDebt > 0) {
+        debtReduction = Math.min(currentDebt, cash);
+      }
+
+      await tx[`${prefix}Customer`].update({
+        where: { id: o.customerId },
+        data: {
+          ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } })
+        }
+      });
+
+      const newTotalPaid = alreadyPaid + cash;
+      const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+
+      const updated = await tx[`${prefix}Order`].update({
+        where: { id },
+        data: { paymentStatus: newPaymentStatus },
+        include: { items: { include: { item: true } }, customer: true, payments: true }
+      });
+
+      await tx[`${prefix}AuditLog`].create({
+        data: {
+          action: 'ORDER_PAYMENT_SETTLED',
+          entityType: 'Order',
+          entityId: updated.id,
+          performedBy: req.user?.id || 'Unknown',
+          details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus })
+        }
+      });
+
+      return updated;
+    }
 
     // 19L Calculations
     const has19L = o.items.some(i => i.item.name.toLowerCase().includes('19l'));
@@ -309,13 +389,28 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Update Customer Bottle Balance and Financial Balance (Debt)
-    const balanceChange = orderTotal - cash; // Positive = debt increases
+    // Update Customer Deposit and Financial Balance (Debt)
+    const unpaidAmount = Math.max(0, orderTotal - cash);
+    const existingDeposit = parseFloat(o.customer.deposit || 0);
+
+    let depositDeduction = 0;
+    let debtAddition = 0;
+
+    if (unpaidAmount > 0) {
+      if (existingDeposit > 0) {
+        depositDeduction = Math.min(existingDeposit, unpaidAmount);
+        debtAddition = unpaidAmount - depositDeduction;
+      } else {
+        debtAddition = unpaidAmount;
+      }
+    }
+
     await tx[`${prefix}Customer`].update({
       where: { id: o.customerId },
       data: { 
         cachedBottleBalance: { increment: qty19L - retGood - retBroken },
-        currentBalance: { increment: balanceChange }
+        ...(depositDeduction > 0 && { deposit: { decrement: depositDeduction } }),
+        ...(debtAddition > 0 && { currentBalance: { increment: debtAddition } })
       }
     });
 

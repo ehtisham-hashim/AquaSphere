@@ -13,11 +13,20 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     return order.items.reduce((sum, i) => sum + i.quantity, 0);
   };
 
+  const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const alreadyPaid = order.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (order.paymentStatus === 'PAID' ? orderTotal : 0);
+  const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
+  const currentDebt = Math.max(0, parseFloat(order.customer?.currentBalance || 0));
+  const maxPayable = remainingOrderBalance + currentDebt;
+
+  const isPaymentSettlementOnly = order.deliveryStatus === 'DELIVERED' && order.paymentStatus !== 'PAID';
+
   const [deliveryData, setDeliveryData] = useState({
     qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
-    cashReceived: order.paymentStatus === 'PAID' ? 0 : (order.items?.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) || 0),
+    cashReceived: order.paymentStatus === 'PAID' ? 0 : remainingOrderBalance,
     paymentMethod: 'CASH',
     remarks: ''
   });
@@ -29,6 +38,13 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
   const submitDelivery = async (e, bypassBottleCheck = false) => {
     if (e) e.preventDefault();
+
+    const cashVal = parseFloat(deliveryData.cashReceived || 0);
+    if (cashVal > maxPayable) {
+      toast.error(`Cash received (Rs. ${cashVal}) cannot exceed total customer payable balance (Rs. ${maxPayable})`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -61,19 +77,18 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     }
   };
 
-  const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl relative">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
-              <Truck size={24} />
+            <div className={`p-2 rounded-xl ${isPaymentSettlementOnly ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'}`}>
+              {isPaymentSettlementOnly ? <DollarSign size={24} /> : <Truck size={24} />}
             </div>
             <div>
-              <h3 className="text-xl font-bold text-slate-800">Process Delivery</h3>
+              <h3 className="text-xl font-bold text-slate-800">
+                {isPaymentSettlementOnly ? 'Settle Payment & Greenlit Order' : 'Process Delivery'}
+              </h3>
               <div className="text-sm text-slate-500">Order: ORD-{order.id.substring(0,6).toUpperCase()} • {order.customer?.name}</div>
             </div>
           </div>
@@ -84,22 +99,39 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
         
         <form onSubmit={(e) => submitDelivery(e, false)} className="p-6 space-y-8">
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-             <div className="flex flex-col">
-               <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Ordered Qty</span>
-               <span className="text-lg font-bold text-slate-800">{totalItems} Units</span>
-             </div>
-             <div className="flex flex-col">
-               <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Total Value</span>
-               <span className="text-lg font-bold text-slate-800">Rs. {orderTotal}</span>
-             </div>
-             <div className="flex flex-col">
-               <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Payment Status</span>
-               <span className={`text-sm font-bold mt-1 px-2 py-0.5 rounded-full w-max ${order.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                 {order.paymentStatus}
-               </span>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               <div className="flex flex-col">
+                 <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Ordered Qty</span>
+                 <span className="text-lg font-bold text-slate-800">{totalItems} Units</span>
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Total Value</span>
+                 <span className="text-lg font-bold text-slate-800">Rs. {orderTotal}</span>
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Payment Status</span>
+                 <span className={`text-sm font-bold mt-1 px-2 py-0.5 rounded-full w-max ${order.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                   {order.paymentStatus}
+                 </span>
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Security Deposit</span>
+                 <span className="text-sm font-bold text-emerald-700 mt-1">Rs. {parseFloat(order.customer?.deposit || 0).toLocaleString()}</span>
+               </div>
              </div>
 
+             {/* Item Types Breakdown */}
+             <div className="border-t border-slate-200 pt-3">
+               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Order Items & Products</span>
+               <div className="flex flex-wrap gap-2">
+                 {order.items?.map(i => (
+                   <span key={i.id} className="text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-lg font-bold text-slate-700 shadow-2xs">
+                     {i.quantity}x {i.item?.name || 'Product'} <span className="text-slate-400 font-normal">(Rs. {parseFloat(i.price)}/ea)</span>
+                   </span>
+                 ))}
+               </div>
+             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
@@ -108,8 +140,11 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><Package size={16}/> Delivery & Bottles</h4>
                
                <div>
-                 <label className="block text-sm font-medium text-slate-700 mb-1">Quantity Delivered *</label>
-                 <input name="qtyDelivered" type="number" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.qtyDelivered} onChange={handleChange} required />
+                 <label className="block text-sm font-medium text-slate-700 mb-1">Quantity Delivered (Fixed from Order)</label>
+                 <div className="bg-slate-100 border border-slate-200 rounded-xl p-3 text-slate-800 font-bold text-sm flex justify-between items-center cursor-not-allowed">
+                   <span>{totalItems} Units</span>
+                   <span className="text-xs font-semibold text-slate-500">(Non-editable)</span>
+                 </div>
                </div>
                
                {order.type === 'NINETEEN_L' && (
@@ -130,8 +165,16 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><DollarSign size={16}/> Settlement</h4>
                
                <div>
-                 <label className="block text-sm font-medium text-slate-700 mb-1">Cash Received (Rs) *</label>
-                 <input name="cashReceived" type="number" step="0.01" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none font-bold text-slate-800" value={deliveryData.cashReceived} onChange={handleChange} required />
+                 <div className="flex justify-between items-center mb-1">
+                   <label className="block text-sm font-medium text-slate-700">Cash Received (Rs) *</label>
+                   <span className="text-[11px] font-bold text-slate-500">Max Allowed: Rs. {maxPayable}</span>
+                 </div>
+                 <input name="cashReceived" type="number" step="0.01" min="0" max={maxPayable} className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none font-bold text-slate-800" value={deliveryData.cashReceived} onChange={handleChange} required />
+                 {parseFloat(order.customer?.deposit || 0) > 0 && (
+                   <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1 inline-block font-semibold">
+                     Deposit Available: Rs. {parseFloat(order.customer?.deposit || 0)} (Unpaid order balance will auto-deduct from deposit first)
+                   </span>
+                 )}
                </div>
                
                <div>

@@ -33,21 +33,16 @@ export const PAYMENT_STATUSES = {
   PARTIAL: 'PARTIAL'
 };
 
-/**
- * Helper function to calculate default price for an item and customer
- */
 export const getOrderPrice = (item, customer) => {
-  if (!item || !item.name) return DEFAULT_ORDER_PRICES.default;
-  const name = item.name.toLowerCase();
-  if (name.includes('19l')) {
-    return parseFloat(customer?.defaultPrice || 0) || DEFAULT_ORDER_PRICES['19l'];
-  }
-  if (name.includes('500ml') || name.includes('0.5l')) {
-    return DEFAULT_ORDER_PRICES['0.5l'];
-  }
-  if (name.includes('1500ml') || name.includes('1.5l')) {
-    return DEFAULT_ORDER_PRICES['1.5l'];
-  }
+  if (!item) return 0;
+  if (typeof item.price === 'number' || !isNaN(parseFloat(item.price))) return parseFloat(item.price);
+  if (typeof item.defaultPrice === 'number') return item.defaultPrice;
+  const name = (item.name || '').toLowerCase();
+  if (name.includes('19l')) return parseFloat(customer?.defaultPrice || 0) || DEFAULT_ORDER_PRICES['19l'];
+  if (name.includes('pure') && name.includes('0.5')) return 15;
+  if (name.includes('pure') && name.includes('1.5')) return 30;
+  if (name.includes('mix') && name.includes('0.5')) return 13;
+  if (name.includes('mix') && name.includes('1.5')) return 27;
   return DEFAULT_ORDER_PRICES.default;
 };
 
@@ -57,9 +52,12 @@ export const getOrderPrice = (item, customer) => {
 export const getOrderCleanName = (item) => {
   if (!item) return '';
   const itemName = typeof item === 'string' ? item : item.name || '';
-  const name = itemName.toLowerCase();
-  if (name.includes('500ml') || name.includes('0.5l')) return ORDER_CLEAN_NAMES['0.5l'];
-  if (name.includes('1500ml') || name.includes('1.5l')) return ORDER_CLEAN_NAMES['1.5l'];
-  if (name.includes('19l')) return ORDER_CLEAN_NAMES['19l'];
+  if (!itemName) return '';
+  const name = itemName.toLowerCase().trim();
+  // Keep original detailed product names intact
+  if (name.includes('preform') || name.includes('bottle') || name.includes('pack')) return itemName;
+  if (name === '0.5l' || name === '500ml') return '0.5L Pack (12 bottles)';
+  if (name === '1.5l' || name === '1500ml') return '1.5L Pack (6 bottles)';
+  if (name === '19l') return '19L Refill';
   return itemName;
 };

@@ -18,6 +18,7 @@ export default function Production() {
 
 
   const [batches, setBatches] = useState([]);
+  const [items, setItems] = useState([]);
   const [, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,7 +38,6 @@ export default function Production() {
   const [batchDate, setBatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -52,7 +52,7 @@ export default function Production() {
       const statsData = await statsRes.json();
 
       if (itemsData.success) {
-        // Raw materials data fetched
+        setItems(itemsData.data || []);
       }
       if (batchesData.success) {
         setBatches(batchesData.data || []);
@@ -210,7 +210,41 @@ export default function Production() {
 
 
 
-      {/* Feature 5: Production History Audit Trail */}
+      {/* Finished Goods Inventory Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Finished 0.5L Packs</span>
+            <div className="text-xl font-black text-emerald-700">
+              {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('0.5'))?.cachedQty || 0).toLocaleString()} Packs
+            </div>
+            <span className="text-[11px] text-slate-500">12 bottles per pack (9L water)</span>
+          </div>
+          <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-xs">0.5L PET</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Finished 1.5L Packs</span>
+            <div className="text-xl font-black text-purple-700">
+              {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('1.5'))?.cachedQty || 0).toLocaleString()} Packs
+            </div>
+            <span className="text-[11px] text-slate-500">6 bottles per pack (12L water)</span>
+          </div>
+          <div className="p-3 bg-purple-50 text-purple-700 rounded-xl font-bold text-xs">1.5L PET</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">19L Bottle Stock</span>
+            <div className="text-xl font-black text-blue-900">
+              {(items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('19'))?.cachedQty || 0).toLocaleString()} Bottles
+            </div>
+            <span className="text-[11px] text-slate-500">24L water per refill bottle</span>
+          </div>
+          <div className="p-3 bg-blue-50 text-blue-700 rounded-xl font-bold text-xs">19L PC</div>
+        </div>
+      </div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <div>

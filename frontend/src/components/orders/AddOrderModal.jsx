@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown } from 'lucide-react';
+import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
-import { getOrderPrice as getPrice, getOrderCleanName as getCleanName } from '../../constants/orders';
+import { getTenantCatalog } from '../../constants/wadaanaProducts';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
-export default function AddOrderModal({ onClose, onOrderAdded, customers, items }) {
+export default function AddOrderModal({ onClose, onOrderAdded, customers = [], items = [] }) {
+  const activeTenant = getCompanyFromCookie() || localStorage.getItem('tenant') || 'aquasphere';
+  const isWadaana = activeTenant === 'wadaana';
+
   const todayDate = new Date().toISOString().split('T')[0];
   const [orderData, setOrderData] = useState({
     customerId: '', 
@@ -24,6 +28,32 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
 
   const selectedCustomer = customers.find(c => c.id === orderData.customerId);
 
+  // Merge DB items with tenant catalog using Map for strict deduplication
+  const catalog = getTenantCatalog(activeTenant, selectedCustomer);
+  const itemMap = new Map();
+
+  catalog.forEach(catItem => {
+    const normKey = catItem.name.toLowerCase().trim();
+    if (!itemMap.has(normKey)) {
+      const dbMatch = items.find(i => i.name.toLowerCase().trim() === normKey);
+      itemMap.set(normKey, {
+        id: catItem.id,
+        dbItemId: dbMatch?.id || null,
+        name: catItem.name,
+        category: catItem.category,
+        categoryLabel: catItem.categoryLabel,
+        defaultPrice: catItem.defaultPrice,
+        unit: catItem.unit,
+        isCustomerPreference: catItem.isCustomerPreference
+      });
+    }
+  });
+
+  const availableItems = Array.from(itemMap.values());
+
+  // Group items by category label
+  const categories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));
+
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (c.phone && c.phone.includes(searchTerm))
@@ -39,14 +69,25 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
+  // Pre-select items preferred by selected customer
+  useEffect(() => {
+    if (selectedCustomer) {
+      const initialSelected = {};
+      availableItems.forEach(item => {
+        if (item.isCustomerPreference) {
+          initialSelected[item.id] = { quantity: 1 };
+        }
+      });
+      setSelectedItems(initialSelected);
+    }
+  }, [orderData.customerId]);
 
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
-    const item = items.find(i => i.id === itemId);
+    const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
-    const price = getPrice(item, selectedCustomer);
-    return sum + (price * data.quantity);
-  }, 0).toFixed(2);
+    const price = Math.round(item.defaultPrice);
+    return sum + (price * (parseInt(data.quantity) || 0));
+  }, 0);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -75,35 +116,46 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
   const submitOrder = async (e, bypassCreditCheck = false) => {
     if (e) e.preventDefault();
     if (!orderData.customerId) {
-      toast.error('Please select a customer');
+      toast.error('Please select a customer first');
       return;
     }
-    if (Object.keys(selectedItems).length === 0) {
-      toast.error('Please select at least one item');
+    const selectedKeys = Object.keys(selectedItems).filter(k => selectedItems[k].quantity > 0);
+    if (selectedKeys.length === 0) {
+      toast.error('Please select at least one item with a valid quantity');
       return;
     }
     
     setIsSubmitting(true);
     
-    const has19L = Object.keys(selectedItems).some(itemId => {
-      const item = items.find(i => i.id === itemId);
-      return item?.name.toLowerCase().includes('19l');
+    const has19L = selectedKeys.some(itemId => {
+      const item = availableItems.find(i => i.id === itemId);
+      return item?.category === '19L';
     });
-    const orderType = has19L ? 'NINETEEN_L' : 'PET';
+    const hasMix = selectedKeys.some(itemId => {
+      const item = availableItems.find(i => i.id === itemId);
+      return item?.category === 'MIX';
+    });
+    const orderType = isWadaana ? (hasMix ? 'MIX_BOTTLES' : 'PURE_BOTTLES') : (has19L ? 'NINETEEN_L' : 'PET');
 
-    const orderItemsPayload = Object.entries(selectedItems).map(([itemId, data]) => {
-      const item = items.find(i => i.id === itemId);
+    const orderItemsPayload = selectedKeys.map(itemId => {
+      const item = availableItems.find(i => i.id === itemId);
+      const price = Math.round(item.defaultPrice);
       return {
-        itemId,
-        quantity: data.quantity,
-        price: getPrice(item, selectedCustomer)
+        itemId: item.dbItemId || item.id,
+        catalogId: item.id,
+        productName: item.name,
+        quantity: selectedItems[itemId].quantity,
+        price
       };
-    }).filter(i => i.quantity > 0);
+    });
 
     try {
       const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': activeTenant
+        },
         body: JSON.stringify({ 
           customerId: orderData.customerId, 
           type: orderType, 
@@ -125,7 +177,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
       }
 
       if (json.success) {
-        toast.success('✅ Order placed successfully.');
+        toast.success('Order placed successfully.');
         onOrderAdded();
       } else {
         toast.error(json.message || 'Failed to create order');
@@ -139,10 +191,15 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl relative">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100">
         <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
-          <h3 className="text-xl font-bold text-slate-800">Create New Order</h3>
+          <div>
+            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${isWadaana ? 'bg-sky-50 text-[#0ea5e9] border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+              {isWadaana ? 'WADAANA PREFORM ORDERS' : 'AQUASPHERE DISPATCH'}
+            </span>
+            <h3 className="text-xl font-bold text-slate-800 mt-0.5">Create New Order</h3>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors">
             <X size={20} />
           </button>
@@ -155,49 +212,52 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
               submitOrder(e, false);
             }
           }}
-          className="p-6 space-y-8"
+          className="p-6 space-y-6"
         >
           {/* Customer Selection Section */}
           <div>
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><User size={16}/> Customer Information</h4>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <User size={15}/> Customer Information
+            </h4>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2 relative" ref={dropdownRef}>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select Customer *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Select Customer *</label>
                 <div 
-                  className="w-full border border-slate-200 rounded-xl p-3 focus-within:border-blue-500 bg-white cursor-pointer flex justify-between items-center"
+                  className={`w-full border rounded-xl p-3 bg-white cursor-pointer flex justify-between items-center transition-all ${dropdownOpen ? 'border-sky-500 ring-2 ring-sky-500/10' : 'border-slate-200'}`}
                   onClick={() => setDropdownOpen(true)}
                 >
                   <div className="flex-1 truncate">
                     {selectedCustomer ? (
-                      <span className="text-slate-800 font-medium">{selectedCustomer.name} <span className="text-slate-500 text-sm">({selectedCustomer.phone})</span></span>
+                      <span className="text-slate-800 font-bold">{selectedCustomer.name} <span className="text-slate-500 font-normal text-sm">({selectedCustomer.phone})</span></span>
                     ) : (
-                      <span className="text-slate-400">Search and select customer...</span>
+                      <span className="text-slate-400 text-sm">Search and select customer...</span>
                     )}
                   </div>
                   <ChevronDown size={18} className="text-slate-400 ml-2" />
                 </div>
 
                 {dropdownOpen && (
-                  <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 flex flex-col overflow-hidden">
+                  <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 flex flex-col overflow-hidden animate-in fade-in duration-150">
                     <div className="p-3 border-b border-slate-100 flex items-center gap-2 sticky top-0 bg-white">
                       <Search size={16} className="text-slate-400" />
                       <input 
                         type="text"
                         autoFocus
                         placeholder="Type name or phone to search..."
-                        className="w-full outline-none text-sm"
+                        className="w-full outline-none text-sm font-medium"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
-                    <div className="overflow-y-auto flex-1 p-2">
+                    <div className="overflow-y-auto flex-1 p-2 space-y-1">
                       {filteredCustomers.length === 0 ? (
-                        <div className="p-3 text-center text-sm text-slate-500">No customers found</div>
+                        <div className="p-4 text-center text-sm text-slate-400">No customers found</div>
                       ) : (
                         filteredCustomers.map(c => (
                           <div 
                             key={c.id} 
-                            className={`p-3 rounded-lg cursor-pointer hover:bg-slate-50 flex justify-between items-center ${c.id === orderData.customerId ? 'bg-blue-50 border border-blue-100' : 'border border-transparent'}`}
+                            className={`p-3 rounded-lg cursor-pointer hover:bg-slate-50 flex justify-between items-center ${c.id === orderData.customerId ? 'bg-sky-50 border border-sky-200' : 'border border-transparent'}`}
                             onClick={() => {
                               setOrderData(prev => ({ ...prev, customerId: c.id }));
                               setDropdownOpen(false);
@@ -205,10 +265,10 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
                             }}
                           >
                             <div>
-                              <div className="font-semibold text-slate-800">{c.name}</div>
+                              <div className="font-bold text-slate-800 text-sm">{c.name}</div>
                               <div className="text-xs text-slate-500">{c.phone} &bull; {c.type}</div>
                             </div>
-                            <div className="text-xs font-medium text-slate-400">Select</div>
+                            <div className="text-xs font-bold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md">Select</div>
                           </div>
                         ))
                       )}
@@ -218,18 +278,18 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
               </div>
               
               {selectedCustomer && (
-                <div className="md:col-span-2 bg-slate-50 border border-slate-100 p-4 rounded-xl flex justify-between items-center">
+                <div className="md:col-span-2 bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
                   <div>
-                    <div className="text-sm font-medium text-slate-800">{selectedCustomer.name}</div>
-                    <div className="text-xs text-slate-500">{selectedCustomer.address}</div>
+                    <div className="text-sm font-bold text-slate-800">{selectedCustomer.name}</div>
+                    <div className="text-xs text-slate-500">{selectedCustomer.address || 'No address specified'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-slate-500 uppercase tracking-wide">Financial Status</div>
-                    <div className={`font-bold ${parseFloat(selectedCustomer.currentBalance || 0) > parseFloat(selectedCustomer.creditLimit || 0) ? 'text-red-500' : (parseFloat(selectedCustomer.currentBalance || 0) > 0 ? 'text-amber-500' : 'text-emerald-500')}`}>
-                      Debt: Rs. {parseFloat(selectedCustomer.currentBalance || 0)}
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Financial Status</div>
+                    <div className={`font-black text-base ${parseFloat(selectedCustomer.currentBalance || 0) > parseFloat(selectedCustomer.creditLimit || 0) ? 'text-red-600' : (parseFloat(selectedCustomer.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                      Debt: Rs. {parseFloat(selectedCustomer.currentBalance || 0).toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-slate-400">
-                      (Limit: Rs. {selectedCustomer.creditLimit || 0})
+                    <div className="text-[10px] text-slate-400 font-semibold">
+                      (Credit Limit: Rs. {parseFloat(selectedCustomer.creditLimit || 0).toLocaleString()})
                     </div>
                   </div>
                 </div>
@@ -237,73 +297,134 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
             </div>
           </div>
 
-          {/* Product Details Section */}
-          <div className="border-t border-slate-100 pt-6">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Package size={16}/> Order Items</h4>
-            
-            <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              {items.map(item => {
-                const isSelected = !!selectedItems[item.id];
-                const price = getPrice(item, selectedCustomer);
+          {/* Product Items Catalog Hierarchy Section */}
+          <div className="border-t border-slate-100 pt-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Package size={15}/> Order Items ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere'})
+              </h4>
+              {selectedCustomer && (
+                <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                  <Star size={11} className="fill-amber-500 text-amber-500" /> Customer Preferred Items Highlighted
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {categories.map(catLabel => {
+                const catItems = availableItems.filter(i => i.categoryLabel === catLabel);
                 return (
-                  <div key={item.id} className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleItemToggle(item.id)}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
-                      />
-                      <span>{getCleanName(item)}</span>
-                      <span className="text-slate-400 font-normal ml-1">(Rs. {price})</span>
-                    </label>
-                    {isSelected && (
-                      <input
-                        type="number"
-                        min="1"
-                        value={selectedItems[item.id].quantity || ''}
-                        onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
-                        placeholder="Qty"
-                        className="w-24 border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"
-                        required
-                      />
-                    )}
+                  <div key={catLabel} className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-2 flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${catLabel.includes('PURE') ? 'bg-[#0ea5e9]' : catLabel.includes('MIX') ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                      {catLabel}
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {catItems.map(item => {
+                        const isSelected = !!selectedItems[item.id];
+
+                        return (
+                          <div 
+                            key={item.id} 
+                            className={`p-3 rounded-xl border transition-all ${
+                              isSelected 
+                                ? 'bg-white border-sky-400 shadow-xs ring-1 ring-sky-400/20' 
+                                : 'bg-white/60 border-slate-200 hover:bg-white'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <label className="flex items-center gap-3 cursor-pointer flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleItemToggle(item.id, item.defaultPrice)}
+                                  className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
+                                />
+                                <div>
+                                  <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                    {item.name}
+                                    {item.isCustomerPreference && (
+                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                                        <Star size={10} className="fill-amber-500 text-amber-500" /> Customer Preference
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-slate-400">Default Rate: Rs. {item.defaultPrice} / {item.unit}</span>
+                                </div>
+                              </label>
+
+                              {isSelected && (
+                                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Quantity</span>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="1"
+                                      value={selectedItems[item.id]?.quantity || 1}
+                                      onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
+                                      className="w-24 border border-slate-200 bg-white rounded-lg p-1.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-500"
+                                      required
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Fixed Rate</span>
+                                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-black px-3 py-1.5 rounded-lg">
+                                      Rs. {Math.round(item.defaultPrice)}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
             </div>
             
-            <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4 flex justify-between items-center">
-              <div className="text-sm text-blue-600 font-bold uppercase">Estimated Total</div>
-              <div className="text-2xl font-bold text-blue-900">Rs. {orderTotal}</div>
+            <div className="mt-4 bg-sky-50 border border-sky-200 rounded-xl p-4 flex justify-between items-center">
+              <span className="text-sm text-sky-800 font-extrabold uppercase tracking-wider">Estimated Order Total</span>
+              <span className="text-2xl font-black text-sky-950">Rs. {Number(orderTotal).toLocaleString()}</span>
             </div>
           </div>
 
           {/* Logistics & Payment */}
-          <div className="border-t border-slate-100 pt-6">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Calendar size={16}/> Logistics & Settlement</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border-t border-slate-100 pt-5">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Calendar size={15}/> Logistics & Settlement
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Expected Delivery Date</label>
-                <input name="expectedDelivery" type="date" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.expectedDelivery} onChange={handleChange} />
+                <label className="block font-semibold text-slate-700 mb-1">Expected Delivery Date</label>
+                <input name="expectedDelivery" type="date" className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none font-medium" value={orderData.expectedDelivery} onChange={handleChange} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Initial Payment Status</label>
-                <select name="paymentStatus" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={orderData.paymentStatus} onChange={handleChange}>
-                  <option value="UNPAID">Unpaid (Cash on Delivery)</option>
+                <label className="block font-semibold text-slate-700 mb-1">Initial Payment Status</label>
+                <select name="paymentStatus" className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none font-medium" value={orderData.paymentStatus} onChange={handleChange}>
+                  <option value="UNPAID">Unpaid (Cash on Delivery / Credit)</option>
                   <option value="PAID">Paid in Advance</option>
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Internal Remarks / Driver Notes</label>
-                <textarea name="remarks" rows="2" placeholder="E.g., call before arriving, deliver to back door..." className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={orderData.remarks} onChange={handleChange}></textarea>
+                <label className="block font-semibold text-slate-700 mb-1">Internal Remarks / Driver Notes</label>
+                <textarea name="remarks" rows="2" placeholder="E.g., preform delivery to factory floor..." className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none resize-none font-medium" value={orderData.remarks} onChange={handleChange}></textarea>
               </div>
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
-            <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-sm disabled:opacity-50">
+          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
+            <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-semibold text-sm hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting || !orderData.customerId} 
+              className={`${isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-slate-900 hover:bg-slate-800'} text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-md disabled:opacity-40 flex items-center justify-center gap-2`}
+            >
+              <CheckCircle2 size={18}/>
               {isSubmitting ? 'Processing...' : 'Confirm & Place Order'}
             </button>
           </div>
@@ -321,7 +442,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers, items 
                  softBlockData.blockReason === 'BOTTLE_SECURITY_EXCEEDED' ? 'Bottle Security Warning' : 
                  'Credit Limit Soft-Block'}
               </h4>
-              <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-3 rounded-xl">
+              <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-3 rounded-xl font-medium">
                 {softBlockData.message}
               </p>
               <div className="flex gap-2 pt-2">

@@ -494,18 +494,22 @@ model AquasphereRecipeItem {
 }
 
 model AquasphereSpotSale {
-  id             String             @id @default(uuid())
-  litresSold     Decimal            @map("litres_sold")
-  capsIssued     Int                @default(0) @map("caps_issued")
-  cashCollected  Decimal            @default(0.0) @map("cash_collected")
-  creditAmount   Decimal            @default(0.0) @map("credit_amount")
-  paymentMethod  String             @default("CASH") @map("payment_method")
-  remarks        String?
-  customerId     String?            @map("customer_id")
-  customer       AquasphereCustomer? @relation(fields: [customerId], references: [id])
-  createdById    String?            @map("created_by_id")
-  createdBy      AquasphereUser?    @relation(fields: [createdById], references: [id])
-  createdAt      DateTime           @default(now()) @map("created_at")
+  id               String             @id @default(uuid())
+  saleNumber       String?            @map("sale_number")
+  productType      String?            @map("product_type")
+  productQty       Decimal            @default(1.0) @map("product_qty")
+  openPackLeftover Int                @default(0) @map("open_pack_leftover")
+  litresSold       Decimal            @map("litres_sold")
+  capsIssued       Int                @default(0) @map("caps_issued")
+  cashCollected    Decimal            @default(0.0) @map("cash_collected")
+  creditAmount     Decimal            @default(0.0) @map("credit_amount")
+  paymentMethod    String             @default("CASH") @map("payment_method")
+  remarks          String?
+  customerId       String?            @map("customer_id")
+  customer         AquasphereCustomer? @relation(fields: [customerId], references: [id])
+  createdById      String?            @map("created_by_id")
+  createdBy        AquasphereUser?    @relation(fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@map("spot_sales")
@@ -997,18 +1001,22 @@ model WadaanaRecipeItem {
 }
 
 model WadaanaSpotSale {
-  id             String          @id @default(uuid())
-  litresSold     Decimal         @map("litres_sold")
-  capsIssued     Int             @default(0) @map("caps_issued")
-  cashCollected  Decimal         @default(0.0) @map("cash_collected")
-  creditAmount   Decimal         @default(0.0) @map("credit_amount")
-  paymentMethod  String          @default("CASH") @map("payment_method")
-  remarks        String?
-  customerId     String?         @map("customer_id")
-  customer       WadaanaCustomer? @relation(fields: [customerId], references: [id])
-  createdById    String?         @map("created_by_id")
-  createdBy      WadaanaUser?    @relation(fields: [createdById], references: [id])
-  createdAt      DateTime        @default(now()) @map("created_at")
+  id               String          @id @default(uuid())
+  saleNumber       String?         @map("sale_number")
+  productType      String?         @map("product_type")
+  productQty       Decimal         @default(1.0) @map("product_qty")
+  openPackLeftover Int             @default(0) @map("open_pack_leftover")
+  litresSold       Decimal         @map("litres_sold")
+  capsIssued       Int             @default(0) @map("caps_issued")
+  cashCollected    Decimal         @default(0.0) @map("cash_collected")
+  creditAmount     Decimal         @default(0.0) @map("credit_amount")
+  paymentMethod    String          @default("CASH") @map("payment_method")
+  remarks          String?
+  customerId       String?         @map("customer_id")
+  customer         WadaanaCustomer? @relation(fields: [customerId], references: [id])
+  createdById      String?         @map("created_by_id")
+  createdBy        WadaanaUser?    @relation(fields: [createdById], references: [id])
+  createdAt        DateTime        @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@map("spot_sales")

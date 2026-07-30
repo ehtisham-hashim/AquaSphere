@@ -10,6 +10,8 @@ import EditOrderModal from '../components/orders/EditOrderModal';
 import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
 import AddCustomerModal from '../components/customer/AddCustomerModal';
 
+import OrderSearch from '../components/orders/OrderSearch';
+
 export default function Orders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -39,7 +41,7 @@ export default function Orders() {
     const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
     if (ord.success) setOrders(ord.data);
     if (cust.success) setCustomers(cust.data);
-    if (itm.success) setItems(itm.data.filter(i => i.type === 'FINISHED_GOOD'));
+    if (itm.success) setItems(itm.data || []);
     setIsLoading(false);
   };
 
@@ -90,22 +92,36 @@ export default function Orders() {
   const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
   const canDeleteOrder = ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
 
+  // Unpaid/Partial order count for quick alerts
+  const unpaidOrdersCount = orders.filter(o => o.paymentStatus !== 'PAID' && o.deliveryStatus !== 'CANCELLED').length;
+
   // Filter Orders
   const filteredOrders = orders.filter(o => {
     // Tab filtering
     if (activeTab === 'Pending Orders' && o.deliveryStatus !== 'PENDING') return false;
-    if (activeTab === 'Completed Orders' && o.deliveryStatus !== 'DELIVERED') return false;
+    if (activeTab === 'Unpaid Orders' && o.paymentStatus === 'PAID') return false;
+    if (activeTab === 'Completed Orders' && (o.deliveryStatus !== 'DELIVERED' || o.paymentStatus !== 'PAID')) return false;
     if (activeTab === 'Cancelled Orders' && o.deliveryStatus !== 'CANCELLED') return false;
-    // 'All Orders' skips this check
     
     // Client type filtering
     if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
-    // Search query
-    if (searchQuery && !o.customer?.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    // Search query: Order ID, Customer Name, Phone Number
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      const orderIdStr = o.id.toLowerCase();
+      const orderIdShort = `#${o.id.substring(0, 6).toLowerCase()}`;
+      const custName = (o.customer?.name || '').toLowerCase();
+      const custPhone = (o.customer?.phone || '').toLowerCase();
+      
+      const matchesSearch = orderIdStr.includes(q) || orderIdShort.includes(q) || custName.includes(q) || custPhone.includes(q);
+      if (!matchesSearch) return false;
+    }
+
     return true;
   });
 
-  const tabs = ['All Orders', 'Pending Orders', 'Completed Orders', 'Cancelled Orders'];
+  const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
 
 
@@ -142,10 +158,26 @@ export default function Orders() {
         ))}
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+      {/* Top Banner Alert for Unpaid Orders */}
+      {unpaidOrdersCount > 0 && activeTab !== 'Unpaid Orders' && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex justify-between items-center text-xs">
+          <div className="flex items-center gap-2 text-amber-900 font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>You have <strong>{unpaidOrdersCount}</strong> unpaid or partial order{unpaidOrdersCount > 1 ? 's' : ''} awaiting payment settlement.</span>
+          </div>
+          <button 
+            onClick={() => setActiveTab('Unpaid Orders')} 
+            className="font-bold text-amber-700 hover:text-amber-900 bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition-all"
+          >
+            View Unpaid Orders &rarr;
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <h2 className="text-xl font-bold text-slate-800">{activeTab}</h2>
         
-        <div className="flex gap-3 w-full md:w-auto">
+        <div>
           <select 
             className="input-field"
             value={clientFilter}
@@ -153,19 +185,11 @@ export default function Orders() {
           >
             {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
           </select>
-          
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="search" 
-              placeholder="Search customer..." 
-              className="input-field pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
       </div>
+
+      {/* Full-width Search Bar directly above Order Table (Matching Customers.jsx layout) */}
+      <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
       <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
@@ -197,71 +221,89 @@ export default function Orders() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map(o => (
-                <tr key={o.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 text-sm font-medium text-slate-500">
-                    #{o.id.substring(0,6).toUpperCase()}
-                  </td>
-                  <td className="p-4">
-                    <div className="font-bold text-slate-800">{o.customer?.name}</div>
-                    <div className="flex gap-2 items-center text-xs mt-1">
-                      <span className="text-slate-500">{o.customer?.phone}</span>
-            
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1">
-                        {o.items[0]?.quantity} <span className="text-xs font-medium text-slate-500">Qty</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-slate-800 text-sm">{formatItemName(o.items[0]?.item?.name)}</span>
-                        {o.remarks && <span className="text-xs text-slate-500 truncate max-w-[150px]">{o.remarks}</span>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 text-sm text-slate-700">
-                    {o.expectedDelivery ? (
-                      <div className="flex items-center gap-1 text-slate-600"><Clock size={14}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
-                    ) : <span className="text-slate-400 text-xs">Not set</span>}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1.5 items-start">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        o.deliveryStatus === 'DELIVERED' ? 'bg-green-100 text-green-700' : 
-                        o.deliveryStatus === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
-                      }`}>
-                        {o.deliveryStatus}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                        o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 
-                        o.paymentStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                         {o.paymentStatus}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      {(isOwner || o.deliveryStatus !== 'DELIVERED') && (
-                        <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
-                           Edit
-                        </button>
-                      )}
-                      {o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                        <button onClick={() => openDeliverModal(o)} className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 text-xs rounded-md font-medium transition-colors shadow-sm">
-                          Process
-                        </button>
-                      )}
-                      {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && (
-                        <button onClick={() => handleDeleteOrder(o.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )))}
+                filteredOrders.map(o => {
+                  const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
+                  const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
+                  const canProcess = o.deliveryStatus !== 'CANCELLED' && !isFullyGreenlit;
+
+                  return (
+                    <tr key={o.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 text-sm font-medium text-slate-500">
+                        #{o.id.substring(0,6).toUpperCase()}
+                      </td>
+                      <td className="p-4">
+                        <div className="font-bold text-slate-800">{o.customer?.name}</div>
+                        <div className="flex gap-2 items-center text-xs mt-1">
+                          <span className="text-slate-500">{o.customer?.phone}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1">
+                            {o.items[0]?.quantity} <span className="text-xs font-medium text-slate-500">Qty</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-800 text-sm">{formatItemName(o.items[0]?.item?.name)}</span>
+                            {o.items?.length > 1 && (
+                              <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded w-max">
+                                +{o.items.length - 1} more item{o.items.length > 2 ? 's' : ''}
+                              </span>
+                            )}
+                            {o.remarks && <span className="text-xs text-slate-500 truncate max-w-[150px]">{o.remarks}</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-slate-700">
+                        {o.expectedDelivery ? (
+                          <div className="flex items-center gap-1 text-slate-600"><Clock size={14}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
+                        ) : <span className="text-slate-400 text-xs">Not set</span>}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            o.deliveryStatus === 'DELIVERED' ? 'bg-green-100 text-green-700' : 
+                            o.deliveryStatus === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {o.deliveryStatus}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 
+                            o.paymentStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {o.paymentStatus}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          {(isOwner || o.deliveryStatus !== 'DELIVERED') && (
+                            <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
+                              Edit
+                            </button>
+                          )}
+                          {canProcess && (
+                            <button 
+                              onClick={() => openDeliverModal(o)} 
+                              className={`px-3 py-1.5 text-xs rounded-md font-bold transition-all shadow-xs ${
+                                needsPaymentSettlement 
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600' 
+                                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                              }`}
+                            >
+                              {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
+                            </button>
+                          )}
+                          {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && (
+                            <button onClick={() => handleDeleteOrder(o.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
