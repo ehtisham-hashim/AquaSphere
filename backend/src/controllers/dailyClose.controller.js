@@ -123,10 +123,9 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
       where: {
         archivedAt: null
       },
-      _sum: {
-        cachedBottleBalance: true,
-        qty19L: true
-      }
+      _sum: prefix === 'wadaana' 
+        ? { cachedBottleBalance: true } 
+        : { cachedBottleBalance: true, qty19L: true }
     })
   ]);
 

@@ -32,8 +32,8 @@ export default function MarketingClose() {
   const isMM = user?.role === 'MARKETING_MANAGER' || user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'OWNER';
 
-  const fetchStatus = async () => {
-    setLoading(true);
+  const fetchStatus = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch(`${API}/daily-close/status?date=${date}`, {
         headers: { 'x-tenant': tenant },
@@ -47,7 +47,7 @@ export default function MarketingClose() {
       console.error(err);
       toast.error('Failed to load daily close status');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -62,7 +62,7 @@ export default function MarketingClose() {
   const allAdminChecked = Object.values(adminChecks).every(Boolean);
 
   const handleMmConfirm = async () => {
-    if (!allMmChecked) return;
+    if (!allMmChecked || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/daily-close/mm-confirm`, {
@@ -74,7 +74,8 @@ export default function MarketingClose() {
       const json = await res.json();
       if (json.success) {
         toast.success('Marketing & Sales confirmed successfully. Awaiting Admin verification.');
-        fetchStatus();
+        setStatus(prev => ({ ...prev, mmConfirmed: true }));
+        await fetchStatus(false);
       } else {
         toast.error(json.message || 'Failed to confirm MM daily close');
       }
@@ -167,7 +168,7 @@ export default function MarketingClose() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* STEP 1: MM Verification */}
-          <div className={`rounded-2xl border ${mmConfirmed ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200 shadow-sm'} p-6 relative overflow-hidden`}>
+          <div className={`rounded-2xl border ${mmConfirmed ? 'bg-emerald-50/50 border-emerald-200 opacity-60 pointer-events-none blur-sm' : 'bg-white border-slate-200 shadow-sm'} p-6 relative overflow-hidden`}>
             {mmConfirmed && (
               <div className="absolute top-4 right-4 text-emerald-600 flex items-center gap-1 text-sm font-bold bg-emerald-100 px-3 py-1 rounded-full">
                 <CheckCircle2 size={16} /> Verified
@@ -228,10 +229,19 @@ export default function MarketingClose() {
                 <button
                   onClick={handleMmConfirm}
                   disabled={!allMmChecked || submitting}
-                  className="w-full py-3 px-4 bg-purple-700 hover:bg-purple-800 disabled:bg-purple-200 text-white font-bold text-sm rounded-xl transition shadow-md flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-purple-700 hover:bg-purple-800 disabled:bg-purple-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition shadow-md flex items-center justify-center gap-2"
                 >
-                  <ShieldCheck size={18} />
-                  Send to Admin for Verification
+                  {submitting ? (
+                    <>
+                      <RefreshCw size={18} className="animate-spin" />
+                      Sending to Admin...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={18} />
+                      Send to Admin for Verification
+                    </>
+                  )}
                 </button>
               </div>
             )}

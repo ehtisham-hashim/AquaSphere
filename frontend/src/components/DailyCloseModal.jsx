@@ -98,7 +98,7 @@ export default function DailyCloseModal({ onClose, onClosed }) {
       const json = await res.json();
       if (json.success) {
         toast.success('MM daily close confirmed successfully.');
-        fetchStatus();
+        await fetchStatus();
       } else {
         toast.error(json.message || 'Failed to confirm MM daily close');
       }
