@@ -33,8 +33,8 @@ export default function DailyClose() {
   const isPM = user?.role === 'PRODUCTION_MANAGER' || user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'OWNER';
 
-  const fetchStatus = async () => {
-    setLoading(true);
+  const fetchStatus = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch(`${API}/daily-close/status?date=${date}`, {
         headers: { 'x-tenant': tenant },
@@ -48,7 +48,7 @@ export default function DailyClose() {
       console.error(err);
       toast.error('Failed to load daily close status');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -63,7 +63,7 @@ export default function DailyClose() {
   const allAdminChecked = Object.values(adminChecks).every(Boolean);
 
   const handlePmConfirm = async () => {
-    if (!allPmChecked) return;
+    if (!allPmChecked || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/daily-close/pm-confirm`, {
@@ -75,7 +75,8 @@ export default function DailyClose() {
       const json = await res.json();
       if (json.success) {
         toast.success('Production confirmed successfully. Awaiting Admin verification.');
-        fetchStatus();
+        setStatus(prev => ({ ...prev, pmConfirmed: true }));
+        await fetchStatus(false);
       } else {
         toast.error(json.message || 'Failed to confirm production');
       }
@@ -167,7 +168,7 @@ export default function DailyClose() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* STEP 1: PM Verification */}
-          <div className={`rounded-2xl border ${pmConfirmed ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200 shadow-sm'} p-6 relative overflow-hidden`}>
+          <div className={`rounded-2xl border ${pmConfirmed ? 'bg-emerald-50/50 border-emerald-200 opacity-60 pointer-events-none blur-sm' : 'bg-white border-slate-200 shadow-sm'} p-6 relative overflow-hidden`}>
             {pmConfirmed && (
               <div className="absolute top-4 right-4 text-emerald-600 flex items-center gap-1 text-sm font-bold bg-emerald-100 px-3 py-1 rounded-full">
                 <CheckCircle2 size={16} /> Verified
