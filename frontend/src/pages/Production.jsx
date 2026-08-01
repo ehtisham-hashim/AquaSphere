@@ -511,7 +511,17 @@ export default function Production() {
                       </td>
                       <td className="p-3.5 text-xs">
                         {b.status === 'COMPLETED' ? (
-                          <span className="px-2 py-1 rounded text-emerald-700 bg-emerald-50 border border-emerald-200 font-medium">Completed</span>
+                          <div className="space-y-0.5">
+                            <span className="px-2.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1">
+                              ✓ Completed
+                            </span>
+                            <div className="text-[10px] text-slate-500 font-semibold mt-1">
+                              Verified By: <span className="text-slate-800 font-bold">{b.completedBy?.name || user?.name || 'Admin'}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-medium">
+                              Verified On: {new Date(b.updatedAt || b.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </div>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>

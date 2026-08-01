@@ -77,6 +77,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
   const { 
     vendorId, 
     invoiceNo, 
+    deliveryChallanNo,
+    receivedBy,
     purchaseDate, 
     receiptUrl, 
     remarks, 
@@ -108,10 +110,10 @@ export const createPurchase = asyncHandler(async (req, res) => {
     const unitPrice = parseFloat(it.unitPrice);
 
     if (isNaN(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be greater than zero');
-    if (isNaN(unitPrice) || unitPrice <= 0) throw new ApiError(400, 'Unit price must be greater than zero');
+    if (isNaN(unitPrice) || unitPrice < 0) throw new ApiError(400, 'Unit price cannot be negative');
 
     const rawMat = await prisma[`${prefix}Item`].findUnique({ where: { id: it.itemId } });
-    if (!rawMat) throw new ApiError(404, `Raw material ${it.itemId} not found`);
+    if (!rawMat) throw new ApiError(404, `Raw Material #${it.itemId} not found`);
     if (rawMat.archivedAt) throw new ApiError(400, `Material "${rawMat.name}" is archived and cannot be purchased`);
 
     const lineTotal = qty * unitPrice;
@@ -122,9 +124,15 @@ export const createPurchase = asyncHandler(async (req, res) => {
       quantity: qty,
       unitPrice,
       total: lineTotal,
-      rawMat
+      itemName: rawMat.name
     });
   }
+
+  const formattedRemarks = [
+    deliveryChallanNo ? `Challan #${deliveryChallanNo}` : null,
+    receivedBy ? `Received By: ${receivedBy}` : null,
+    remarks
+  ].filter(Boolean).join(' | ');
 
   const purchase = await prisma.$transaction(async (tx) => {
     const newPurchase = await tx[`${prefix}Purchase`].create({
@@ -132,13 +140,13 @@ export const createPurchase = asyncHandler(async (req, res) => {
         vendorId,
         invoiceNo: invoiceNo || `INV-${Date.now()}`,
         receiptUrl: receiptUrl || null,
-        remarks: remarks || '',
+        remarks: formattedRemarks,
         deliveredTo: destination,
         status: status || 'RECEIVED',
         paymentStatus: paymentStatus || 'PAID',
         grandTotal,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
-        createdBy: req.user?.name || req.user?.id || 'SYSTEM'
+        createdBy: req.user?.name ? `${req.user.name} (${req.user.role})` : 'Production Manager'
       }
     });
 

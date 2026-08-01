@@ -32,6 +32,7 @@ export default function Purchases() {
   // Form State
   const [vendorId, setVendorId] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
+  const [deliveryChallanNo, setDeliveryChallanNo] = useState('');
   const [deliveredTo, setDeliveredTo] = useState('FACTORY');
   const [status, setStatus] = useState('RECEIVED'); // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
   const [paymentStatus, setPaymentStatus] = useState('PAID'); // PAID, PARTIAL, CREDIT
@@ -160,6 +161,8 @@ export default function Purchases() {
         body: JSON.stringify({
           vendorId,
           invoiceNo,
+          deliveryChallanNo,
+          receivedBy: `${user?.name || 'Production Manager'} (${user?.role || 'PM'})`,
           purchaseDate,
           deliveredTo,
           status,
@@ -175,7 +178,17 @@ export default function Purchases() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save purchase');
-      toast.success('Purchase recorded successfully');
+      
+      toast.success(
+        <div className="space-y-1">
+          <div className="font-bold text-slate-900">Purchase Order Created!</div>
+          <div className="text-xs text-emerald-700 font-semibold space-y-0.5">
+            <div>✓ Raw Material Stock Updated</div>
+            <div>✓ Vendor Balance Updated</div>
+            <div>✓ Audit Log Created</div>
+          </div>
+        </div>
+      );
       handleCloseModal();
       fetchData();
     } catch (err) {
@@ -420,9 +433,17 @@ export default function Purchases() {
                     </td>
                     <td className="p-4 text-xs font-medium">
                       {p.verifiedBy ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                          <ShieldCheck size={14} /> Verified
-                        </span>
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs">
+                            <ShieldCheck size={14} /> Verified
+                          </span>
+                          <div className="text-[10px] text-slate-500 font-semibold mt-1">
+                            Verified By: <span className="text-slate-800 font-bold">{p.verifiedBy || 'Admin'}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            Verified On: {new Date(p.verifiedAt || p.updatedAt || p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </div>
+                        </div>
                       ) : ['ACCOUNTANT', 'OWNER'].includes(user?.role) ? (
                         <button
                           onClick={() => handleApprovePurchase(p.id)}
@@ -484,7 +505,7 @@ export default function Purchases() {
               )}
 
               {/* Header Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Vendor *</label>
                   <select
@@ -503,11 +524,18 @@ export default function Purchases() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Purchase Date *</label>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Delivery Challan No.</label>
                   <input
-                    type="date"
-                    className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800"
-                    value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required
+                    className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-slate-800"
+                    placeholder="e.g. DC-2026-081" value={deliveryChallanNo} onChange={e => setDeliveryChallanNo(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Received By (Auto)</label>
+                  <input
+                    disabled
+                    className="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-100 text-slate-600 font-semibold text-xs cursor-not-allowed"
+                    value={`${user?.name || 'Production Manager'} (${user?.role || 'PM'})`}
                   />
                 </div>
               </div>

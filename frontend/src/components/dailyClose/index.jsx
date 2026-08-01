@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import OperationsClose from './OperationsClose';
+import ProductionClose from './ProductionClose';
+import AccountantClose from './AccountantClose';
 import OwnerClose from './OwnerClose';
 import MarketingClose from './MarketingClose';
 import { ShieldCheck, Filter } from 'lucide-react';
@@ -13,11 +14,13 @@ export default function DailyCloseIndex() {
 
   const isOwner = user?.role === 'OWNER' || user?.role === 'ADMIN';
   const isPM = user?.role === 'PRODUCTION_MANAGER';
+  const isAccountant = user?.role === 'ACCOUNTANT';
   const isMM = user?.role === 'MARKETING_MANAGER';
 
   // Role routing
   if (!isOwner) {
-    if (isPM) return <OperationsClose />;
+    if (isPM) return <ProductionClose />;
+    if (isAccountant) return <AccountantClose />;
     if (isMM) return <MarketingClose />;
     return (
       <div className="p-8 text-center text-slate-500">
@@ -56,7 +59,7 @@ export default function DailyCloseIndex() {
             className="pl-10 pr-10 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none min-w-[240px] cursor-pointer hover:bg-slate-100"
           >
             <option value="all">Owner Overview (Finalized)</option>
-            <option value="operations">Operations (PM/Admin)</option>
+            <option value="operations">Production Operations (PM)</option>
             <option value="accounting">Accounting Module</option>
             <option value="sales">Sales & Marketing Module</option>
           </select>
@@ -71,13 +74,8 @@ export default function DailyCloseIndex() {
 
       {/* Render selected view */}
       {activeView === 'all' && <OwnerClose />}
-      {activeView === 'operations' && <OperationsClose />}
-      {activeView === 'accounting' && (
-        <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-12 text-center text-slate-500">
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Accounting Daily Close</h3>
-          <p>This module will be developed in the next phase for the Accountant role.</p>
-        </div>
-      )}
+      {activeView === 'operations' && <ProductionClose />}
+      {activeView === 'accounting' && <AccountantClose />}
       {activeView === 'sales' && <MarketingClose />}
     </div>
   );

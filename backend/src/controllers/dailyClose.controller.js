@@ -88,7 +88,9 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const orderModel = prisma[`${prefix}Order`];
   const customerModel = prisma[`${prefix}Customer`];
 
-  const [prodStats, orderStats, customerBottleStats] = await Promise.all([
+  const itemModel = prisma[`${prefix}Item`];
+
+  const [prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount] = await Promise.all([
     prodBatchModel.aggregate({
       where: {
         batchDate: {
@@ -126,6 +128,18 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
       _sum: prefix === 'wadaana' 
         ? { cachedBottleBalance: true } 
         : { cachedBottleBalance: true, qty19L: true }
+    }),
+    prodBatchModel.count({
+      where: {
+        batchDate: { gte: targetDate, lt: nextDate },
+        status: 'PENDING'
+      }
+    }),
+    itemModel.count({
+      where: {
+        archivedAt: null,
+        cachedQty: { lt: 0 }
+      }
     })
   ]);
 
@@ -151,6 +165,8 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     closedBy: existing?.closedBy || null,
     pmConfirmedBy: existing?.pmConfirmedBy || null,
     mmConfirmedBy: existing?.mmConfirmedBy || null,
+    pendingBatchesCount,
+    negativeStockCount,
     productionTotals: {
       batchesCount: prodStats._count.id || 0,
       total19L: prodStats._sum.quantity || 0,

@@ -18,7 +18,7 @@ import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
 import BottleLedger from './pages/BottleLedger';
 import Reports from './pages/Reports';
-import DailyClose from './pages/dailyClose/index';
+import DailyClose from './pages/DailyClose';
 import Inventory from './pages/Inventory';
 
 function ProtectedRoute({ children }) {

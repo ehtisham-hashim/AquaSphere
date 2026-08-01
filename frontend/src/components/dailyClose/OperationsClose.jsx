@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const API = API_URL;
 
-export default function DailyClose() {
+export default function OperationsClose() {
   const { user } = useAuth();
   const tenant = getCompanyFromCookie();
   
