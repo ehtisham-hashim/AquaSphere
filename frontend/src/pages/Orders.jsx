@@ -69,7 +69,7 @@ export default function Orders() {
   };
 
   const handleDeleteOrder = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this order? This cannot be undone.')) return;
+    if (!window.confirm('Are you sure you want to cancel this order? It will be moved to Cancelled Orders.')) return;
     try {
       const res = await fetch(`${API_URL}/orders/${id}`, { 
         method: 'DELETE', 
@@ -78,13 +78,13 @@ export default function Orders() {
       });
       const json = await res.json();
       if (json.success) {
-        toast.success('Order deleted successfully');
+        toast.success('Order cancelled successfully');
         fetchData();
       } else {
-        toast.error(json.message || 'Failed to delete order');
+        toast.error(json.message || 'Failed to cancel order');
       }
     } catch (err) {
-      toast.error('Error deleting order');
+      toast.error('Error cancelling order');
     }
   };
 
@@ -240,7 +240,7 @@ export default function Orders() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1">
-                            {o.items[0]?.quantity} <span className="text-xs font-medium text-slate-500">Qty</span>
+                            {o.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0} <span className="text-xs font-medium text-slate-500">Qty</span>
                           </div>
                           <div className="flex flex-col">
                             <span className="font-semibold text-slate-800 text-sm">{formatItemName(o.items[0]?.item?.name)}</span>
@@ -276,7 +276,7 @@ export default function Orders() {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-2">
-                          {(isOwner || o.deliveryStatus !== 'DELIVERED') && (
+                          {(isOwner || o.deliveryStatus !== 'DELIVERED') && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
                               Edit
                             </button>
@@ -293,9 +293,9 @@ export default function Orders() {
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
                             </button>
                           )}
-                          {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && (
+                          {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => handleDeleteOrder(o.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
-                              Delete
+                              Cancel Order
                             </button>
                           )}
                         </div>

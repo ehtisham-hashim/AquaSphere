@@ -70,6 +70,7 @@ export default function OrdersTable({ orders, isLoading, onProcess, showCustomer
         <tbody className="divide-y divide-slate-100">
           {orders.map(o => {
             const total = o.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0;
+            const totalQty = o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0;
             const isNineteen = o.type === 'NINETEEN_L';
             return (
               <tr key={o.id} className="hover:bg-slate-50 transition-colors">
@@ -80,7 +81,7 @@ export default function OrdersTable({ orders, isLoading, onProcess, showCustomer
                     </span>
                     <span className="text-xs text-slate-400 font-mono">#{o.id.slice(0, 6).toUpperCase()}</span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">Rs. {total.toFixed(0)}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Rs. {total.toFixed(0)} • <span className="font-semibold text-slate-700">{totalQty} Qty</span></div>
                 </td>
                 {showCustomerName && (
                   <td className="px-4 py-3">

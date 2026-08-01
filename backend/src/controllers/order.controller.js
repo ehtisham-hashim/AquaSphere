@@ -478,23 +478,25 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, 'Order not found');
 
   if (order.deliveryStatus === 'DELIVERED') {
-    throw new ApiError(400, 'Cannot delete an order that has already been delivered. Please contact support to reverse transactions manually.');
+    throw new ApiError(400, 'Cannot cancel/delete an order that has already been delivered.');
   }
 
-  // Delete related items
-  await prisma[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
-  await prisma[`${prefix}Order`].delete({ where: { id } });
+  // Soft delete / mark order as CANCELLED
+  await prisma[`${prefix}Order`].update({
+    where: { id },
+    data: { deliveryStatus: 'CANCELLED' }
+  });
 
   await prisma[`${prefix}AuditLog`].create({
     data: {
-      action: 'ORDER_DELETED',
+      action: 'ORDER_CANCELLED',
       entityType: 'Order',
       entityId: id,
       performedBy: req.user?.id || 'Unknown',
-      details: `Order ${id} deleted`
+      details: `Order ${id} soft-deleted and marked as CANCELLED`
     }
   });
 
   broadcastDashboardUpdate();
-  res.json({ success: true, message: 'Order deleted successfully' });
+  res.json({ success: true, message: 'Order marked as cancelled' });
 });
