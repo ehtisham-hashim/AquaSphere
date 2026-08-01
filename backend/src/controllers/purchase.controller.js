@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
+import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { paginationArgs } from '../utils/pagination.js';
 
 const getTenantPrefix = (req) => {
@@ -209,8 +209,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
 export const uploadReceipt = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   if (!req.file) throw new ApiError(400, 'Receipt file is required. Please attach an image or PDF.');
-  const receiptUrl = await uploadToCloudinary(req.file.buffer, `${prefix}/receipts`);
-  res.status(200).json({ success: true, receiptUrl });
+  const { secure_url } = await uploadImage(req.file, `${prefix}/receipts`);
+  res.status(200).json({ success: true, receiptUrl: secure_url });
 });
 
 export const approvePurchase = asyncHandler(async (req, res) => {

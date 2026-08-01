@@ -2,7 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
-import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
+import { uploadImage } from '../utils/cloudinaryUpload.js';
 
 const getTenantPrefix = (req) => {
   const cookieVal = req.cookies?.tenant || req.cookies?.company;
@@ -114,6 +114,6 @@ export const createExpense = asyncHandler(async (req, res) => {
 export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const prefix = getTenantPrefix(req);
-  const receiptUrl = await uploadToCloudinary(req.file.buffer, `${prefix}/expense-receipts`);
-  res.status(200).json({ success: true, receiptUrl });
+  const { secure_url } = await uploadImage(req.file, `${prefix}/expenses`);
+  res.status(200).json({ success: true, receiptUrl: secure_url });
 });
