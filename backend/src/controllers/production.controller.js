@@ -241,6 +241,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
 
         if (netGood > 0) {
           const item = allItems.find(i => 
+            i.type === 'FINISHED_GOOD' &&
             map.search.every(s => i.name.toLowerCase().includes(s))
           );
           if (item) {
@@ -250,6 +251,36 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
             await tx.wadaanaItem.update({
               where: { id: item.id },
               data: { cachedQty: { increment: netGood } }
+            });
+          }
+        }
+      }
+
+      // Deduct Wadaana Preform Raw Materials
+      const preformDeductions = [
+        { qty: pb.qtyPure05L || 0, weight: 0.015, search: ['pure', '0.5l'] },
+        { qty: pb.qtyPure15L || 0, weight: 0.030, search: ['pure', '1.5l'] },
+        { qty: pb.qtyMix05L || 0, weight: 0.013, search: ['mix', '0.5l'] },
+        { qty: pb.qtyMix15L || 0, weight: 0.027, search: ['mix', '1.5l'] }
+      ];
+
+      for (const pref of preformDeductions) {
+        if (pref.qty > 0) {
+          const kgUsed = pref.qty * pref.weight;
+          const rmItem = allItems.find(i => 
+            i.type === 'RAW_MATERIAL' && 
+            pref.search.every(s => i.name.toLowerCase().includes(s))
+          );
+          if (rmItem) {
+            await tx.wadaanaProductionBatchConsumption.create({
+              data: { batchId: pb.id, itemId: rmItem.id, quantityUsed: kgUsed }
+            });
+            await tx.wadaanaInventoryTransaction.create({
+              data: { itemId: rmItem.id, quantity: kgUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
+            });
+            await tx.wadaanaItem.update({
+              where: { id: rmItem.id },
+              data: { cachedQty: { decrement: kgUsed } }
             });
           }
         }
@@ -293,6 +324,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   const { deductions, finishedGoods, broken } = calculateProductionBatch({
     packs05L: packs05LNum,
     packs15L: packs15LNum,
+    quantity: quantityNum,
     brokenBottles05L: broken05LNum,
     brokenBottles15L: broken15LNum
   }, allItems);

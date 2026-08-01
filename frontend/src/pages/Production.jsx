@@ -383,7 +383,7 @@ export default function Production() {
                   const p05 = b.packs05L || 0;
                   const p15 = b.packs15L || 0;
                   const qty = b.quantity || 0;
-                  const litres = (p05 * 6) + (p15 * 9) + (qty * 19);
+                  const litres = (p05 * 9) + (p15 * 12) + (qty * 24);
                   const b05 = b.brokenBottles05L || 0;
                   const b15 = b.brokenBottles15L || 0;
                   const w19 = b.wasteQuantity || 0;
@@ -566,24 +566,112 @@ export default function Production() {
               )}
 
               {/* AquaSphere Formula Live Preview */}
-              {!isWadaana && (p05Num > 0 || p15Num > 0 || parseInt(quantity || 0) > 0) && (
-                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <Scale className="w-4 h-4 text-emerald-600" />
-                    Exact Auto-Deductions Live Formula Preview
-                  </h4>
-                  <div className="text-xs text-slate-700 space-y-1 font-mono">
-                    <div className="flex justify-between">
-                      <span>Total Water Treated:</span>
-                      <span className="font-bold">{totalLitres + (parseInt(quantity || 0) * 19)} Litres</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Shrink Wrap (50g / pack):</span>
-                      <span>{((p05Num + p15Num) * 0.050).toFixed(3)} kg</span>
+              {!isWadaana && (p05Num > 0 || p15Num > 0 || parseInt(quantity || 0) > 0) && (() => {
+                const totalWater = (p05Num * 9) + (p15Num * 12) + (parseInt(quantity || 0) * 24);
+                const mineralFrac = totalWater / 15141;
+                const caKg = (mineralFrac * 2).toFixed(4);
+                const mgKg = (mineralFrac * 1).toFixed(4);
+                const naKg = (mineralFrac * 0.5).toFixed(4);
+                const shrinkKg = ((p05Num + p15Num) * 0.050).toFixed(3);
+                const empty05LCount = p05Num * 12;
+                const empty15LCount = p15Num * 6;
+                const capsCount = (p05Num * 12) + (p15Num * 6);
+                const labels05LKg = (p05Num * 0.00672).toFixed(4);
+                const labels15LKg = (p15Num * 0.00780).toFixed(4);
+
+                return (
+                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-2.5">
+                    <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200/80 pb-2">
+                      <Scale className="w-4 h-4 text-emerald-600" />
+                      Exact Auto-Deductions Live Formula Preview
+                    </h4>
+                    <div className="text-xs text-slate-700 space-y-1.5 font-mono">
+                      <div className="flex justify-between font-bold text-emerald-900">
+                        <span>Total Water Treated:</span>
+                        <span>{totalWater} Litres</span>
+                      </div>
+                      {(empty05LCount > 0 || empty15LCount > 0) && (
+                        <div className="flex justify-between text-slate-700">
+                          <span>Empty PET Bottles:</span>
+                          <span>{empty05LCount > 0 ? `${empty05LCount} pcs (0.5L)` : ''}{empty05LCount > 0 && empty15LCount > 0 ? ' + ' : ''}{empty15LCount > 0 ? `${empty15LCount} pcs (1.5L)` : ''}</span>
+                        </div>
+                      )}
+                      {capsCount > 0 && (
+                        <div className="flex justify-between text-slate-700">
+                          <span>Small Caps:</span>
+                          <span>{capsCount} pcs</span>
+                        </div>
+                      )}
+                      {(p05Num > 0 || p15Num > 0) && (
+                        <div className="flex justify-between text-slate-700">
+                          <span>Labels (0.56g & 1.30g / btl):</span>
+                          <span>{p05Num > 0 ? `${labels05LKg} kg (0.5L)` : ''}{p05Num > 0 && p15Num > 0 ? ' + ' : ''}{p15Num > 0 ? `${labels15LKg} kg (1.5L)` : ''}</span>
+                        </div>
+                      )}
+                      {(p05Num > 0 || p15Num > 0) && (
+                        <div className="flex justify-between text-slate-700">
+                          <span>Shrink Wrap (50g / pack):</span>
+                          <span>{shrinkKg} kg</span>
+                        </div>
+                      )}
+                      {totalWater > 0 && (
+                        <div className="flex justify-between text-slate-600 pt-1 border-t border-emerald-200/50">
+                          <span>Chemical Minerals (per 15,141L):</span>
+                          <span>Ca: {caKg} kg | Mg: {mgKg} kg | Na: {naKg} kg</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
+
+              {/* Wadaana Formula Live Preview */}
+              {isWadaana && (parseInt(qtyPure05L || 0) > 0 || parseInt(qtyPure15L || 0) > 0 || parseInt(qtyMix05L || 0) > 0 || parseInt(qtyMix15L || 0) > 0) && (() => {
+                const p05 = parseInt(qtyPure05L || 0);
+                const p15 = parseInt(qtyPure15L || 0);
+                const m05 = parseInt(qtyMix05L || 0);
+                const m15 = parseInt(qtyMix15L || 0);
+
+                const pure05Kg = (p05 * 0.015).toFixed(3);
+                const pure15Kg = (p15 * 0.030).toFixed(3);
+                const mix05Kg = (m05 * 0.013).toFixed(3);
+                const mix15Kg = (m15 * 0.027).toFixed(3);
+
+                return (
+                  <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4 space-y-2.5">
+                    <h4 className="text-xs font-bold text-sky-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-sky-200/80 pb-2">
+                      <Scale className="w-4 h-4 text-sky-600" />
+                      Preform Resin Auto-Deductions Preview
+                    </h4>
+                    <div className="text-xs text-slate-700 space-y-1.5 font-mono">
+                      {p05 > 0 && (
+                        <div className="flex justify-between text-cyan-800 font-medium">
+                          <span>Pure Preform 0.5L (15g):</span>
+                          <span>{pure05Kg} kg ({p05} btls)</span>
+                        </div>
+                      )}
+                      {p15 > 0 && (
+                        <div className="flex justify-between text-sky-800 font-medium">
+                          <span>Pure Preform 1.5L (30g):</span>
+                          <span>{pure15Kg} kg ({p15} btls)</span>
+                        </div>
+                      )}
+                      {m05 > 0 && (
+                        <div className="flex justify-between text-amber-800 font-medium">
+                          <span>Mix Preform 0.5L (13g):</span>
+                          <span>{mix05Kg} kg ({m05} btls)</span>
+                        </div>
+                      )}
+                      {m15 > 0 && (
+                        <div className="flex justify-between text-orange-800 font-medium">
+                          <span>Mix Preform 1.5L (27g):</span>
+                          <span>{mix15Kg} kg ({m15} btls)</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Remarks / Shift Notes</label>
