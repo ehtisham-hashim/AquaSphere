@@ -155,17 +155,11 @@ export default function ProductionClose() {
       {/* Header Banner */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300 uppercase tracking-wider">
-              PRODUCTION OPERATIONS
-            </span>
-            <span className="text-xs text-slate-500 font-medium">PM Verification Protocol</span>
-          </div>
-          <h1 className="text-2xl font-bold mt-1.5 text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
             <ShieldCheck className="w-6 h-6 text-purple-600" /> Production Daily Close
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Verify production runs, material deductions, and finished goods inventory.
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            Verify production runs, inventory updates, and submit for daily lock.
           </p>
         </div>
         
@@ -195,35 +189,71 @@ export default function ProductionClose() {
           {/* STEP 1: PM Verification */}
           <div className={`rounded-2xl border ${pmConfirmed ? 'bg-purple-50/40 border-purple-200 opacity-90' : 'bg-white border-slate-200 shadow-sm'} p-6 relative overflow-hidden`}>
             {pmConfirmed && (
-              <div className="absolute top-4 right-4 text-emerald-700 flex items-center gap-1 text-xs font-bold bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-full shadow-xs">
-                <CheckCircle2 size={14} /> Verified & Sent
+              <div className="absolute top-4 right-4 text-purple-800 flex items-center gap-1.5 text-xs font-black bg-purple-100 border border-purple-300 px-3 py-1 rounded-full shadow-xs">
+                <CheckCircle2 size={14} className="text-purple-600" /> Production Verified ✓ | Awaiting Admin Verification
               </div>
             )}
             <h3 className="text-lg font-bold text-slate-800 mb-1">Step 1: Production Checklist</h3>
             <p className="text-xs text-slate-500 mb-4 font-medium">Verified by Production Manager</p>
 
-            {/* Display Production Totals */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-5">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System Logged Production</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-slate-500 font-semibold">19L Bottles:</p>
-                  <p className="text-base font-black text-slate-900">{status?.productionTotals?.total19L || 0}</p>
+            {/* Display Production & Inventory Summary */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-5 space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Production Summary</p>
+                  <span className="text-xs font-extrabold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200">
+                    Production Batches Today: {status?.productionTotals?.batchesCount || 0}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-semibold">1.5L Packs:</p>
-                  <p className="text-base font-black text-slate-900">{status?.productionTotals?.packs15L || 0}</p>
+                <div className="grid grid-cols-2 gap-3 bg-white p-3 rounded-lg border border-slate-200/80">
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">19L Bottles:</p>
+                    <p className="text-base font-black text-slate-900">{status?.productionTotals?.total19L || 0} Bottles</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">0.5L Packs:</p>
+                    <p className="text-base font-black text-slate-900">{status?.productionTotals?.packs05L || 0} Packs</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">1.5L Packs:</p>
+                    <p className="text-base font-black text-slate-900">{status?.productionTotals?.packs15L || 0} Packs</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">Breakage / Waste:</p>
+                    <p className="text-base font-black text-rose-600">
+                      {(status?.productionTotals?.waste19L || 0) + (status?.productionTotals?.broken15L || 0) + (status?.productionTotals?.broken05L || 0)} Units
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-semibold">0.5L Packs:</p>
-                  <p className="text-base font-black text-slate-900">{status?.productionTotals?.packs05L || 0}</p>
+              </div>
+
+              {/* Finished Goods Added */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Finished Goods Added</p>
+                <div className="grid grid-cols-3 gap-2 bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200/80 text-xs font-bold text-emerald-950">
+                  <div>19L: <span className="font-black text-emerald-900">{status?.productionTotals?.total19L || 0}</span></div>
+                  <div>0.5L: <span className="font-black text-emerald-900">{status?.productionTotals?.packs05L || 0} pk</span></div>
+                  <div>1.5L: <span className="font-black text-emerald-900">{status?.productionTotals?.packs15L || 0} pk</span></div>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 font-semibold">Breakage / Waste:</p>
-                  <p className="text-base font-black text-rose-600">
-                    {(status?.productionTotals?.waste19L || 0) + (status?.productionTotals?.broken15L || 0) + (status?.productionTotals?.broken05L || 0)}
-                  </p>
-                </div>
+              </div>
+
+              {/* Today's Raw Material Consumption */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Today&apos;s Raw Material Consumption</p>
+                {status?.materialConsumption && status.materialConsumption.length > 0 ? (
+                  <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                    {status.materialConsumption.map((mat, idx) => (
+                      <div key={idx} className="flex justify-between items-center font-medium text-slate-700">
+                        <span>{mat.name}:</span>
+                        <span className="font-bold text-slate-900">{mat.quantity} {mat.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic bg-white p-2 rounded-lg border border-slate-200">
+                    No consumption logged for today.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -288,7 +318,7 @@ export default function ProductionClose() {
                   onChange={e => setPmChecks(prev => ({ ...prev, wasteRecorded: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
                 />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Breakage & waste recorded</span>
+                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Breakage recorded</span>
               </label>
 
               <label className="flex items-start gap-3 cursor-pointer group">
@@ -299,7 +329,7 @@ export default function ProductionClose() {
                   onChange={e => setPmChecks(prev => ({ ...prev, noNegativeInventory: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
                 />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ No negative inventory detected</span>
+                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ No negative inventory</span>
               </label>
 
               <label className="flex items-start gap-3 cursor-pointer group">
@@ -321,7 +351,7 @@ export default function ProductionClose() {
                   onChange={e => setPmChecks(prev => ({ ...prev, purchasesReceived: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
                 />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Raw material purchases required for today&apos;s production are received.</span>
+                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Required raw materials were available for today&apos;s production.</span>
               </label>
             </div>
 
@@ -339,13 +369,16 @@ export default function ProductionClose() {
             )}
             
             {pmConfirmed && (
-              <div className="mt-6 bg-purple-100/60 border border-purple-200 p-4 rounded-xl space-y-1">
+              <div className="mt-6 bg-purple-100/60 border border-purple-200 p-4 rounded-xl space-y-1.5">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-purple-800">Submission Information</div>
                 <div className="text-xs text-purple-950 font-bold">
                   Verified By: <span className="text-slate-900">{status?.pmConfirmedBy?.name || user?.name || 'Production Manager'}</span>
                 </div>
                 <div className="text-xs text-purple-900 font-semibold">
                   Verified At: <span className="font-mono text-slate-800">{new Date(status?.pmConfirmedAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date(status?.pmConfirmedAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <div className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-200 inline-block mt-1">
+                  Status: Awaiting Admin Verification
                 </div>
               </div>
             )}

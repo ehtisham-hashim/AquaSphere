@@ -143,6 +143,27 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     })
   ]);
 
+  const batchConsumptionModel = prisma[`${prefix}ProductionBatchConsumption`];
+  const consumptions = await batchConsumptionModel.findMany({
+    where: {
+      batch: {
+        batchDate: { gte: targetDate, lt: nextDate }
+      }
+    },
+    include: { item: true }
+  });
+
+  const materialConsumptionMap = {};
+  for (const c of consumptions) {
+    const itemName = c.item?.name || 'Raw Material';
+    const unit = c.item?.unit || 'units';
+    if (!materialConsumptionMap[itemName]) {
+      materialConsumptionMap[itemName] = { name: itemName, quantity: 0, unit };
+    }
+    materialConsumptionMap[itemName].quantity += Number(c.quantity) || 0;
+  }
+  const materialConsumption = Object.values(materialConsumptionMap);
+
   let ordersTotalWorth = 0;
   for (const ord of orderStats) {
     for (const item of ord.items || []) {
@@ -167,6 +188,7 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     mmConfirmedBy: existing?.mmConfirmedBy || null,
     pendingBatchesCount,
     negativeStockCount,
+    materialConsumption,
     productionTotals: {
       batchesCount: prodStats._count.id || 0,
       total19L: prodStats._sum.quantity || 0,
