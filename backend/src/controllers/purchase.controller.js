@@ -158,6 +158,17 @@ export const createPurchase = asyncHandler(async (req, res) => {
         data: { cachedQty: { increment: vItem.quantity } }
       });
 
+      const itemInfo = await tx[`${prefix}Item`].findUnique({ where: { id: vItem.itemId } });
+      if (itemInfo && (itemInfo.name.toLowerCase().includes('19l') || itemInfo.name.toLowerCase().includes('19 l'))) {
+        await tx[`${prefix}BottleTransaction`].create({
+          data: {
+            type: 'NEW_PURCHASE',
+            quantity: Math.round(vItem.quantity),
+            reason: `Purchase Invoice #${newPurchase.invoiceNo}`
+          }
+        });
+      }
+
       await tx[`${prefix}InventoryTransaction`].create({
         data: {
           itemId: vItem.itemId,

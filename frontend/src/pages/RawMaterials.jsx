@@ -10,7 +10,7 @@ const API = API_URL;
 
 export default function RawMaterials() {
   const { user } = useAuth();
-  const isMarketingManager = user?.role === 'MARKETING_MANAGER';
+  const isReadOnly = user?.role === 'MARKETING_MANAGER' || user?.role === 'PRODUCTION_MANAGER';
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +42,8 @@ export default function RawMaterials() {
   }, [fetchMaterials]);
 
   const handleOpenAdd = () => {
-    if (isMarketingManager) {
-      toast.error('Marketing Manager cannot edit or add stock directly');
+    if (isReadOnly) {
+      toast.error('You do not have permission to add materials directly');
       return;
     }
     setEditingItem(null);
@@ -51,8 +51,8 @@ export default function RawMaterials() {
   };
 
   const handleOpenEdit = (item) => {
-    if (isMarketingManager) {
-      toast.error('Marketing Manager cannot edit stock directly');
+    if (isReadOnly) {
+      toast.error('You do not have permission to edit materials directly');
       return;
     }
     setEditingItem(item);
@@ -60,8 +60,8 @@ export default function RawMaterials() {
   };
 
   const handleToggleArchive = async (item) => {
-    if (isMarketingManager) {
-      toast.error('Marketing Manager cannot archive or delete materials');
+    if (isReadOnly) {
+      toast.error('You do not have permission to archive or delete materials');
       return;
     }
     const isArchived = !!item.archivedAt;
@@ -101,7 +101,7 @@ export default function RawMaterials() {
         onToggleArchived={setIncludeArchived}
         onOpenAdd={handleOpenAdd}
         tenant={tenant}
-        isMarketingManager={isMarketingManager}
+        isReadOnly={isReadOnly}
       />
 
       <RawMaterialsTable 
@@ -110,7 +110,7 @@ export default function RawMaterials() {
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
         tenant={tenant}
-        isMarketingManager={isMarketingManager}
+        isReadOnly={isReadOnly}
       />
 
       <AddEditRawMaterialModal 

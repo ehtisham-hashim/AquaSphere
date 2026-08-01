@@ -5,17 +5,22 @@ import {
   Plus, 
   X, 
   Scale, 
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import DeleteConfirmationModal from '../components/ui/DeleteConfirmationModal';
 
 const API = API_URL;
 
 export default function Production() {
   const tenant = getCompanyFromCookie();
   const isWadaana = tenant === 'wadaana';
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
 
   const [batches, setBatches] = useState([]);
   const [items, setItems] = useState([]);
@@ -270,11 +275,44 @@ export default function Production() {
     }
   };
 
+  // Delete Batch Modal State
+  const [batchToDelete, setBatchToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Preview Formulas Live (AquaSphere)
   const p05Num = parseInt(packs05L || 0);
   const p15Num = parseInt(packs15L || 0);
   const totalLitres = (p05Num * 9) + (p15Num * 12);
   const mineralSetFraction = (totalLitres / 15141).toFixed(6);
+
+  const handleConfirmDeleteBatch = async () => {
+    if (!batchToDelete) return;
+    if (!isOwner) {
+      toast.error('Only Owner can delete production batches.');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API}/production/${batchToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.message || 'Failed to delete production batch');
+        return;
+      }
+      toast.success('Production batch deleted successfully.');
+      setBatchToDelete(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Error deleting production batch');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -317,6 +355,33 @@ export default function Production() {
         </div>
       </div>
 
+      {/* Production Inventory & Stock Alerts Banner */}
+      {(() => {
+        const lowItems = items.filter(i => 
+          !i.archivedAt && 
+          Number(i.reorderLevel) > 0 && 
+          Number(i.cachedQty || 0) <= Number(i.reorderLevel)
+        );
+        if (lowItems.length === 0) return null;
+
+        return (
+          <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 shadow-sm space-y-2">
+            <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <span>Production Inventory & Low Stock Alerts ({lowItems.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {lowItems.map(item => (
+                <span key={item.id} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1.5 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  {item.name}: {Number(item.cachedQty || 0).toLocaleString()} {item.unit || 'pcs'} remaining
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Production History & Batch Audit Trail Table */}
 
       {/* Production History Table */}
@@ -357,12 +422,14 @@ export default function Production() {
                 )}
                 {!isWadaana && <th className="p-3.5">Breakage / Waste</th>}
                 <th className="p-3.5">Status</th>
+                <th className="p-3.5">Recorded By</th>
+                {isOwner && <th className="p-3.5 text-center">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {batches.length === 0 ? (
                 <tr>
-                  <td colSpan={isWadaana ? "7" : "7"} className="p-8 text-center text-slate-400">No production batches recorded.</td>
+                  <td colSpan={isOwner ? (isWadaana ? "9" : "9") : (isWadaana ? "8" : "8")} className="p-8 text-center text-slate-400">No production batches recorded.</td>
                 </tr>
               ) : (
                 batches.map(b => {
@@ -396,6 +463,20 @@ export default function Production() {
                             </div>
                           )}
                         </td>
+                        <td className="p-3.5 text-xs text-slate-600 font-medium">
+                          {b.createdBy?.name || user?.name || 'System'} ({b.createdBy?.role || 'MM'})
+                        </td>
+                        {isOwner && (
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => setBatchToDelete(b)}
+                              title="Delete Batch (Owner Only)"
+                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   }
@@ -421,8 +502,8 @@ export default function Production() {
                       <td className="p-3.5 font-mono font-medium text-slate-700">{litres} Litres</td>
                       <td className="p-3.5">
                         {(b05 > 0 || b15 > 0 || w19 > 0) ? (
-                          <span className="text-rose-600 font-semibold text-xs bg-rose-50 px-2 py-1 rounded-md">
-                            {b05 + b15 + w19} broken/waste
+                          <span className="text-rose-600 font-semibold text-xs bg-rose-50 px-2 py-1 rounded-md" title={`0.5L: ${b05} | 1.5L: ${b15} | 19L: ${w19}`}>
+                            {b05 + b15 + w19} broken/waste ({b05 ? `${b05}x0.5L ` : ''}{b15 ? `${b15}x1.5L ` : ''}{w19 ? `${w19}x19L` : ''})
                           </span>
                         ) : (
                           <span className="text-slate-400 text-xs">Clean</span>
@@ -440,6 +521,20 @@ export default function Production() {
                           </div>
                         )}
                       </td>
+                      <td className="p-3.5 text-xs text-slate-600 font-medium">
+                        {b.createdBy?.name || user?.name || 'System'} ({b.createdBy?.role || 'MM'})
+                      </td>
+                      {isOwner && (
+                        <td className="p-3.5 text-center">
+                          <button
+                            onClick={() => setBatchToDelete(b)}
+                            title="Delete Batch (Owner Only)"
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -596,49 +691,119 @@ export default function Production() {
                 const shrinkKg = ((p05Num + p15Num) * 0.050).toFixed(3);
                 const empty05LCount = p05Num * 12;
                 const empty15LCount = p15Num * 6;
+                const empty19LCount = parseInt(quantity || 0);
                 const capsCount = (p05Num * 12) + (p15Num * 6);
                 const labels05LKg = (p05Num * 0.00672).toFixed(4);
                 const labels15LKg = (p15Num * 0.00780).toFixed(4);
 
+                // Stock Lookups from items state
+                const getItemQty = (keywords) => {
+                  const item = items.find(i => i.type === 'RAW_MATERIAL' && keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
+                  return item ? Number(item.cachedQty || 0) : 0;
+                };
+
+                const empty05LStock = getItemQty(['500ml', '0.5l']);
+                const empty15LStock = getItemQty(['1.5l', '1500ml']);
+                const empty19LStock = getItemQty(['empty 19l', '19l']);
+                const capsStock = getItemQty(['cap']);
+                const shrinkStock = getItemQty(['shrink']);
+                const naStock = getItemQty(['sodium']);
+                const caStock = getItemQty(['calcium']);
+                const mgStock = getItemQty(['magnesium']);
+
+                const is05LShort = empty05LCount > 0 && empty05LStock < empty05LCount;
+                const is15LShort = empty15LCount > 0 && empty15LStock < empty15LCount;
+                const is19LShort = empty19LCount > 0 && empty19LStock < empty19LCount;
+                const isCapsShort = capsCount > 0 && capsStock < capsCount;
+                const isShrinkShort = Number(shrinkKg) > 0 && shrinkStock < Number(shrinkKg);
+                const isNaShort = Number(naKg) > 0 && naStock < Number(naKg);
+                const isCaShort = Number(caKg) > 0 && caStock < Number(caKg);
+                const isMgShort = Number(mgKg) > 0 && mgStock < Number(mgKg);
+
+                const hasShortage = is05LShort || is15LShort || is19LShort || isCapsShort || isShrinkShort || isNaShort || isCaShort || isMgShort;
+
                 return (
-                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-2.5">
-                    <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200/80 pb-2">
-                      <Scale className="w-4 h-4 text-emerald-600" />
-                      Exact Auto-Deductions Live Formula Preview
-                    </h4>
+                  <div className={`border rounded-xl p-4 space-y-2.5 transition-colors ${hasShortage ? 'bg-amber-50/90 border-amber-300' : 'bg-emerald-50/70 border-emerald-200'}`}>
+                    <div className="flex justify-between items-center border-b border-slate-200/80 pb-2">
+                      <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${hasShortage ? 'text-amber-800' : 'text-emerald-800'}`}>
+                        <Scale className={`w-4 h-4 ${hasShortage ? 'text-amber-600' : 'text-emerald-600'}`} />
+                        Auto-Deduction & Live Material Stock Preview
+                      </h4>
+                      {hasShortage ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                          ⚠️ Insufficient Stock Alert
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          ✓ All Raw Materials Available
+                        </span>
+                      )}
+                    </div>
+
                     <div className="text-xs text-slate-700 space-y-1.5 font-mono">
                       <div className="flex justify-between font-bold text-emerald-900">
                         <span>Total Water Treated:</span>
                         <span>{totalWater} Litres</span>
                       </div>
-                      {(empty05LCount > 0 || empty15LCount > 0) && (
-                        <div className="flex justify-between text-slate-700">
-                          <span>Empty PET Bottles:</span>
-                          <span>{empty05LCount > 0 ? `${empty05LCount} pcs (0.5L)` : ''}{empty05LCount > 0 && empty15LCount > 0 ? ' + ' : ''}{empty15LCount > 0 ? `${empty15LCount} pcs (1.5L)` : ''}</span>
+
+                      {empty05LCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span>Empty 0.5L PET Bottles ({empty05LCount} pcs):</span>
+                          <span className={is05LShort ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {is05LShort ? `❌ Stock: ${empty05LStock} pcs` : `✓ In Stock (${empty05LStock} pcs)`}
+                          </span>
                         </div>
                       )}
+
+                      {empty15LCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span>Empty 1.5L PET Bottles ({empty15LCount} pcs):</span>
+                          <span className={is15LShort ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {is15LShort ? `❌ Stock: ${empty15LStock} pcs` : `✓ In Stock (${empty15LStock} pcs)`}
+                          </span>
+                        </div>
+                      )}
+
+                      {empty19LCount > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span>Empty 19L Bottles ({empty19LCount} pcs):</span>
+                          <span className={is19LShort ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {is19LShort ? `❌ Stock: ${empty19LStock} pcs` : `✓ In Stock (${empty19LStock} pcs)`}
+                          </span>
+                        </div>
+                      )}
+
                       {capsCount > 0 && (
-                        <div className="flex justify-between text-slate-700">
-                          <span>Small Caps:</span>
-                          <span>{capsCount} pcs</span>
+                        <div className="flex justify-between items-center">
+                          <span>Small Caps ({capsCount} pcs):</span>
+                          <span className={isCapsShort ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {isCapsShort ? `❌ Stock: ${capsStock} pcs` : `✓ In Stock (${capsStock} pcs)`}
+                          </span>
                         </div>
                       )}
+
                       {(p05Num > 0 || p15Num > 0) && (
-                        <div className="flex justify-between text-slate-700">
-                          <span>Labels (0.56g & 1.30g / btl):</span>
-                          <span>{p05Num > 0 ? `${labels05LKg} kg (0.5L)` : ''}{p05Num > 0 && p15Num > 0 ? ' + ' : ''}{p15Num > 0 ? `${labels15LKg} kg (1.5L)` : ''}</span>
+                        <div className="flex justify-between items-center">
+                          <span>Labels ({p05Num > 0 ? `${labels05LKg}kg` : ''}{p05Num > 0 && p15Num > 0 ? ' + ' : ''}{p15Num > 0 ? `${labels15LKg}kg` : ''}):</span>
+                          <span className="text-slate-600">✓ In Stock</span>
                         </div>
                       )}
+
                       {(p05Num > 0 || p15Num > 0) && (
-                        <div className="flex justify-between text-slate-700">
-                          <span>Shrink Wrap (50g / pack):</span>
-                          <span>{shrinkKg} kg</span>
+                        <div className="flex justify-between items-center">
+                          <span>Shrink Wrap ({shrinkKg} kg):</span>
+                          <span className={isShrinkShort ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {isShrinkShort ? `❌ Stock: ${shrinkStock} kg` : `✓ In Stock (${shrinkStock} kg)`}
+                          </span>
                         </div>
                       )}
+
                       {totalWater > 0 && (
-                        <div className="flex justify-between text-slate-600 pt-1 border-t border-emerald-200/50">
-                          <span>Chemical Minerals (per 15,141L):</span>
-                          <span>Ca: {caKg} kg | Mg: {mgKg} kg | Na: {naKg} kg</span>
+                        <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200/60">
+                          <span>Minerals (Ca: {caKg}kg, Mg: {mgKg}kg, Na: {naKg}kg):</span>
+                          <span className={(isNaShort || isCaShort || isMgShort) ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                            {(isNaShort || isCaShort || isMgShort) ? '❌ Stock Shortage' : '✓ In Stock'}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -891,6 +1056,17 @@ export default function Production() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={Boolean(batchToDelete)}
+        title="Delete Production Batch"
+        message={`Are you sure you want to delete Production Batch #${batchToDelete?.id?.substring(0, 8).toUpperCase()}? This will revert any associated inventory additions and raw material consumptions.`}
+        confirmText="Delete Batch"
+        cancelText="Cancel"
+        loading={isDeleting}
+        onConfirm={handleConfirmDeleteBatch}
+        onClose={() => setBatchToDelete(null)}
+      />
     </div>
   );
 }

@@ -31,54 +31,54 @@ export default function StockSourceBreakdown({ transactions = [], tenant = 'aqua
   });
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+    <div className="py-8 border-b border-slate-200 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h3 className="font-bold text-slate-800 flex items-center gap-2 text-base">
-            <Factory className={`w-5 h-5 ${isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'}`} />
-            Stock Origin & Flow Audit (How & Where Stock Comes From)
+          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-1">
+            <Factory className={`w-5 h-5 ${isWadaana ? 'text-sky-600' : 'text-emerald-600'}`} />
+            Stock Origin & Flow
           </h3>
-          <p className="text-xs text-slate-500">Live breakdown of finished goods stock additions vs dispatches.</p>
+          <p className="text-sm text-slate-500">Live breakdown of finished goods stock additions vs dispatches.</p>
         </div>
-        <div className="flex items-center gap-3 text-xs font-semibold">
-          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            <ArrowUpRight size={13} /> +{totalIn.toLocaleString()} Total Inbound
+        <div className="flex items-center gap-4 text-sm font-semibold">
+          <span className="flex items-center gap-1.5 text-emerald-700">
+            <ArrowUpRight size={16} /> +{totalIn.toLocaleString()} Inbound
           </span>
-          <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
-            <ArrowDownRight size={13} /> -{totalOut.toLocaleString()} Dispatched Out
+          <span className="flex items-center gap-1.5 text-rose-700">
+            <ArrowDownRight size={16} /> -{totalOut.toLocaleString()} Dispatched
           </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
         {/* Source 1: Factory Production */}
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">1. Factory Production</span>
-            <span className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg"><Factory size={14} /></span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Factory size={16} />
+            <span className="text-xs font-bold uppercase tracking-widest">Factory Production</span>
           </div>
-          <div className="text-xl font-black text-slate-800">+{productionIn.toLocaleString()} <span className="text-xs font-normal text-slate-500">Units</span></div>
-          <p className="text-[11px] text-slate-500 font-medium">Stock added directly from completed factory production batches.</p>
+          <div className="text-3xl font-bold text-slate-900">+{productionIn.toLocaleString()} <span className="text-sm font-normal text-slate-400">Units</span></div>
+          <p className="text-xs text-slate-500 max-w-[250px]">Stock added directly from completed factory production batches.</p>
         </div>
 
         {/* Source 2: Dispatches & Sales */}
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">2. Sales & Dispatches</span>
-            <span className="p-1.5 bg-sky-100 text-sky-700 rounded-lg"><ShoppingBag size={14} /></span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-slate-500">
+            <ShoppingBag size={16} />
+            <span className="text-xs font-bold uppercase tracking-widest">Sales & Dispatches</span>
           </div>
-          <div className="text-xl font-black text-slate-800">-{customerSalesOut.toLocaleString()} <span className="text-xs font-normal text-slate-500">Units</span></div>
-          <p className="text-[11px] text-slate-500 font-medium">Dispatched to customers via Spot Sales & Order deliveries.</p>
+          <div className="text-3xl font-bold text-slate-900">-{customerSalesOut.toLocaleString()} <span className="text-sm font-normal text-slate-400">Units</span></div>
+          <p className="text-xs text-slate-500 max-w-[250px]">Dispatched to customers via Spot Sales & Order deliveries.</p>
         </div>
 
-        {/* Source 3: Manual Audits */}
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">3. Manual Stock Takes</span>
-            <span className="p-1.5 bg-purple-100 text-purple-700 rounded-lg"><Sliders size={14} /></span>
+        {/* Source 3: Physical Stock Verification */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Sliders size={16} />
+            <span className="text-xs font-bold uppercase tracking-widest">Stock Verification</span>
           </div>
-          <div className="text-xl font-black text-slate-800">+{manualAdjustments.toLocaleString()} <span className="text-xs font-normal text-slate-500">Units</span></div>
-          <p className="text-[11px] text-slate-500 font-medium">Adjustments from initial stock entries and physical stock counts.</p>
+          <div className="text-3xl font-bold text-slate-900">+{manualAdjustments.toLocaleString()} <span className="text-sm font-normal text-slate-400">Units</span></div>
+          <p className="text-xs text-slate-500 max-w-[250px]">Owner-approved stock verifications and initial balances.</p>
         </div>
       </div>
     </div>

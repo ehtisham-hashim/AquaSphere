@@ -1,11 +1,26 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getCompanyFromCookie, setCompanyCookie } from '../../utils/companyCookie';
 import { API_URL } from '../../utils/api';
-import { Calendar, Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
+import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
+
+const PAGE_TITLES = {
+  '/': { title: 'Dashboard', subtitle: 'Fast access to company operations and alerts' },
+  '/orders': { title: 'Orders & Dispatches', subtitle: 'Manage customer orders and delivery tracking' },
+  '/customers': { title: 'Customer Directory', subtitle: 'Customer profiles, custody, and financial ledgers' },
+  '/production': { title: 'Production Management', subtitle: 'Log factory output runs and chemical formulas' },
+  '/inventory': { title: 'Finished Goods Inventory', subtitle: 'Track finished goods across Factory & Warehouse' },
+  '/raw-materials': { title: 'Raw Materials Inventory', subtitle: 'Track raw material stock levels and reorder limits' },
+  '/purchases': { title: 'Vendor Purchases', subtitle: 'Record raw material purchases and vendor invoices' },
+  '/vendors': { title: 'Vendors Directory', subtitle: 'Manage vendor accounts and purchase ledgers' },
+  '/expenses': { title: 'Factory Expenses', subtitle: 'Track operational expenses and receipts' },
+  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' }
+};
 
 export default function TopNav({ onMenuClick }) {
   const { user } = useAuth();
+  const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('snoozed_alerts') || '{}'); } catch { return {}; }
@@ -16,11 +31,10 @@ export default function TopNav({ onMenuClick }) {
   const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
 
-  const formattedDate = new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(new Date());
+  const currentPage = PAGE_TITLES[location.pathname] || {
+    title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
+    subtitle: 'AquaSphere Management OS'
+  };
 
   const currentTenant = getCompanyFromCookie();
   const isWadaana = currentTenant === 'wadaana';
@@ -79,8 +93,8 @@ export default function TopNav({ onMenuClick }) {
           <Menu size={24} />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500">Fast access to company operations and alerts</p>
+          <h1 className="text-xl font-bold text-slate-900">{currentPage.title}</h1>
+          <p className="text-xs text-slate-500">{currentPage.subtitle}</p>
         </div>
       </div>
 
@@ -189,12 +203,6 @@ export default function TopNav({ onMenuClick }) {
           <div className="flex items-center px-3 py-1.5 border border-slate-200 rounded-md bg-background">
             <span className="text-sm font-medium capitalize">{user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}</span>
           </div>
-        </div>
-
-        {/* Date Display */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-md border border-slate-200 text-sm font-medium text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span>{formattedDate}</span>
         </div>
       </div>
     </header>

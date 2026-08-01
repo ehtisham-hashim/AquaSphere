@@ -6,7 +6,7 @@ export default function RawMaterialsTable({
   onEdit, 
   onToggleArchive, 
   tenant = 'aquasphere',
-  isMarketingManager = false
+  isReadOnly = false
 }) {
   const isWadaana = tenant === 'wadaana';
 
@@ -117,7 +117,7 @@ export default function RawMaterialsTable({
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      {!isMarketingManager ? (
+                      {!isReadOnly ? (
                         <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onEdit(m)}

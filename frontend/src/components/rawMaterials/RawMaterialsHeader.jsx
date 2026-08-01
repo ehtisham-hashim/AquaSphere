@@ -7,7 +7,7 @@ export default function RawMaterialsHeader({
   onToggleArchived, 
   onOpenAdd, 
   tenant = 'aquasphere',
-  isMarketingManager = false
+  isReadOnly = false
 }) {
   const isWadaana = tenant === 'wadaana';
 
@@ -38,7 +38,7 @@ export default function RawMaterialsHeader({
           </div>
         </div>
 
-        {!isMarketingManager && (
+        {!isReadOnly && (
           <button
             onClick={onOpenAdd}
             className={`${

@@ -60,6 +60,8 @@ model AquasphereItem {
   type         AquasphereItemType
   unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  factoryQty   Decimal   @default(0.0) @map("factory_qty")
+  warehouseQty Decimal   @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -87,16 +89,19 @@ enum AquasphereItemType {
 }
 
 model AquasphereInventoryTransaction {
-  id        String         @id @default(uuid())
-  itemId    String         @map("item_id")
-  item      AquasphereItem @relation(fields: [itemId], references: [id])
-  quantity  Decimal
-  direction AquasphereTransactionDirection
-  reason    String
-  refType   String?        @map("ref_type")
-  refId     String?        @map("ref_id")
-  location  String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid())
+  itemId         String         @map("item_id")
+  item           AquasphereItem @relation(fields: [itemId], references: [id])
+  quantity       Decimal
+  direction      AquasphereTransactionDirection
+  reason         String
+  refType        String?        @map("ref_type")
+  refId          String?        @map("ref_id")
+  location       String?
+  batchNo        String?        @map("batch_no")
+  productionDate DateTime?      @map("production_date")
+  expiryDate     DateTime?      @map("expiry_date")
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
   @@map("inventory_transactions")
@@ -568,6 +573,8 @@ model WadaanaItem {
   type         WadaanaItemType
   unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  factoryQty   Decimal   @default(0.0) @map("factory_qty")
+  warehouseQty Decimal   @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -595,16 +602,19 @@ enum WadaanaItemType {
 }
 
 model WadaanaInventoryTransaction {
-  id        String         @id @default(uuid())
-  itemId    String         @map("item_id")
-  item      WadaanaItem @relation(fields: [itemId], references: [id])
-  quantity  Decimal
-  direction WadaanaTransactionDirection
-  reason    String
-  refType   String?        @map("ref_type")
-  refId     String?        @map("ref_id")
-  location  String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid())
+  itemId         String         @map("item_id")
+  item           WadaanaItem    @relation(fields: [itemId], references: [id])
+  quantity       Decimal
+  direction      WadaanaTransactionDirection
+  reason         String
+  refType        String?        @map("ref_type")
+  refId          String?        @map("ref_id")
+  location       String?
+  batchNo        String?        @map("batch_no")
+  productionDate DateTime?      @map("production_date")
+  expiryDate     DateTime?      @map("expiry_date")
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
   @@map("inventory_transactions")

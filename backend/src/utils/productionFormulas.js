@@ -168,6 +168,12 @@ function calculateProductionBatch(params, items) {
     if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.050), 'kg');
   }
 
+  // --- 19L Bottle Deductions ---
+  if (quantity > 0) {
+    const empty19L = findRawItem(['empty 19l', '19l', '19 l']);
+    if (empty19L) addDeduction(empty19L, decQuantity19L, 'pcs');
+  }
+
   // 4. Finished Goods Additions (Net good packs after deducting broken bottles)
   const totalBottles05L = packs05L * 12;
   const netGoodBottles05L = Math.max(0, totalBottles05L - brokenBottles05L);

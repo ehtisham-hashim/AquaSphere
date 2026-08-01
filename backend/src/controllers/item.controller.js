@@ -50,13 +50,41 @@ const consolidateDuplicateFinishedGoods = async (prefix) => {
       for (const dupe of matchingItems) {
         if (dupe.id === canonicalItem.id) continue;
 
+        // Re-link ALL foreign key references
         await prisma[`${prefix}InventoryTransaction`].updateMany({
           where: { itemId: dupe.id },
           data: { itemId: canonicalItem.id }
-        });
+        }).catch(() => null);
 
-        await prisma[`${prefix}Item`].delete({
-          where: { id: dupe.id }
+        await prisma[`${prefix}OrderItem`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}PurchaseItem`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatchConsumption`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatch`].updateMany({
+          where: { outputItemId: dupe.id },
+          data: { outputItemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatch`].updateMany({
+          where: { inputItemId: dupe.id },
+          data: { inputItemId: canonicalItem.id }
+        }).catch(() => null);
+
+        // Soft-archive duplicate item so it never appears in inventory or transfer dropdowns
+        await prisma[`${prefix}Item`].update({
+          where: { id: dupe.id },
+          data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
         }).catch(() => null);
       }
     }
@@ -83,7 +111,7 @@ export const getItems = asyncHandler(async (req, res) => {
         include: { rawMaterial: true }
       },
       inventoryTransactions: {
-        select: { quantity: true, direction: true }
+        select: { quantity: true, direction: true, refType: true }
       }
     }
   });
@@ -100,6 +128,7 @@ export const getItems = asyncHandler(async (req, res) => {
     if (item.inventoryTransactions && item.inventoryTransactions.length > 0) {
       let netQty = 0;
       for (const t of item.inventoryTransactions) {
+        if (t.refType === 'TRANSFER') continue;
         const q = Number(t.quantity || 0);
         if (t.direction === 'IN') netQty += q;
         else if (t.direction === 'OUT') netQty -= q;
@@ -319,7 +348,7 @@ export const getInventoryTransactions = asyncHandler(async (req, res) => {
     where: whereClause,
     include: {
       item: {
-        select: { id: true, name: true, type: true, unit: true, cachedQty: true }
+        select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true }
       }
     },
     orderBy: { createdAt: 'desc' },
@@ -327,4 +356,59 @@ export const getInventoryTransactions = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, data: txns });
+});
+
+export const transferStock = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { itemId, fromLocation, toLocation, quantity, batchNo, notes } = req.body;
+
+  const qty = parseFloat(quantity);
+  if (isNaN(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be a positive number');
+  if (!itemId) throw new ApiError(400, 'Item selection is required');
+  if (!fromLocation || !toLocation) throw new ApiError(400, 'From and To locations are required');
+  if (fromLocation === toLocation) throw new ApiError(400, 'From and To locations must be different');
+
+  const item = await prisma[`${prefix}Item`].findUnique({ where: { id: itemId } });
+  if (!item) throw new ApiError(404, 'Item not found');
+
+  const srcQty = fromLocation === 'FACTORY' ? Number(item.factoryQty || 0) : Number(item.warehouseQty || 0);
+  if (srcQty < qty) {
+    throw new ApiError(400, `Insufficient stock at ${fromLocation} (Available: ${srcQty}, Requested: ${qty})`);
+  }
+
+  const updatedItem = await prisma.$transaction(async (tx) => {
+    const factoryChange = fromLocation === 'FACTORY' ? -qty : qty;
+    const warehouseChange = fromLocation === 'WAREHOUSE' ? -qty : qty;
+
+    const updated = await tx[`${prefix}Item`].update({
+      where: { id: itemId },
+      data: {
+        factoryQty: { increment: factoryChange },
+        warehouseQty: { increment: warehouseChange }
+      }
+    });
+
+    const now = new Date();
+    const expiry = new Date();
+    expiry.setFullYear(expiry.getFullYear() + 1);
+
+    await tx[`${prefix}InventoryTransaction`].create({
+      data: {
+        itemId,
+        quantity: qty,
+        direction: 'IN',
+        reason: `STOCK_TRANSFER: ${fromLocation} ➔ ${toLocation}${notes ? ` (${notes})` : ''}`,
+        refType: 'TRANSFER',
+        refId: 'TRANSFER',
+        location: `${fromLocation} -> ${toLocation}`,
+        batchNo: batchNo || `AQ-BATCH-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`,
+        productionDate: now,
+        expiryDate: expiry
+      }
+    });
+
+    return updated;
+  });
+
+  res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
 });

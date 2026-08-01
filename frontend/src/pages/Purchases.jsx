@@ -9,6 +9,7 @@ import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { INVOICE_CONFIG, DEFAULT_DELIVERED_LOCATION, getDefaultUnitPrice } from '../constants/purchases';
 import { toast } from 'sonner';
+import { DeleteConfirmationModal } from '../components/ui';
 
 export default function Purchases() {
   const { user } = useAuth();
@@ -231,8 +232,11 @@ export default function Purchases() {
     }
   };
 
-  const handleDeletePurchase = async (pId) => {
-    if (!window.confirm('Are you sure you want to delete this purchase? This will reverse raw material inventory additions and remove vendor ledger entries.')) return;
+  const [purchaseToDelete, setPurchaseToDelete] = useState(null);
+
+  const handleConfirmDeletePurchase = async () => {
+    if (!purchaseToDelete) return;
+    const pId = purchaseToDelete.id;
     setDeletingId(pId);
     try {
       const res = await fetch(`${API}/purchases/${pId}`, {
@@ -242,13 +246,15 @@ export default function Purchases() {
       const json = await res.json();
       if (json.success) {
         toast.success('Purchase deleted and inventory reversed');
+        setPurchaseToDelete(null);
         fetchData();
         if (selectedPurchase?.id === pId) setSelectedPurchase(null);
       } else {
-        alert(json.message || 'Failed to delete purchase');
+        toast.error(json.message || 'Failed to delete purchase');
       }
     } catch (err) {
       console.error('Error deleting purchase:', err);
+      toast.error('Error deleting purchase');
     } finally {
       setDeletingId(null);
     }
@@ -441,7 +447,7 @@ export default function Purchases() {
                         </button>
                         {user?.role === 'OWNER' && (
                           <button
-                            onClick={() => handleDeletePurchase(p.id)}
+                            onClick={() => setPurchaseToDelete(p)}
                             disabled={deletingId === p.id}
                             className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors inline-flex items-center text-xs font-bold bg-rose-50"
                             title="Delete Purchase"
@@ -804,6 +810,17 @@ export default function Purchases() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={Boolean(purchaseToDelete)}
+        title="Delete Purchase Record"
+        message={`Are you sure you want to delete Purchase Invoice #${purchaseToDelete?.invoiceNo || purchaseToDelete?.id?.substring(0, 8)}? This will reverse raw material inventory additions and remove vendor ledger entries.`}
+        confirmText="Delete Purchase"
+        cancelText="Cancel"
+        loading={Boolean(deletingId)}
+        onConfirm={handleConfirmDeletePurchase}
+        onClose={() => setPurchaseToDelete(null)}
+      />
     </div>
   );
 }

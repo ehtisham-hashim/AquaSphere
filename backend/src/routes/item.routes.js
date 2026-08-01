@@ -9,7 +9,8 @@ import {
   archiveItem,
   restoreItem,
   adjustInventory,
-  getInventoryTransactions
+  getInventoryTransactions,
+  transferStock
 } from '../controllers/item.controller.js';
 
 const router = Router();
@@ -25,9 +26,12 @@ router.get('/:id', getItemById);
 router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), createItem);
 router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), updateItem);
 
+// Stock transfers & manual adjustments
+router.post('/transfer-stock', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), transferStock);
+router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
+
 // Archiving & restoring items remain restricted to OWNER & ACCOUNTANT only
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveItem);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreItem);
-router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
 
 export default router;

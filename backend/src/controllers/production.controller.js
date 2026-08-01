@@ -32,9 +32,22 @@ export const getProductionBatches = asyncHandler(async (req, res) => {
     prisma[`${prefix}ProductionBatch`].count()
   ]);
 
+  // Enrich producedBy IDs with user names
+  const userIds = [...new Set(batches.map(b => b.producedBy).filter(Boolean))];
+  const users = userIds.length > 0 ? await prisma[`${prefix}User`].findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, role: true }
+  }) : [];
+  const userMap = Object.fromEntries(users.map(u => [u.id, u]));
+
+  const enrichedBatches = batches.map(b => ({
+    ...b,
+    createdBy: userMap[b.producedBy] || { name: b.producedBy || 'System', role: 'OPERATOR' }
+  }));
+
   res.status(200).json({
     success: true,
-    data: batches,
+    data: enrichedBatches,
     pagination: {
       total,
       page: Number(page),
@@ -343,6 +356,17 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     brokenBottles15L: broken15LNum
   }, allItems);
 
+  // Raw Material Stock Validation before deducting
+  for (const d of deductions) {
+    const item = allItems.find(i => i.id === d.itemId);
+    const availableQty = item ? Number(item.cachedQty || 0) : 0;
+    const requiredQty = Number(d.quantityUsed || 0);
+
+    if (availableQty < requiredQty) {
+      throw new ApiError(400, `❌ Insufficient stock for ${item?.name || 'raw material'} (Required: ${requiredQty} ${item?.unit || ''}, Available: ${availableQty} ${item?.unit || ''})`);
+    }
+  }
+
   const updatedBatch = await prisma.$transaction(async (tx) => {
     const pb = await tx.aquasphereProductionBatch.update({
       where: { id },
@@ -359,27 +383,103 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       const fg19L = allItems.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('19l') || i.name.toLowerCase().includes('19 l')));
       if (fg19L && netGood19L > 0) {
         await tx.aquasphereInventoryTransaction.create({
-          data: { itemId: fg19L.id, quantity: netGood19L, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
+          data: { itemId: fg19L.id, quantity: netGood19L, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }
         });
         await tx.aquasphereItem.update({
-          where: { id: fg19L.id }, data: { cachedQty: { increment: netGood19L } }
+          where: { id: fg19L.id }, data: { cachedQty: { increment: netGood19L }, factoryQty: { increment: netGood19L } }
+        });
+        await tx.aquasphereBottleTransaction.create({
+          data: {
+            type: 'MOVED_TO_FACTORY',
+            quantity: netGood19L,
+            reason: `Production Batch #${pb.id.substring(0,8).toUpperCase()}`
+          }
+        });
+      }
+
+      if (wasteQtyNum > 0) {
+        await tx.aquasphereBottleTransaction.create({
+          data: {
+            type: 'RETURNED_BROKEN',
+            quantity: wasteQtyNum,
+            reason: `Broken in Production Batch #${pb.id.substring(0,8).toUpperCase()}`
+          }
         });
       }
     }
 
     for (const d of deductions) {
       await tx.aquasphereProductionBatchConsumption.create({ data: { batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed } });
-      await tx.aquasphereInventoryTransaction.create({ data: { itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id } });
+      await tx.aquasphereInventoryTransaction.create({ data: { itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' } });
       await tx.aquasphereItem.update({ where: { id: d.itemId }, data: { cachedQty: { decrement: d.quantityUsed } } });
     }
 
     for (const fg of finishedGoods) {
-      await tx.aquasphereInventoryTransaction.create({ data: { itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id } });
-      await tx.aquasphereItem.update({ where: { id: fg.itemId }, data: { cachedQty: { increment: fg.quantityAdded } } });
+      await tx.aquasphereInventoryTransaction.create({ data: { itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' } });
+      await tx.aquasphereItem.update({ where: { id: fg.itemId }, data: { cachedQty: { increment: fg.quantityAdded }, factoryQty: { increment: fg.quantityAdded } } });
     }
 
     return pb;
   });
 
   res.status(200).json({ success: true, data: updatedBatch });
+});
+
+export const deleteProductionBatch = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const prefix = getTenantPrefix(req);
+
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only Owner can delete production batches');
+  }
+
+  const batch = await prisma[`${prefix}ProductionBatch`].findUnique({
+    where: { id }
+  });
+
+  if (!batch) {
+    throw new ApiError(404, 'Production batch not found');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (batch.status === 'COMPLETED') {
+      // Revert Inventory Transactions for this batch
+      const txs = await tx[`${prefix}InventoryTransaction`].findMany({
+        where: { refType: 'BATCH', refId: id }
+      });
+
+      for (const t of txs) {
+        const q = Number(t.quantity || 0);
+        if (t.direction === 'IN') {
+          // Revert finished goods addition
+          await tx[`${prefix}Item`].update({
+            where: { id: t.itemId },
+            data: { cachedQty: { decrement: q } }
+          }).catch(() => null);
+        } else if (t.direction === 'OUT') {
+          // Revert raw material consumption
+          await tx[`${prefix}Item`].update({
+            where: { id: t.itemId },
+            data: { cachedQty: { increment: q } }
+          }).catch(() => null);
+        }
+      }
+
+      await tx[`${prefix}InventoryTransaction`].deleteMany({
+        where: { refType: 'BATCH', refId: id }
+      });
+    }
+
+    // Delete consumptions if any
+    await tx[`${prefix}ProductionBatchConsumption`].deleteMany({
+      where: { batchId: id }
+    });
+
+    // Delete batch
+    await tx[`${prefix}ProductionBatch`].delete({
+      where: { id }
+    });
+  });
+
+  res.status(200).json({ success: true, message: 'Production batch deleted successfully' });
 });

@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   InventoryHeader, 
   FinishedGoodsSummaryCards, 
-  StockSourceBreakdown, 
-  InventoryTransactionHistoryTable 
+  InventoryTransactionHistoryTable,
+  StockTransferModal
 } from '../components/inventory';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL as API } from '../utils/api';
@@ -15,6 +15,7 @@ export default function Inventory() {
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   const fetchInventoryData = useCallback(async () => {
     setIsLoading(true);
@@ -51,7 +52,9 @@ export default function Inventory() {
     return transactions.filter(t => 
       t.item?.name?.toLowerCase().includes(term) ||
       t.reason?.toLowerCase().includes(term) ||
-      t.direction?.toLowerCase().includes(term)
+      t.direction?.toLowerCase().includes(term) ||
+      t.batchNo?.toLowerCase().includes(term) ||
+      t.location?.toLowerCase().includes(term)
     );
   }, [transactions, search]);
 
@@ -67,17 +70,12 @@ export default function Inventory() {
         tenant={tenant}
         totalFinishedGoods={totalFinishedGoodsCount}
         totalUnitsCount={totalUnitsSum}
+        onOpenTransferModal={() => setIsTransferModalOpen(true)}
       />
 
-      {/* Module 2: Finished Goods Live Summary Cards */}
+      {/* Module 2: Finished Goods Live Summary Cards with Location Breakdown (Factory vs Warehouse) */}
       <FinishedGoodsSummaryCards 
         items={items}
-        tenant={tenant}
-      />
-
-      {/* Module 3: Stock Origin & Flow Breakdown (How & Where Stock Comes From) */}
-      <StockSourceBreakdown 
-        transactions={transactions}
         tenant={tenant}
       />
 
@@ -86,6 +84,15 @@ export default function Inventory() {
         transactions={filteredTransactions}
         isLoading={isLoading}
         tenant={tenant}
+      />
+
+      {/* Stock Transfer Modal (Factory <-> Warehouse) */}
+      <StockTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        items={items}
+        tenant={tenant}
+        onSuccess={fetchInventoryData}
       />
     </div>
   );

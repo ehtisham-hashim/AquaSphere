@@ -11,6 +11,7 @@ const WADAANA_PRESETS = [
 ];
 
 const AQUASPHERE_PRESETS = [
+  { name: 'Empty 19L Bottles', unit: 'pcs', reorderLevel: 50 },
   { name: 'PET Bottles (500ml)', unit: 'pcs', reorderLevel: 2000 },
   { name: 'PET Bottles (1500ml)', unit: 'pcs', reorderLevel: 1500 },
   { name: 'Bottle Caps (Standard)', unit: 'pcs', reorderLevel: 5000 },
