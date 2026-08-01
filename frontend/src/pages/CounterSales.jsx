@@ -39,8 +39,6 @@ export default function CounterSales() {
   const [productQuantity, setProductQuantity] = useState('1');
 
   // Form State
-  const [litresSold, setLitresSold] = useState('9');
-  const [capsIssued, setCapsIssued] = useState('12');
   const [cashCollected, setCashCollected] = useState('360');
   const [creditAmount, setCreditAmount] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -101,22 +99,18 @@ export default function CounterSales() {
     fetchData(); 
   }, []);
 
-  // Update calculated metrics whenever Product or Quantity changes
+  // Update calculated price whenever Product or Quantity changes
   const handleProductOrQtyChange = (prodId, qtyStr) => {
     setSelectedProductId(prodId);
     setProductQuantity(qtyStr);
     const qty = parseFloat(qtyStr) || 1;
     const metrics = calculateProductMetrics(prodId, qty);
-    setLitresSold(String(metrics.waterLitres));
-    setCapsIssued(String(metrics.caps));
     setCashCollected(String(metrics.suggestedPrice));
   };
 
   const resetForm = () => {
     setSelectedProductId('PACK_05L');
     setProductQuantity('1');
-    setLitresSold('9');
-    setCapsIssued('12');
     setCashCollected('360');
     setCreditAmount('0');
     setPaymentMethod('CASH');
@@ -125,19 +119,26 @@ export default function CounterSales() {
     setLiveSaleNumber(generateSaleNumber());
   };
 
-  // Stock items lookup
-  const capItem = items.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes('cap'));
-  const fg05LItem = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('0.5'));
-  const fg15LItem = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('1.5'));
-  const fg19LItem = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('19'));
+  // Stock items lookup - sum across all matching items per category
+  const available05LPacks = items
+    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')))
+    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
 
-  const availableCaps = capItem ? Number(capItem.cachedQty || 0) : 9999;
-  const available05LPacks = fg05LItem ? Number(fg05LItem.cachedQty || 0) : 0;
-  const available15LPacks = fg15LItem ? Number(fg15LItem.cachedQty || 0) : 0;
-  const available19LBottles = fg19LItem ? Number(fg19LItem.cachedQty || 0) : 0;
+  const available15LPacks = items
+    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')))
+    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
 
-  const requestedCaps = parseInt(capsIssued || 0, 10);
-  const isCapStockInsufficient = requestedCaps > availableCaps;
+  const available19LBottles = items
+    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('19')))
+    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
+
+  const full05L = Math.floor(Math.max(0, available05LPacks));
+  const loose05L = Math.round((Math.max(0, available05LPacks) - full05L) * 12);
+  const totalBottles05L = Math.round(Math.max(0, available05LPacks) * 12);
+
+  const full15L = Math.floor(Math.max(0, available15LPacks));
+  const loose15L = Math.round((Math.max(0, available15LPacks) - full15L) * 6);
+  const totalBottles15L = Math.round(Math.max(0, available15LPacks) * 6);
 
   // Customer Credit Limit Validation
   const selectedCustomer = customers.find(c => c.id === customerId);
@@ -150,17 +151,6 @@ export default function CounterSales() {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    const litres = parseFloat(litresSold);
-
-    if (isNaN(litres) || litres <= 0) {
-      toast.error('Please enter valid Litres Sold');
-      return;
-    }
-
-    if (isCapStockInsufficient) {
-      toast.error(`Insufficient cap stock! Requested ${requestedCaps} caps, but only ${availableCaps} available.`);
-      return;
-    }
 
     if (isCreditSale && !customerId) {
       toast.error('Customer profile selection is mandatory for Credit Sales!');
@@ -174,7 +164,6 @@ export default function CounterSales() {
     setShowConfirmModal(false);
     setSubmitting(true);
     try {
-      const litres = parseFloat(litresSold);
       const cash = parseFloat(cashCollected || 0);
       const credit = parseFloat(creditAmount || 0);
 
@@ -184,8 +173,6 @@ export default function CounterSales() {
         body: JSON.stringify({
           productType: selectedProductId,
           productQty: parseFloat(productQuantity || 1),
-          litresSold: litres,
-          capsIssued: parseInt(capsIssued || 0, 10),
           cashCollected: cash,
           creditAmount: credit,
           paymentMethod,
@@ -332,21 +319,25 @@ export default function CounterSales() {
       </div>
 
       {/* Finished Goods Live Inventory Stock Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900 text-white p-4 rounded-2xl shadow-md border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900 text-white p-4 rounded-2xl shadow-md border border-slate-800">
         <div className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
             <Package size={13}/> 0.5L Finished Packs
           </span>
-          <div className="text-lg font-black">{available05LPacks.toLocaleString()} Packs</div>
-          <span className="text-[10px] text-slate-400">9L water / 12 bottles per pack</span>
+          <div className="text-lg font-black">
+            {full05L.toLocaleString()} Packs {loose05L > 0 && <span className="text-xs text-emerald-300 font-bold">+ {loose05L} loose</span>}
+          </div>
+          <span className="text-[10px] text-slate-400">Total: {totalBottles05L.toLocaleString()} Bottles (12/pack)</span>
         </div>
 
         <div className="space-y-0.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1">
             <Package size={13}/> 1.5L Finished Packs
           </span>
-          <div className="text-lg font-black">{available15LPacks.toLocaleString()} Packs</div>
-          <span className="text-[10px] text-slate-400">12L water / 6 bottles per pack</span>
+          <div className="text-lg font-black">
+            {full15L.toLocaleString()} Packs {loose15L > 0 && <span className="text-xs text-purple-300 font-bold">+ {loose15L} loose</span>}
+          </div>
+          <span className="text-[10px] text-slate-400">Total: {totalBottles15L.toLocaleString()} Bottles (6/pack)</span>
         </div>
 
         <div className="space-y-0.5">
@@ -355,14 +346,6 @@ export default function CounterSales() {
           </span>
           <div className="text-lg font-black">{available19LBottles.toLocaleString()} Bottles</div>
           <span className="text-[10px] text-slate-400">24L water per refill bottle</span>
-        </div>
-
-        <div className="space-y-0.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-            <ShoppingBag size={13}/> Caps Stock
-          </span>
-          <div className="text-lg font-black">{availableCaps.toLocaleString()} Caps</div>
-          <span className="text-[10px] text-slate-400">Available in inventory</span>
         </div>
       </div>
 
@@ -480,44 +463,19 @@ export default function CounterSales() {
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-4 text-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5 text-sm">
-                  Quantity ({COUNTER_PRODUCTS.find(p => p.id === selectedProductId)?.unitLabel || 'Units'}) *
-                </label>
-                <input 
-                  type="number" 
-                  step="1"
-                  min="1"
-                  className="w-full border border-slate-200 rounded-xl p-3 font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm"
-                  value={productQuantity} 
-                  onChange={(e) => handleProductOrQtyChange(selectedProductId, e.target.value)} 
-                  required 
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5 text-sm">Water Consumed (L) (Derived)</label>
-                <div className="relative">
-                  <Droplets className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-500" size={18}/>
-                  <input 
-                    type="number" 
-                    readOnly
-                    className="w-full border border-slate-200 bg-slate-50 rounded-xl py-3 pl-10 pr-4 font-extrabold text-blue-900 shadow-sm" 
-                    value={litresSold} 
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5 text-sm">Caps Issued (Derived)</label>
-                <input 
-                  type="number" 
-                  readOnly
-                  className="w-full border border-slate-200 bg-slate-50 rounded-xl p-3 font-extrabold text-slate-800 shadow-sm" 
-                  value={capsIssued} 
-                />
-              </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1.5 text-sm">
+                Quantity ({COUNTER_PRODUCTS.find(p => p.id === selectedProductId)?.unitLabel || 'Units'}) *
+              </label>
+              <input 
+                type="number" 
+                step="1"
+                min="1"
+                className="w-full border border-slate-200 rounded-xl p-3 font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm"
+                value={productQuantity} 
+                onChange={(e) => handleProductOrQtyChange(selectedProductId, e.target.value)} 
+                required 
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -621,7 +579,7 @@ export default function CounterSales() {
             <div className="pt-4 border-t border-slate-100 flex justify-end">
               <button 
                 type="submit" 
-                disabled={submitting || isCapStockInsufficient || (isCreditSale && !customerId)}
+                disabled={submitting || (isCreditSale && !customerId)}
                 className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
@@ -655,7 +613,6 @@ export default function CounterSales() {
                     <th className="p-4">Product Type</th>
                     <th className="p-4">Date & Time</th>
                     <th className="p-4">Litres (L)</th>
-                    <th className="p-4">Caps</th>
                     <th className="p-4">Cash</th>
                     <th className="p-4">Credit</th>
                     <th className="p-4">Total Amount</th>
@@ -667,7 +624,7 @@ export default function CounterSales() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan="11" className="p-10 text-center text-slate-400">
+                      <td colSpan="10" className="p-10 text-center text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
                         Loading counter sales history...
                       </td>
@@ -695,7 +652,6 @@ export default function CounterSales() {
                           </div>
                         </td>
                         <td className="p-4 text-blue-900 font-extrabold">{sale.litresSold} L</td>
-                        <td className="p-4 text-slate-700 font-semibold">{sale.capsIssued}</td>
                         <td className="p-4 text-emerald-700 font-bold">Rs. {cash.toLocaleString()}</td>
                         <td className="p-4 text-purple-900 font-bold">Rs. {credit.toLocaleString()}</td>
                         <td className="p-4 text-slate-900 font-black">Rs. {total.toLocaleString()}</td>
@@ -807,14 +763,6 @@ export default function CounterSales() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Water Consumed:</span>
-                <span className="font-bold text-blue-900">{litresSold} L</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-500">Caps Issued:</span>
-                <span className="font-bold text-slate-800">{capsIssued}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="font-semibold text-slate-500">Cash Collected:</span>
                 <span className="font-bold text-emerald-700">Rs. {Number(cashCollected || 0).toLocaleString()}</span>
               </div>
@@ -898,12 +846,8 @@ export default function CounterSales() {
 
               <div className="border-t border-b border-dashed border-slate-300 py-2 space-y-1">
                 <div className="flex justify-between font-medium">
-                  <span>Water Consumed:</span>
-                  <span>{receiptSale.litresSold} L</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Caps Issued:</span>
-                  <span>{receiptSale.capsIssued}</span>
+                  <span>Product:</span>
+                  <span className="font-bold">{receiptSale.productType || 'FINISHED_GOOD'} x {receiptSale.productQty || 1}</span>
                 </div>
               </div>
 

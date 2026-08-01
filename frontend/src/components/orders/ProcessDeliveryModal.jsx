@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle } from 'lucide-react';
+import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
+  const company = getCompanyFromCookie();
+  const isAquaSphere = company === 'aquasphere';
+
   const calculateDefaultQtyDelivered = () => {
     if (!order.items || order.items.length === 0) return 0;
     if (order.type === 'NINETEEN_L') {
@@ -12,6 +16,14 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     }
     return order.items.reduce((sum, i) => sum + i.quantity, 0);
   };
+
+  const qty19LOrdered = order.items?.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || 0;
+  const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0)), 0) || 0;
+
+  const is19LOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qty19LOrdered > 0);
+  const remainingBottlesToReturn = is19LOrder ? Math.max(0, qty19LOrdered - previouslyReturned) : Infinity;
+  const maxReturnedAllowed = is19LOrder ? remainingBottlesToReturn : Infinity;
+  const isBottleReturnLocked = is19LOrder && remainingBottlesToReturn <= 0;
 
   const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
   const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -36,6 +48,24 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
   const handleChange = (e) => setDeliveryData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+  const handleBottleChange = (e) => {
+    const { name, value } = e.target;
+    const val = Math.max(0, parseInt(value || 0));
+
+    if (is19LOrder) {
+      const otherVal = name === 'bottlesReturnedGood'
+        ? parseInt(deliveryData.bottlesReturnedBroken || 0)
+        : parseInt(deliveryData.bottlesReturnedGood || 0);
+
+      if (val + otherVal > maxReturnedAllowed) {
+        toast.error(`Total 19L bottles returned cannot exceed max limit of ${maxReturnedAllowed}`);
+        return;
+      }
+    }
+
+    setDeliveryData(prev => ({ ...prev, [name]: val }));
+  };
+
   const submitDelivery = async (e, bypassBottleCheck = false) => {
     if (e) e.preventDefault();
 
@@ -43,6 +73,14 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     if (cashVal > maxPayable) {
       toast.error(`Cash received (Rs. ${cashVal}) cannot exceed total customer payable balance (Rs. ${maxPayable})`);
       return;
+    }
+
+    if (is19LOrder) {
+      const totalReturned = parseInt(deliveryData.bottlesReturnedGood || 0) + parseInt(deliveryData.bottlesReturnedBroken || 0);
+      if (totalReturned > maxReturnedAllowed) {
+        toast.error(`Total 19L bottles returned (${totalReturned}) exceeds remaining limit (${maxReturnedAllowed})`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -147,17 +185,65 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                  </div>
                </div>
                
-               {order.type === 'NINETEEN_L' && (
-                 <>
-                   <div>
-                     <label className="block text-sm font-medium text-slate-700 mb-1">Empty Bottles Returned (Good)</label>
-                     <input name="bottlesReturnedGood" type="number" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.bottlesReturnedGood} onChange={handleChange} />
+               {is19LOrder ? (
+                 <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+                   <div className="flex justify-between items-center">
+                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                       19L bottles returned
+                     </span>
+                     <span className="text-xs font-semibold text-slate-500">
+                       Max Allowed: {maxReturnedAllowed} {previouslyReturned > 0 ? `(Prev: ${previouslyReturned}/${qty19LOrdered})` : ''}
+                     </span>
                    </div>
-                   <div>
-                     <label className="block text-sm font-medium text-slate-700 mb-1">Empty Bottles Returned (Broken)</label>
-                     <input name="bottlesReturnedBroken" type="number" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.bottlesReturnedBroken} onChange={handleChange} />
+
+                   <div className="grid grid-cols-2 gap-3">
+                     <div>
+                       <label className="block text-xs font-medium text-slate-600 mb-1">Good Condition</label>
+                       <input 
+                         name="bottlesReturnedGood" 
+                         type="number" 
+                         min="0" 
+                         max={maxReturnedAllowed}
+                         disabled={isBottleReturnLocked} 
+                         className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed font-medium" 
+                         value={deliveryData.bottlesReturnedGood} 
+                         onChange={handleBottleChange} 
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-medium text-slate-600 mb-1">Broken Condition</label>
+                       <input 
+                         name="bottlesReturnedBroken" 
+                         type="number" 
+                         min="0" 
+                         max={maxReturnedAllowed}
+                         disabled={isBottleReturnLocked} 
+                         className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed font-medium" 
+                         value={deliveryData.bottlesReturnedBroken} 
+                         onChange={handleBottleChange} 
+                       />
+                     </div>
                    </div>
-                 </>
+
+                   {isBottleReturnLocked && (
+                     <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded-lg text-center flex items-center justify-center gap-1.5">
+                       <Lock size={14} /> All {qty19LOrdered} ordered 19L bottle(s) were returned previously for this order. Input is locked.
+                     </p>
+                   )}
+                 </div>
+               ) : (
+                 !isAquaSphere && order.type === 'NINETEEN_L' && (
+                   <>
+                     <div>
+                       <label className="block text-sm font-medium text-slate-700 mb-1">Empty Bottles Returned (Good)</label>
+                       <input name="bottlesReturnedGood" type="number" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.bottlesReturnedGood} onChange={handleChange} />
+                     </div>
+                     <div>
+                       <label className="block text-sm font-medium text-slate-700 mb-1">Empty Bottles Returned (Broken)</label>
+                       <input name="bottlesReturnedBroken" type="number" min="0" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.bottlesReturnedBroken} onChange={handleChange} />
+                     </div>
+                   </>
+                 )
                )}
             </div>
 

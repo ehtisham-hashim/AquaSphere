@@ -205,10 +205,31 @@ export default function Production() {
         confirmed: true
       };
     } else {
+      const br05 = parseInt(brokenBottles05L || 0);
+      const br15 = parseInt(brokenBottles15L || 0);
+      const w19 = parseInt(wasteQuantity || 0);
+
+      const max05LBottles = (batchToComplete?.packs05L || 0) * 12;
+      const max15LBottles = (batchToComplete?.packs15L || 0) * 6;
+      const max19LBottles = batchToComplete?.quantity || 0;
+
+      if (br05 > max05LBottles) {
+        toast.error(`Broken 0.5L bottles (${br05}) cannot exceed total produced bottles (${max05LBottles} pcs)`);
+        return;
+      }
+      if (br15 > max15LBottles) {
+        toast.error(`Broken 1.5L bottles (${br15}) cannot exceed total produced bottles (${max15LBottles} pcs)`);
+        return;
+      }
+      if (w19 > max19LBottles) {
+        toast.error(`Broken 19L bottles (${w19}) cannot exceed total produced bottles (${max19LBottles} pcs)`);
+        return;
+      }
+
       bodyData = {
-        brokenBottles05L: parseInt(brokenBottles05L || 0),
-        brokenBottles15L: parseInt(brokenBottles15L || 0),
-        wasteQuantity: parseInt(wasteQuantity || 0),
+        brokenBottles05L: br05,
+        brokenBottles15L: br15,
+        wasteQuantity: w19,
         confirmed: true
       };
     }
@@ -520,7 +541,7 @@ export default function Production() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      0.5L PET Packs (12)
+                      0.5L PET Pack (12 Bottles)
                     </label>
                     <input
                       type="number"
@@ -530,12 +551,12 @@ export default function Production() {
                       onChange={e => setPacks05L(e.target.value)}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-emerald-500 outline-none"
                     />
-                    <span className="text-[11px] text-slate-400 mt-1 block">9L total water</span>
+                    <span className="text-[11px] text-slate-400 mt-1 block">9L total water per pack</span>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      1.5L PET Packs (6)
+                      1.5L PET Pack (6 Bottles)
                     </label>
                     <input
                       type="number"
@@ -545,12 +566,12 @@ export default function Production() {
                       onChange={e => setPacks15L(e.target.value)}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-emerald-500 outline-none"
                     />
-                    <span className="text-[11px] text-slate-400 mt-1 block">9L total water</span>
+                    <span className="text-[11px] text-slate-400 mt-1 block">9L total water per pack</span>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      19L PC Bottles
+                      19L Refill Bottle
                     </label>
                     <input
                       type="number"
@@ -798,20 +819,63 @@ export default function Production() {
                     <AlertTriangle className="w-4 h-4 text-rose-600" />
                     Breakage During Batch
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Broken 0.5L (pcs)</label>
-                      <input type="number" min="0" placeholder="0" value={brokenBottles05L} onChange={e => setBrokenBottles05L(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Broken 1.5L (pcs)</label>
-                      <input type="number" min="0" placeholder="0" value={brokenBottles15L} onChange={e => setBrokenBottles15L(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Broken 19L (pcs)</label>
-                      <input type="number" min="0" placeholder="0" value={wasteQuantity} onChange={e => setWasteQuantity(e.target.value)} className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none" />
-                    </div>
-                  </div>
+                  {(() => {
+                    const max05 = (batchToComplete?.packs05L || 0) * 12;
+                    const max15 = (batchToComplete?.packs15L || 0) * 6;
+                    const max19 = batchToComplete?.quantity || 0;
+
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Broken 0.5L (pcs) <span className="text-slate-400 font-normal">(Max: {max05})</span>
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max={max05}
+                            disabled={max05 === 0}
+                            placeholder="0" 
+                            value={brokenBottles05L} 
+                            onChange={e => setBrokenBottles05L(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Broken 1.5L (pcs) <span className="text-slate-400 font-normal">(Max: {max15})</span>
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max={max15}
+                            disabled={max15 === 0}
+                            placeholder="0" 
+                            value={brokenBottles15L} 
+                            onChange={e => setBrokenBottles15L(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Broken 19L (pcs) <span className="text-slate-400 font-normal">(Max: {max19})</span>
+                          </label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max={max19}
+                            disabled={max19 === 0}
+                            placeholder="0" 
+                            value={wasteQuantity} 
+                            onChange={e => setWasteQuantity(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

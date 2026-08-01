@@ -30,50 +30,50 @@ export const COUNTER_PRODUCTS = [
     name: '0.5L Full Pack (12 Bottles)',
     category: '0.5L',
     unitLabel: 'Packs',
-    waterLitres: 9.0, // 9L water process per 0.5L pack
-    capsPerUnit: 12,
+    waterLitres: 9.0, // 9L water per 0.5L pack
+    capsPerUnit: 0,   // Caps were already deducted during factory production
     defaultPrice: 360, // Rs 30 / bottle
     bottlesPerPack: 12,
     isSingleBottle: false,
-    description: 'Full sealed pack of 12 x 0.5L bottles (9L water consumed)'
+    description: 'Full sealed pack of 12 x 0.5L bottles'
   },
   {
     id: 'SINGLE_05L',
     name: '0.5L Single Bottle',
     category: '0.5L',
     unitLabel: 'Single Bottles',
-    waterLitres: 0.75, // 9L / 12 = 0.75L water per single bottle
-    capsPerUnit: 1,
+    waterLitres: 0.75, // 0.75L water per single bottle
+    capsPerUnit: 0,    // Caps were already deducted during factory production
     defaultPrice: 35,
     bottlesPerPack: 12,
     isSingleBottle: true,
     parentPackId: 'PACK_05L',
-    description: 'Loose 0.5L bottle (1/12th Pack, 0.75L water consumed)'
+    description: 'Loose 0.5L bottle (1/12th Pack)'
   },
   {
     id: 'PACK_15L',
     name: '1.5L Full Pack (6 Bottles)',
     category: '1.5L',
     unitLabel: 'Packs',
-    waterLitres: 12.0, // 12L water process per 1.5L pack
-    capsPerUnit: 6,
+    waterLitres: 12.0, // 12L water per 1.5L pack
+    capsPerUnit: 0,    // Caps were already deducted during factory production
     defaultPrice: 300, // Rs 50 / bottle
     bottlesPerPack: 6,
     isSingleBottle: false,
-    description: 'Full sealed pack of 6 x 1.5L bottles (12L water consumed)'
+    description: 'Full sealed pack of 6 x 1.5L bottles'
   },
   {
     id: 'SINGLE_15L',
     name: '1.5L Single Bottle',
     category: '1.5L',
     unitLabel: 'Single Bottles',
-    waterLitres: 2.0, // 12L / 6 = 2.0L water per single bottle
-    capsPerUnit: 1,
+    waterLitres: 2.0,  // 2.0L water per single bottle
+    capsPerUnit: 0,    // Caps were already deducted during factory production
     defaultPrice: 60,
     bottlesPerPack: 6,
     isSingleBottle: true,
     parentPackId: 'PACK_15L',
-    description: 'Loose 1.5L bottle (1/6th Pack, 2.0L water consumed)'
+    description: 'Loose 1.5L bottle (1/6th Pack)'
   },
   {
     id: 'CUSTOM',

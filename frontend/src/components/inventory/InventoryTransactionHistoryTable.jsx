@@ -56,6 +56,18 @@ export default function InventoryTransactionHistoryTable({
                 const isIN = t.direction === 'IN';
                 const qty = Number(t.quantity || 0);
 
+                const getFinishedGoodUnit = (item) => {
+                  if (!item) return 'packs';
+                  const nameLower = (item.name || '').toLowerCase();
+                  if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
+                    return 'packs';
+                  }
+                  if (nameLower.includes('19')) {
+                    return 'bottles';
+                  }
+                  return (item.unit && item.unit !== 'kg') ? item.unit : 'packs';
+                };
+
                 return (
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3.5">
@@ -78,7 +90,7 @@ export default function InventoryTransactionHistoryTable({
                     </td>
                     <td className="p-3.5">
                       <span className={`font-mono font-bold text-base ${isIN ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500">{t.item?.unit || 'units'}</span>
+                        {isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500">{getFinishedGoodUnit(t.item)}</span>
                       </span>
                     </td>
                     <td className="p-3.5 text-xs font-semibold text-slate-700">

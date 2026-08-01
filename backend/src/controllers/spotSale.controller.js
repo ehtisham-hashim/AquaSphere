@@ -27,6 +27,54 @@ export const getSpotSales = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const prefix = getTenantPrefix(req);
 
+  // Auto-heal missing inventory transactions for past spot sales
+  try {
+    const allSales = await prisma[`${prefix}SpotSale`].findMany();
+    const allItems = await prisma[`${prefix}Item`].findMany({ where: { archivedAt: null } });
+
+    for (const sale of allSales) {
+      const existingTx = await prisma[`${prefix}InventoryTransaction`].findFirst({
+        where: { refType: 'SPOT_SALE', refId: sale.saleNumber }
+      });
+
+      if (!existingTx) {
+        let fgItem = null;
+        let qtyToDeduct = Number(sale.productQty || 1);
+
+        if (sale.productType === 'PACK_05L' || sale.productType === 'SINGLE_05L') {
+          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['500ml', '0.5l', '0.5', '500'].some(kw => i.name.toLowerCase().includes(kw)));
+          if (sale.productType === 'SINGLE_05L') qtyToDeduct = qtyToDeduct / 12;
+        } else if (sale.productType === 'PACK_15L' || sale.productType === 'SINGLE_15L') {
+          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['1.5l', '1500ml', '1.5', '1500'].some(kw => i.name.toLowerCase().includes(kw)));
+          if (sale.productType === 'SINGLE_15L') qtyToDeduct = qtyToDeduct / 6;
+        } else if (sale.productType === 'BOTTLE_19L') {
+          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['19l', '19'].some(kw => i.name.toLowerCase().includes(kw)));
+        }
+
+        if (fgItem) {
+          await prisma[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: fgItem.id,
+              quantity: qtyToDeduct,
+              direction: 'OUT',
+              reason: `SPOT_SALE_${sale.productType}`,
+              refType: 'SPOT_SALE',
+              refId: sale.saleNumber,
+              createdAt: sale.createdAt
+            }
+          });
+
+          await prisma[`${prefix}Item`].update({
+            where: { id: fgItem.id },
+            data: { cachedQty: { decrement: qtyToDeduct } }
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('SpotSale auto-heal warning:', err);
+  }
+
   const [sales, total] = await Promise.all([
     prisma[`${prefix}SpotSale`].findMany({
       skip,
@@ -71,15 +119,21 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     remarks 
   } = req.body;
 
-  const litres = parseFloat(litresSold);
-  const caps = parseInt(capsIssued || 0, 10);
+  const qty = parseFloat(productQty || 1);
   const cash = parseFloat(cashCollected || 0);
   const credit = parseFloat(creditAmount || 0);
-  const qty = parseFloat(productQty || 1);
+  const caps = parseInt(capsIssued || 0, 10);
 
-  if (isNaN(litres) || litres <= 0) {
-    throw new ApiError(400, 'Litres sold must be a positive number');
-  }
+  const litresMap = {
+    'PACK_05L': 9.0,
+    'SINGLE_05L': 0.75,
+    'PACK_15L': 12.0,
+    'SINGLE_15L': 2.0,
+    'BOTTLE_19L': 24.0,
+    'CUSTOM': 1.0
+  };
+  const litres = parseFloat(litresSold) || ((litresMap[productType] || 1.0) * qty);
+
   if (isNaN(cash) || cash < 0) {
     throw new ApiError(400, 'Cash collected must be a non-negative number');
   }
@@ -102,39 +156,26 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     }
   }
 
-  // Stock Checks for Caps
-  if (caps > 0) {
-    const capItem = await prisma[`${prefix}Item`].findFirst({
-      where: {
-        type: 'RAW_MATERIAL',
-        archivedAt: null,
-        name: { contains: 'cap', mode: 'insensitive' }
-      }
-    });
-    if (capItem && Number(capItem.cachedQty) < caps) {
-      throw new ApiError(400, `Insufficient cap stock. Required: ${caps}, Available: ${capItem.cachedQty}`);
-    }
-  }
-
   const saleNumber = generateSaleNumber();
 
   // Deduct finished goods packs and loose bottles derivation
   let openPackLeftover = 0;
 
   const spotSale = await prisma.$transaction(async (tx) => {
+    const allItems = await tx[`${prefix}Item`].findMany({
+      where: { archivedAt: null }
+    });
+
+    const findFG = (keywords) => {
+      return allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
+    };
+
     // 1. Finished Goods Stock Deduction for 0.5L and 1.5L Packs & Single Bottles
     if (productType === 'PACK_05L' || productType === 'SINGLE_05L') {
-      const fg05L = await tx[`${prefix}Item`].findFirst({
-        where: {
-          type: 'FINISHED_GOOD',
-          archivedAt: null,
-          name: { contains: '0.5', mode: 'insensitive' }
-        }
-      });
+      const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
 
       if (fg05L) {
         if (productType === 'PACK_05L') {
-          // Full Pack sale: deduct 'qty' packs directly
           await tx[`${prefix}InventoryTransaction`].create({
             data: { itemId: fg05L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_PACK_05L', refType: 'SPOT_SALE', refId: saleNumber }
           });
@@ -142,7 +183,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
             where: { id: fg05L.id }, data: { cachedQty: { decrement: qty } }
           });
         } else if (productType === 'SINGLE_05L') {
-          // Single 0.5L bottles: 12 single bottles = 1 Pack. Calculate pack fraction/open pack leftover
           const packDeduction = new Prisma.Decimal(qty).dividedBy(12);
           const looseBottles = qty % 12;
           openPackLeftover = (12 - looseBottles) % 12;
@@ -156,17 +196,10 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         }
       }
     } else if (productType === 'PACK_15L' || productType === 'SINGLE_15L') {
-      const fg15L = await tx[`${prefix}Item`].findFirst({
-        where: {
-          type: 'FINISHED_GOOD',
-          archivedAt: null,
-          name: { contains: '1.5', mode: 'insensitive' }
-        }
-      });
+      const fg15L = findFG(['1.5l', '1500ml', '1.5', '1500']);
 
       if (fg15L) {
         if (productType === 'PACK_15L') {
-          // Full Pack sale: deduct 'qty' packs directly
           await tx[`${prefix}InventoryTransaction`].create({
             data: { itemId: fg15L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_PACK_15L', refType: 'SPOT_SALE', refId: saleNumber }
           });
@@ -174,7 +207,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
             where: { id: fg15L.id }, data: { cachedQty: { decrement: qty } }
           });
         } else if (productType === 'SINGLE_15L') {
-          // Single 1.5L bottles: 6 single bottles = 1 Pack.
           const packDeduction = new Prisma.Decimal(qty).dividedBy(6);
           const looseBottles = qty % 6;
           openPackLeftover = (6 - looseBottles) % 6;
@@ -188,13 +220,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         }
       }
     } else if (productType === 'BOTTLE_19L') {
-      const fg19L = await tx[`${prefix}Item`].findFirst({
-        where: {
-          type: 'FINISHED_GOOD',
-          archivedAt: null,
-          name: { contains: '19', mode: 'insensitive' }
-        }
-      });
+      const fg19L = findFG(['19l', '19']);
       if (fg19L) {
         await tx[`${prefix}InventoryTransaction`].create({
           data: { itemId: fg19L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_19L', refType: 'SPOT_SALE', refId: saleNumber }
@@ -203,7 +229,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
           where: { id: fg19L.id }, data: { cachedQty: { decrement: qty } }
         });
       }
-      // Log to Bottle Ledger as delivered
       await tx[`${prefix}BottleTransaction`].create({
         data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(qty), reason: `Counter Sale 19L Refill (${saleNumber})` }
       });
@@ -243,71 +268,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
           currentBalance: { increment: credit }
         }
       });
-    }
-
-    // 4. Deduct caps from inventory if issued
-    if (caps > 0) {
-      const capItem = await tx[`${prefix}Item`].findFirst({
-        where: {
-          type: 'RAW_MATERIAL',
-          archivedAt: null,
-          name: { contains: 'cap', mode: 'insensitive' }
-        }
-      });
-
-      if (capItem) {
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: {
-            itemId: capItem.id,
-            quantity: caps,
-            direction: 'OUT',
-            reason: 'SPOT_SALE_CAPS',
-            refType: 'SPOT_SALE',
-            refId: sale.id
-          }
-        });
-
-        await tx[`${prefix}Item`].update({
-          where: { id: capItem.id },
-          data: { cachedQty: { decrement: caps } }
-        });
-      }
-    }
-
-    // 5. Deduct mineral fractions for water treated (1 mineral set = 15,140 Litres)
-    const WATER_PER_MINERAL_SET = 15140;
-    const mineralSetFraction = new Prisma.Decimal(litres).dividedBy(WATER_PER_MINERAL_SET);
-
-    const items = await tx[`${prefix}Item`].findMany({
-      where: { type: 'RAW_MATERIAL', archivedAt: null }
-    });
-
-    const minerals = [
-      { search: 'calcium', factor: 2 },
-      { search: 'magnesium', factor: 1 },
-      { search: 'sodium', factor: 0.5 }
-    ];
-
-    for (const m of minerals) {
-      const minItem = items.find(i => i.name.toLowerCase().includes(m.search));
-      if (minItem && mineralSetFraction.greaterThan(0)) {
-        const qtyUsed = mineralSetFraction.mul(m.factor);
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: {
-            itemId: minItem.id,
-            quantity: qtyUsed,
-            direction: 'OUT',
-            reason: 'SPOT_SALE_MINERALS',
-            refType: 'SPOT_SALE',
-            refId: sale.id
-          }
-        });
-
-        await tx[`${prefix}Item`].update({
-          where: { id: minItem.id },
-          data: { cachedQty: { decrement: qtyUsed } }
-        });
-      }
     }
 
     // 6. Create Audit Log entry

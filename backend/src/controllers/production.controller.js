@@ -321,6 +321,20 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Broken quantities cannot be negative');
   }
 
+  const max05LBottles = packs05LNum * 12;
+  const max15LBottles = packs15LNum * 6;
+  const max19LBottles = quantityNum;
+
+  if (broken05LNum > max05LBottles) {
+    throw new ApiError(400, `Broken 0.5L bottles (${broken05LNum}) cannot exceed produced amount (${max05LBottles} pcs)`);
+  }
+  if (broken15LNum > max15LBottles) {
+    throw new ApiError(400, `Broken 1.5L bottles (${broken15LNum}) cannot exceed produced amount (${max15LBottles} pcs)`);
+  }
+  if (wasteQtyNum > max19LBottles) {
+    throw new ApiError(400, `Broken 19L bottles (${wasteQtyNum}) cannot exceed produced amount (${max19LBottles} pcs)`);
+  }
+
   const { deductions, finishedGoods, broken } = calculateProductionBatch({
     packs05L: packs05LNum,
     packs15L: packs15LNum,

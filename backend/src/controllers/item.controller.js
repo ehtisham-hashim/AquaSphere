@@ -7,10 +7,70 @@ const getTenantPrefix = (req) => {
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
+const consolidateDuplicateFinishedGoods = async (prefix) => {
+  if (prefix === 'wadaana') return; // Wadaana operates on single bottle items, do not consolidate
+  try {
+    const allFG = await prisma[`${prefix}Item`].findMany({
+      where: { archivedAt: null }
+    });
+
+    const groups = [
+      {
+        canonicalName: '0.5L PET Pack (12 Bottles)',
+        unit: 'packs',
+        keywords: ['0.5', '500']
+      },
+      {
+        canonicalName: '1.5L PET Pack (6 Bottles)',
+        unit: 'packs',
+        keywords: ['1.5', '1500']
+      },
+      {
+        canonicalName: '19L Refill Bottle',
+        unit: 'bottles',
+        keywords: ['19']
+      }
+    ];
+
+    for (const g of groups) {
+      const matchingItems = allFG.filter(i => 
+        (i.type === 'FINISHED_GOOD' || !i.type) && 
+        g.keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase()))
+      );
+
+      if (matchingItems.length === 0) continue;
+
+      let canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
+
+      await prisma[`${prefix}Item`].update({
+        where: { id: canonicalItem.id },
+        data: { name: g.canonicalName, unit: g.unit, type: 'FINISHED_GOOD' }
+      });
+
+      for (const dupe of matchingItems) {
+        if (dupe.id === canonicalItem.id) continue;
+
+        await prisma[`${prefix}InventoryTransaction`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        });
+
+        await prisma[`${prefix}Item`].delete({
+          where: { id: dupe.id }
+        }).catch(() => null);
+      }
+    }
+  } catch (err) {
+    console.error('Consolidation warning:', err);
+  }
+};
+
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
   
+  await consolidateDuplicateFinishedGoods(prefix);
+
   const where = {};
   if (type) where.type = type;
   if (includeArchived !== 'true') where.archivedAt = null;
@@ -21,11 +81,36 @@ export const getItems = asyncHandler(async (req, res) => {
     include: {
       recipeFinishedGoods: {
         include: { rawMaterial: true }
+      },
+      inventoryTransactions: {
+        select: { quantity: true, direction: true }
       }
     }
   });
 
-  res.json({ success: true, data: items });
+  const itemsData = items.map(item => {
+    if (item.type === 'FINISHED_GOOD' || !item.type) {
+      const nameLower = (item.name || '').toLowerCase();
+      if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
+        item.unit = 'packs';
+      } else if (nameLower.includes('19')) {
+        item.unit = 'bottles';
+      }
+    }
+    if (item.inventoryTransactions && item.inventoryTransactions.length > 0) {
+      let netQty = 0;
+      for (const t of item.inventoryTransactions) {
+        const q = Number(t.quantity || 0);
+        if (t.direction === 'IN') netQty += q;
+        else if (t.direction === 'OUT') netQty -= q;
+      }
+      item.cachedQty = netQty;
+    }
+    delete item.inventoryTransactions;
+    return item;
+  });
+
+  res.json({ success: true, data: itemsData });
 });
 
 export const getItemById = asyncHandler(async (req, res) => {

@@ -20,7 +20,7 @@ async function main() {
     data: { name: 'PET Bottles (500ml)', type: 'RAW_MATERIAL', cachedQty: 1000, reorderLevel: 200 }
   });
   const finishedGood = await prisma.aquasphereItem.create({
-    data: { name: 'AquaSphere 500ml Pack (12 bottles)', type: 'FINISHED_GOOD', cachedQty: 50, reorderLevel: 10 }
+    data: { name: '0.5L PET Pack (12 Bottles)', type: 'FINISHED_GOOD', unit: 'packs', cachedQty: 50, reorderLevel: 10 }
   });
   const finishedGood19L = await prisma.aquasphereItem.create({
     data: { name: '19L Refill', type: 'FINISHED_GOOD', cachedQty: 100, reorderLevel: 20 }

@@ -4,13 +4,29 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
   const isWadaana = tenant === 'wadaana';
 
   if (!isWadaana) {
-    const pack05 = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500ml')));
-    const pack15 = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500ml')));
-    const pc19L  = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('19'));
+    const qty05 = items
+      .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')))
+      .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
 
-    const qty05 = Number(pack05?.cachedQty || 0);
-    const qty15 = Number(pack15?.cachedQty || 0);
-    const qty19 = Number(pc19L?.cachedQty || 0);
+    const qty15 = items
+      .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')))
+      .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
+
+    const qty19 = items
+      .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('19')))
+      .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0);
+
+    const netPacks05 = Math.max(0, qty05);
+    const fullPacks05 = Math.floor(netPacks05);
+    const looseBottles05 = Math.round((netPacks05 - fullPacks05) * 12);
+    const totalBottles05 = Math.round(netPacks05 * 12);
+
+    const netPacks15 = Math.max(0, qty15);
+    const fullPacks15 = Math.floor(netPacks15);
+    const looseBottles15 = Math.round((netPacks15 - fullPacks15) * 6);
+    const totalBottles15 = Math.round(netPacks15 * 6);
+
+    const totalBottles19 = Math.round(Math.max(0, qty19));
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -18,10 +34,15 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Finished 0.5L PET Packs</span>
-            <div className="text-2xl font-black text-emerald-700">{qty05.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Packs</span></div>
+            <div className="text-2xl font-black text-emerald-700">
+              {fullPacks05.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Packs</span>
+              {looseBottles05 > 0 && (
+                <span className="text-sm font-bold text-emerald-600 ml-1.5">+ {looseBottles05} loose</span>
+              )}
+            </div>
             <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
               <Droplets size={12} className="text-emerald-500" />
-              <span>12 bottles / pack (6L water)</span>
+              <span>Total: <strong className="text-slate-800 font-bold">{totalBottles05.toLocaleString()} Bottles</strong> (12/pack)</span>
             </div>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 flex flex-col items-center">
@@ -34,10 +55,15 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Finished 1.5L PET Packs</span>
-            <div className="text-2xl font-black text-purple-700">{qty15.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Packs</span></div>
+            <div className="text-2xl font-black text-purple-700">
+              {fullPacks15.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Packs</span>
+              {looseBottles15 > 0 && (
+                <span className="text-sm font-bold text-purple-600 ml-1.5">+ {looseBottles15} loose</span>
+              )}
+            </div>
             <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
               <Droplets size={12} className="text-purple-500" />
-              <span>6 bottles / pack (9L water)</span>
+              <span>Total: <strong className="text-slate-800 font-bold">{totalBottles15.toLocaleString()} Bottles</strong> (6/pack)</span>
             </div>
           </div>
           <div className="p-3 bg-purple-50 text-purple-700 rounded-2xl border border-purple-100 flex flex-col items-center">
@@ -50,10 +76,10 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">19L PC Refill Bottles</span>
-            <div className="text-2xl font-black text-blue-900">{qty19.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Bottles</span></div>
+            <div className="text-2xl font-black text-blue-900">{totalBottles19.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Bottles</span></div>
             <div className="flex items-center gap-1 text-xs text-slate-500 font-medium">
               <Droplets size={12} className="text-blue-500" />
-              <span>24L water / refill bottle</span>
+              <span>Total: <strong className="text-slate-800 font-bold">{totalBottles19.toLocaleString()} Bottles</strong> (24L)</span>
             </div>
           </div>
           <div className="p-3 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 flex flex-col items-center">

@@ -168,18 +168,35 @@ function calculateProductionBatch(params, items) {
     if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.050), 'kg');
   }
 
-  // 4. Finished Goods Additions
-  if (packs05L > 0) {
-    const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('500ml') || i.name.toLowerCase().includes('0.5l')));
+  // 4. Finished Goods Additions (Net good packs after deducting broken bottles)
+  const totalBottles05L = packs05L * 12;
+  const netGoodBottles05L = Math.max(0, totalBottles05L - brokenBottles05L);
+  const netGoodPacks05L = new Prisma.Decimal(netGoodBottles05L).dividedBy(12);
+
+  if (netGoodPacks05L.greaterThan(0)) {
+    const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (
+      i.name.toLowerCase().includes('500ml') || 
+      i.name.toLowerCase().includes('0.5l') || 
+      i.name.toLowerCase().includes('0.5')
+    ));
     if (fg05L) {
-      finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: decPacks05L, unit: 'packs' });
+      finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: netGoodPacks05L, unit: 'packs' });
     }
   }
 
-  if (packs15L > 0) {
-    const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('1.5l') || i.name.toLowerCase().includes('1500ml')));
+  const totalBottles15L = packs15L * 6;
+  const netGoodBottles15L = Math.max(0, totalBottles15L - brokenBottles15L);
+  const netGoodPacks15L = new Prisma.Decimal(netGoodBottles15L).dividedBy(6);
+
+  if (netGoodPacks15L.greaterThan(0)) {
+    const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (
+      i.name.toLowerCase().includes('1.5l') || 
+      i.name.toLowerCase().includes('1500ml') || 
+      i.name.toLowerCase().includes('1.5') ||
+      i.name.toLowerCase().includes('1500')
+    ));
     if (fg15L) {
-      finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: decPacks15L, unit: 'packs' });
+      finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: netGoodPacks15L, unit: 'packs' });
     }
   }
 

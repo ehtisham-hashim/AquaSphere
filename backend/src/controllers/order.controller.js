@@ -13,7 +13,7 @@ const getTenantPrefix = (req) => {
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
-    include: { customer: true, items: { include: { item: true } }, payments: true },
+    include: { customer: true, items: { include: { item: true } }, payments: true, deliveries: true },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
@@ -210,7 +210,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       include: { 
         items: { include: { item: true } }, 
         customer: true,
-        payments: true
+        payments: true,
+        deliveries: true
       } 
     });
     if (!o) throw new ApiError(404, 'Order not found');
@@ -236,24 +237,65 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
     // CASE 1: Order is ALREADY DELIVERED — Process Payment Settlement Run
     if (o.deliveryStatus === 'DELIVERED') {
-      if (cash <= 0) {
+      if (cash <= 0 && retGood <= 0 && retBroken <= 0) {
         throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
       }
 
-      await tx[`${prefix}Payment`].create({
-        data: {
-          orderId: o.id,
-          customerId: o.customerId,
-          amount: cash,
-          type: paymentMethod || 'CASH'
+      // 19L Bottle return check on settlement
+      const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
+      const prevReturnedOnOrder = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0), 0) || 0;
+      const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturnedOnOrder);
+
+      if (qty19LOnOrder > 0 && (retGood + retBroken > remainingBottlesAllowed)) {
+        throw new ApiError(400, `Returned bottles (${retGood + retBroken}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
+      }
+
+      if (cash > 0) {
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: o.id,
+            customerId: o.customerId,
+            amount: cash,
+            type: paymentMethod || 'CASH'
+          }
+        });
+      }
+
+      if (retGood > 0 || retBroken > 0) {
+        await tx[`${prefix}Delivery`].create({
+          data: {
+            orderId: o.id,
+            qtyDelivered: 0,
+            bottlesReturnedGood: retGood,
+            bottlesReturnedBroken: retBroken,
+            cashReceived: cash,
+            paymentMethod,
+            remarks
+          }
+        });
+
+        if (retGood > 0) {
+          await tx[`${prefix}BottleTransaction`].create({
+            data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id} (Payment Settlement)` }
+          });
         }
-      });
+        if (retBroken > 0) {
+          await tx[`${prefix}BottleTransaction`].create({
+            data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id} (Payment Settlement)` }
+          });
+        }
+
+        await tx[`${prefix}Customer`].update({
+          where: { id: o.customerId },
+          data: { cachedBottleBalance: { decrement: retGood + retBroken } }
+        });
+      }
 
       // Reduce customer debt and restore security deposit if drawn previously
       let debtReduction = 0;
       let depositRestored = 0;
 
-      if (currentDebt > 0) {
+      if (currentDebt > 0 && cash > 0) {
         debtReduction = Math.min(currentDebt, cash);
       }
 
@@ -262,13 +304,15 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         depositRestored = remainingCashAfterDebt;
       }
 
-      await tx[`${prefix}Customer`].update({
-        where: { id: o.customerId },
-        data: {
-          ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } }),
-          ...(depositRestored > 0 && { deposit: { increment: depositRestored } })
-        }
-      });
+      if (debtReduction > 0 || depositRestored > 0) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: o.customerId },
+          data: {
+            ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } }),
+            ...(depositRestored > 0 && { deposit: { increment: depositRestored } })
+          }
+        });
+      }
 
       const newTotalPaid = alreadyPaid + cash;
       const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
@@ -276,7 +320,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       const updated = await tx[`${prefix}Order`].update({
         where: { id },
         data: { paymentStatus: newPaymentStatus },
-        include: { items: { include: { item: true } }, customer: true, payments: true }
+        include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
       });
 
       await tx[`${prefix}AuditLog`].create({
@@ -285,7 +329,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           entityType: 'Order',
           entityId: updated.id,
           performedBy: req.user?.id || 'Unknown',
-          details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus })
+          details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
         }
       });
 
@@ -385,16 +429,25 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // PET Deductions (deduct any item that isn't 19L)
-    const petItems = o.items.filter(i => !i.item.name.toLowerCase().includes('19l'));
-    for (const orderItem of petItems) {
-      await tx[`${prefix}Item`].update({
-        where: { id: orderItem.itemId },
-        data: { cachedQty: { decrement: orderItem.quantity } }
-      });
-      await tx[`${prefix}InventoryTransaction`].create({
-        data: { itemId: orderItem.itemId, quantity: orderItem.quantity, direction: 'OUT', reason: 'PET_DELIVERY', refType: 'ORDER', refId: o.id }
-      });
+    // Finished Goods Deductions (deduct all items delivered in order)
+    for (const orderItem of o.items) {
+      if (orderItem.itemId) {
+        const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
+        await tx[`${prefix}Item`].update({
+          where: { id: orderItem.itemId },
+          data: { cachedQty: { decrement: orderItem.quantity } }
+        });
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { 
+            itemId: orderItem.itemId, 
+            quantity: orderItem.quantity, 
+            direction: 'OUT', 
+            reason: is19LItem ? '19L_DELIVERY' : 'PET_DELIVERY', 
+            refType: 'ORDER', 
+            refId: o.id 
+          }
+        });
+      }
     }
 
     // Update Customer Deposit and Financial Balance (Debt)
