@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { X, UserPlus, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { X, UserPlus, MapPin, DollarSign, FileText, ShoppingBag, Upload, Image as ImageIcon } from 'lucide-react';
 
 import { API_URL as API } from '../../utils/api';
 
@@ -38,6 +38,9 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
   const [formData, setFormData] = useState(initialFormData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   if (!isOpen) return null;
 
@@ -47,6 +50,71 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, and WEBP images are allowed');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setImageFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({ ...prev, homePictureUrl: '' }));
+  };
+
+  const uploadImageToCloudinary = async () => {
+    if (!imageFile) return null;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const res = await fetch(`${API}/customers/upload-picture`, {
+        method: 'POST',
+        headers: {
+          'x-tenant': tenant
+        },
+        body: formData,
+        credentials: 'include'
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        return json.homePictureUrl;
+      } else {
+        toast.error('Failed to upload image');
+        return null;
+      }
+    } catch (err) {
+      toast.error('Error uploading image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -65,6 +133,17 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
     setError('');
 
     try {
+      // Upload image first if present
+      let uploadedImageUrl = formData.homePictureUrl;
+      if (imageFile) {
+        uploadedImageUrl = await uploadImageToCloudinary();
+        if (!uploadedImageUrl) {
+          toast.error('Failed to upload image. Please try again.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await fetch(`${API}/customers`, {
         method: 'POST',
         headers: {
@@ -73,6 +152,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
         },
         body: JSON.stringify({
           ...formData,
+          homePictureUrl: uploadedImageUrl,
           securityDeposit: formData.securityDeposit ? parseInt(formData.securityDeposit) : 0,
           currentBalance: formData.currentBalance ? parseFloat(formData.currentBalance) : 0,
           creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
@@ -84,6 +164,8 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       if (json.success || res.ok) {
         toast.success('✅ Customer created successfully.');
         setFormData(initialFormData);
+        setImageFile(null);
+        setImagePreview(null);
         if (onCustomerAdded) onCustomerAdded(json.data);
         onClose();
       } else {
@@ -280,6 +362,63 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
               <MapPin size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
               <span>Location & Media</span>
             </div>
+            
+            {/* Image Upload Section */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <label className="block text-sm font-medium text-slate-700 mb-2">House/Shop Picture</label>
+              <div className="flex items-start gap-4">
+                {/* Image Preview */}
+                <div className={`w-32 h-32 rounded-xl border-2 border-dashed ${isWadaana ? 'border-sky-300 bg-sky-50' : 'border-emerald-300 bg-emerald-50'} flex items-center justify-center overflow-hidden relative`}>
+                  {imagePreview ? (
+                    <>
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <ImageIcon size={40} className={`${isWadaana ? 'text-sky-400' : 'text-emerald-400'} opacity-50`} />
+                  )}
+                </div>
+
+                {/* Upload Button */}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    id="customerImage"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="customerImage"
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 ${
+                      isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'
+                    } text-white rounded-lg font-medium text-sm cursor-pointer transition-colors shadow-sm`}
+                  >
+                    <Upload size={16} />
+                    <span>{imagePreview ? 'Change Picture' : 'Upload Picture'}</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-2">
+                    JPEG, PNG, or WEBP • Max 5MB • Recommended: 400x400px
+                  </p>
+                  {uploadingImage && (
+                    <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                      <span className="animate-spin">⏳</span> Uploading image...
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Full Address</label>

@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
 
 const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 
@@ -328,4 +329,15 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, data: updated, message: 'Customer unarchived successfully' });
+});
+
+export const uploadCustomerPicture = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'Image file is required');
+  const prefix = getPrefix(req);
+  const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);
+  res.status(200).json({ 
+    success: true, 
+    homePictureUrl: secure_url,
+    publicId: public_id
+  });
 });
