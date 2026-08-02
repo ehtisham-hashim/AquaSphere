@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, Search, DollarSign, Calendar, Droplets, 
-  Download, CheckCircle2, User, FileText, Loader2,
+  Download, CheckCircle2, User, Loader2,
   Printer, ShieldAlert, AlertTriangle, Trash2, X, Package, ShoppingBag
 } from 'lucide-react';
 import { API_URL } from '../utils/api';
@@ -140,7 +140,77 @@ export default function CounterSales() {
   const loose15L = Math.round((Math.max(0, available15LPacks) - full15L) * 6);
   const totalBottles15L = Math.round(Math.max(0, available15LPacks) * 6);
 
-  // Customer Credit Limit Validation
+  // Stock Validation
+  const getStockValidation = () => {
+    const qty = parseFloat(productQuantity) || 0;
+    if (qty <= 0) return { valid: false, message: 'Quantity must be greater than zero.' };
+
+    switch (selectedProductId) {
+      case 'PACK_05L': {
+        const availablePacks = Math.floor(available05LPacks);
+        if (qty > availablePacks) {
+          return {
+            valid: false,
+            message: availablePacks === 0
+              ? 'No 0.5L packs available. Cannot record this sale.'
+              : `Only ${availablePacks} pack${availablePacks === 1 ? '' : 's'} available. Cannot record this sale.`
+          };
+        }
+        return { valid: true };
+      }
+      case 'SINGLE_05L': {
+        const availableBottles = totalBottles05L;
+        if (qty > availableBottles) {
+          return {
+            valid: false,
+            message: availableBottles === 0
+              ? 'No 0.5L bottles available. Cannot record this sale.'
+              : `Only ${availableBottles} bottle${availableBottles === 1 ? '' : 's'} available. Cannot record this sale.`
+          };
+        }
+        return { valid: true };
+      }
+      case 'PACK_15L': {
+        const availablePacks = Math.floor(available15LPacks);
+        if (qty > availablePacks) {
+          return {
+            valid: false,
+            message: availablePacks === 0
+              ? 'No 1.5L packs available. Cannot record this sale.'
+              : `Only ${availablePacks} pack${availablePacks === 1 ? '' : 's'} available. Cannot record this sale.`
+          };
+        }
+        return { valid: true };
+      }
+      case 'SINGLE_15L': {
+        const availableBottles = totalBottles15L;
+        if (qty > availableBottles) {
+          return {
+            valid: false,
+            message: availableBottles === 0
+              ? 'No 1.5L bottles available. Cannot record this sale.'
+              : `Only ${availableBottles} bottle${availableBottles === 1 ? '' : 's'} available. Cannot record this sale.`
+          };
+        }
+        return { valid: true };
+      }
+      case 'BOTTLE_19L': {
+        if (qty > available19LBottles) {
+          return {
+            valid: false,
+            message: available19LBottles === 0
+              ? 'No 19L bottles available. Cannot record this sale.'
+              : `Only ${available19LBottles} bottle${available19LBottles === 1 ? '' : 's'} available. Cannot record this sale.`
+          };
+        }
+        return { valid: true };
+      }
+      default:
+        return { valid: true }; // CUSTOM has no stock check
+    }
+  };
+
+  const stockValidation = getStockValidation();
   const selectedCustomer = customers.find(c => c.id === customerId);
   const numericCredit = parseFloat(creditAmount || 0);
   const isCreditSale = numericCredit > 0;
@@ -151,6 +221,11 @@ export default function CounterSales() {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+
+    if (!stockValidation.valid) {
+      toast.error(stockValidation.message);
+      return;
+    }
 
     if (isCreditSale && !customerId) {
       toast.error('Customer profile selection is mandatory for Credit Sales!');
@@ -398,16 +473,6 @@ export default function CounterSales() {
           <Calendar size={16} /> Sales History ({sales.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`whitespace-nowrap px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 border-t border-x ${
-            activeTab === 'reports'
-              ? 'bg-white border-slate-200 text-indigo-700 border-b-2 border-b-indigo-600 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <FileText size={16} /> Summary Reports
-        </button>
       </div>
 
       {/* TAB 1: NEW RETAIL SALE FORM */}
@@ -462,6 +527,69 @@ export default function CounterSales() {
             </div>
           </div>
 
+          {/* Available Stock Panel */}
+          {selectedProductId !== 'CUSTOM' && (
+            <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-white">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
+                Available Stock
+              </span>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                {(selectedProductId === 'BOTTLE_19L') && (
+                  <div className="bg-slate-800/60 rounded-lg p-3">
+                    <div className={`text-xl font-black ${available19LBottles === 0 ? 'text-red-400' : 'text-blue-300'}`}>
+                      {available19LBottles.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-semibold mt-0.5">19L Bottles</div>
+                  </div>
+                )}
+                {(selectedProductId === 'PACK_05L' || selectedProductId === 'SINGLE_05L') && (
+                  <>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${Math.floor(available05LPacks) === 0 ? 'text-red-400' : 'text-emerald-300'}`}>
+                        {Math.floor(available05LPacks).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">0.5L Packs</div>
+                    </div>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${loose05L === 0 ? 'text-slate-500' : 'text-emerald-200'}`}>
+                        {loose05L.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Loose 0.5L</div>
+                    </div>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${totalBottles05L === 0 ? 'text-red-400' : 'text-white'}`}>
+                        {totalBottles05L.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Total Bottles</div>
+                    </div>
+                  </>
+                )}
+                {(selectedProductId === 'PACK_15L' || selectedProductId === 'SINGLE_15L') && (
+                  <>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${Math.floor(available15LPacks) === 0 ? 'text-red-400' : 'text-purple-300'}`}>
+                        {Math.floor(available15LPacks).toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">1.5L Packs</div>
+                    </div>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${loose15L === 0 ? 'text-slate-500' : 'text-purple-200'}`}>
+                        {loose15L.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Loose 1.5L</div>
+                    </div>
+                    <div className="bg-slate-800/60 rounded-lg p-3">
+                      <div className={`text-xl font-black ${totalBottles15L === 0 ? 'text-red-400' : 'text-white'}`}>
+                        {totalBottles15L.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">Total Bottles</div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleFormSubmit} className="space-y-4 text-sm">
             <div>
               <label className="block font-semibold text-slate-700 mb-1.5 text-sm">
@@ -471,12 +599,46 @@ export default function CounterSales() {
                 type="number" 
                 step="1"
                 min="1"
-                className="w-full border border-slate-200 rounded-xl p-3 font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm"
+                className={`w-full border rounded-xl p-3 font-bold text-slate-800 outline-none transition-all shadow-sm focus:ring-4 ${
+                  !stockValidation.valid
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10 bg-red-50/30'
+                    : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/10'
+                }`}
                 value={productQuantity} 
                 onChange={(e) => handleProductOrQtyChange(selectedProductId, e.target.value)} 
                 required 
               />
+              {!stockValidation.valid && (
+                <div className="mt-2 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                  <ShoppingBag size={15} className="shrink-0 text-red-500" />
+                  <span className="text-xs font-bold">{stockValidation.message}</span>
+                </div>
+              )}
             </div>
+
+            {/* Auto-Calculated Total */}
+            {selectedProductId !== 'CUSTOM' && (() => {
+              const prod = COUNTER_PRODUCTS.find(p => p.id === selectedProductId);
+              const qty = parseFloat(productQuantity) || 0;
+              const unitPrice = prod?.defaultPrice || 0;
+              const total = qty * unitPrice;
+              return (
+                <div className="grid grid-cols-3 gap-3 p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl text-center">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Unit Price</span>
+                    <span className="text-base font-black text-slate-800">Rs. {unitPrice.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Quantity</span>
+                    <span className="text-base font-black text-slate-800">{qty > 0 ? qty.toLocaleString() : '—'}</span>
+                  </div>
+                  <div className="bg-emerald-600 rounded-lg p-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 block mb-1">Total</span>
+                    <span className="text-base font-black text-white">Rs. {total.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -503,13 +665,41 @@ export default function CounterSales() {
                     type="number" 
                     step="1" 
                     min="0"
-                    className="w-full border border-slate-200 rounded-xl py-3 pl-10 pr-4 font-bold text-purple-900 outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all shadow-sm" 
+                    className={`w-full border rounded-xl py-3 pl-10 pr-4 font-bold text-purple-900 outline-none focus:ring-4 transition-all shadow-sm ${
+                      isCreditSale && !customerId
+                        ? 'border-orange-400 focus:border-orange-500 focus:ring-orange-500/10 bg-orange-50/30'
+                        : 'border-slate-200 focus:border-purple-500 focus:ring-purple-500/10'
+                    }`}
                     value={creditAmount} 
                     onChange={(e) => setCreditAmount(e.target.value)} 
                     placeholder="0"
                   />
                 </div>
+                {isCreditSale && !customerId && (
+                  <div className="mt-2 flex items-center gap-2 p-2.5 bg-orange-50 border border-orange-200 rounded-lg">
+                    <User size={13} className="shrink-0 text-orange-600" />
+                    <span className="text-xs font-bold text-orange-700">Customer selection required — anonymous credit sales are not allowed</span>
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Sale Type Indicator */}
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
+              isCreditSale
+                ? 'bg-purple-50 border-purple-200 text-purple-800'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+              <div className={`w-2 h-2 rounded-full shrink-0 ${isCreditSale ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+              {isCreditSale ? (
+                <span>
+                  Credit Sale — Customer selection is <span className="underline underline-offset-2">mandatory</span>
+                </span>
+              ) : (
+                <span>
+                  Cash Sale — Customer is optional (Walk-In accepted)
+                </span>
+              )}
             </div>
 
             {/* Customer Profile & Credit Warning */}
@@ -579,7 +769,7 @@ export default function CounterSales() {
             <div className="pt-4 border-t border-slate-100 flex justify-end">
               <button 
                 type="submit" 
-                disabled={submitting || (isCreditSale && !customerId)}
+                disabled={submitting || (isCreditSale && !customerId) || !stockValidation.valid}
                 className="w-full sm:w-auto px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
@@ -706,36 +896,6 @@ export default function CounterSales() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: REPORTS TAB */}
-      {activeTab === 'reports' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">Counter Sales Summary Reports</h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">Today's Revenue</span>
-              <span className="text-xl font-black text-emerald-800">Rs. {todayTotalRevenue.toLocaleString()}</span>
-              <p className="text-[11px] text-slate-500 mt-1">Cash: Rs {todayCash.toLocaleString()} | Credit: Rs {todayCredit.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">This Week's Revenue</span>
-              <span className="text-xl font-black text-indigo-900">Rs. {weekRevenue.toLocaleString()}</span>
-            </div>
-
-            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">This Month's Revenue</span>
-              <span className="text-xl font-black text-purple-900">Rs. {monthRevenue.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 flex justify-between items-center text-sm font-semibold text-slate-700">
-            <span>Lifetime Counter Litres Sold:</span>
-            <span className="text-lg font-black text-blue-900">{totalLitresSold.toLocaleString()} Litres</span>
           </div>
         </div>
       )}
