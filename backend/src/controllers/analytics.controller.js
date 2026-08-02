@@ -5,7 +5,9 @@ let cachedDashboardData = { aquasphere: null, wadaana: null };
 let sseClients = { aquasphere: [], wadaana: [] };
 
 const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'];
+  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
@@ -363,9 +365,9 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         }))
       })),
       dailyClose: {
-        isClosed: dailyCloseModel?.adminConfirmed || false,
-        pmConfirmed: dailyCloseModel?.pmConfirmed || false,
-        pmConfirmedAt: dailyCloseModel?.pmConfirmedAt || null
+        isClosed: dailyCloseStatus?.adminConfirmed || false,
+        pmConfirmed: dailyCloseStatus?.pmConfirmed || false,
+        pmConfirmedAt: dailyCloseStatus?.pmConfirmedAt || null
       }
     }
   });

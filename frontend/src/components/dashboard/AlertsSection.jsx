@@ -4,8 +4,10 @@ import {
   Package, ShieldAlert, PhoneCall, RefreshCw, XCircle
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function AlertsSection() {
+  const tenant = getCompanyFromCookie();
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -14,7 +16,10 @@ export default function AlertsSection() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(`${API_URL}/analytics/mm-alerts`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/analytics/mm-alerts`, { 
+        headers: { 'x-tenant': tenant },
+        credentials: 'include' 
+      });
       const json = await res.json();
       if (json.success) {
         setAlerts(json.data);
