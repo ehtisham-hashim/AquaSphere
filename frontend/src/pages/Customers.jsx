@@ -3,8 +3,11 @@ import { Plus, Search, RotateCcw } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext';
 
 export default function Customers() {
+  const { user } = useAuth();
+  const canAddCustomer = user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'MARKETING_MANAGER';
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
@@ -95,13 +98,14 @@ export default function Customers() {
                   Archived (Soft Deleted)
                 </button>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="btn-accent inline-flex items-center gap-2 justify-center"
-              >
-                <Plus size={18} /> Add Customer
-              </button>
-            </div>
+              {canAddCustomer && (
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="btn-accent inline-flex items-center gap-2 justify-center"
+                >
+                  <Plus size={18} /> Add Customer
+                </button>
+              )}            </div>
           </div>
           
           <div className="mb-6 relative">
@@ -123,11 +127,13 @@ export default function Customers() {
         </>
       )}
 
-      <AddCustomerModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onCustomerAdded={() => fetchCustomers(search, activeTab)} 
-      />
+      {canAddCustomer && (
+        <AddCustomerModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onCustomerAdded={() => fetchCustomers(search, activeTab)} 
+        />
+      )}
     </div>
   );
 }
