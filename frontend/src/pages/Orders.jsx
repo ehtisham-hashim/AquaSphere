@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Clock, UserPlus } from 'lucide-react';
+import { Plus, Search, Clock, UserPlus, Printer } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
@@ -9,7 +9,7 @@ import AddOrderModal from '../components/orders/AddOrderModal';
 import EditOrderModal from '../components/orders/EditOrderModal';
 import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
 import AddCustomerModal from '../components/customer/AddCustomerModal';
-
+import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
 import OrderSearch from '../components/orders/OrderSearch';
 
 export default function Orders() {
@@ -28,6 +28,7 @@ export default function Orders() {
   const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [invoiceOrder, setInvoiceOrder] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -279,6 +280,13 @@ export default function Orders() {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setInvoiceOrder(o)}
+                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 text-xs rounded-md font-bold transition-colors border border-indigo-100 flex items-center gap-1"
+                            title="Print Invoice"
+                          >
+                            <Printer size={13} /> Invoice
+                          </button>
                           {(isOwner || o.deliveryStatus !== 'DELIVERED') && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
                               Edit
@@ -301,8 +309,7 @@ export default function Orders() {
                               Cancel Order
                             </button>
                           )}
-                        </div>
-                      </td>
+                        </div>                      </td>
                     </tr>
                   );
                 })
