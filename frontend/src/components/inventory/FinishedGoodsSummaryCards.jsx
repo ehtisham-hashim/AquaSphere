@@ -119,7 +119,7 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
               <div>
                 <div className="flex items-center gap-1.5 text-slate-400 mb-1">
                   <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse (Available for Sale)</span>
                 </div>
                 <div className="text-base font-bold text-slate-900">{Math.floor(data05.warehouse).toLocaleString()}</div>
               </div>
@@ -155,7 +155,7 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
               <div>
                 <div className="flex items-center gap-1.5 text-slate-400 mb-1">
                   <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse (Available for Sale)</span>
                 </div>
                 <div className="text-base font-bold text-slate-900">{Math.floor(data15.warehouse).toLocaleString()}</div>
               </div>

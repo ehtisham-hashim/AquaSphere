@@ -357,6 +357,14 @@ export default function Orders() {
           items={items}
         />
       )}
+
+      {/* Order Invoice Modal */}
+      {invoiceOrder && (
+        <OrderInvoiceModal 
+          order={invoiceOrder}
+          onClose={() => setInvoiceOrder(null)}
+        />
+      )}
     </div>
   );
 }

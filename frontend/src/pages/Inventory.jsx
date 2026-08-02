@@ -60,6 +60,8 @@ export default function Inventory() {
 
   const totalFinishedGoodsCount = items.length;
   const totalUnitsSum = items.reduce((acc, curr) => acc + Number(curr.cachedQty || 0), 0);
+  const negativeStockItems = items.filter(i => Number(i.cachedQty || 0) < 0);
+  const hasNegativeStock = negativeStockItems.length > 0;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -72,6 +74,36 @@ export default function Inventory() {
         totalUnitsCount={totalUnitsSum}
         onOpenTransferModal={() => setIsTransferModalOpen(true)}
       />
+
+      {/* Negative Stock Warning Banner */}
+      {hasNegativeStock && (
+        <div className="bg-red-50 border-2 border-red-400 rounded-xl p-5 flex items-start gap-4 shadow-lg animate-pulse">
+          <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+            <span className="text-white text-xl font-black">!</span>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-black text-red-900 mb-1.5 flex items-center gap-2">
+              ❌ Inventory Error: Negative Stock Detected
+            </h3>
+            <p className="text-sm text-red-800 font-semibold mb-2">
+              Critical system integrity issue — {negativeStockItems.length} item{negativeStockItems.length > 1 ? 's have' : ' has'} negative stock levels. This should never happen and indicates a data consistency problem.
+            </p>
+            <div className="bg-white/80 border border-red-200 rounded-lg p-3 space-y-1.5">
+              {negativeStockItems.map(item => (
+                <div key={item.id} className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-red-950">{item.name}</span>
+                  <span className="font-black text-red-700 bg-red-100 px-2 py-0.5 rounded">
+                    {Number(item.cachedQty).toFixed(2)} units
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-red-700 font-semibold mt-3">
+              ⚠️ Action required: Contact system administrator immediately to reconcile inventory records.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Module 2: Finished Goods Live Summary Cards with Location Breakdown (Factory vs Warehouse) */}
       <FinishedGoodsSummaryCards 
