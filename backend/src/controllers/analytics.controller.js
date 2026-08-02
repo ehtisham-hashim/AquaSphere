@@ -72,6 +72,13 @@ const computeDashboardAnalytics = async (prefix) => {
 
   const spotSalesCash = parseFloat(spotSales._sum.cashCollected || 0);
 
+  // Calculate total credit sales for the day
+  const creditSalesAgg = await prisma[`${prefix}SpotSale`].aggregate({
+    _sum: { creditAmount: true },
+    where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+  });
+  const creditSalesTotal = parseFloat(creditSalesAgg._sum.creditAmount || 0);
+
   const purchaseTotal = pendingPayables.find(e => e.type === 'PURCHASE')?._sum?.amount || 0;
   const paymentTotal = pendingPayables.find(e => e.type === 'PAYMENT')?._sum?.amount || 0;
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
@@ -84,7 +91,7 @@ const computeDashboardAnalytics = async (prefix) => {
     sales: todaysSalesAmount,
     cash: parseFloat(todaysPayments._sum.amount || 0) + spotSalesCash,
     expenses: parseFloat(todaysExpenses._sum.amount || 0),
-    credit: 0, // Market credit tracking disabled
+    credit: creditSalesTotal,
     bottlesSold: todaysSalesOrders.length,
     todaysPurchases: parseFloat(todaysPurchasesAgg._sum.grandTotal || 0),
     todaysPurchasesCount: todaysPurchasesAgg._count.id || 0,
@@ -117,7 +124,6 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
   res.json({ success: true, data: cachedDashboardData[prefix] });
 });
-
 export const getPurchasingSummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
@@ -237,7 +243,59 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
-export const getProductionDashboard = asyncHandler(async (req, res) => {
+export const getDailySummary = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { date } = req.query;
+  if (!date) throw new Error('Date is required');
+
+  const targetDate = new Date(date);
+  targetDate.setUTCHours(0, 0, 0, 0);
+  const nextDate = new Date(targetDate);
+  nextDate.setDate(nextDate.getDate() + 1);
+
+  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg] = await Promise.all([
+    // Cash from order deliveries on this date
+    prisma[`${prefix}Payment`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
+    }),
+    // Counter sales cash + credit on this date
+    prisma[`${prefix}SpotSale`].aggregate({
+      _sum: { cashCollected: true, creditAmount: true, litresSold: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
+    }),
+    // Expenses on this date
+    prisma[`${prefix}Expense`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
+    }),
+    // Credit from spot sales
+    prisma[`${prefix}SpotSale`].aggregate({
+      _sum: { creditAmount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate }, creditAmount: { gt: 0 } }
+    })
+  ]);
+
+  const totalDeliveryAmount = parseFloat(deliveryPayments._sum.amount || 0);
+  const totalSpotSales = parseFloat(spotSalesAgg._sum.cashCollected || 0);
+  const totalCreditSales = parseFloat(creditSalesAgg._sum.creditAmount || 0);
+  const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
+  const totalLitres = parseFloat(spotSalesAgg._sum.litresSold || 0);
+  const netCash = totalDeliveryAmount + totalSpotSales - totalExpenses;
+
+  res.json({
+    success: true,
+    data: {
+      totalDeliveryAmount,
+      totalSpotSales,
+      totalCreditSales,
+      totalExpenses,
+      totalLitres,
+      netCash,
+      date: targetDate.toISOString().split('T')[0]
+    }
+  });
+});
   const prefix = getTenantPrefix(req);
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);

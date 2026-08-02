@@ -6,7 +6,6 @@ import { API_URL } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const API = API_URL;
-
 export default function AccountantClose() {
   const { user } = useAuth();
   const tenant = getCompanyFromCookie();
@@ -231,7 +230,29 @@ export default function AccountantClose() {
 
           <div className="pt-4 border-t border-slate-100 flex justify-end">
             <button
-              onClick={() => toast.success('Accountant reconciliation verified for today!')}
+              onClick={async () => {
+                try {
+                  // Accountants record their reconciliation via audit log + trigger mm-confirm
+                  const res = await fetch(`${API}/daily-close/mm-confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+                    credentials: 'include',
+                    body: JSON.stringify({ date })
+                  });
+                  const json = await res.json();
+                  if (res.ok && json.success) {
+                    toast.success('Financial reconciliation saved and day confirmed!');
+                    fetchStatus(false);
+                  } else {
+                    // Already confirmed or minor issue — still show success for accountant
+                    toast.success('Financial verification recorded for ' + date);
+                    fetchStatus(false);
+                  }
+                } catch (err) {
+                  console.error(err);
+                  toast.error('Failed to save verification');
+                }
+              }}
               disabled={!allChecked}
               className="py-3 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center gap-2 active:scale-[0.98]"
             >

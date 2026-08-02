@@ -708,7 +708,8 @@ export default function Production() {
                 const caKg = (mineralFrac * 2).toFixed(4);
                 const mgKg = (mineralFrac * 1).toFixed(4);
                 const naKg = (mineralFrac * 0.5).toFixed(4);
-                const shrinkKg = ((p05Num + p15Num) * 0.050).toFixed(3);
+                // Shrink wrap: 0.02273 kg per 0.5L pack, 0.025 kg per 1.5L pack
+                const shrinkKg = ((p05Num * 0.02273) + (p15Num * 0.025)).toFixed(4);
                 const empty05LCount = p05Num * 12;
                 const empty15LCount = p15Num * 6;
                 const empty19LCount = parseInt(quantity || 0);

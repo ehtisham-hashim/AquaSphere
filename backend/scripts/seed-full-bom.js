@@ -69,7 +69,7 @@ async function main() {
   await createRecipe(fg500, 'PET Bottles (500ml)', 12);
   await createRecipe(fg500, 'Small Caps', 12);
   await createRecipe(fg500, 'Labels (500ml)', 12);
-  await createRecipe(fg500, 'Shrink Wrap', 0.05);
+  await createRecipe(fg500, 'Shrink Wrap', 0.02273);  // 1 kg = 44 packs (0.5L / 12 bottles)
   await createRecipe(fg500, 'Sodium', 0.01);
   await createRecipe(fg500, 'Calcium', 0.005);
   await createRecipe(fg500, 'Magnesium', 0.002);
@@ -79,7 +79,7 @@ async function main() {
   await createRecipe(fg1500, 'PET Bottles (1.5L)', 6);
   await createRecipe(fg1500, 'Large Caps', 6);
   await createRecipe(fg1500, 'Labels (1.5L)', 6);
-  await createRecipe(fg1500, 'Shrink Wrap', 0.04);
+  await createRecipe(fg1500, 'Shrink Wrap', 0.025);    // 1 kg = 40 packs (1.5L / 6 bottles)
   await createRecipe(fg1500, 'Sodium', 0.012);
   await createRecipe(fg1500, 'Calcium', 0.006);
   await createRecipe(fg1500, 'Magnesium', 0.003);

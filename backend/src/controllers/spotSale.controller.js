@@ -175,6 +175,19 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     if (!customerObj) {
       throw new ApiError(404, 'Selected customer not found');
     }
+    
+    // CREDIT LIMIT VALIDATION (matches Orders logic)
+    if (credit > 0 && customerObj.creditLimit > 0) {
+      const currentBalance = Number(customerObj.currentBalance || 0);
+      const creditLimit = Number(customerObj.creditLimit || 0);
+      const projectedBalance = currentBalance + credit;
+      
+      if (projectedBalance > creditLimit) {
+        // Soft warning - log but allow (same as Orders module)
+        console.warn(`CREDIT_LIMIT_EXCEEDED: Customer ${customerObj.name} balance will reach Rs ${projectedBalance} (Limit: Rs ${creditLimit})`);
+        // Note: We allow it to proceed, but system tracks this
+      }
+    }
   }
 
   const saleNumber = generateSaleNumber();

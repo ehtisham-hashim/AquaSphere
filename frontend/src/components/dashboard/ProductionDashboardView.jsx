@@ -110,7 +110,7 @@ export default function ProductionDashboardView() {
             <Plus size={16} /> Log Production Batch
           </Link>
           <Link
-            to="/finished-goods"
+            to="/inventory"
             className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-[0.98]"
           >
             <ArrowRightLeft size={16} /> Transfer Stock
@@ -294,7 +294,7 @@ export default function ProductionDashboardView() {
                 <Package size={18} className="text-sky-600" />
                 <h3 className="font-bold text-slate-800 text-sm">Finished Goods Stock Location Breakdown</h3>
               </div>
-              <Link to="/finished-goods" className="text-xs font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5">
+              <Link to="/inventory" className="text-xs font-bold text-sky-700 hover:text-sky-900 flex items-center gap-0.5">
                 Manage Stock <ChevronRight size={14} />
               </Link>
             </div>

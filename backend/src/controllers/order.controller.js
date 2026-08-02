@@ -255,7 +255,37 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         throw new ApiError(400, `Returned bottles (${retGood + retBroken}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
       }
 
+      // ===== ATOMIC PAYMENT SETTLEMENT =====
+      // Read current customer state ONCE inside transaction for consistency
+      const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
+        where: { id: o.customerId },
+        select: { 
+          currentBalance: true, 
+          deposit: true,
+          cachedBottleBalance: true 
+        }
+      });
+
+      const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
+      const currentDeposit = Number(customerSnapshot.deposit || 0);
+
+      // Calculate payment allocation atomically
+      let debtReduction = 0;
+      let depositRestored = 0;
+
       if (cash > 0) {
+        // Priority 1: Reduce debt first
+        if (currentCustomerDebt > 0) {
+          debtReduction = Math.min(currentCustomerDebt, cash);
+        }
+
+        // Priority 2: Restore security deposit with remaining cash
+        const remainingCashAfterDebt = cash - debtReduction;
+        if (remainingCashAfterDebt > 0) {
+          depositRestored = remainingCashAfterDebt;
+        }
+
+        // Record payment transaction
         await tx[`${prefix}Payment`].create({
           data: {
             orderId: o.id,
@@ -266,6 +296,27 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         });
       }
 
+      // Build atomic customer update
+      const customerUpdateData = {};
+      if (debtReduction > 0) {
+        customerUpdateData.currentBalance = { decrement: debtReduction };
+      }
+      if (depositRestored > 0) {
+        customerUpdateData.deposit = { increment: depositRestored };
+      }
+      if (retGood + retBroken > 0) {
+        customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
+      }
+
+      // Execute single atomic customer update
+      if (Object.keys(customerUpdateData).length > 0) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: o.customerId },
+          data: customerUpdateData
+        });
+      }
+
+      // Record bottle returns
       if (retGood > 0 || retBroken > 0) {
         await tx[`${prefix}Delivery`].create({
           data: {
@@ -289,36 +340,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
             data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id} (Payment Settlement)` }
           });
         }
-
-        await tx[`${prefix}Customer`].update({
-          where: { id: o.customerId },
-          data: { cachedBottleBalance: { decrement: retGood + retBroken } }
-        });
       }
 
-      // Reduce customer debt and restore security deposit if drawn previously
-      let debtReduction = 0;
-      let depositRestored = 0;
-
-      if (currentDebt > 0 && cash > 0) {
-        debtReduction = Math.min(currentDebt, cash);
-      }
-
-      const remainingCashAfterDebt = cash - debtReduction;
-      if (remainingCashAfterDebt > 0) {
-        depositRestored = remainingCashAfterDebt;
-      }
-
-      if (debtReduction > 0 || depositRestored > 0) {
-        await tx[`${prefix}Customer`].update({
-          where: { id: o.customerId },
-          data: {
-            ...(debtReduction > 0 && { currentBalance: { decrement: debtReduction } }),
-            ...(depositRestored > 0 && { deposit: { increment: depositRestored } })
-          }
-        });
-      }
-
+      // Update order payment status
       const newTotalPaid = alreadyPaid + cash;
       const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
@@ -334,7 +358,15 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           entityType: 'Order',
           entityId: updated.id,
           performedBy: req.user?.id || 'Unknown',
-          details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
+          details: JSON.stringify({ 
+            cashReceived: cash, 
+            newTotalPaid, 
+            newPaymentStatus, 
+            debtReduction,
+            depositRestored,
+            bottlesReturnedGood: retGood, 
+            bottlesReturnedBroken: retBroken 
+          })
         }
       });
 
@@ -480,8 +512,14 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     // Update Customer Deposit, Financial Balance (Debt), and Tenant-specific Bottle Holdings
+    // ATOMIC OPERATION: Read customer state once and perform single update
     const unpaidAmount = Math.max(0, orderTotal - cash);
-    const existingDeposit = parseFloat(o.customer.deposit || 0);
+    
+    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
+      where: { id: o.customerId },
+      select: { deposit: true }
+    });
+    const existingDeposit = parseFloat(customerSnapshot.deposit || 0);
 
     let depositDeduction = 0;
     let debtAddition = 0;
@@ -497,10 +535,18 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
     const isWadaana = prefix === 'wadaana';
     const customerUpdateData = {
-      ...(depositDeduction > 0 && { deposit: { decrement: depositDeduction } }),
-      ...(debtAddition > 0 && { currentBalance: { increment: debtAddition } })
+      lastDeliveryAt: new Date()
     };
 
+    // Financial updates
+    if (depositDeduction > 0) {
+      customerUpdateData.deposit = { decrement: depositDeduction };
+    }
+    if (debtAddition > 0) {
+      customerUpdateData.currentBalance = { increment: debtAddition };
+    }
+
+    // Bottle balance updates
     if (!isWadaana) {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
     } else {
@@ -524,12 +570,10 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       }
     }
 
+    // Execute single atomic customer update
     await tx[`${prefix}Customer`].update({
       where: { id: o.customerId },
-      data: {
-        lastDeliveryAt: new Date(),
-        ...customerUpdateData
-      }
+      data: customerUpdateData
     });
 
     // Update Order Status

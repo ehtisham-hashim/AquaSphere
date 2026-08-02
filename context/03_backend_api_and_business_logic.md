@@ -34,14 +34,14 @@ When a production batch is recorded, raw material deductions and finished goods 
 - **Empty 0.5L Bottles**: 12 pcs
 - **Small PET Caps**: 12 pcs
 - **Labels**: 0.00672 kg (6.72g)
-- **Shrink Wrap**: 0.050 kg (50g)
+- **Shrink Wrap**: 0.02273 kg per pack (1 kg = 44 packs)
 - **Water Consumption**: 9 Litres (6L product + 3L wash/flush allowance)
 
 #### 1.5L PET Pack Specifications (6 Bottles / Pack)
 - **Empty 1.5L Bottles**: 6 pcs
 - **Small PET Caps**: 6 pcs
 - **Labels**: 0.00780 kg (7.80g)
-- **Shrink Wrap**: 0.050 kg (50g)
+- **Shrink Wrap**: 0.025 kg per pack (1 kg = 40 packs)
 - **Water Consumption**: 12 Litres (9L product + 3L wash/flush allowance)
 
 #### Mineral Chemical Dosage (15,141 Litres Treated per Set)

@@ -10,7 +10,8 @@ import {
   restoreItem,
   adjustInventory,
   getInventoryTransactions,
-  transferStock
+  transferStock,
+  reconcileInventory
 } from '../controllers/item.controller.js';
 
 const router = Router();
@@ -29,6 +30,7 @@ router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MA
 // Stock transfers & manual adjustments
 router.post('/transfer-stock', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), transferStock);
 router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
+router.post('/:id/reconcile', requireRoles('OWNER', 'ADMIN'), reconcileInventory);
 
 // Archiving & restoring items remain restricted to OWNER & ACCOUNTANT only
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveItem);

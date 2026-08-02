@@ -9,14 +9,14 @@ const { Prisma } = pkg;
  * - 0.5L Empty Bottles: 12 pcs
  * - Small Caps: 12 pcs
  * - Labels: 6.72g (0.00672 kg)
- * - Shrink Wrap: 50g (0.050 kg)
+ * - Shrink Wrap: 0.02273 kg per pack (1 kg = 44 packs of 12 bottles)
  * - Water: 9L (12 * 0.5L + washing/flushing)
  * 
  * 1.5L Pack (6 bottles):
  * - 1.5L Empty Bottles: 6 pcs
  * - Small Caps: 6 pcs
  * - Labels: 7.80g (0.00780 kg)
- * - Shrink Wrap: 50g (0.050 kg)
+ * - Shrink Wrap: 0.025 kg per pack (1 kg = 40 packs of 6 bottles)
  * - Water: 12L (6 * 1.5L + washing/flushing)
  * 
  * 19L PC Bottle:
@@ -142,8 +142,8 @@ function calculateProductionBatch(params, items) {
     // 6.72g (0.00672 kg) Labels per pack
     if (label05LItem) addDeduction(label05LItem, decPacks05L.mul(0.00672), 'kg');
 
-    // 50g (0.050 kg) Shrink Wrap per pack
-    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks05L.mul(0.050), 'kg');
+    // 0.02273 kg Shrink Wrap per pack (1 kg = 44 packs of 0.5L / 12 bottles each)
+    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks05L.mul(0.02273), 'kg');
   }
 
   // --- 1.5L Pack Deductions ---
@@ -164,8 +164,8 @@ function calculateProductionBatch(params, items) {
     // 7.80g (0.00780 kg) Labels per pack
     if (label15LItem) addDeduction(label15LItem, decPacks15L.mul(0.00780), 'kg');
 
-    // 50g (0.050 kg) Shrink Wrap per pack
-    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.050), 'kg');
+    // 0.025 kg Shrink Wrap per pack (1 kg = 40 packs of 1.5L / 6 bottles each)
+    if (shrinkWrapItem) addDeduction(shrinkWrapItem, decPacks15L.mul(0.025), 'kg');
   }
 
   // --- 19L Bottle Deductions ---

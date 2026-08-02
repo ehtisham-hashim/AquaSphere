@@ -135,36 +135,18 @@ export const getItems = asyncHandler(async (req, res) => {
       }
       item.cachedQty = netQty;
 
-      // Reconcile Factory and Warehouse quantities so sum matches netQty
+      // Check for Factory/Warehouse mismatch but DO NOT auto-fix silently
       const fQty = Number(item.factoryQty || 0);
       const wQty = Number(item.warehouseQty || 0);
       if (fQty + wQty !== netQty) {
-        let newF = fQty;
-        let newW = wQty;
-        const diff = (fQty + wQty) - netQty;
-
-        if (diff > 0) {
-          // Excess stock: deduct from Factory first, then Warehouse
-          if (newF >= diff) {
-            newF -= diff;
-          } else {
-            const remainder = diff - newF;
-            newF = 0;
-            newW = Math.max(0, newW - remainder);
-          }
-        } else {
-          // Deficit: add to Factory
-          newF += Math.abs(diff);
-        }
-
-        item.factoryQty = newF;
-        item.warehouseQty = newW;
-
-        // Persist reconciled location stock
-        prisma[`${prefix}Item`].update({
-          where: { id: item.id },
-          data: { factoryQty: newF, warehouseQty: newW, cachedQty: netQty }
-        }).catch(() => null);
+        // Flag discrepancy but don't auto-correct
+        item.stockDiscrepancy = {
+          expected: netQty,
+          actual: fQty + wQty,
+          factory: fQty,
+          warehouse: wQty,
+          difference: (fQty + wQty) - netQty
+        };
       }
     }
     delete item.inventoryTransactions;
@@ -450,4 +432,107 @@ export const transferStock = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
+});
+
+export const reconcileInventory = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { itemId } = req.params;
+
+  if (!['OWNER', 'ADMIN'].includes(req.user?.role)) {
+    throw new ApiError(403, 'Only Owner or Admin can perform inventory reconciliation');
+  }
+
+  const item = await prisma[`${prefix}Item`].findUnique({ 
+    where: { id: itemId },
+    include: {
+      inventoryTransactions: {
+        select: { quantity: true, direction: true, refType: true }
+      }
+    }
+  });
+
+  if (!item) throw new ApiError(404, 'Item not found');
+
+  // Calculate net quantity from transactions
+  let netQty = 0;
+  for (const t of item.inventoryTransactions) {
+    if (t.refType === 'TRANSFER') continue;
+    const q = Number(t.quantity || 0);
+    if (t.direction === 'IN') netQty += q;
+    else if (t.direction === 'OUT') netQty -= q;
+  }
+
+  const fQty = Number(item.factoryQty || 0);
+  const wQty = Number(item.warehouseQty || 0);
+  const cachedQty = Number(item.cachedQty || 0);
+  const diff = (fQty + wQty) - netQty;
+
+  if (diff === 0 && cachedQty === netQty) {
+    return res.json({ 
+      success: true, 
+      message: 'Inventory is already reconciled',
+      data: { item, reconciled: false }
+    });
+  }
+
+  // Perform reconciliation
+  let newF = fQty;
+  let newW = wQty;
+
+  if (diff > 0) {
+    // Excess stock: deduct from Factory first, then Warehouse
+    if (newF >= diff) {
+      newF -= diff;
+    } else {
+      const remainder = diff - newF;
+      newF = 0;
+      newW = Math.max(0, newW - remainder);
+    }
+  } else {
+    // Deficit: add to Factory
+    newF += Math.abs(diff);
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const reconciled = await tx[`${prefix}Item`].update({
+      where: { id: itemId },
+      data: { 
+        factoryQty: newF, 
+        warehouseQty: newW, 
+        cachedQty: netQty 
+      }
+    });
+
+    // Create audit log entry
+    await tx[`${prefix}AuditLog`].create({
+      data: {
+        action: 'INVENTORY_RECONCILED',
+        entityType: 'Item',
+        entityId: itemId,
+        performedBy: req.user?.name || req.user?.id || 'Admin',
+        details: JSON.stringify({
+          itemName: item.name,
+          before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+          after: { factory: newF, warehouse: newW, cached: netQty },
+          discrepancy: diff
+        })
+      }
+    });
+
+    return reconciled;
+  });
+
+  res.json({ 
+    success: true, 
+    message: 'Inventory reconciled successfully',
+    data: { 
+      item: updated,
+      reconciled: true,
+      changes: {
+        before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+        after: { factory: newF, warehouse: newW, cached: netQty },
+        discrepancy: diff
+      }
+    }
+  });
 });

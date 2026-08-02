@@ -196,6 +196,12 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
   if (isNaN(paymentAmount) || paymentAmount <= 0) {
     throw new ApiError(400, 'Payment amount must be greater than zero');
   }
+  
+  // ENFORCE PROOF REQUIREMENT for non-cash payments
+  const requiresProof = ['BANK_TRANSFER', 'CHEQUE', 'ONLINE_TRANSFER'].includes(paymentMethod);
+  if (requiresProof && (!proofUrl || !proofUrl.trim())) {
+    throw new ApiError(400, `Payment proof is required for ${paymentMethod.replace('_', ' ')}`);
+  }
 
   const vendor = await prisma[`${prefix}Vendor`].findUnique({ where: { id: vendorId } });
   if (!vendor) throw new ApiError(404, 'Vendor not found');
