@@ -90,6 +90,7 @@ export default function Orders() {
 
   const isOwner = user?.role === 'OWNER';
   const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
+  const canCreateOrder = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER' || user?.role === 'ADMIN';
   const canDeleteOrder = ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
 
   // Unpaid/Partial order count for quick alerts
@@ -131,12 +132,14 @@ export default function Orders() {
       
       {/* Top Navigation Tabs Area */}
       <div className="surface-card p-4 mb-6 flex flex-wrap gap-2 items-center">
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="btn-secondary mr-2 flex items-center gap-2 group"
-        >
-          <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
-        </button>
+        {canCreateOrder && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="btn-secondary mr-2 flex items-center gap-2 group"
+          >
+            <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
+          </button>
+        )}
         
         {canAddCustomer && (
           <button 
