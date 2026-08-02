@@ -341,17 +341,17 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       return updated;
     }
 
-    // Validate finished goods stock for every item in order before processing delivery
+    // Validate finished goods stock on Factory Floor for every item in order before processing delivery
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
         const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
         if (itemObj) {
-          const availStock = Number(itemObj.cachedQty || 0);
+          const factoryStock = Number(itemObj.factoryQty !== undefined && itemObj.factoryQty !== null ? itemObj.factoryQty : itemObj.cachedQty || 0);
           const reqQty = Number(orderItem.quantity || 0);
-          if (availStock < reqQty) {
+          if (factoryStock < reqQty) {
             throw new ApiError(
               400,
-              `❌ Cannot deliver order: Insufficient finished stock for "${itemObj.name}". Required: ${reqQty}, Available: ${availStock}. Please produce or add stock in Inventory first.`
+              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty}, Available on Factory Floor: ${factoryStock}. Stock in Warehouse cannot be automatically delivered — please run a Production batch or Transfer Stock from Warehouse to Factory Floor first.`
             );
           }
         }
@@ -451,46 +451,19 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Finished Goods Deductions (deduct from Factory first, then Warehouse)
+    // Finished Goods Deductions (deduct exclusively from Factory Floor stock)
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
         const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
         const qtyToDeduct = Number(orderItem.quantity || 0);
 
-        const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
-        let locationUsed = 'FACTORY';
-
-        if (itemObj) {
-          const currentFactory = Number(itemObj.factoryQty || 0);
-          let factoryDeduct = 0;
-          let warehouseDeduct = 0;
-
-          if (currentFactory >= qtyToDeduct) {
-            factoryDeduct = qtyToDeduct;
-            locationUsed = 'FACTORY';
-          } else if (currentFactory > 0) {
-            factoryDeduct = currentFactory;
-            warehouseDeduct = qtyToDeduct - currentFactory;
-            locationUsed = 'FACTORY';
-          } else {
-            warehouseDeduct = qtyToDeduct;
-            locationUsed = 'WAREHOUSE';
+        await tx[`${prefix}Item`].update({
+          where: { id: orderItem.itemId },
+          data: { 
+            cachedQty: { decrement: qtyToDeduct },
+            factoryQty: { decrement: qtyToDeduct }
           }
-
-          await tx[`${prefix}Item`].update({
-            where: { id: orderItem.itemId },
-            data: { 
-              cachedQty: { decrement: qtyToDeduct },
-              factoryQty: { decrement: factoryDeduct },
-              warehouseQty: { decrement: warehouseDeduct }
-            }
-          });
-        } else {
-          await tx[`${prefix}Item`].update({
-            where: { id: orderItem.itemId },
-            data: { cachedQty: { decrement: qtyToDeduct } }
-          });
-        }
+        });
 
         await tx[`${prefix}InventoryTransaction`].create({
           data: { 
@@ -500,7 +473,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
             reason: is19LItem ? '19L_DELIVERY' : 'PET_DELIVERY', 
             refType: 'ORDER', 
             refId: o.id,
-            location: locationUsed
+            location: 'FACTORY'
           }
         });
       }

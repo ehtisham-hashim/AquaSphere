@@ -17,6 +17,7 @@ export default function Inventory() {
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [bottleSummary, setBottleSummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -24,19 +25,30 @@ export default function Inventory() {
   const fetchInventoryData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [itemsRes, txnsRes] = await Promise.all([
+      const promises = [
         fetch(`${API}/items?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
         fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
-      ]);
+      ];
 
-      const itemsJson = await itemsRes.json();
-      const txnsJson = await txnsRes.json();
+      if (tenant === 'aquasphere') {
+        promises.push(fetch(`${API}/bottles/summary`, { credentials: 'include' }));
+      }
 
-      if (itemsJson.success || itemsRes.ok) {
+      const results = await Promise.all(promises);
+      const itemsJson = await results[0].json();
+      const txnsJson = await results[1].json();
+
+      if (itemsJson.success || results[0].ok) {
         setItems(itemsJson.data || []);
       }
-      if (txnsJson.success || txnsRes.ok) {
+      if (txnsJson.success || results[1].ok) {
         setTransactions(txnsJson.data || []);
+      }
+      if (tenant === 'aquasphere' && results[2]) {
+        const bottleJson = await results[2].json();
+        if (bottleJson.success) {
+          setBottleSummary(bottleJson.data);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch finished goods inventory:', err);
@@ -109,10 +121,11 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Module 2: Finished Goods Live Summary Cards with Location Breakdown (Factory vs Warehouse) */}
+      {/* Module 2: Finished Goods Live Summary Cards with Location Breakdown (Factory vs Warehouse) & 19L Bottle Custody */}
       <FinishedGoodsSummaryCards 
         items={items}
         tenant={tenant}
+        bottleSummary={bottleSummary}
       />
 
       {/* Module 4: Audit Ledger & Transaction History Table */}

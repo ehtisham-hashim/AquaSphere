@@ -201,6 +201,20 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
   if (!vendor) throw new ApiError(404, 'Vendor not found');
   if (vendor.archivedAt) throw new ApiError(400, 'Cannot record payment for an archived vendor');
 
+  // Check current outstanding payable balance
+  const purchasesAgg = await prisma[`${prefix}Purchase`].aggregate({
+    where: { vendorId },
+    _sum: { grandTotal: true }
+  });
+  const paymentsAgg = await prisma[`${prefix}VendorPayment`].aggregate({
+    where: { vendorId },
+    _sum: { amount: true }
+  });
+  const currentPayableBalance = Math.max(0, Number(purchasesAgg._sum.grandTotal || 0) - Number(paymentsAgg._sum.amount || 0));
+  if (currentPayableBalance > 0 && paymentAmount > currentPayableBalance + 0.01) {
+    throw new ApiError(400, `Payment amount (Rs. ${paymentAmount.toLocaleString()}) cannot exceed outstanding balance of Rs. ${currentPayableBalance.toLocaleString()}`);
+  }
+
   const targetDate = paymentDate ? new Date(paymentDate) : new Date();
 
   const result = await prisma.$transaction(async (tx) => {

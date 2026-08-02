@@ -235,43 +235,85 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       phone: true,
       type: true,
       creditLimit: true,
-      cachedBottleBalance: true,
+      creditDuration: true,
+      lastDeliveryAt: true,
       createdAt: true,
       orders: {
         orderBy: { createdAt: 'desc' },
-        take: 1,
-        select: { createdAt: true, deliveryStatus: true, paymentStatus: true }
+        take: 5,
+        select: { id: true, createdAt: true, deliveryStatus: true, paymentStatus: true, totalAmount: true }
       }
     }
   });
 
-  // Credit breaches disabled since balance tracking is removed
-  const creditBreaches = [];
+  // Credit breaches (customers with unpaid orders exceeding credit limit or overdue)
+  const creditBreaches = allCustomers.filter(c => {
+    const limit = Number(c.creditLimit || 0);
+    if (limit <= 0) return false;
+    const unpaidSum = c.orders
+      .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
+      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    return unpaidSum >= limit;
+  }).map(c => {
+    const unpaidSum = c.orders
+      .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
+      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      type: c.type,
+      currentBalance: unpaidSum,
+      creditLimit: Number(c.creditLimit || 0),
+      alertType: 'CREDIT_LIMIT_EXCEEDED',
+      recommendation: 'Generate invoice and request immediate payment settlement.'
+    };
+  });
 
-  // Unpaid bill alerts disabled since balance tracking is removed
+  // Unpaid bills older than 7 days
   const unpaidBillOver7Days = [];
+  allCustomers.forEach(c => {
+    const oldUnpaid = c.orders.filter(o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < sevenDaysAgo);
+    if (oldUnpaid.length > 0) {
+      const unpaidSum = oldUnpaid.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      unpaidBillOver7Days.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        type: c.type,
+        unpaidAmount: unpaidSum,
+        oldestOrderDate: oldUnpaid[oldUnpaid.length - 1].createdAt,
+        daysOverdue: Math.floor((Date.now() - new Date(oldUnpaid[oldUnpaid.length - 1].createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        alertType: 'UNPAID_BILL_OVER_7D',
+        recommendation: 'Generate invoice and contact customer for collection.'
+      });
+    }
+  });
 
-  // Inactivity / No repeat order > 30 days
+  // Inactivity / No repeat order in 7+ days
   const inactiveCustomers = allCustomers.filter(c => {
-    const lastOrderDate = c.orders[0]?.createdAt;
-    if (!lastOrderDate) return new Date(c.createdAt) < thirtyDaysAgo;
-    return new Date(lastOrderDate) < thirtyDaysAgo;
-  }).map(c => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    type: c.type,
-    lastOrderDate: c.orders[0]?.createdAt || null,
-    daysSinceLastOrder: c.orders[0]?.createdAt
-      ? Math.floor((Date.now() - new Date(c.orders[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
-      : 'Never ordered',
-    alertType: 'INACTIVE_30d'
-  }));
+    const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+    if (!lastDate) return new Date(c.createdAt) < sevenDaysAgo;
+    return new Date(lastDate) < sevenDaysAgo;
+  }).map(c => {
+    const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+    const days = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)) : '7+';
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      type: c.type,
+      lastOrderDate: lastDate || null,
+      daysSinceLastOrder: days,
+      alertType: 'INACTIVE_7D',
+      recommendation: 'Call customer to ask if they are still an active customer.'
+    };
+  });
 
   res.status(200).json(new ApiResponse(200, {
     creditBreaches,
     unpaidBillOver7Days,
     inactiveCustomers,
     totalAlerts: creditBreaches.length + unpaidBillOver7Days.length + inactiveCustomers.length
-  }, 'Customer alerts fetched'));
+  }, 'Customer alerts fetched successfully'));
 });

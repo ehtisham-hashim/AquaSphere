@@ -191,29 +191,64 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       return allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
     };
 
+    // Helper for location-based stock deduction
+    const deductStock = async (fgItem, qtyDeduct, reason) => {
+      const avail = Number(fgItem.cachedQty || 0);
+      if (avail < qtyDeduct) {
+        throw new ApiError(
+          400,
+          `❌ Cannot process Counter Sale: Insufficient finished stock for "${fgItem.name}". Required: ${qtyDeduct}, Available: ${avail}. Please produce or add finished goods in Inventory first.`
+        );
+      }
+
+      const currentFactory = Number(fgItem.factoryQty || 0);
+      let factoryDeduct = 0;
+      let warehouseDeduct = 0;
+
+      if (currentFactory >= qtyDeduct) {
+        factoryDeduct = qtyDeduct;
+      } else if (currentFactory > 0) {
+        factoryDeduct = currentFactory;
+        warehouseDeduct = qtyDeduct - currentFactory;
+      } else {
+        warehouseDeduct = qtyDeduct;
+      }
+
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: {
+          itemId: fgItem.id,
+          quantity: qtyDeduct,
+          direction: 'OUT',
+          reason,
+          refType: 'SPOT_SALE',
+          refId: saleNumber,
+          location: factoryDeduct > 0 ? 'FACTORY' : 'WAREHOUSE'
+        }
+      });
+
+      await tx[`${prefix}Item`].update({
+        where: { id: fgItem.id },
+        data: {
+          cachedQty: { decrement: qtyDeduct },
+          ...(factoryDeduct > 0 && { factoryQty: { decrement: factoryDeduct } }),
+          ...(warehouseDeduct > 0 && { warehouseQty: { decrement: warehouseDeduct } })
+        }
+      });
+    };
+
     // 1. Finished Goods Stock Deduction for 0.5L and 1.5L Packs & Single Bottles
     if (productType === 'PACK_05L' || productType === 'SINGLE_05L') {
       const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
 
       if (fg05L) {
         if (productType === 'PACK_05L') {
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: fg05L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_PACK_05L', refType: 'SPOT_SALE', refId: saleNumber }
-          });
-          await tx[`${prefix}Item`].update({
-            where: { id: fg05L.id }, data: { cachedQty: { decrement: qty } }
-          });
+          await deductStock(fg05L, qty, 'SPOT_SALE_PACK_05L');
         } else if (productType === 'SINGLE_05L') {
-          const packDeduction = new Prisma.Decimal(qty).dividedBy(12);
+          const packDeduction = Number(new Prisma.Decimal(qty).dividedBy(12));
           const looseBottles = qty % 12;
           openPackLeftover = (12 - looseBottles) % 12;
 
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: fg05L.id, quantity: packDeduction, direction: 'OUT', reason: 'SPOT_SALE_SINGLE_05L', refType: 'SPOT_SALE', refId: saleNumber }
-          });
-          await tx[`${prefix}Item`].update({
-            where: { id: fg05L.id }, data: { cachedQty: { decrement: packDeduction } }
-          });
+          await deductStock(fg05L, packDeduction, 'SPOT_SALE_SINGLE_05L');
         }
       }
     } else if (productType === 'PACK_15L' || productType === 'SINGLE_15L') {
@@ -221,34 +256,19 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
       if (fg15L) {
         if (productType === 'PACK_15L') {
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: fg15L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_PACK_15L', refType: 'SPOT_SALE', refId: saleNumber }
-          });
-          await tx[`${prefix}Item`].update({
-            where: { id: fg15L.id }, data: { cachedQty: { decrement: qty } }
-          });
+          await deductStock(fg15L, qty, 'SPOT_SALE_PACK_15L');
         } else if (productType === 'SINGLE_15L') {
-          const packDeduction = new Prisma.Decimal(qty).dividedBy(6);
+          const packDeduction = Number(new Prisma.Decimal(qty).dividedBy(6));
           const looseBottles = qty % 6;
           openPackLeftover = (6 - looseBottles) % 6;
 
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: fg15L.id, quantity: packDeduction, direction: 'OUT', reason: 'SPOT_SALE_SINGLE_15L', refType: 'SPOT_SALE', refId: saleNumber }
-          });
-          await tx[`${prefix}Item`].update({
-            where: { id: fg15L.id }, data: { cachedQty: { decrement: packDeduction } }
-          });
+          await deductStock(fg15L, packDeduction, 'SPOT_SALE_SINGLE_15L');
         }
       }
     } else if (productType === 'BOTTLE_19L') {
       const fg19L = findFG(['19l', '19']);
       if (fg19L) {
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: fg19L.id, quantity: qty, direction: 'OUT', reason: 'SPOT_SALE_19L', refType: 'SPOT_SALE', refId: saleNumber }
-        });
-        await tx[`${prefix}Item`].update({
-          where: { id: fg19L.id }, data: { cachedQty: { decrement: qty } }
-        });
+        await deductStock(fg19L, qty, 'SPOT_SALE_19L');
       }
       await tx[`${prefix}BottleTransaction`].create({
         data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(qty), reason: `Counter Sale 19L Refill (${saleNumber})` }

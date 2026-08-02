@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Lock, 
   Unlock, 
@@ -12,7 +13,7 @@ import {
 import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
-import AlertsSection from '../components/dashboard/AlertsSection';
+import { AlertTriangle, UserX, CreditCard } from 'lucide-react';
 
 const API = API_URL;
 
@@ -112,40 +113,11 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        {/* Feature 3: Daily Close Verification & Lock */}
-        <div className="flex items-center gap-3 bg-slate-800/80 p-3 rounded-xl border border-slate-700">
-          <div className="flex flex-col">
-            <span className="text-xs text-slate-400 font-medium">Daily Close Lock</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {kpis.isDayClosed ? (
-                <>
-                  <Lock className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm font-semibold text-emerald-400">LOCKED</span>
-                </>
-              ) : (
-                <>
-                  <Unlock className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-semibold text-amber-400">OPEN</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {!kpis.isDayClosed ? (
-            <button
-              onClick={handleCloseDay}
-              disabled={closing}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-lg shadow transition flex items-center gap-2 disabled:opacity-50"
-            >
-              <Lock className="w-4 h-4" />
-              {closing ? 'Locking...' : 'Close & Lock Day'}
-            </button>
-          ) : (
-            <div className="text-xs text-slate-400 pl-2 border-l border-slate-700">
-              Closed by: <span className="font-semibold text-slate-200">{kpis.dayClosedBy || 'Admin'}</span>
-            </div>
-          )}
-        </div>
+        {/* Link to Daily Close Page */}
+        <Link to="/daily-close" className="flex items-center gap-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-3 rounded-xl border border-slate-700 text-xs font-bold transition-all shadow-sm">
+          <Lock className="w-4 h-4 text-emerald-400" />
+          <span>Go to Daily Close Page &rarr;</span>
+        </Link>
       </div>
 
       {/* KPI Cards Grid */}
@@ -189,25 +161,27 @@ export default function AdminDashboard() {
 
         {/* Read-Only Stock Indicator */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-teal-50 text-teal-600 rounded-xl">
+          <div className={`p-3 rounded-xl ${kpis.lowStockAlerts > 0 ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
             <Package className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Indicator</p>
-            <h3 className="text-xl font-bold text-slate-900">Optimal</h3>
-            <p className="text-xs text-teal-600 font-medium mt-0.5">Read-Only Stock Monitor</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Health</p>
+            <h3 className={`text-xl font-bold ${kpis.lowStockAlerts > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {kpis.lowStockAlerts > 0 ? `${kpis.lowStockAlerts} Low` : 'All OK'}
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Raw Material Levels</p>
           </div>
         </div>
 
-        {/* Read-Only Inventory Expense Indicator */}
+        {/* Cash Collected Indicator */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <Banknote className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inventory Expense</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash Collected</p>
             <h3 className="text-xl font-bold text-slate-900 font-mono">Rs. {(kpis.cashCollected || 0).toLocaleString()}</h3>
-            <p className="text-xs text-indigo-600 font-medium mt-0.5">Read-Only Cash Summary</p>
+            <p className="text-xs text-indigo-600 font-medium mt-0.5">Orders + Counter Sales</p>
           </div>
         </div>
 
@@ -391,10 +365,80 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Tab 4: Customer Alerts */}
+      {/* Tab 4: Customer Alerts (from admin/customer-alerts API) */}
       {activeTab === 'alerts' && (
-        <div className="pt-2">
-          <AlertsSection />
+        <div className="space-y-6 pt-2">
+          {!alerts || alerts.totalAlerts === 0 ? (
+            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
+              <ShieldAlert className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+              <p className="text-slate-500 font-medium">No customer alerts right now</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Credit Limit Breaches */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <CreditCard className="w-4 h-4 text-rose-500" />
+                  Credit Limit Breaches ({alerts.creditBreaches?.length || 0})
+                </h4>
+                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                  {alerts.creditBreaches?.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2">None</p>
+                  ) : (
+                    alerts.creditBreaches?.map(c => (
+                      <div key={c.id} className="py-2">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        <p className="text-xs text-slate-500">{c.phone}</p>
+                        <p className="text-xs text-rose-600 font-medium">Balance: Rs. {c.currentBalance?.toLocaleString()} / Limit: Rs. {c.creditLimit?.toLocaleString()}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Unpaid Bills > 7 Days */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  Unpaid Bills &gt; 7 Days ({alerts.unpaidBillOver7Days?.length || 0})
+                </h4>
+                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                  {alerts.unpaidBillOver7Days?.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2">None</p>
+                  ) : (
+                    alerts.unpaidBillOver7Days?.map(c => (
+                      <div key={c.id} className="py-2">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        <p className="text-xs text-slate-500">{c.phone}</p>
+                        <p className="text-xs text-amber-600 font-medium">Rs. {c.unpaidAmount?.toLocaleString()} — {c.daysOverdue} days overdue</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Inactive Customers */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                  <UserX className="w-4 h-4 text-slate-500" />
+                  Inactive Customers ({alerts.inactiveCustomers?.length || 0})
+                </h4>
+                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                  {alerts.inactiveCustomers?.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2">None</p>
+                  ) : (
+                    alerts.inactiveCustomers?.map(c => (
+                      <div key={c.id} className="py-2">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        <p className="text-xs text-slate-500">{c.phone}</p>
+                        <p className="text-xs text-slate-600 font-medium">{c.daysSinceLastOrder} days since last order</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

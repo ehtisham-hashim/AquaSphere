@@ -300,23 +300,33 @@ export default function ProductionDashboardView() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {finishedGoods.map(fg => (
-                <div key={fg.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                  <div className="font-extrabold text-slate-800 text-sm">{fg.name}</div>
-                  <div className="flex justify-between text-xs text-slate-600">
-                    <span>🏭 Factory Floor:</span>
-                    <span className="font-bold text-slate-900">{fg.factoryQty} {fg.unit}</span>
+              {finishedGoods.map(fg => {
+                const isLow = Number(fg.factoryQty || 0) <= 20;
+                return (
+                  <div key={fg.id} className={`border rounded-xl p-4 space-y-2 ${isLow ? 'bg-rose-50/60 border-rose-300' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="font-extrabold text-slate-800 text-sm">{fg.name}</div>
+                      {isLow && (
+                        <span className="px-2 py-0.5 bg-rose-600 text-white font-black text-[9px] rounded uppercase tracking-wider">
+                          LOW STOCK
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>🏭 Factory Floor:</span>
+                      <span className={`font-bold ${isLow ? 'text-rose-700' : 'text-slate-900'}`}>{fg.factoryQty} {fg.unit}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>🏢 Warehouse:</span>
+                      <span className="font-bold text-purple-700">{fg.warehouseQty} {fg.unit}</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-black text-slate-900">
+                      <span>Total Stock:</span>
+                      <span className="text-sky-700">{fg.cachedQty} {fg.unit}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs text-slate-600">
-                    <span>🏢 Warehouse:</span>
-                    <span className="font-bold text-purple-700">{fg.warehouseQty} {fg.unit}</span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-black text-slate-900">
-                    <span>Total Fleet:</span>
-                    <span className="text-sky-700">{fg.cachedQty} {fg.unit}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

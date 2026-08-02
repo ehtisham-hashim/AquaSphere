@@ -37,20 +37,48 @@ const formatAlertDetails = (log) => {
     try {
       const parsed = JSON.parse(raw);
       const shortId = log.entityId ? `#${log.entityId.slice(0, 6).toUpperCase()}` : '';
+
       if (log.action === 'ORDER_CREATED') {
         const qty = parsed.items ? parsed.items.reduce((sum, i) => sum + (i.quantity || 0), 0) : 1;
-        return `Order ${shortId} created with ${qty} unit${qty > 1 ? 's' : ''}`;
+        const cust = parsed.customerName ? ` for ${parsed.customerName}` : '';
+        return `Order ${shortId}${cust} created (${qty} unit${qty > 1 ? 's' : ''})`;
       }
+
       if (log.action === 'ORDER_DELIVERED') {
-        const cash = parsed.cashReceived !== undefined ? ` • Cash Received: Rs. ${Number(parsed.cashReceived).toLocaleString()}` : '';
+        const cash = parsed.cashReceived ? ` • Cash: Rs. ${Number(parsed.cashReceived).toLocaleString()}` : '';
         const ret = parsed.returnedGood ? ` (${parsed.returnedGood} bottle(s) returned)` : '';
-        return `Order ${shortId} successfully delivered${cash}${ret}`;
+        return `Order ${shortId} delivered${cash}${ret}`;
       }
+
       if (log.action === 'ORDER_PAYMENT_SETTLED') {
-        return `Order ${shortId} payment recorded (Rs. ${Number(parsed.cashReceived || 0).toLocaleString()} received)`;
+        return `Order ${shortId} payment recorded (Rs. ${Number(parsed.cashReceived || parsed.amount || 0).toLocaleString()} received)`;
+      }
+
+      if (log.action === 'PRODUCTION_BATCH_COMPLETED' || log.action === 'PRODUCTION_BATCH_CREATED') {
+        const isCompleted = log.action.includes('COMPLETED') || parsed.status === 'COMPLETED';
+        const parts = [];
+        if (parsed.qtyPure05L) parts.push(`${parsed.qtyPure05L}x 0.5L Pure`);
+        if (parsed.qtyPure15L) parts.push(`${parsed.qtyPure15L}x 1.5L Pure`);
+        if (parsed.qtyMix05L) parts.push(`${parsed.qtyMix05L}x 0.5L Mix`);
+        if (parsed.qtyMix15L) parts.push(`${parsed.qtyMix15L}x 1.5L Mix`);
+        if (parsed.quantity) parts.push(`${parsed.quantity}x 19L Refill Bottles`);
+        if (parsed.packs05L) parts.push(`${parsed.packs05L}x 0.5L Packs`);
+        if (parsed.packs15L) parts.push(`${parsed.packs15L}x 1.5L Packs`);
+
+        const outputStr = parts.length > 0 ? parts.join(', ') : `${parsed.quantity || 1} units produced`;
+        return `Production batch ${isCompleted ? 'completed' : 'logged'}: ${outputStr}`;
+      }
+
+      if (log.action === 'CUSTOMER_ADDED' || log.action === 'CUSTOMER_CREATED') {
+        const custName = parsed.name || parsed.customerName || 'New Customer';
+        return `Registered new customer: "${custName}"`;
+      }
+
+      if (log.action === 'CUSTOMER_DELETED') {
+        return `Removed customer account ${shortId}`;
       }
     } catch {
-      // fallback
+      // Fallback
     }
   }
 

@@ -8,9 +8,6 @@
  * - PRODUCTION_MANAGER
  * - ACCOUNTANT
  * - MARKETING_MANAGER
- * 
- * Simply flip a route's boolean value to `true` (enabled) or `false` (disabled)
- * to control page visibility in the Sidebar for any role.
  */
 
 export const ROLES = {
@@ -27,7 +24,6 @@ export const SIDEBAR_ROUTES = {
   CUSTOMERS: '/customers',
   PRODUCTION: '/production',
   RAW_MATERIALS: '/raw-materials',
-  BOTTLE_LEDGER: '/bottle-ledger',
   PURCHASES: '/purchases',
   VENDORS: '/vendors',
   EXPENSES: '/expenses',
@@ -49,13 +45,13 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: true,
     },
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -63,13 +59,13 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: true,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: true,
     },
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -77,13 +73,13 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: false,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: true,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: false,
       [SIDEBAR_ROUTES.EXPENSES]: false,
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: true,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -91,13 +87,13 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: true,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -105,13 +101,13 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: true,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: true,
     },
   },
   wadaana: {
@@ -122,7 +118,6 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
@@ -137,7 +132,6 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
@@ -152,7 +146,6 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
@@ -167,7 +160,6 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
@@ -182,7 +174,6 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.BOTTLE_LEDGER]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
@@ -193,14 +184,6 @@ export const ROLE_ACCESS = {
   },
 };
 
-/**
- * Checks whether a given role is allowed to see a sidebar page route.
- * 
- * @param {string} role - User role (OWNER, ADMIN, PRODUCTION_MANAGER, ACCOUNTANT, MARKETING_MANAGER)
- * @param {string} path - Sidebar navigation route path (e.g. '/orders')
- * @param {string} [tenant='aquasphere'] - Current company tenant ('aquasphere' | 'wadaana')
- * @returns {boolean} true if page is enabled, false if disabled
- */
 export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
   const tenantKey = String(tenant).toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
   const tenantAccess = ROLE_ACCESS[tenantKey] || ROLE_ACCESS.aquasphere;
@@ -210,6 +193,5 @@ export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
     return roleRules[path];
   }
 
-  // Default to true if not specified
   return true;
 };

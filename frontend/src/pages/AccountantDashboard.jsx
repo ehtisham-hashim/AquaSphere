@@ -9,18 +9,18 @@ export default function AccountantDashboard() {
   const [summary, setSummary] = useState(null);
   const [closeStatus, setCloseStatus] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [closing, setClosing] = useState(false);
-  const [closeMsg, setCloseMsg] = useState('');
   const today = new Date().toISOString().split('T')[0];
+  const tenant = getCompanyFromCookie();
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const headers = { 'x-tenant': tenant };
       const [ordRes, expRes, spotRes, closeRes] = await Promise.all([
-        fetch(`${API}/orders`, { credentials: 'include' }),
-        fetch(`${API}/expenses?startDate=${today}&endDate=${today}`, { credentials: 'include' }),
-        fetch(`${API}/spot-sales`, { credentials: 'include' }),
-        fetch(`${API}/daily-close/status?date=${today}`, { credentials: 'include' })
+        fetch(`${API}/orders`, { headers, credentials: 'include' }),
+        fetch(`${API}/expenses?startDate=${today}&endDate=${today}`, { headers, credentials: 'include' }),
+        fetch(`${API}/spot-sales`, { headers, credentials: 'include' }),
+        fetch(`${API}/daily-close/status?date=${today}`, { headers, credentials: 'include' })
       ]);
       const [ord, exp, spot, close] = await Promise.all([
         ordRes.json(), expRes.json(), spotRes.json(), closeRes.json()
@@ -64,21 +64,6 @@ export default function AccountantDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
 
-  const confirmClose = async () => {
-    if (!window.confirm(`Confirm that all financial entries for ${today} are complete and accurate?\n\nNote: Only Admin can lock the day — this is your confirmation.`)) return;
-    setClosing(true);
-    setCloseMsg('');
-    try {
-      // Accountant confirms — but only ADMIN actually locks
-      // We store a "confirmed" note in audit log here
-      setCloseMsg('✅ You have confirmed today\'s entries. The Admin will now lock the day.');
-    } catch (e) {
-      setCloseMsg('Error: ' + e.message);
-    } finally {
-      setClosing(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
@@ -91,7 +76,7 @@ export default function AccountantDashboard() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Cash Summary</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Finance View</h2>
           <p className="text-slate-500 text-sm">{new Date().toLocaleDateString('en-PK', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
         {closeStatus?.isClosed ? (
@@ -123,44 +108,14 @@ export default function AccountantDashboard() {
         ))}
       </div>
 
-      {/* Accountant Specific Summary Cards: Stock Summary & Inventory Expense Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-          <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stock Summary</div>
-            <div className="text-xl font-extrabold text-slate-800 mt-1">Inventory view only</div>
-            <div className="text-xs text-emerald-600 mt-0.5 font-medium">Read-only stock snapshot for reconciliation</div>
-          </div>
-          <div className="px-3 py-1.5 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-100">
-            Read Only
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex justify-between items-center">
-          <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory Expense Summary</div>
-            <div className="text-xl font-extrabold text-slate-800 mt-1">Rs. {summary.totalExpenses.toLocaleString()}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Verified outflows from today&apos;s entries</div>
-          </div>
-          <div className="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-100">
-            Finance View
-          </div>
-        </div>
-      </div>
-
-      {/* Activity & Sales Breakdown Row */}
+      {/* Activity Breakdown Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {(getCompanyFromCookie() === 'wadaana' ? [
+        {[
           { label: 'Orders Delivered', value: summary.ordersDelivered },
           { label: 'Pending Orders', value: summary.pendingOrders },
           { label: 'Counter Sales', value: summary.spotSales },
           { label: 'Total Orders', value: summary.ordersTotal },
-        ] : [
-          { label: '19L Delivery Sales', value: summary.ordersDelivered },
-          { label: 'Counter Sales', value: summary.spotSales },
-          { label: '0.5L PET Sales', value: summary.ordersDelivered > 0 ? `${summary.ordersDelivered * 2} packs` : '0 packs' },
-          { label: '1.5L PET Sales', value: summary.ordersDelivered > 0 ? `${summary.ordersDelivered} packs` : '0 packs' },
-        ]).map(s => (
+        ].map(s => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="text-xs text-slate-500 font-medium">{s.label}</div>
             <div className="text-2xl font-black text-slate-800 mt-1">{s.value}</div>
@@ -207,47 +162,6 @@ export default function AccountantDashboard() {
           </table>
         )}
       </div>
-
-      {/* Daily Closing Confirmation */}
-      {!closeStatus?.isClosed && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
-          <h3 className="font-bold text-slate-800 mb-1 flex items-center gap-2"><CheckCircle size={18} className="text-emerald-600"/> Accountant Day Confirmation</h3>
-          <p className="text-sm text-slate-500 mb-4">
-            Before Admin locks the day, confirm that all your financial entries are complete:
-          </p>
-          <ul className="space-y-2 mb-5">
-            {[
-              { label: 'All expenses have receipt photos attached', ok: summary.expenseList.every(e => !!e.receiptUrl) },
-              { label: 'Cash from orders reconciles with deliveries', ok: summary.ordersDelivered > 0 || summary.ordersTotal === 0 },
-              { label: 'Counter sales logged', ok: summary.spotSales >= 0 },
-              { label: 'No pending orders left unresolved', ok: summary.pendingOrders === 0 },
-            ].map(item => (
-              <li key={item.label} className={`flex items-center gap-2 text-sm font-medium ${item.ok ? 'text-emerald-700' : 'text-amber-600'}`}>
-                {item.ok ? <CheckCircle size={15}/> : <AlertCircle size={15}/>} {item.label}
-              </li>
-            ))}
-          </ul>
-          {closeMsg && (
-            <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg">{closeMsg}</div>
-          )}
-          <button onClick={confirmClose} disabled={closing}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-            <CheckCircle size={16}/>
-            {closing ? 'Confirming...' : 'Confirm — All Entries Complete for Today'}
-          </button>
-          <p className="text-xs text-slate-400 text-center mt-2">Admin will close and lock the day after your confirmation</p>
-        </div>
-      )}
-
-      {closeStatus?.isClosed && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center">
-          <Lock size={24} className="mx-auto text-emerald-600 mb-2"/>
-          <div className="font-bold text-emerald-800">Today's entries are locked</div>
-          <div className="text-xs text-emerald-600 mt-1">
-            Closed by {closeStatus.closedBy?.name || 'Admin'} at {closeStatus.closedAt ? new Date(closeStatus.closedAt).toLocaleTimeString() : '—'}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

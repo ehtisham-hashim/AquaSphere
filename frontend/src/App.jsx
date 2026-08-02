@@ -16,7 +16,6 @@ import MMOrders from './pages/MMOrders';
 import Expenses from './pages/Expenses';
 import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
-import BottleLedger from './pages/BottleLedger';
 import Reports from './pages/Reports';
 import DailyClose from './pages/DailyClose';
 import Inventory from './pages/Inventory';
@@ -59,7 +58,6 @@ function AppRoutes() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
-        <Route path="bottle-ledger" element={<BottleLedger />} />
         <Route path="reports" element={<Reports />} />
         <Route path="daily-close" element={<DailyClose />} />
         <Route path="*" element={<div>Page not found</div>} />

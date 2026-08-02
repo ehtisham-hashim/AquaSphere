@@ -22,7 +22,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
         if (json.success && Array.isArray(json.data)) {
           const map = {};
           json.data.forEach(i => {
-            map[i.id] = Number(i.cachedQty || 0);
+            map[i.id] = Number(i.factoryQty !== undefined && i.factoryQty !== null ? i.factoryQty : i.cachedQty || 0);
           });
           setStockMap(map);
         }
@@ -76,7 +76,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   const stockErrors = [];
   if (!isPaymentSettlementOnly && !loadingStock) {
     order.items?.forEach(i => {
-      const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.cachedQty || 0);
+      const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.factoryQty !== undefined ? i.item.factoryQty : i.item?.cachedQty || 0);
       const req = Number(i.quantity || 0);
       if (avail < req) {
         stockErrors.push({
@@ -189,14 +189,14 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
             <div className="bg-rose-50 border border-rose-300 rounded-xl p-4 flex items-start gap-3 text-rose-900 shadow-sm">
               <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs">
-                <h4 className="font-bold text-sm text-rose-950">Delivery Blocked: Insufficient Stock</h4>
+                <h4 className="font-bold text-sm text-rose-950">Delivery Blocked: Insufficient Factory Floor Stock</h4>
                 <p className="mt-0.5 text-rose-800 font-medium">
-                  You cannot deliver this order because finished goods stock in inventory is lower than required. Finished goods must be produced in Production or added in Inventory first.
+                  You cannot deliver this order because finished stock on the Factory Floor is lower than required. Stock stored in Warehouse cannot be automatically delivered — the Production Manager must run a Production batch or Transfer Stock from Warehouse to Factory Floor first.
                 </p>
                 <ul className="mt-1.5 list-disc pl-4 space-y-0.5 font-bold">
                   {stockErrors.map((err, idx) => (
                     <li key={idx}>
-                      {err.name}: Required {err.required} units, but only {err.available} available in stock.
+                      {err.name}: Required {err.required} units, but only {err.available} available on Factory Floor.
                     </li>
                   ))}
                 </ul>
@@ -226,19 +226,19 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                </div>
              </div>
 
-             {/* Item Types Breakdown with Live Stock Status */}
+             {/* Item Types Breakdown with Factory Floor Stock Status */}
              <div className="border-t border-slate-200 pt-3">
-               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Order Items & Inventory Stock</span>
+               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Order Items & Factory Floor Stock</span>
                <div className="flex flex-wrap gap-2">
                  {order.items?.map(i => {
-                   const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.cachedQty || 0);
+                   const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.factoryQty !== undefined ? i.item.factoryQty : i.item?.cachedQty || 0);
                    const isShort = !isPaymentSettlementOnly && avail < i.quantity;
 
                    return (
                      <div key={i.id} className={`text-xs border px-3 py-1.5 rounded-lg font-bold flex items-center gap-2 ${isShort ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-white border-slate-200 text-slate-700'}`}>
                        <span>{i.quantity}x {i.item?.name || 'Product'}</span>
                        <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase ${isShort ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                         Stock: {avail} / Req: {i.quantity} {isShort ? '❌ Short' : '✓ OK'}
+                         Factory Stock: {avail} / Req: {i.quantity} {isShort ? '❌ Short' : '✓ OK'}
                        </span>
                      </div>
                    );

@@ -1,6 +1,6 @@
 import { Droplets, Warehouse, Factory, ShieldCheck, AlertTriangle } from 'lucide-react';
 
-export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere' }) {
+export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere', bottleSummary = null }) {
   const isWadaana = tenant === 'wadaana';
 
   // Helper to extract factory & warehouse quantities
@@ -87,6 +87,46 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
             </div>
           </div>
         </div>
+
+        {/* 19L Reusable PC Bottle Custody Asset Card (AquaSphere) */}
+        {bottleSummary && (
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-xl border border-slate-700 space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block mb-1">19L Reusable Bottle Asset Custody</span>
+                <div className="text-3xl font-black text-white tracking-tight">
+                  {Number(bottleSummary.totalOwned || 0).toLocaleString()} <span className="text-xs font-semibold text-slate-400">Total Owned Bottles</span>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${bottleSummary.equationReconciled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}`}>
+                {bottleSummary.equationReconciled ? '✓ Reconciled' : '⚠️ Discrepancy'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-700/60 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">At Factory</span>
+                <span className="text-sm font-extrabold text-slate-200">{Number(bottleSummary.atFactory || 0).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">At Warehouse</span>
+                <span className="text-sm font-extrabold text-sky-400">{Number(bottleSummary.atWarehouse || 0).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">With Customers</span>
+                <span className="text-sm font-extrabold text-amber-400">{Number(bottleSummary.withCustomers || 0).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Broken</span>
+                <span className="text-sm font-extrabold text-orange-400">{Number(bottleSummary.broken || 0).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Lost</span>
+                <span className="text-sm font-extrabold text-rose-400">{Number(bottleSummary.lost || 0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 3 Finished Goods Cards with Location Breakdown (Factory vs Warehouse) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

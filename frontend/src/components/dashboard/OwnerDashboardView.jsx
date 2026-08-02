@@ -1,10 +1,11 @@
-import { Wallet, TrendingUp, CreditCard, Receipt, ShoppingCart, ShieldAlert } from 'lucide-react';
+import { Wallet, TrendingUp, Receipt, ShoppingCart, Package } from 'lucide-react';
 import DashboardKpiCard from './DashboardKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
-import AlertsSection from './AlertsSection';
 
 export default function OwnerDashboardView({ data, summary, summaryLoading }) {
+  const netCash = Number(data.cash || 0) - Number(data.expenses || 0);
+
   return (
     <div className="space-y-8 p-2 max-w-[98%] mx-auto">
       {/* 1. Executive Financial Overview */}
@@ -13,25 +14,16 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           <TrendingUp size={20} className="text-slate-400" />
           <h2 className="text-lg font-bold text-slate-800 tracking-tight">Executive Financial Overview</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <DashboardKpiCard icon={<Wallet />} title="TODAY'S SALES" value={`Rs. ${Number(data.sales || 0).toLocaleString()}`} subtitle="Total sales value" color="text-sky-600" bg="bg-sky-50" border="border-sky-100" />
-          <DashboardKpiCard icon={<CreditCard />} title="CASH COLLECTED" value={`Rs. ${Number(data.cash || 0).toLocaleString()}`} subtitle="Cash received today" color="text-emerald-600" bg="bg-emerald-50" border="border-emerald-100" />
-          <DashboardKpiCard icon={<CreditCard />} title="CREDIT SALES" value={`Rs. ${Number(data.credit || 0).toLocaleString()}`} subtitle="Billed on credit" color="text-orange-600" bg="bg-orange-50" border="border-orange-100" />
+          <DashboardKpiCard icon={<Wallet />} title="CASH COLLECTED" value={`Rs. ${Number(data.cash || 0).toLocaleString()}`} subtitle="Cash received today" color="text-emerald-600" bg="bg-emerald-50" border="border-emerald-100" />
           <DashboardKpiCard icon={<Receipt />} title="EXPENSES TODAY" value={`Rs. ${Number(data.expenses || 0).toLocaleString()}`} subtitle="Logged operating cost" color="text-rose-600" bg="bg-rose-50" border="border-rose-100" />
+          <DashboardKpiCard icon={<Wallet />} title="NET CASH" value={`Rs. ${netCash.toLocaleString()}`} subtitle="Cash - Expenses" color={netCash >= 0 ? "text-emerald-700" : "text-rose-700"} bg={netCash >= 0 ? "bg-emerald-50" : "bg-rose-50"} border={netCash >= 0 ? "border-emerald-100" : "border-rose-100"} />
           <DashboardKpiCard icon={<ShoppingCart />} title="TODAY'S PURCHASES" value={`Rs. ${Number(data.todaysPurchases || 0).toLocaleString()}`} subtitle={`${data.todaysPurchasesCount || 0} purchase logs`} color="text-purple-600" bg="bg-purple-50" border="border-purple-100" />
         </div>
       </section>
 
-      {/* 2. Marketing & Operational Alerts */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <ShieldAlert size={20} className="text-slate-400" />
-          <h2 className="text-lg font-bold text-slate-800 tracking-tight">Marketing & Operations Alerts</h2>
-        </div>
-        <AlertsSection />
-      </section>
-
-      {/* 3. Purchasing & Vendor Payables Cards */}
+      {/* 2. Purchasing & Vendor Payables Cards */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <ShoppingCart size={20} className="text-slate-400" />
@@ -62,10 +54,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </section>
 
-      {/* 4. Low Stock Raw Material Warning */}
+      {/* 3. Low Stock Raw Material Warning */}
       <LowStockAlertGrid count={data.lowStockMaterialsCount} list={data.lowStockMaterialsList} />
 
-      {/* 5. Purchasing & Vendor Summary */}
+      {/* 4. Purchasing & Vendor Summary */}
       <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
     </div>
   );

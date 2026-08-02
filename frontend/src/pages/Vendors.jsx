@@ -97,6 +97,10 @@ export default function Vendors() {
   };
 
   const handleOpenPayment = (v) => {
+    if (Number(v?.payableBalance || 0) <= 0) {
+      toast.error(`Vendor ${v.name || 'selected'} has no outstanding payable balance`);
+      return;
+    }
     setSelectedVendorForPayment(v);
     setPaymentData({
       amount: '',
@@ -217,6 +221,12 @@ export default function Vendors() {
     e.preventDefault();
     if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
       toast.error('Please enter a valid payment amount greater than zero');
+      return;
+    }
+
+    const maxPayable = Number(selectedVendorForPayment?.payableBalance || 0);
+    if (maxPayable > 0 && parseFloat(paymentData.amount) > maxPayable + 0.01) {
+      toast.error(`Payment amount cannot exceed outstanding balance of Rs. ${maxPayable.toLocaleString()}`);
       return;
     }
 
@@ -420,8 +430,13 @@ export default function Vendors() {
                       {canPayOrArchive && !v.archivedAt && (
                         <button
                           onClick={() => handleOpenPayment(v)}
-                          className="px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs"
-                          title="Record Payment to Vendor"
+                          disabled={Number(v.payableBalance || 0) <= 0}
+                          className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs ${
+                            Number(v.payableBalance || 0) <= 0
+                              ? 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-60'
+                              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                          }`}
+                          title={Number(v.payableBalance || 0) <= 0 ? 'No outstanding balance to pay' : 'Record Payment to Vendor'}
                         >
                           <CreditCard size={14} /> Pay
                         </button>
@@ -582,11 +597,23 @@ export default function Vendors() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Payment Amount (Rs) *</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="font-semibold text-slate-700">Payment Amount (Rs) *</label>
+                  {Number(selectedVendorForPayment.payableBalance || 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentData({ ...paymentData, amount: String(selectedVendorForPayment.payableBalance) })}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition"
+                    >
+                      Pay Full (Rs {Number(selectedVendorForPayment.payableBalance).toLocaleString()})
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
+                  max={Number(selectedVendorForPayment.payableBalance || 0) > 0 ? selectedVendorForPayment.payableBalance : undefined}
                   className="w-full border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800 outline-none focus:border-emerald-500"
                   value={paymentData.amount}
                   onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
@@ -718,8 +745,12 @@ export default function Vendors() {
                 </button>
                 <button
                   type="submit"
-                  disabled={paymentSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2"
+                  disabled={paymentSubmitting || Number(selectedVendorForPayment?.payableBalance || 0) <= 0}
+                  className={`px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2 text-white transition-all ${
+                    paymentSubmitting || Number(selectedVendorForPayment?.payableBalance || 0) <= 0
+                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                      : 'bg-emerald-600 hover:bg-emerald-500'
+                  }`}
                 >
                   {paymentSubmitting ? <><Loader2 size={16} className="animate-spin" /> Recording...</> : 'Record Payment'}
                 </button>
@@ -772,11 +803,26 @@ export default function Vendors() {
                   </span>
                 </div>
 
-                <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                  <span className="text-slate-500 font-semibold block mb-1">Payable Balance</span>
-                  <span className="text-sm font-black text-purple-900">
-                    Rs {Number(selectedVendorDetail.payableBalance || 0).toLocaleString()}
-                  </span>
+                <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 flex justify-between items-center">
+                  <div>
+                    <span className="text-slate-500 font-semibold block mb-1">Payable Balance</span>
+                    <span className="text-sm font-black text-purple-900">
+                      Rs {Number(selectedVendorDetail.payableBalance || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  {canPayOrArchive && (
+                    <button
+                      onClick={() => handleOpenPayment(selectedVendorDetail)}
+                      disabled={Number(selectedVendorDetail.payableBalance || 0) <= 0}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1 ${
+                        Number(selectedVendorDetail.payableBalance || 0) <= 0
+                          ? 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-60'
+                          : 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300'
+                      }`}
+                    >
+                      <CreditCard size={13} /> Pay
+                    </button>
+                  )}
                 </div>
               </div>
 

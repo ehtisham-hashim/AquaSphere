@@ -28,7 +28,6 @@ const navItems = [
   { icon: Factory, label: 'Production', path: '/production' },
   { icon: Boxes, label: 'Finished Goods', path: '/inventory' },
   { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
-  { icon: RefreshCcw, label: 'Bottle Ledger', path: '/bottle-ledger' },
   { icon: ShoppingCart, label: 'Purchases', path: '/purchases' },
   { icon: VendorsIcon, label: 'Vendors', path: '/vendors' },
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
