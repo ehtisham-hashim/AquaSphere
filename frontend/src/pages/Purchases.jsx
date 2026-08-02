@@ -638,6 +638,9 @@ export default function Purchases() {
                   </button>
                   {receiptFile && <span className="text-xs font-semibold text-slate-600 truncate max-w-[200px]">{receiptFile.name}</span>}
                 </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Accepted formats: Images (JPEG, PNG, WEBP) or PDF • Max 5MB
+                </p>
               </div>
 
               {/* Items Section */}

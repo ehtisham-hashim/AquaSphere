@@ -520,6 +520,10 @@ export default function Expenses() {
                     </button>
                   )}
                 </div>
+                
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Accepted formats: Images (JPEG, PNG, WEBP) or PDF • Max 5MB
+                </p>
 
                 {receiptPreview && receiptPreview !== 'pdf' && !uploadedUrl && (
                   <img src={receiptPreview} alt="preview" className="h-20 rounded-xl object-cover border border-emerald-200"/>
