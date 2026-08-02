@@ -14,9 +14,17 @@ import { DeleteConfirmationModal } from '../components/ui';
 
 export default function Purchases() {
   const { user } = useAuth();
+<<<<<<< Updated upstream
   const tenant = getCompanyFromCookie();
   const isOwner = user?.role === 'OWNER';
   const isAccountant = user?.role === 'ACCOUNTANT';
+=======
+  
+  // Role-based access control
+  const isOwner = user?.role === 'OWNER';
+  const isAccountant = user?.role === 'ACCOUNTANT';
+  
+>>>>>>> Stashed changes
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materials, setMaterials] = useState([]);
