@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, Search, DollarSign, Calendar, Droplets, 
-  Download, CheckCircle2, User, FileText, Loader2,
+  Download, CheckCircle2, User, Loader2,
   Printer, ShieldAlert, AlertTriangle, Trash2, X, Package, ShoppingBag
 } from 'lucide-react';
 import { API_URL } from '../utils/api';
@@ -398,16 +398,6 @@ export default function CounterSales() {
           <Calendar size={16} /> Sales History ({sales.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`whitespace-nowrap px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 border-t border-x ${
-            activeTab === 'reports'
-              ? 'bg-white border-slate-200 text-indigo-700 border-b-2 border-b-indigo-600 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <FileText size={16} /> Summary Reports
-        </button>
       </div>
 
       {/* TAB 1: NEW RETAIL SALE FORM */}
@@ -706,36 +696,6 @@ export default function CounterSales() {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: REPORTS TAB */}
-      {activeTab === 'reports' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">Counter Sales Summary Reports</h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">Today's Revenue</span>
-              <span className="text-xl font-black text-emerald-800">Rs. {todayTotalRevenue.toLocaleString()}</span>
-              <p className="text-[11px] text-slate-500 mt-1">Cash: Rs {todayCash.toLocaleString()} | Credit: Rs {todayCredit.toLocaleString()}</p>
-            </div>
-
-            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">This Week's Revenue</span>
-              <span className="text-xl font-black text-indigo-900">Rs. {weekRevenue.toLocaleString()}</span>
-            </div>
-
-            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-              <span className="text-xs font-bold text-slate-500 uppercase block mb-1">This Month's Revenue</span>
-              <span className="text-xl font-black text-purple-900">Rs. {monthRevenue.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 flex justify-between items-center text-sm font-semibold text-slate-700">
-            <span>Lifetime Counter Litres Sold:</span>
-            <span className="text-lg font-black text-blue-900">{totalLitresSold.toLocaleString()} Litres</span>
           </div>
         </div>
       )}
