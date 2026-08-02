@@ -7,9 +7,13 @@ import {
 } from '../components/inventory';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL as API } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Inventory() {
+  const { user } = useAuth();
   const tenant = getCompanyFromCookie();
+
+  const canTransferStock = user?.role !== 'ACCOUNTANT';
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -72,7 +76,7 @@ export default function Inventory() {
         tenant={tenant}
         totalFinishedGoods={totalFinishedGoodsCount}
         totalUnitsCount={totalUnitsSum}
-        onOpenTransferModal={() => setIsTransferModalOpen(true)}
+        onOpenTransferModal={canTransferStock ? () => setIsTransferModalOpen(true) : null}
       />
 
       {/* Negative Stock Warning Banner */}
@@ -118,14 +122,16 @@ export default function Inventory() {
         tenant={tenant}
       />
 
-      {/* Stock Transfer Modal (Factory <-> Warehouse) */}
-      <StockTransferModal
-        isOpen={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
-        items={items}
-        tenant={tenant}
-        onSuccess={fetchInventoryData}
-      />
+      {/* Stock Transfer Modal (Factory <-> Warehouse) - Disabled for Accountant */}
+      {canTransferStock && (
+        <StockTransferModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          items={items}
+          tenant={tenant}
+          onSuccess={fetchInventoryData}
+        />
+      )}
     </div>
   );
 }

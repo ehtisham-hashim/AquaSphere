@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, Lock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, Lock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
@@ -7,6 +7,33 @@ import { getCompanyFromCookie } from '../../utils/companyCookie';
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
   const company = getCompanyFromCookie();
   const isAquaSphere = company === 'aquasphere';
+
+  const [stockMap, setStockMap] = useState({});
+  const [loadingStock, setLoadingStock] = useState(true);
+
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        const res = await fetch(`${API_URL}/items?type=FINISHED_GOOD`, {
+          headers: { 'x-tenant': company },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const map = {};
+          json.data.forEach(i => {
+            map[i.id] = Number(i.cachedQty || 0);
+          });
+          setStockMap(map);
+        }
+      } catch (err) {
+        console.error('Failed to fetch stock info for delivery modal:', err);
+      } finally {
+        setLoadingStock(false);
+      }
+    };
+    fetchStock();
+  }, [company]);
 
   const calculateDefaultQtyDelivered = () => {
     if (!order.items || order.items.length === 0) return 0;
@@ -46,6 +73,22 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   const [softBlockMsg, setSoftBlockMsg] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const stockErrors = [];
+  if (!isPaymentSettlementOnly && !loadingStock) {
+    order.items?.forEach(i => {
+      const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.cachedQty || 0);
+      const req = Number(i.quantity || 0);
+      if (avail < req) {
+        stockErrors.push({
+          name: i.item?.name || 'Finished Product',
+          required: req,
+          available: avail
+        });
+      }
+    });
+  }
+  const hasInsufficientStock = stockErrors.length > 0;
+
   const handleChange = (e) => setDeliveryData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleBottleChange = (e) => {
@@ -68,6 +111,11 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
   const submitDelivery = async (e, bypassBottleCheck = false) => {
     if (e) e.preventDefault();
+
+    if (hasInsufficientStock) {
+      toast.error('Cannot deliver order: Insufficient finished goods stock in inventory.');
+      return;
+    }
 
     const cashVal = parseFloat(deliveryData.cashReceived || 0);
     if (cashVal > maxPayable) {
@@ -137,6 +185,25 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
         
         <form onSubmit={(e) => submitDelivery(e, false)} className="p-6 space-y-8">
           
+          {hasInsufficientStock && (
+            <div className="bg-rose-50 border border-rose-300 rounded-xl p-4 flex items-start gap-3 text-rose-900 shadow-sm">
+              <AlertCircle size={20} className="text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <h4 className="font-bold text-sm text-rose-950">Delivery Blocked: Insufficient Stock</h4>
+                <p className="mt-0.5 text-rose-800 font-medium">
+                  You cannot deliver this order because finished goods stock in inventory is lower than required. Finished goods must be produced in Production or added in Inventory first.
+                </p>
+                <ul className="mt-1.5 list-disc pl-4 space-y-0.5 font-bold">
+                  {stockErrors.map((err, idx) => (
+                    <li key={idx}>
+                      {err.name}: Required {err.required} units, but only {err.available} available in stock.
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                <div className="flex flex-col">
@@ -159,15 +226,23 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                </div>
              </div>
 
-             {/* Item Types Breakdown */}
+             {/* Item Types Breakdown with Live Stock Status */}
              <div className="border-t border-slate-200 pt-3">
-               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Order Items & Products</span>
+               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Order Items & Inventory Stock</span>
                <div className="flex flex-wrap gap-2">
-                 {order.items?.map(i => (
-                   <span key={i.id} className="text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-lg font-bold text-slate-700 shadow-2xs">
-                     {i.quantity}x {i.item?.name || 'Product'} <span className="text-slate-400 font-normal">(Rs. {parseFloat(i.price)}/ea)</span>
-                   </span>
-                 ))}
+                 {order.items?.map(i => {
+                   const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.cachedQty || 0);
+                   const isShort = !isPaymentSettlementOnly && avail < i.quantity;
+
+                   return (
+                     <div key={i.id} className={`text-xs border px-3 py-1.5 rounded-lg font-bold flex items-center gap-2 ${isShort ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-white border-slate-200 text-slate-700'}`}>
+                       <span>{i.quantity}x {i.item?.name || 'Product'}</span>
+                       <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase ${isShort ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                         Stock: {avail} / Req: {i.quantity} {isShort ? '❌ Short' : '✓ OK'}
+                       </span>
+                     </div>
+                   );
+                 })}
                </div>
              </div>
           </div>
@@ -282,8 +357,16 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
           <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
             <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50">
-              <CheckCircle size={18}/> {isSubmitting ? 'Processing...' : 'Mark as Delivered'}
+            <button
+              type="submit"
+              disabled={isSubmitting || hasInsufficientStock}
+              className={`px-8 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+                hasInsufficientStock
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50'
+              }`}
+            >
+              <CheckCircle size={18}/> {isSubmitting ? 'Processing...' : (hasInsufficientStock ? '❌ Insufficient Stock in Inventory' : 'Mark as Delivered')}
             </button>
           </div>
         </form>

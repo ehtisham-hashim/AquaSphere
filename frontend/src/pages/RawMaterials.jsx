@@ -10,7 +10,9 @@ const API = API_URL;
 
 export default function RawMaterials() {
   const { user } = useAuth();
-  const isReadOnly = user?.role === 'MARKETING_MANAGER' || user?.role === 'PRODUCTION_MANAGER';
+  // Only OWNER and PRODUCTION_MANAGER can create/edit raw material items. ACCOUNTANT and MARKETING_MANAGER are read-only.
+  const canManageItems = ['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role);
+  const isReadOnly = !canManageItems;
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +81,7 @@ export default function RawMaterials() {
         toast.success(`Material ${action}d successfully`);
         fetchMaterials();
       } else {
-        toast.error(data.message || `Only Owner and Accountant can ${action} materials`);
+        toast.error(data.message || `Only Owner and Production Manager can ${action} materials`);
       }
     } catch (err) {
       toast.error(`Failed to ${action} material`);

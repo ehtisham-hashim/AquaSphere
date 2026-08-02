@@ -181,7 +181,7 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
     if (customerId) {
       let balanceChange = 0;
       if (type === 'DELIVERED_TO_CUSTOMER') balanceChange = qty;
-      if (type === 'RETURNED_GOOD' || type === 'RETURNED_BROKEN') balanceChange = -qty;
+      if (type === 'RETURNED_GOOD' || type === 'RETURNED_BROKEN' || type === 'MARKED_LOST') balanceChange = -qty;
 
       if (balanceChange !== 0) {
         await tx[`${prefix}Customer`].update({

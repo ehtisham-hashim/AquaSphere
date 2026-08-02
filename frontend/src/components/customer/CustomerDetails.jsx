@@ -9,6 +9,7 @@ import ImagePreviewModal from '../ui/ImagePreviewModal';
 import EditCustomerModal from './EditCustomerModal';
 import CustomerHistory from './CustomerHistory';
 import CustomerAlerts from './CustomerAlerts';
+import BottleAdjustmentModal from './BottleAdjustmentModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,6 +18,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const { user } = useAuth();
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -281,9 +283,18 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className="text-lg font-bold text-slate-800 block mt-1">
                   {!isWadaana ? `${c.cachedBottleBalance || 0} Empty` : `${c.creditDuration || 1} Days`}
                 </span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {!isWadaana ? 'In customer possession' : 'Allowed credit span'}
-                </span>
+                {!isWadaana ? (
+                  <button
+                    onClick={() => setIsBottleModalOpen(true)}
+                    className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-0.5 block mx-auto"
+                  >
+                    Retrieve / Adjust
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Allowed credit span
+                  </span>
+                )}
               </div>
 
               <div className="p-2">
@@ -352,7 +363,11 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
       {/* Alerts Section */}
       <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <CustomerAlerts customer={c} isWadaana={isWadaana} />
+        <CustomerAlerts
+          customer={c}
+          isWadaana={isWadaana}
+          onOpenBottleModal={() => setIsBottleModalOpen(true)}
+        />
       </div>
 
       {/* History Section */}
@@ -368,6 +383,28 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           <CustomerHistory customer={c} isWadaana={isWadaana} />
         )}
       </div>
+
+      {/* Bottle Adjustment / Retrieval Modal */}
+      {isBottleModalOpen && (
+        <BottleAdjustmentModal
+          customer={c}
+          onClose={() => setIsBottleModalOpen(false)}
+          onSuccess={() => {
+            // Refetch customer details
+            fetch(`${API}/customers/${c.id}`, {
+              headers: { 'x-tenant': tenant },
+              credentials: 'include'
+            })
+              .then(res => res.json())
+              .then(json => {
+                if (json.success) {
+                  setC(json.data);
+                  if (onCustomerUpdated) onCustomerUpdated(json.data);
+                }
+              });
+          }}
+        />
+      )}
 
       <EditCustomerModal
         isOpen={isEditOpen}

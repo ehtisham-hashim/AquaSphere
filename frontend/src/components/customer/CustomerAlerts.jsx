@@ -1,6 +1,6 @@
 import { AlertCircle, Clock, Droplet, DollarSign, Lock, TrendingUp, CalendarClock } from 'lucide-react';
 
-export default function CustomerAlerts({ customer, isWadaana }) {
+export default function CustomerAlerts({ customer, isWadaana, onOpenBottleModal }) {
   const generateAlerts = () => {
     const alerts = [];
     const today = new Date();
@@ -83,10 +83,14 @@ export default function CustomerAlerts({ customer, isWadaana }) {
     }
 
     // 8. No Recent Activity Alert
-    if (customer?.lastDeliveryAt) {
-      const lastDelivery = new Date(customer.lastDeliveryAt);
-      if (lastDelivery < thirtyDaysAgo) {
-        const daysInactive = Math.floor((today - lastDelivery) / (24 * 60 * 60 * 1000));
+    const deliveredOrders = customer?.orders?.filter(o => o.deliveryStatus === 'DELIVERED') || [];
+    const hasDeliveredOrders = deliveredOrders.length > 0;
+    const lastDelivery = customer?.lastDeliveryAt || (hasDeliveredOrders ? deliveredOrders[0].createdAt : null);
+
+    if (lastDelivery) {
+      const lastDeliveryDate = new Date(lastDelivery);
+      if (lastDeliveryDate < thirtyDaysAgo) {
+        const daysInactive = Math.floor((today - lastDeliveryDate) / (24 * 60 * 60 * 1000));
         alerts.push({
           id: 'inactive',
           type: 'warning',
@@ -116,7 +120,8 @@ export default function CustomerAlerts({ customer, isWadaana }) {
         icon: Droplet,
         title: 'Pending Bottle Returns',
         message: `${bottleBalance} bottle${bottleBalance > 1 ? 's' : ''} in customer custody`,
-        severity: 'medium'
+        severity: 'medium',
+        action: 'RETRIEVE_BOTTLES'
       });
     }
 
@@ -167,13 +172,23 @@ export default function CustomerAlerts({ customer, isWadaana }) {
           return (
             <div
               key={alert.id}
-              className={`p-4 rounded-lg border ${getSeverityColor(alert.severity)} flex items-start gap-3`}
+              className={`p-4 rounded-lg border ${getSeverityColor(alert.severity)} flex items-center justify-between gap-3`}
             >
-              <IconComponent size={20} className="flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-slate-800 text-sm">{alert.title}</h4>
-                <p className="text-slate-700 text-xs mt-0.5">{alert.message}</p>
+              <div className="flex items-start gap-3 min-w-0">
+                <IconComponent size={20} className="flex-shrink-0 mt-0.5 text-slate-700" />
+                <div className="min-w-0">
+                  <h4 className="font-semibold text-slate-800 text-sm">{alert.title}</h4>
+                  <p className="text-slate-700 text-xs mt-0.5">{alert.message}</p>
+                </div>
               </div>
+              {alert.action === 'RETRIEVE_BOTTLES' && onOpenBottleModal && (
+                <button
+                  onClick={onOpenBottleModal}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap shadow-xs"
+                >
+                  Retrieve / Mark Lost
+                </button>
+              )}
             </div>
           );
         })}

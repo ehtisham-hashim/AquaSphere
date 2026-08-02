@@ -133,13 +133,18 @@ export const createOrder = asyncHandler(async (req, res) => {
       include: { items: { include: { item: true } } }
     });
 
+    const customerObj = await tx[`${prefix}Customer`].findUnique({ where: { id: customerId }, select: { name: true } });
+    const totalQty = resolvedItems.reduce((s, i) => s + (i.quantity || 0), 0);
+    const totalAmount = resolvedItems.reduce((s, i) => s + (i.quantity * i.price), 0);
+    const orderShortId = o.id.slice(0, 6).toUpperCase();
+
     await tx[`${prefix}AuditLog`].create({
       data: {
         action: 'ORDER_CREATED',
         entityType: 'Order',
         entityId: o.id,
-        performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ customerId, type, items: resolvedItems.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price })) })
+        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+        details: `Order #${orderShortId} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${totalAmount.toLocaleString()})`
       }
     });
 
@@ -336,9 +341,26 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       return updated;
     }
 
+    // Validate finished goods stock for every item in order before processing delivery
+    for (const orderItem of o.items) {
+      if (orderItem.itemId) {
+        const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
+        if (itemObj) {
+          const availStock = Number(itemObj.cachedQty || 0);
+          const reqQty = Number(orderItem.quantity || 0);
+          if (availStock < reqQty) {
+            throw new ApiError(
+              400,
+              `❌ Cannot deliver order: Insufficient finished stock for "${itemObj.name}". Required: ${reqQty}, Available: ${availStock}. Please produce or add stock in Inventory first.`
+            );
+          }
+        }
+      }
+    }
+
     // 19L Calculations
-    const has19L = o.items.some(i => i.item.name.toLowerCase().includes('19l'));
-    const qty19L = o.items.filter(i => i.item.name.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
+    const has19L = o.items.some(i => i.item?.name?.toLowerCase().includes('19l'));
+    const qty19L = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
 
     // Soft-block check for bottle returns
     const currentBottles = o.customer.cachedBottleBalance || 0;
@@ -429,14 +451,47 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Finished Goods Deductions (deduct all items delivered in order)
+    // Finished Goods Deductions (deduct from Factory first, then Warehouse)
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
         const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
-        await tx[`${prefix}Item`].update({
-          where: { id: orderItem.itemId },
-          data: { cachedQty: { decrement: orderItem.quantity } }
-        });
+        const qtyToDeduct = Number(orderItem.quantity || 0);
+
+        const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
+        let locationUsed = 'FACTORY';
+
+        if (itemObj) {
+          const currentFactory = Number(itemObj.factoryQty || 0);
+          let factoryDeduct = 0;
+          let warehouseDeduct = 0;
+
+          if (currentFactory >= qtyToDeduct) {
+            factoryDeduct = qtyToDeduct;
+            locationUsed = 'FACTORY';
+          } else if (currentFactory > 0) {
+            factoryDeduct = currentFactory;
+            warehouseDeduct = qtyToDeduct - currentFactory;
+            locationUsed = 'FACTORY';
+          } else {
+            warehouseDeduct = qtyToDeduct;
+            locationUsed = 'WAREHOUSE';
+          }
+
+          await tx[`${prefix}Item`].update({
+            where: { id: orderItem.itemId },
+            data: { 
+              cachedQty: { decrement: qtyToDeduct },
+              factoryQty: { decrement: factoryDeduct },
+              warehouseQty: { decrement: warehouseDeduct }
+            }
+          });
+        } else {
+          await tx[`${prefix}Item`].update({
+            where: { id: orderItem.itemId },
+            data: { cachedQty: { decrement: qtyToDeduct } }
+          });
+        }
+
         await tx[`${prefix}InventoryTransaction`].create({
           data: { 
             itemId: orderItem.itemId, 
@@ -444,7 +499,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
             direction: 'OUT', 
             reason: is19LItem ? '19L_DELIVERY' : 'PET_DELIVERY', 
             refType: 'ORDER', 
-            refId: o.id 
+            refId: o.id,
+            location: locationUsed
           }
         });
       }
@@ -497,7 +553,10 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
     await tx[`${prefix}Customer`].update({
       where: { id: o.customerId },
-      data: customerUpdateData
+      data: {
+        lastDeliveryAt: new Date(),
+        ...customerUpdateData
+      }
     });
 
     // Update Order Status
@@ -511,8 +570,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         action: 'ORDER_DELIVERED',
         entityType: 'Order',
         entityId: updated.id,
-        performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ qtyDelivered: qty, cashReceived: cash, returnedGood: retGood, returnedBroken: retBroken })
+        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+        details: `Order #${updated.id.slice(0, 6).toUpperCase()} delivered to ${o.customer?.name || 'Customer'} • Cash Received: Rs. ${cash.toLocaleString()}${retGood > 0 ? ` (${retGood} bottles returned)` : ''}`
       }
     });
 

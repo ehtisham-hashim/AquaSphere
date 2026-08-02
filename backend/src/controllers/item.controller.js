@@ -134,6 +134,38 @@ export const getItems = asyncHandler(async (req, res) => {
         else if (t.direction === 'OUT') netQty -= q;
       }
       item.cachedQty = netQty;
+
+      // Reconcile Factory and Warehouse quantities so sum matches netQty
+      const fQty = Number(item.factoryQty || 0);
+      const wQty = Number(item.warehouseQty || 0);
+      if (fQty + wQty !== netQty) {
+        let newF = fQty;
+        let newW = wQty;
+        const diff = (fQty + wQty) - netQty;
+
+        if (diff > 0) {
+          // Excess stock: deduct from Factory first, then Warehouse
+          if (newF >= diff) {
+            newF -= diff;
+          } else {
+            const remainder = diff - newF;
+            newF = 0;
+            newW = Math.max(0, newW - remainder);
+          }
+        } else {
+          // Deficit: add to Factory
+          newF += Math.abs(diff);
+        }
+
+        item.factoryQty = newF;
+        item.warehouseQty = newW;
+
+        // Persist reconciled location stock
+        prisma[`${prefix}Item`].update({
+          where: { id: item.id },
+          data: { factoryQty: newF, warehouseQty: newW, cachedQty: netQty }
+        }).catch(() => null);
+      }
     }
     delete item.inventoryTransactions;
     return item;

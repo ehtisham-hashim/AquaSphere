@@ -55,6 +55,19 @@ export const getSpotSales = asyncHandler(async (req, res) => {
         }
 
         if (fgItem) {
+          const currentFactory = Number(fgItem.factoryQty || 0);
+          let factoryDeduct = 0;
+          let warehouseDeduct = 0;
+
+          if (currentFactory >= qtyToDeduct) {
+            factoryDeduct = qtyToDeduct;
+          } else if (currentFactory > 0) {
+            factoryDeduct = currentFactory;
+            warehouseDeduct = qtyToDeduct - currentFactory;
+          } else {
+            warehouseDeduct = qtyToDeduct;
+          }
+
           await prisma[`${prefix}InventoryTransaction`].create({
             data: {
               itemId: fgItem.id,
@@ -63,13 +76,18 @@ export const getSpotSales = asyncHandler(async (req, res) => {
               reason: `SPOT_SALE_${sale.productType}`,
               refType: 'SPOT_SALE',
               refId: sale.saleNumber,
-              createdAt: sale.createdAt
+              createdAt: sale.createdAt,
+              location: factoryDeduct > 0 ? 'FACTORY' : 'WAREHOUSE'
             }
           });
 
           await prisma[`${prefix}Item`].update({
             where: { id: fgItem.id },
-            data: { cachedQty: { decrement: qtyToDeduct } }
+            data: { 
+              cachedQty: { decrement: qtyToDeduct },
+              factoryQty: { decrement: factoryDeduct },
+              warehouseQty: { decrement: warehouseDeduct }
+            }
           });
         }
       }

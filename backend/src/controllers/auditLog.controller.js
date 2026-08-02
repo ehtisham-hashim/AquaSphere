@@ -8,7 +8,16 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
   
   const auditLogsModel = prisma[`${prefix}AuditLog`];
-  const trackedActions = ['CUSTOMER_ADDED', 'CUSTOMER_DELETED', 'ORDER_CREATED', 'ORDER_DELIVERED', 'PRODUCTION_BATCH_CREATED'];
+  const trackedActions = [
+    'CUSTOMER_ADDED', 
+    'CUSTOMER_CREATED', 
+    'CUSTOMER_DELETED', 
+    'ORDER_CREATED', 
+    'ORDER_DELIVERED', 
+    'ORDER_PAYMENT_SETTLED', 
+    'PRODUCTION_BATCH_CREATED', 
+    'PRODUCTION_BATCH_COMPLETED'
+  ];
   
   const logs = await auditLogsModel.findMany({
     where: { action: { in: trackedActions } },
