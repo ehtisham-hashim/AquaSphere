@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
 
 const getTenantPrefix = (req) => {
   const cookieVal = req.cookies?.tenant || req.cookies?.company;
@@ -264,5 +265,15 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     data: result.payment,
     payableBalance: totalPurchases - totalPaid,
     message: 'Vendor payment recorded successfully'
+  });
+});
+export const uploadPaymentProof = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'Payment proof image is required');
+  const prefix = getTenantPrefix(req);
+  const { secure_url, public_id } = await uploadImage(req.file, `${prefix}/vendor-payments`);
+  res.status(200).json({ 
+    success: true, 
+    proofUrl: secure_url,
+    publicId: public_id
   });
 });

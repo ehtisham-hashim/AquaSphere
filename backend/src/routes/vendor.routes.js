@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRoles } from '../middlewares/role.middleware.js';
+import upload from '../middlewares/upload.middleware.js';
 import {
   getVendors,
   getVendorById,
@@ -8,7 +9,8 @@ import {
   updateVendor,
   archiveVendor,
   restoreVendor,
-  recordVendorPayment
+  recordVendorPayment,
+  uploadPaymentProof
 } from '../controllers/vendor.controller.js';
 
 const router = Router();
@@ -24,6 +26,7 @@ router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), crea
 router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), updateVendor);
 
 // Record Payment & Archive/Restore: OWNER, ACCOUNTANT
+router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT'), upload.single('image'), uploadPaymentProof);
 router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT'), recordVendorPayment);
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveVendor);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreVendor);
