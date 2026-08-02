@@ -342,17 +342,16 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
       }
     });
 
-    const orderStats = await prisma[`${prefix}Order`].findMany({
-      where: { createdAt: { gte: day.date, lt: nextDate } },
-      include: { items: true }
+    const orderItems = await prisma[`${prefix}OrderItem`].findMany({
+      where: { order: { createdAt: { gte: day.date, lt: nextDate } } },
+      select: { quantity: true, price: true }
     });
 
-    let ordersTotalWorth = 0;
-    for (const ord of orderStats) {
-      for (const item of ord.items || []) {
-        ordersTotalWorth += (Number(item.quantity) || 0) * (Number(item.price || item.unitPrice) || 0);
-      }
-    }
+    const ordersCount = await prisma[`${prefix}Order`].count({
+      where: { createdAt: { gte: day.date, lt: nextDate } }
+    });
+
+    const ordersTotalWorth = orderItems.reduce((s, item) => s + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
 
     return {
       ...day,
@@ -365,7 +364,7 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
         broken05L: prodStats._sum.brokenBottles05L || 0,
       },
       marketingTotals: {
-        ordersCount: orderStats.length,
+        ordersCount,
         ordersTotalWorth
       }
     };

@@ -27,12 +27,15 @@ export const getSpotSales = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
   const prefix = getTenantPrefix(req);
 
-  // Auto-heal missing inventory transactions for past spot sales
+  // Auto-heal missing inventory transactions for recent spot sales
   try {
-    const allSales = await prisma[`${prefix}SpotSale`].findMany();
+    const recentSales = await prisma[`${prefix}SpotSale`].findMany({
+      take: 20,
+      orderBy: { createdAt: 'desc' }
+    });
     const allItems = await prisma[`${prefix}Item`].findMany({ where: { archivedAt: null } });
 
-    for (const sale of allSales) {
+    for (const sale of recentSales) {
       const existingTx = await prisma[`${prefix}InventoryTransaction`].findFirst({
         where: { refType: 'SPOT_SALE', refId: sale.saleNumber }
       });

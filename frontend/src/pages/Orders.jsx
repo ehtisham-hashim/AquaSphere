@@ -10,6 +10,7 @@ import EditOrderModal from '../components/orders/EditOrderModal';
 import ProcessDeliveryModal from '../components/orders/ProcessDeliveryModal';
 import AddCustomerModal from '../components/customer/AddCustomerModal';
 import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
+import RecordPaymentModal from '../components/orders/RecordPaymentModal';
 import OrderSearch from '../components/orders/OrderSearch';
 
 export default function Orders() {
@@ -27,7 +28,9 @@ export default function Orders() {
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedPaymentOrder, setSelectedPaymentOrder] = useState(null);
   const [invoiceOrder, setInvoiceOrder] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -355,6 +358,23 @@ export default function Orders() {
           onOrderEdited={() => { setIsEditModalOpen(false); setSelectedOrder(null); fetchData(); }}
           customers={customers}
           items={items}
+        />
+      )}
+
+      {/* Record Payment Modal Component */}
+      {isRecordPaymentOpen && selectedPaymentOrder && (
+        <RecordPaymentModal
+          order={selectedPaymentOrder}
+          onClose={() => { setIsRecordPaymentOpen(false); setSelectedPaymentOrder(null); }}
+          onSuccess={() => { fetchData(); }}
+        />
+      )}
+
+      {/* Order Invoice Modal Component */}
+      {invoiceOrder && (
+        <OrderInvoiceModal
+          order={invoiceOrder}
+          onClose={() => setInvoiceOrder(null)}
         />
       )}
     </div>
