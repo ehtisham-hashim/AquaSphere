@@ -16,8 +16,15 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
   if (!isOpen) return null;
 
   const selectedItem = items.find(i => i.id === itemId);
+  const totalQty = Number(selectedItem?.cachedQty || 0);
+  const facQty = Number(selectedItem?.factoryQty || 0);
+  const whQty = Number(selectedItem?.warehouseQty || 0);
+
+  const effectiveFactory = (facQty === 0 && whQty === 0) ? totalQty : facQty;
+  const effectiveWarehouse = (facQty === 0 && whQty === 0) ? 0 : whQty;
+
   const availableAtSource = selectedItem 
-    ? Number((fromLocation === 'FACTORY' ? selectedItem.factoryQty : selectedItem.warehouseQty) || 0)
+    ? Number(fromLocation === 'FACTORY' ? effectiveFactory : effectiveWarehouse)
     : 0;
 
   const handleSubmit = async (e) => {
@@ -89,7 +96,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
               <option value="">-- Choose Item --</option>
               {items.map(item => (
                 <option key={item.id} value={item.id}>
-                  {item.name} (Factory: {Number(item.factoryQty || 0)} | Warehouse: {Number(item.warehouseQty || 0)})
+                  {item.name}
                 </option>
               ))}
             </select>
@@ -130,7 +137,9 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           {selectedItem && (
             <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 flex justify-between items-center text-xs font-semibold text-sky-900">
               <span>Available Stock at {fromLocation}:</span>
-              <span className="text-sm font-bold text-sky-950">{availableAtSource} {selectedItem.unit || 'units'}</span>
+              <span className="text-sm font-bold text-sky-950">
+                {availableAtSource.toLocaleString()} {selectedItem.unit || (tenant === 'wadaana' ? 'bottles' : 'packs')}
+              </span>
             </div>
           )}
 

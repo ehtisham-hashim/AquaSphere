@@ -209,10 +209,10 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
   const mix15  = items.find(i => i.name.toLowerCase().includes('mix') && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500ml')));
 
   const cards = [
-    { name: '0.5L Pure Preform', weight: '15g', item: pure05 },
-    { name: '1.5L Pure Preform', weight: '30g', item: pure15 },
-    { name: '0.5L Mix Preform', weight: '13g', item: mix05 },
-    { name: '1.5L Mix Preform', weight: '27g', item: mix15 }
+    { name: '0.5L Pure Bottle', item: pure05 },
+    { name: '1.5L Pure Bottle', item: pure15 },
+    { name: '0.5L Mix Bottle', item: mix05 },
+    { name: '1.5L Mix Bottle', item: mix15 }
   ];
 
   return (
@@ -224,15 +224,16 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         const factoryVal = (fac === 0 && wh === 0) ? total : fac;
         const warehouseVal = (fac === 0 && wh === 0) ? 0 : wh;
 
-        const isLowStock = warehouseVal <= (Number(c.item?.reorderLevel) || 50);
+        // Low Stock Threshold: Below 100 bottles (< 100)
+        const isLowStock = total < 100;
 
         return (
           <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">{c.name} ({c.weight})</span>
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">{c.name}</span>
                 <div className="text-3xl font-black text-slate-900 tracking-tight">
-                  {total.toLocaleString()} <span className="text-xs font-normal text-slate-400">units</span>
+                  {total.toLocaleString()} <span className="text-xs font-normal text-slate-400">bottles</span>
                 </div>
               </div>
 

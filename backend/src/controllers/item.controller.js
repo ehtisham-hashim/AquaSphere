@@ -371,20 +371,27 @@ export const transferStock = asyncHandler(async (req, res) => {
   const item = await prisma[`${prefix}Item`].findUnique({ where: { id: itemId } });
   if (!item) throw new ApiError(404, 'Item not found');
 
-  const srcQty = fromLocation === 'FACTORY' ? Number(item.factoryQty || 0) : Number(item.warehouseQty || 0);
+  const fac = Number(item.factoryQty || 0);
+  const wh = Number(item.warehouseQty || 0);
+  const cached = Number(item.cachedQty || 0);
+
+  const effectiveFac = (fac === 0 && wh === 0) ? cached : fac;
+  const effectiveWh = (fac === 0 && wh === 0) ? 0 : wh;
+
+  const srcQty = fromLocation === 'FACTORY' ? effectiveFac : effectiveWh;
   if (srcQty < qty) {
     throw new ApiError(400, `Insufficient stock at ${fromLocation} (Available: ${srcQty}, Requested: ${qty})`);
   }
 
   const updatedItem = await prisma.$transaction(async (tx) => {
-    const factoryChange = fromLocation === 'FACTORY' ? -qty : qty;
-    const warehouseChange = fromLocation === 'WAREHOUSE' ? -qty : qty;
+    const newFactoryQty = effectiveFac + (fromLocation === 'FACTORY' ? -qty : qty);
+    const newWarehouseQty = effectiveWh + (fromLocation === 'WAREHOUSE' ? -qty : qty);
 
     const updated = await tx[`${prefix}Item`].update({
       where: { id: itemId },
       data: {
-        factoryQty: { increment: factoryChange },
-        warehouseQty: { increment: warehouseChange }
+        factoryQty: Math.max(0, newFactoryQty),
+        warehouseQty: Math.max(0, newWarehouseQty)
       }
     });
 

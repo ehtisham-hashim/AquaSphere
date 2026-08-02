@@ -7,11 +7,14 @@ import {
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { getCompanyFromCookie } from '../utils/companyCookie';
 
 export default function Vendors() {
   const { user } = useAuth();
+  const tenant = getCompanyFromCookie();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,6 +60,7 @@ export default function Vendors() {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/vendors?includeArchived=${includeArchived}`, {
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
@@ -72,7 +76,7 @@ export default function Vendors() {
   useEffect(() => {
     fetchVendors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeArchived]);
+  }, [includeArchived, tenant]);
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
@@ -109,6 +113,7 @@ export default function Vendors() {
     setProfileTab('ledger');
     try {
       const res = await fetch(`${API_URL}/vendors/${v.id}`, {
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
@@ -132,6 +137,7 @@ export default function Vendors() {
 
       const res = await fetch(`${API_URL}/purchases/upload-receipt`, {
         method: 'POST',
+        headers: { 'x-tenant': tenant },
         body: fd,
         credentials: 'include'
       });
@@ -156,16 +162,22 @@ export default function Vendors() {
       return;
     }
 
+    if (submitting) return;
+
     const url = editingVendor
       ? `${API_URL}/vendors/${editingVendor.id}`
       : `${API_URL}/vendors`;
 
     const method = editingVendor ? 'PUT' : 'POST';
 
+    setSubmitting(true);
     try {
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': tenant 
+        },
         body: JSON.stringify(formData),
         credentials: 'include'
       });
@@ -178,7 +190,9 @@ export default function Vendors() {
       setIsModalOpen(false);
       fetchVendors();
     } catch (err) {
-      toast.error('Failed to save vendor');
+      toast.error(err.message || 'Failed to save vendor');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -508,8 +522,12 @@ export default function Vendors() {
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">
                   Cancel
                 </button>
-                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold shadow-md">
-                  {editingVendor ? 'Update Vendor' : 'Save Vendor'}
+                <button 
+                  type="submit" 
+                  disabled={submitting} 
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2"
+                >
+                  {submitting ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : (editingVendor ? 'Update Vendor' : 'Save Vendor')}
                 </button>
               </div>
             </form>

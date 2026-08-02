@@ -7,12 +7,16 @@ import {
 } from 'lucide-react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { getCompanyFromCookie } from '../utils/companyCookie';
 import { INVOICE_CONFIG, DEFAULT_DELIVERED_LOCATION, getDefaultUnitPrice } from '../constants/purchases';
 import { toast } from 'sonner';
 import { DeleteConfirmationModal } from '../components/ui';
 
 export default function Purchases() {
   const { user } = useAuth();
+  const tenant = getCompanyFromCookie();
+  const isOwner = user?.role === 'OWNER';
+  const isAccountant = user?.role === 'ACCOUNTANT';
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -55,9 +59,9 @@ export default function Purchases() {
       if (dateFilter) qParams.append('dateFilter', dateFilter);
 
       const [purchasesRes, vendorsRes, materialsRes] = await Promise.all([
-        fetch(`${API}/purchases?${qParams.toString()}`, { credentials: 'include' }),
-        fetch(`${API}/vendors`, { credentials: 'include' }),
-        fetch(`${API}/items?type=RAW_MATERIAL`, { credentials: 'include' })
+        fetch(`${API}/purchases?${qParams.toString()}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/vendors`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API}/items?type=RAW_MATERIAL`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
       const pData = await purchasesRes.json();
       const vData = await vendorsRes.json();
@@ -156,7 +160,10 @@ export default function Purchases() {
     try {
       const res = await fetch(`${API}/purchases`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
         credentials: 'include',
         body: JSON.stringify({
           vendorId,
@@ -179,16 +186,7 @@ export default function Purchases() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save purchase');
       
-      toast.success(
-        <div className="space-y-1">
-          <div className="font-bold text-slate-900">Purchase Order Created!</div>
-          <div className="text-xs text-emerald-700 font-semibold space-y-0.5">
-            <div>✓ Raw Material Stock Updated</div>
-            <div>✓ Vendor Balance Updated</div>
-            <div>✓ Audit Log Created</div>
-          </div>
-        </div>
-      );
+      toast.success('Purchase Order Created! Raw Material Stock & Vendor Balance Updated.');
       handleCloseModal();
       fetchData();
     } catch (err) {
@@ -203,6 +201,7 @@ export default function Purchases() {
     try {
       const res = await fetch(`${API}/purchases/${pId}/approve`, {
         method: 'POST',
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
@@ -226,7 +225,10 @@ export default function Purchases() {
 
       const res = await fetch(`${API}/purchases/${purchaseId}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': tenant 
+        },
         credentials: 'include',
         body: JSON.stringify(body)
       });
@@ -254,6 +256,7 @@ export default function Purchases() {
     try {
       const res = await fetch(`${API}/purchases/${pId}`, {
         method: 'DELETE',
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();

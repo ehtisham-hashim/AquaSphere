@@ -129,8 +129,26 @@ export const createVendor = asyncHandler(async (req, res) => {
   const { name, phone, email, address, notes } = req.body;
   if (!name || !phone) throw new ApiError(400, 'Vendor Name and Phone are required');
 
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+
+  // Unique Duplicate Check: Ensure no active vendor has same name or phone
+  const existingVendor = await prisma[`${prefix}Vendor`].findFirst({
+    where: {
+      archivedAt: null,
+      OR: [
+        { name: { equals: trimmedName, mode: 'insensitive' } },
+        { phone: { equals: trimmedPhone } }
+      ]
+    }
+  });
+
+  if (existingVendor) {
+    throw new ApiError(400, `A vendor with name "${trimmedName}" or phone "${trimmedPhone}" already exists.`);
+  }
+
   const vendor = await prisma[`${prefix}Vendor`].create({
-    data: { name, phone, email, address, notes }
+    data: { name: trimmedName, phone: trimmedPhone, email: email?.trim(), address, notes }
   });
   res.status(201).json({ success: true, data: vendor });
 });

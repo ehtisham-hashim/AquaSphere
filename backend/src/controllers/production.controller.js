@@ -263,7 +263,10 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
             });
             await tx.wadaanaItem.update({
               where: { id: item.id },
-              data: { cachedQty: { increment: netGood } }
+              data: { 
+                cachedQty: { increment: netGood },
+                factoryQty: { increment: netGood }
+              }
             });
           }
         }
