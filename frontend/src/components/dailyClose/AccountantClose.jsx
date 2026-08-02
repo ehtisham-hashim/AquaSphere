@@ -14,6 +14,7 @@ export default function AccountantClose() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [cashSummary, setCashSummary] = useState(null);
 
   // Accountant Checklist State
   const [checks, setChecks] = useState({
@@ -41,8 +42,35 @@ export default function AccountantClose() {
     }
   };
 
+  const fetchCashSummary = async () => {
+    try {
+      const res = await fetch(`${API}/analytics/daily-summary?date=${date}`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        setCashSummary({
+          orderCash: json.data.totalDeliveryAmount || 0,
+          counterSales: json.data.totalSpotSales || 0,
+          totalExpenses: json.data.totalExpenses || 0,
+          netCash: (json.data.totalDeliveryAmount || 0) + (json.data.totalSpotSales || 0) - (json.data.totalExpenses || 0)
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch cash summary:', err);
+      setCashSummary({
+        orderCash: 0,
+        counterSales: 0,
+        totalExpenses: 0,
+        netCash: 0
+      });
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
+    fetchCashSummary();
     setChecks({
       cashMatchesDeliveries: false,
       expensesLogged: false,
@@ -108,7 +136,42 @@ export default function AccountantClose() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+        <div className="space-y-6">
+          {/* Cash Summary Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+              Daily Cash Summary
+            </h3>
+            {cashSummary ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Order Cash</div>
+                  <div className="text-lg font-bold text-blue-800">Rs. {cashSummary.orderCash.toLocaleString()}</div>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                  <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Counter Sales</div>
+                  <div className="text-lg font-bold text-emerald-800">Rs. {cashSummary.counterSales.toLocaleString()}</div>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                  <div className="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Total Expenses</div>
+                  <div className="text-lg font-bold text-red-800">Rs. {cashSummary.totalExpenses.toLocaleString()}</div>
+                </div>
+                <div className={`${cashSummary.netCash >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border rounded-xl p-4 text-center`}>
+                  <div className={`text-xs font-bold ${cashSummary.netCash >= 0 ? 'text-emerald-600' : 'text-red-600'} uppercase tracking-wider mb-1`}>Net Cash</div>
+                  <div className={`text-lg font-bold ${cashSummary.netCash >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>Rs. {cashSummary.netCash.toLocaleString()}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-4">
+                <RefreshCw className="w-5 h-5 text-slate-400 animate-spin mr-2" />
+                <span className="text-sm text-slate-500">Loading cash summary...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Financial Reconciliation Checklist */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
           <div>
             <h3 className="text-lg font-bold text-slate-800 mb-1">Financial Reconciliation Checklist</h3>
             <p className="text-xs text-slate-500 font-medium">Verified by Accountant ({user?.name || 'Accountant'})</p>
@@ -122,7 +185,7 @@ export default function AccountantClose() {
                 onChange={e => setChecks(prev => ({ ...prev, cashMatchesDeliveries: e.target.checked }))}
                 className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
               />
-              <span className="text-xs text-slate-800 font-bold group-hover:text-emerald-700">✓ Cash collected matches system deliveries.</span>
+              <span className="text-xs text-slate-800 font-bold group-hover:text-emerald-700">✓ Cash collected matches Order Sales and Counter Sales records.</span>
             </label>
 
             <label className="flex items-start gap-3 cursor-pointer group">
@@ -142,7 +205,7 @@ export default function AccountantClose() {
                 onChange={e => setChecks(prev => ({ ...prev, purchasesVerified: e.target.checked }))}
                 className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
               />
-              <span className="text-xs text-slate-800 font-bold group-hover:text-emerald-700">✓ Raw material purchase bills verified and approved.</span>
+              <span className="text-xs text-slate-800 font-bold group-hover:text-emerald-700">✓ All purchase invoices and receipt documents verified.</span>
             </label>
 
             <label className="flex items-start gap-3 cursor-pointer group">
@@ -176,6 +239,7 @@ export default function AccountantClose() {
               Save Financial Verification
             </button>
           </div>
+        </div>
         </div>
       )}
     </div>
