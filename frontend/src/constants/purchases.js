@@ -54,9 +54,11 @@ export const DEFAULT_MATERIAL_UNIT_PRICES = {
 };
 
 /**
- * Helper function to retrieve default unit price for a given material name
+ * Helper function to retrieve default unit price for a given material name or material object
  */
-export const getDefaultUnitPrice = (materialName = '') => {
+export const getDefaultUnitPrice = (material = '') => {
+  if (!material) return '';
+  const materialName = typeof material === 'string' ? material : (material?.name || '');
   if (!materialName) return '';
   const lower = materialName.toLowerCase().trim();
 
@@ -68,3 +70,4 @@ export const getDefaultUnitPrice = (materialName = '') => {
   }
   return DEFAULT_MATERIAL_UNIT_PRICES.default.toString();
 };
+

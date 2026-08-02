@@ -5,7 +5,9 @@ import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { paginationArgs } from '../utils/pagination.js';
 
 const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'];
+  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
