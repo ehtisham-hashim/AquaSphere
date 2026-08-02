@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Clock, UserPlus, Printer } from 'lucide-react';
+import { Plus, Search, Clock, UserPlus, Printer, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
+import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 
@@ -75,9 +76,10 @@ export default function Orders() {
   const handleDeleteOrder = async (id) => {
     if (!window.confirm('Are you sure you want to cancel this order? It will be moved to Cancelled Orders.')) return;
     try {
+      const tenant = getCompanyFromCookie();
       const res = await fetch(`${API_URL}/orders/${id}`, { 
         method: 'DELETE', 
-        headers: { 'x-tenant': localStorage.getItem('tenant') || 'aquasphere' },
+        headers: { 'x-tenant': tenant },
         credentials: 'include' 
       });
       const json = await res.json();
@@ -290,6 +292,15 @@ export default function Orders() {
                           >
                             <Printer size={13} /> Invoice
                           </button>
+                          {needsPaymentSettlement && (
+                            <button
+                              onClick={() => { setSelectedPaymentOrder(o); setIsRecordPaymentOpen(true); }}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs rounded-md font-bold transition-all shadow-xs flex items-center gap-1"
+                              title="Record Payment"
+                            >
+                              <CreditCard size={13} /> Pay
+                            </button>
+                          )}
                           {(isOwner || o.deliveryStatus !== 'DELIVERED') && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
                               Edit
