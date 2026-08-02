@@ -6,7 +6,8 @@ export default function RawMaterialsTable({
   onEdit, 
   onToggleArchive, 
   tenant = 'aquasphere',
-  isReadOnly = false
+  isReadOnly = false,
+  canArchive = false
 }) {
   const isWadaana = tenant === 'wadaana';
 
@@ -117,28 +118,32 @@ export default function RawMaterialsTable({
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      {!isReadOnly ? (
+                      {(!isReadOnly || canArchive) ? (
                         <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => onEdit(m)}
-                            className={`p-2 text-slate-600 hover:text-white ${
-                              isWadaana ? 'hover:bg-[#0ea5e9]' : 'hover:bg-emerald-600'
-                            } bg-slate-100 rounded-xl transition-all shadow-sm`}
-                            title="Edit Material"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => onToggleArchive(m)}
-                            className={`p-2 rounded-xl transition-all shadow-sm ${
-                              m.archivedAt
-                                ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white'
-                                : 'text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white'
-                            }`}
-                            title={m.archivedAt ? 'Restore Material' : 'Archive Material'}
-                          >
-                            {m.archivedAt ? <RefreshCw size={16} /> : <Archive size={16} />}
-                          </button>
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => onEdit(m)}
+                              className={`p-2 text-slate-600 hover:text-white ${
+                                isWadaana ? 'hover:bg-[#0ea5e9]' : 'hover:bg-emerald-600'
+                              } bg-slate-100 rounded-xl transition-all shadow-sm`}
+                              title="Edit Material"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          )}
+                          {canArchive && (
+                            <button
+                              onClick={() => onToggleArchive(m)}
+                              className={`p-2 rounded-xl transition-all shadow-sm ${
+                                m.archivedAt
+                                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white'
+                                  : 'text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white'
+                              }`}
+                              title={m.archivedAt ? 'Restore Material (Owner Only)' : 'Archive Material (Owner Only)'}
+                            >
+                              {m.archivedAt ? <RefreshCw size={16} /> : <Archive size={16} />}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400 font-medium italic">Read-Only</span>
