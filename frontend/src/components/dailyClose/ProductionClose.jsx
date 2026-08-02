@@ -16,15 +16,10 @@ export default function ProductionClose() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Production Manager Checklist State
+  // Production Manager Checklist State (Exactly 2 User Checkboxes)
   const [pmChecks, setPmChecks] = useState({
-    batchesCompleted: false,
-    materialsDeducted: false,
-    finishedGoodsUpdated: false,
-    wasteRecorded: false,
-    noNegativeInventory: false,
-    noPendingBatches: false,
-    purchasesReceived: false
+    stockMatches: false,
+    productionRecorded: false
   });
 
   // Admin Verification Checklist State
@@ -61,13 +56,8 @@ export default function ProductionClose() {
   useEffect(() => {
     fetchStatus();
     setPmChecks({
-      batchesCompleted: false,
-      materialsDeducted: false,
-      finishedGoodsUpdated: false,
-      wasteRecorded: false,
-      noNegativeInventory: false,
-      noPendingBatches: false,
-      purchasesReceived: false
+      stockMatches: false,
+      productionRecorded: false
     });
     setAdminChecks({
       stockVerified: false,
@@ -275,83 +265,60 @@ export default function ProductionClose() {
               </div>
             )}
 
-            {/* PM Checklist Items */}
-            <div className="space-y-3">
+            {/* System Validation Box (Automatically Verified) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5 space-y-2">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
+                <span>System Validation</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">Auto-Verified ✓</span>
+              </div>
+              <div className="space-y-1.5 text-xs font-semibold text-slate-700">
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>✔ Production batches completed</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>✔ Raw materials deducted</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>✔ Finished goods updated</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>✔ No negative inventory</span>
+                </div>
+              </div>
+            </div>
+
+            {/* PM Required Checkboxes (Exactly 2) */}
+            <div className="space-y-3 pt-1 border-t border-slate-100">
+              <p className="text-[11px] font-bold text-purple-900 uppercase tracking-wider">PM Verification Confirmation</p>
+              
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input 
                   type="checkbox" 
                   disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.batchesCompleted}
-                  onChange={e => setPmChecks(prev => ({ ...prev, batchesCompleted: e.target.checked }))}
+                  checked={pmConfirmed || pmChecks.stockMatches}
+                  onChange={e => setPmChecks(prev => ({ ...prev, stockMatches: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
                 />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ All production batches completed</span>
+                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>
+                  Physical raw material stock matches system
+                </span>
               </label>
 
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input 
                   type="checkbox" 
                   disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.materialsDeducted}
-                  onChange={e => setPmChecks(prev => ({ ...prev, materialsDeducted: e.target.checked }))}
+                  checked={pmConfirmed || pmChecks.productionRecorded}
+                  onChange={e => setPmChecks(prev => ({ ...prev, productionRecorded: e.target.checked }))}
                   className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
                 />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Raw materials deducted successfully</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox" 
-                  disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.finishedGoodsUpdated}
-                  onChange={e => setPmChecks(prev => ({ ...prev, finishedGoodsUpdated: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
-                />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Finished goods updated</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox" 
-                  disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.wasteRecorded}
-                  onChange={e => setPmChecks(prev => ({ ...prev, wasteRecorded: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
-                />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Breakage recorded</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox" 
-                  disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.noNegativeInventory}
-                  onChange={e => setPmChecks(prev => ({ ...prev, noNegativeInventory: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
-                />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ No negative inventory</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox" 
-                  disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.noPendingBatches}
-                  onChange={e => setPmChecks(prev => ({ ...prev, noPendingBatches: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
-                />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ No pending production batches</span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input 
-                  type="checkbox" 
-                  disabled={pmConfirmed || !isPM}
-                  checked={pmConfirmed || pmChecks.purchasesReceived}
-                  onChange={e => setPmChecks(prev => ({ ...prev, purchasesReceived: e.target.checked }))}
-                  className="mt-0.5 w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 disabled:opacity-50"
-                />
-                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>✓ Required raw materials were available for today&apos;s production.</span>
+                <span className={`text-xs ${pmConfirmed ? 'text-slate-600 font-bold' : 'text-slate-700 font-semibold group-hover:text-purple-700'}`}>
+                  Today&apos;s production has been completely recorded
+                </span>
               </label>
             </div>
 

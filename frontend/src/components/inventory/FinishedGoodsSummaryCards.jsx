@@ -224,23 +224,33 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         const factoryVal = (fac === 0 && wh === 0) ? total : fac;
         const warehouseVal = (fac === 0 && wh === 0) ? 0 : wh;
 
+        const isLowStock = warehouseVal <= (Number(c.item?.reorderLevel) || 50);
+
         return (
-          <div key={idx} className="group">
-            <div className="mb-6">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{c.name}</span>
-              <div className="text-4xl font-bold text-slate-900 tracking-tight">
-                {total.toLocaleString()}
+          <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block mb-1">{c.name} ({c.weight})</span>
+                <div className="text-3xl font-black text-slate-900 tracking-tight">
+                  {total.toLocaleString()} <span className="text-xs font-normal text-slate-400">units</span>
+                </div>
               </div>
+
+              {isLowStock && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                  LOW STOCK
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center gap-6 pt-4 border-t border-slate-100">
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Factory</span>
-                <span className="text-sm font-semibold text-slate-700">{factoryVal.toLocaleString()}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Factory</span>
+                <span className="text-sm font-bold text-slate-800">{factoryVal.toLocaleString()}</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Warehouse</span>
-                <span className="text-sm font-semibold text-slate-900">{warehouseVal.toLocaleString()}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Warehouse</span>
+                <span className="text-sm font-bold text-sky-700">{warehouseVal.toLocaleString()}</span>
               </div>
             </div>
           </div>

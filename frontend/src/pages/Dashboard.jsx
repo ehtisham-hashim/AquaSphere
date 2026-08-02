@@ -3,6 +3,7 @@ import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
 import { Wallet, TrendingUp, CreditCard, Receipt, ShoppingCart, AlertTriangle, Package, Building2, Loader2, Calendar, ShieldAlert } from 'lucide-react';
 import AlertsSection from '../components/dashboard/AlertsSection';
+import ProductionDashboardView from '../components/dashboard/ProductionDashboardView';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -67,8 +68,12 @@ export default function Dashboard() {
   const isProductionManager = user?.role === 'PRODUCTION_MANAGER';
   const isMarketingManager = user?.role === 'MARKETING_MANAGER';
 
+  if (isProductionManager) {
+    return <ProductionDashboardView />;
+  }
+
   const canViewFinancials = isOwner || isAccountant;
-  const canViewInventory = isOwner || isAdmin || isProductionManager;
+  const canViewInventory = isOwner || isAdmin;
   const canViewMMAlerts = isOwner || isMarketingManager;
 
   const formatDate = (d) => {

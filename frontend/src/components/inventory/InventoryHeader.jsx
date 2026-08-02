@@ -53,8 +53,8 @@ export default function InventoryHeader({
         )}
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
+      {/* Search Bar */}
+      <div className="flex items-center justify-between gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
         <div className="relative w-full sm:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
@@ -66,12 +66,6 @@ export default function InventoryHeader({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
-        </div>
-
-        <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-xs self-start sm:self-auto">
-          <span>Total Products: <strong className="text-slate-800">{totalFinishedGoods}</strong></span>
-          <span className="text-slate-300">&bull;</span>
-          <span>Total Balance: <strong className="text-slate-800">{totalUnitsCount.toLocaleString()} units</strong></span>
         </div>
       </div>
     </div>

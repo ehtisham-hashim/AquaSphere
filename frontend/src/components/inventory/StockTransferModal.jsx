@@ -9,6 +9,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
   const [toLocation, setToLocation] = useState('WAREHOUSE');
   const [quantity, setQuantity] = useState('');
   const [batchNo, setBatchNo] = useState('');
+  const [reason, setReason] = useState('Daily warehouse transfer');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +44,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           toLocation,
           quantity: parseFloat(quantity),
           batchNo: batchNo.trim() || undefined,
+          reason: reason || 'Daily warehouse transfer',
           notes: notes.trim() || undefined
         })
       });
@@ -160,10 +162,23 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Transfer Notes / Remarks</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Transfer Reason</label>
+            <select
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 font-bold text-slate-800 outline-none focus:border-sky-500"
+            >
+              <option value="Daily warehouse transfer">Daily warehouse transfer</option>
+              <option value="Factory replenishment">Factory replenishment</option>
+              <option value="Stock balancing for dispatch">Stock balancing for dispatch</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Transfer Notes / Remarks (Optional)</label>
             <input
               type="text"
-              placeholder="e.g. Moved 40 packs to main warehouse for dispatch"
+              placeholder="e.g. Moved to main warehouse for dispatch"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-sky-500 text-slate-800"

@@ -420,16 +420,32 @@ export default function Purchases() {
                       </select>
                     </td>
                     <td className="p-4">
-                      <select
-                        value={p.paymentStatus || 'PAID'}
-                        onChange={(e) => handleQuickStatusChange(p.id, null, e.target.value)}
-                        disabled={updatingStatusId === p.id}
-                        className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="PAID">🟢 Paid</option>
-                        <option value="PARTIAL">🔵 Partial</option>
-                        <option value="CREDIT">🔴 Credit</option>
-                      </select>
+                      {isOwner || isAccountant ? (
+                        <select
+                          value={p.paymentStatus || 'PAID'}
+                          onChange={(e) => handleQuickStatusChange(p.id, null, e.target.value)}
+                          disabled={updatingStatusId === p.id}
+                          className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          <option value="PAID">🟢 Paid</option>
+                          <option value="PARTIAL">🔵 Partial</option>
+                          <option value="CREDIT">🔴 Credit</option>
+                        </select>
+                      ) : (
+                        p.paymentStatus === 'PAID' ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🟢 Paid
+                          </span>
+                        ) : p.paymentStatus === 'PARTIAL' ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-sky-50 text-sky-700 border border-sky-200">
+                            🔵 Partial
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                            🔴 Unpaid / Credit
+                          </span>
+                        )
+                      )}
                     </td>
                     <td className="p-4 text-xs font-medium">
                       {p.verifiedBy ? (
@@ -557,15 +573,22 @@ export default function Purchases() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Payment Status</label>
-                  <select
-                    value={paymentStatus}
-                    onChange={e => setPaymentStatus(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm font-bold bg-white text-slate-800"
-                  >
-                    <option value="PAID">🟢 Paid (Full)</option>
-                    <option value="PARTIAL">🔵 Partial Payment</option>
-                    <option value="CREDIT">🔴 Credit (Unpaid)</option>
-                  </select>
+                  {isOwner || isAccountant ? (
+                    <select
+                      value={paymentStatus}
+                      onChange={e => setPaymentStatus(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm font-bold bg-white text-slate-800"
+                    >
+                      <option value="PAID">🟢 Paid (Full)</option>
+                      <option value="PARTIAL">🔵 Partial Payment</option>
+                      <option value="CREDIT">🔴 Credit (Unpaid)</option>
+                    </select>
+                  ) : (
+                    <div className="w-full border border-slate-200 rounded-xl p-2.5 bg-slate-100 font-bold text-xs text-slate-600 flex items-center justify-between">
+                      <span>Pending Accountant Settlement</span>
+                      <span className="text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md">Unpaid / Read-Only</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Delivered To *</label>

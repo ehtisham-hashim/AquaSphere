@@ -139,7 +139,7 @@ export default function Production() {
 
       const data = await res.json();
       if (data.success) {
-        toast.success('Production Batch Logged Successfully (Pending)');
+        toast.success('Production Batch Recorded (Pending Verification)');
         setIsModalOpen(false);
         setPacks05L('');
         setPacks15L('');
@@ -524,7 +524,7 @@ export default function Production() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>
+                            <span className="px-2.5 py-1 rounded-full text-amber-800 bg-amber-50 border border-amber-200 font-bold text-xs">Pending Verification</span>
                             <button onClick={() => { setCompletingBatchId(b.id); setIsCompleteModalOpen(true); }} className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm">
                               Confirm & Complete
                             </button>
@@ -538,10 +538,10 @@ export default function Production() {
                         <td className="p-3.5 text-center">
                           <button
                             onClick={() => setBatchToDelete(b)}
-                            title="Delete Batch (Owner Only)"
-                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Delete Batch (Owner)"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={16} />
                           </button>
                         </td>
                       )}
@@ -560,9 +560,9 @@ export default function Production() {
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto border border-slate-100">
             <div className="sticky top-0 bg-slate-900 text-white px-6 py-4 flex justify-between items-center z-10">
               <div>
-                <h3 className="text-lg font-bold">Log Factory Production Run</h3>
+                <h3 className="text-lg font-bold">Record Factory Production Batch</h3>
                 <p className="text-xs text-slate-400">
-                  {isWadaana ? 'Enter single bottle counts for Wadaana production.' : 'Enter pack counts — exact decimal auto-deductions are calculated automatically.'}
+                  {isWadaana ? 'Enter single bottle counts. Recorded batches are locked for audit verification.' : 'Enter pack counts — exact auto-deductions are calculated automatically and locked upon recording.'}
                 </p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-full">
@@ -571,16 +571,26 @@ export default function Production() {
             </div>
 
             <form onSubmit={handleLogBatch} className="p-6 space-y-6">
-              {/* Date Selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Production Date</label>
-                <input
-                  type="date"
-                  value={batchDate}
-                  onChange={e => setBatchDate(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium focus:border-emerald-500 outline-none"
-                  required
-                />
+              {/* Date & Auto-Generated Batch Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Production Date</label>
+                  <input
+                    type="date"
+                    value={batchDate}
+                    onChange={e => setBatchDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium focus:border-emerald-500 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Auto Batch Number</label>
+                  <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm font-mono font-black text-slate-700 flex items-center justify-between">
+                    <span>{isWadaana ? 'WB' : 'AQ'}-{batchDate ? batchDate.replace(/-/g, '') : 'YYYYMMDD'}-{String((batches.length || 0) + 1).padStart(3, '0')}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-200 px-2 py-0.5 rounded">Read-Only</span>
+                  </div>
+                </div>
               </div>
 
               {/* Wadaana vs AquaSphere Product Inputs */}
@@ -591,11 +601,11 @@ export default function Production() {
                       0.5L Pure Bottles (15g)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="e.g. 5000"
                       value={qtyPure05L}
-                      onChange={e => setQtyPure05L(e.target.value)}
+                      onChange={e => setQtyPure05L(e.target.value.replace(/[^0-9]/g, ''))}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-cyan-500 outline-none"
                     />
                   </div>
@@ -605,11 +615,11 @@ export default function Production() {
                       1.5L Pure Bottles (30g)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="e.g. 2500"
                       value={qtyPure15L}
-                      onChange={e => setQtyPure15L(e.target.value)}
+                      onChange={e => setQtyPure15L(e.target.value.replace(/[^0-9]/g, ''))}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-sky-500 outline-none"
                     />
                   </div>
@@ -619,11 +629,11 @@ export default function Production() {
                       0.5L Mix Bottles (13g)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="e.g. 3000"
                       value={qtyMix05L}
-                      onChange={e => setQtyMix05L(e.target.value)}
+                      onChange={e => setQtyMix05L(e.target.value.replace(/[^0-9]/g, ''))}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-amber-500 outline-none"
                     />
                   </div>
@@ -633,11 +643,11 @@ export default function Production() {
                       1.5L Mix Bottles (27g)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="e.g. 1500"
                       value={qtyMix15L}
-                      onChange={e => setQtyMix15L(e.target.value)}
+                      onChange={e => setQtyMix15L(e.target.value.replace(/[^0-9]/g, ''))}
                       className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-orange-500 outline-none"
                     />
                   </div>
@@ -821,49 +831,146 @@ export default function Production() {
                 );
               })()}
 
-              {/* Wadaana Formula Live Preview */}
-              {isWadaana && (parseInt(qtyPure05L || 0) > 0 || parseInt(qtyPure15L || 0) > 0 || parseInt(qtyMix05L || 0) > 0 || parseInt(qtyMix15L || 0) > 0) && (() => {
+              {/* Wadaana Formula & Stock Validation Live Preview */}
+              {isWadaana && (() => {
                 const p05 = parseInt(qtyPure05L || 0);
                 const p15 = parseInt(qtyPure15L || 0);
                 const m05 = parseInt(qtyMix05L || 0);
                 const m15 = parseInt(qtyMix15L || 0);
+                const totalWadaanaBottles = p05 + p15 + m05 + m15;
 
-                const pure05Kg = (p05 * 0.015).toFixed(3);
-                const pure15Kg = (p15 * 0.030).toFixed(3);
-                const mix05Kg = (m05 * 0.013).toFixed(3);
-                const mix15Kg = (m15 * 0.027).toFixed(3);
+                const pure05Kg = (p05 * 0.015);
+                const pure15Kg = (p15 * 0.030);
+                const mix05Kg = (m05 * 0.013);
+                const mix15Kg = (m15 * 0.027);
+
+                const totalPureKg = pure05Kg + pure15Kg;
+                const totalMixKg = mix05Kg + mix15Kg;
+
+                const getItemQty = (keywords) => {
+                  const item = items.find(i => i.type === 'RAW_MATERIAL' && keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
+                  return item ? Number(item.cachedQty || 0) : 0;
+                };
+
+                const purePreformStock = getItemQty(['pure preform', 'pure']);
+                const mixPreformStock = getItemQty(['mix preform', 'mix']);
+
+                const isPureShort = totalPureKg > 0 && purePreformStock < totalPureKg;
+                const isMixShort = totalMixKg > 0 && mixPreformStock < totalMixKg;
+                const hasWadaanaShortage = isPureShort || isMixShort;
+
+                if (totalWadaanaBottles === 0) return null;
 
                 return (
-                  <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4 space-y-2.5">
-                    <h4 className="text-xs font-bold text-sky-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-sky-200/80 pb-2">
-                      <Scale className="w-4 h-4 text-sky-600" />
-                      Preform Resin Auto-Deductions Preview
-                    </h4>
-                    <div className="text-xs text-slate-700 space-y-1.5 font-mono">
+                  <div className={`border rounded-2xl p-4 space-y-3 transition-colors ${hasWadaanaShortage ? 'bg-rose-50/90 border-rose-300' : 'bg-sky-50/80 border-sky-200'}`}>
+                    {/* Header & Total Output */}
+                    <div className="flex justify-between items-center border-b border-slate-200/80 pb-2.5">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                          <Scale className="w-4 h-4 text-sky-600" /> Wadaana Production Summary
+                        </h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Preform consumption & stock validation preview</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Today&apos;s Total Output</span>
+                        <span className="text-base font-black text-sky-900 bg-sky-100 px-3 py-1 rounded-xl border border-sky-200 inline-block mt-0.5">
+                          {totalWadaanaBottles.toLocaleString()} Bottles
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Finished Goods Generated Preview */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/90 space-y-2">
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1">
+                        Finished Goods Generated
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+                        {p05 > 0 && (
+                          <div className="bg-cyan-50 border border-cyan-200 p-2 rounded-lg text-cyan-950">
+                            <span className="text-[10px] text-cyan-700 block uppercase">0.5L Pure</span>
+                            <span className="text-sm font-black">{p05.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {p15 > 0 && (
+                          <div className="bg-sky-50 border border-sky-200 p-2 rounded-lg text-sky-950">
+                            <span className="text-[10px] text-sky-700 block uppercase">1.5L Pure</span>
+                            <span className="text-sm font-black">{p15.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {m05 > 0 && (
+                          <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg text-amber-950">
+                            <span className="text-[10px] text-amber-700 block uppercase">0.5L Mix</span>
+                            <span className="text-sm font-black">{m05.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {m15 > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 p-2 rounded-lg text-orange-950">
+                            <span className="text-[10px] text-orange-700 block uppercase">1.5L Mix</span>
+                            <span className="text-sm font-black">{m15.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Preform Consumption Preview (Automatic Calculation: bottles x grams = kg) */}
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/90 text-xs font-mono space-y-2">
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex justify-between items-center">
+                        <span>Preform Auto-Deductions</span>
+                        <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">Auto-Calculated ✓</span>
+                      </div>
+
                       {p05 > 0 && (
-                        <div className="flex justify-between text-cyan-800 font-medium">
-                          <span>Pure Preform 0.5L (15g):</span>
-                          <span>{pure05Kg} kg ({p05} btls)</span>
+                        <div className="flex justify-between items-center text-cyan-900">
+                          <span>0.5L Pure ({p05.toLocaleString()} × 15g):</span>
+                          <span className="font-bold">Consumes: {pure05Kg.toFixed(2)} kg Pure Preform</span>
                         </div>
                       )}
+
                       {p15 > 0 && (
-                        <div className="flex justify-between text-sky-800 font-medium">
-                          <span>Pure Preform 1.5L (30g):</span>
-                          <span>{pure15Kg} kg ({p15} btls)</span>
+                        <div className="flex justify-between items-center text-sky-900">
+                          <span>1.5L Pure ({p15.toLocaleString()} × 30g):</span>
+                          <span className="font-bold">Consumes: {pure15Kg.toFixed(2)} kg Pure Preform</span>
                         </div>
                       )}
+
                       {m05 > 0 && (
-                        <div className="flex justify-between text-amber-800 font-medium">
-                          <span>Mix Preform 0.5L (13g):</span>
-                          <span>{mix05Kg} kg ({m05} btls)</span>
+                        <div className="flex justify-between items-center text-amber-900">
+                          <span>0.5L Mix ({m05.toLocaleString()} × 13g):</span>
+                          <span className="font-bold">Consumes: {mix05Kg.toFixed(2)} kg Mix Preform</span>
                         </div>
                       )}
+
                       {m15 > 0 && (
-                        <div className="flex justify-between text-orange-800 font-medium">
-                          <span>Mix Preform 1.5L (27g):</span>
-                          <span>{mix15Kg} kg ({m15} btls)</span>
+                        <div className="flex justify-between items-center text-orange-900">
+                          <span>1.5L Mix ({m15.toLocaleString()} × 27g):</span>
+                          <span className="font-bold">Consumes: {mix15Kg.toFixed(2)} kg Mix Preform</span>
                         </div>
                       )}
+                    </div>
+
+                    {/* Stock Validation Checklist & Hard Safeguard */}
+                    <div className="space-y-1.5 text-xs font-bold pt-1">
+                      <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Stock Validation Safeguard</div>
+                      
+                      <div className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${isPureShort ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                        {isPureShort ? (
+                          <span>❌ Insufficient Pure Preform Stock ({purePreformStock} kg available vs {totalPureKg.toFixed(2)} kg needed)</span>
+                        ) : (
+                          <span>✓ Enough Pure Preform {totalPureKg > 0 ? `(${totalPureKg.toFixed(2)} kg required)` : ''}</span>
+                        )}
+                      </div>
+
+                      <div className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${isMixShort ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                        {isMixShort ? (
+                          <span>❌ Insufficient Mix Preform Stock ({mixPreformStock} kg available vs {totalMixKg.toFixed(2)} kg needed)</span>
+                        ) : (
+                          <span>✓ Enough Mix Preform {totalMixKg > 0 ? `(${totalMixKg.toFixed(2)} kg required)` : ''}</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 p-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs">
+                        <span>✓ Finished Goods can be updated</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -890,10 +997,13 @@ export default function Production() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className={`px-6 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-md transition disabled:opacity-50`}
+                  disabled={submitting || (isWadaana ? (
+                    ((parseInt(qtyPure05L || 0) * 0.015 + parseInt(qtyPure15L || 0) * 0.030) > 0 && (items.find(i => i.type === 'RAW_MATERIAL' && (i.name.toLowerCase().includes('pure preform') || i.name.toLowerCase().includes('pure')))?.cachedQty || 0) < (parseInt(qtyPure05L || 0) * 0.015 + parseInt(qtyPure15L || 0) * 0.030)) ||
+                    ((parseInt(qtyMix05L || 0) * 0.013 + parseInt(qtyMix15L || 0) * 0.027) > 0 && (items.find(i => i.type === 'RAW_MATERIAL' && (i.name.toLowerCase().includes('mix preform') || i.name.toLowerCase().includes('mix')))?.cachedQty || 0) < (parseInt(qtyMix05L || 0) * 0.013 + parseInt(qtyMix15L || 0) * 0.027))
+                  ) : false)}
+                  className={`px-6 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {submitting ? 'Creating...' : 'Create Pending Batch'}
+                  {submitting ? 'Recording Batch...' : 'Record Production Batch'}
                 </button>
               </div>
             </form>
