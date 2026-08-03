@@ -292,15 +292,7 @@ export default function Orders() {
                           >
                             <Printer size={13} /> Invoice
                           </button>
-                          {needsPaymentSettlement && (
-                            <button
-                              onClick={() => { setSelectedPaymentOrder(o); setIsRecordPaymentOpen(true); }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs rounded-md font-bold transition-all shadow-xs flex items-center gap-1"
-                              title="Record Payment"
-                            >
-                              <CreditCard size={13} /> Pay
-                            </button>
-                          )}
+
                           {(isOwner || o.deliveryStatus !== 'DELIVERED') && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
                               Edit

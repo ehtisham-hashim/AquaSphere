@@ -149,7 +149,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
 
     return o;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.status(201).json({ success: true, data: order });
 });
@@ -189,7 +189,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
       },
       include: { items: { include: { item: true } } }
     });
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.json({ success: true, data: updated });
 });
@@ -334,6 +334,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           await tx[`${prefix}BottleTransaction`].create({
             data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id} (Payment Settlement)` }
           });
+          const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+          });
+          if (emptyBottleItem) {
+            await tx[`${prefix}Item`].update({
+              where: { id: emptyBottleItem.id },
+              data: { 
+                cachedQty: { increment: retGood },
+                factoryQty: { increment: retGood }
+              }
+            });
+            await tx[`${prefix}InventoryTransaction`].create({
+              data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+            });
+          }
         }
         if (retBroken > 0) {
           await tx[`${prefix}BottleTransaction`].create({
@@ -476,6 +491,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       await tx[`${prefix}BottleTransaction`].create({
         data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
       });
+      const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+        where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+      });
+      if (emptyBottleItem) {
+        await tx[`${prefix}Item`].update({
+          where: { id: emptyBottleItem.id },
+          data: { 
+            cachedQty: { increment: retGood },
+            factoryQty: { increment: retGood }
+          }
+        });
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+        });
+      }
     }
     if (retBroken > 0) {
       await tx[`${prefix}BottleTransaction`].create({
@@ -593,7 +623,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     });
 
     return updated;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate();
   res.json({ success: true, data: order });

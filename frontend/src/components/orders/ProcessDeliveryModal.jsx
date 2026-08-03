@@ -52,8 +52,8 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   const maxReturnedAllowed = is19LOrder ? remainingBottlesToReturn : Infinity;
   const isBottleReturnLocked = is19LOrder && remainingBottlesToReturn <= 0;
 
-  const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const orderTotal = (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const totalItems = (order.items || []).reduce((sum, item) => sum + item.quantity, 0);
   const alreadyPaid = order.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (order.paymentStatus === 'PAID' ? orderTotal : 0);
   const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
   const currentDebt = Math.max(0, parseFloat(order.customer?.currentBalance || 0));

@@ -189,6 +189,32 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
           data: { cachedBottleBalance: { increment: balanceChange } }
         });
       }
+
+      if (type === 'RETURNED_GOOD') {
+        const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+        });
+        if (emptyBottleItem) {
+          await tx[`${prefix}Item`].update({
+            where: { id: emptyBottleItem.id },
+            data: { 
+              cachedQty: { increment: qty },
+              factoryQty: { increment: qty }
+            }
+          });
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: emptyBottleItem.id,
+              quantity: qty,
+              direction: 'IN',
+              reason: 'BOTTLE_RETRIEVAL',
+              refType: 'CUSTOMER',
+              refId: customerId,
+              location: 'FACTORY'
+            }
+          });
+        }
+      }
     }
 
     return createdTxn;

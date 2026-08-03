@@ -335,7 +335,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       });
 
       return pb;
-    });
+    }, { maxWait: 10000, timeout: 30000 });
 
     return res.status(200).json({ success: true, data: updatedBatch });
   }
@@ -439,7 +439,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     }
 
     return pb;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.status(200).json({ success: true, data: updatedBatch });
 });
@@ -498,7 +498,7 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
     await tx[`${prefix}ProductionBatch`].delete({
       where: { id }
     });
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.status(200).json({ success: true, message: 'Production batch deleted successfully' });
 });
