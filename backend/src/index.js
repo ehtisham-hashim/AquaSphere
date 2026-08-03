@@ -82,7 +82,7 @@ app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/admin', adminDashboardRoutes);
 
 // Health check endpoint for Render
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'AquaSphere API is running', timestamp: new Date().toISOString() });
 });
 
