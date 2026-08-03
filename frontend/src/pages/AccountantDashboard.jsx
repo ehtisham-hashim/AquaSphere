@@ -8,6 +8,7 @@ const API = API_URL;
 export default function AccountantDashboard() {
   const [summary, setSummary] = useState(null);
   const [closeStatus, setCloseStatus] = useState(null);
+  const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const today = new Date().toISOString().split('T')[0];
   const tenant = getCompanyFromCookie();
@@ -16,46 +17,37 @@ export default function AccountantDashboard() {
     setLoading(true);
     try {
       const headers = { 'x-tenant': tenant };
-      const [ordRes, expRes, spotRes, closeRes] = await Promise.all([
-        fetch(`${API}/orders`, { headers, credentials: 'include' }),
-        fetch(`${API}/expenses?startDate=${today}&endDate=${today}`, { headers, credentials: 'include' }),
-        fetch(`${API}/spot-sales`, { headers, credentials: 'include' }),
-        fetch(`${API}/daily-close/status?date=${today}`, { headers, credentials: 'include' })
+      
+      // Use the dedicated /analytics/daily-summary endpoint
+      const [summaryRes, closeRes, expensesRes] = await Promise.all([
+        fetch(`${API}/analytics/daily-summary?date=${today}`, { headers, credentials: 'include' }),
+        fetch(`${API}/daily-close/status?date=${today}`, { headers, credentials: 'include' }),
+        fetch(`${API}/expenses?startDate=${today}&endDate=${today}`, { headers, credentials: 'include' })
       ]);
-      const [ord, exp, spot, close] = await Promise.all([
-        ordRes.json(), expRes.json(), spotRes.json(), closeRes.json()
+      
+      const [summaryData, closeData, expensesData] = await Promise.all([
+        summaryRes.json(), 
+        closeRes.json(), 
+        expensesRes.json()
       ]);
 
-      const todayStr = new Date().toDateString();
-      const todayOrders = (ord.data || []).filter(o => new Date(o.createdAt).toDateString() === todayStr);
-      const todayDelivered = todayOrders.filter(o => o.deliveryStatus === 'DELIVERED');
-      const cashFromOrders = todayDelivered.reduce((sum, o) => {
-        return sum + (o.deliveries || []).reduce((s, d) => s + parseFloat(d.cashReceived || 0), 0);
-      }, 0);
+      if (summaryData.success && summaryData.data) {
+        const sd = summaryData.data;
+        setSummary({
+          cashFromOrders: sd.totalDeliveryAmount || 0,
+          cashFromSpot: sd.totalSpotSales || 0,
+          totalCash: (sd.totalDeliveryAmount || 0) + (sd.totalSpotSales || 0),
+          totalExpenses: sd.totalExpenses || 0,
+          creditSales: sd.totalCreditSales || 0,
+          netCash: sd.netCash || 0,
+          totalLitres: sd.totalLitres || 0
+        });
+      }
 
-      const todaySpot = (spot.data || []).filter(s => new Date(s.createdAt).toDateString() === todayStr);
-      const cashFromSpot = todaySpot.reduce((s, sale) => s + parseFloat(sale.cashCollected || 0), 0);
-
-      const todayExpenses = exp.data || [];
-      const totalExpenses = todayExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-
-      setSummary({
-        cashFromOrders,
-        cashFromSpot,
-        totalCash: cashFromOrders + cashFromSpot,
-        totalExpenses,
-        netCash: cashFromOrders + cashFromSpot - totalExpenses,
-        ordersDelivered: todayDelivered.length,
-        ordersTotal: todayOrders.length,
-        spotSales: todaySpot.length,
-        expenseCount: todayExpenses.length,
-        pendingOrders: todayOrders.filter(o => o.deliveryStatus === 'PENDING').length,
-        expenseList: todayExpenses
-      });
-
-      setCloseStatus(close.data || { isClosed: false });
+      setCloseStatus(closeData.data || { isClosed: false });
+      setExpenses(expensesData.data || []);
     } catch (e) {
-      console.error(e);
+      console.error('Dashboard fetch error:', e);
     } finally {
       setLoading(false);
     }
@@ -108,19 +100,16 @@ export default function AccountantDashboard() {
         ))}
       </div>
 
-      {/* Activity Breakdown Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Orders Delivered', value: summary.ordersDelivered },
-          { label: 'Pending Orders', value: summary.pendingOrders },
-          { label: 'Counter Sales', value: summary.spotSales },
-          { label: 'Total Orders', value: summary.ordersTotal },
-        ].map(s => (
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div className="text-xs text-slate-500 font-medium">{s.label}</div>
-            <div className="text-2xl font-black text-slate-800 mt-1">{s.value}</div>
-          </div>
-        ))}
+      {/* Credit Sales & Litres Summary */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-slate-500 font-medium">Credit Sales</div>
+          <div className="text-2xl font-black text-purple-600 mt-1">Rs. {summary.creditSales.toLocaleString()}</div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-slate-500 font-medium">Total Litres Sold</div>
+          <div className="text-2xl font-black text-cyan-600 mt-1">{summary.totalLitres.toLocaleString()} L</div>
+        </div>
       </div>
 
       {/* Today's Expenses Breakdown */}
@@ -128,9 +117,9 @@ export default function AccountantDashboard() {
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
           <Receipt size={16} className="text-red-500"/>
           <h3 className="font-semibold text-slate-800 text-sm">Today's Expenses Breakdown</h3>
-          <span className="ml-auto text-xs text-slate-500">{summary.expenseCount} entries — Rs. {summary.totalExpenses.toLocaleString()}</span>
+          <span className="ml-auto text-xs text-slate-500">{expenses.length} entries — Rs. {summary.totalExpenses.toLocaleString()}</span>
         </div>
-        {summary.expenseList.length === 0 ? (
+        {expenses.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-sm">
             <AlertCircle size={24} className="mx-auto mb-2 opacity-40"/>
             No expenses logged today
@@ -146,7 +135,7 @@ export default function AccountantDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {summary.expenseList.map(e => (
+              {expenses.map(e => (
                 <tr key={e.id} className="hover:bg-slate-50">
                   <td className="px-4 py-2 font-medium text-slate-700">{e.category}</td>
                   <td className="px-4 py-2 text-slate-500 text-xs">{e.remarks || '—'}</td>

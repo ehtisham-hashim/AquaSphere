@@ -163,9 +163,20 @@ export const createPurchase = asyncHandler(async (req, res) => {
         }
       });
 
+      // Update both cachedQty and location-specific stock based on deliveredTo
+      const updateData = {
+        cachedQty: { increment: vItem.quantity }
+      };
+      
+      if (destination === 'FACTORY') {
+        updateData.factoryQty = { increment: vItem.quantity };
+      } else if (destination === 'WAREHOUSE') {
+        updateData.warehouseQty = { increment: vItem.quantity };
+      }
+
       await tx[`${prefix}Item`].update({
         where: { id: vItem.itemId },
-        data: { cachedQty: { increment: vItem.quantity } }
+        data: updateData
       });
 
       const itemInfo = await tx[`${prefix}Item`].findUnique({ where: { id: vItem.itemId } });

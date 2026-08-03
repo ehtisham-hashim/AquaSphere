@@ -81,13 +81,17 @@ export const getSpotSales = asyncHandler(async (req, res) => {
             }
           });
 
+          const updateData = { cachedQty: { decrement: qtyToDeduct } };
+          if (factoryDeduct > 0) {
+            updateData.factoryQty = { decrement: factoryDeduct };
+          }
+          if (warehouseDeduct > 0) {
+            updateData.warehouseQty = { decrement: warehouseDeduct };
+          }
+
           await prisma[`${prefix}Item`].update({
             where: { id: fgItem.id },
-            data: { 
-              cachedQty: { decrement: qtyToDeduct },
-              factoryQty: { decrement: factoryDeduct },
-              warehouseQty: { decrement: warehouseDeduct }
-            }
+            data: updateData
           });
         }
       }
