@@ -215,7 +215,7 @@ export default function OrdersTable({
                     {o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                       <button
                         onClick={() => onProcess(o)}
-                        className="bg-slate-900 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                        className="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
                       >
                         <Truck size={12} /> Process
                       </button>

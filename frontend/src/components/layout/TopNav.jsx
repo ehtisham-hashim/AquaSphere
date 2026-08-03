@@ -192,7 +192,7 @@ export default function TopNav({ onMenuClick }) {
           {/* Alerts Drawer */}
           {showAlertsMenu && (
             <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="bg-slate-900 text-white p-3.5 flex justify-between items-center">
+              <div className="bg-slate-100 text-slate-800 p-3.5 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <Bell size={16} className="text-amber-400" />
                   <h3 className="font-bold text-sm">System & Activity Alerts</h3>

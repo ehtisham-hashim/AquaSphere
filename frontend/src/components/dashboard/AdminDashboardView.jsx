@@ -69,22 +69,22 @@ export default function AdminDashboardView() {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto pb-10">
       {/* Top Banner & Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-2xl shadow-xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-500/20 text-blue-400 border border-blue-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200">
               {companyTitle.toUpperCase()} • SUPERVISOR VIEW
             </span>
             <span className="text-xs text-slate-400 font-medium">Read-Only Operations Control</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight mt-1">Admin Operations Control</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <h1 className="text-2xl font-black tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
             Monitor daily stock levels, production output, delivery status, cash collections, and customer credit alerts.
           </p>
         </div>
 
-        <Link to="/daily-close" className="flex items-center gap-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-3 rounded-xl border border-slate-700 text-xs font-bold transition-all shadow-sm">
-          <Lock className="w-4 h-4 text-emerald-400" />
+        <Link to="/daily-close" className="flex items-center gap-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold transition-all shadow-sm">
+          <Lock className="w-4 h-4 text-emerald-500" />
           <span>Go to Daily Close Page &rarr;</span>
         </Link>
       </div>

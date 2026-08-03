@@ -88,9 +88,9 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden relative">
         {/* Header */}
-        <div className="bg-slate-900 px-5 py-4 flex items-center justify-between">
+        <div className="bg-white border-b border-slate-200 px-5 py-4 flex justify-between items-center">
           <div>
-            <div className="text-white font-bold text-sm">New Order — {customer.name}</div>
+            <div className="text-slate-800 font-bold text-sm">New Order — {customer.name}</div>
             <div className="text-slate-400 text-xs mt-0.5">
 
               {parseFloat(customer.creditLimit) > 0 && <span className="text-slate-500"> / limit Rs. {customer.creditLimit}</span>}
@@ -181,7 +181,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
                   <input type="date" className={INPUT} value={delivery} onChange={e => setDelivery(e.target.value)}/>
                 </div>
                 <div className="flex flex-col justify-end">
-                  <div className="bg-slate-900 text-white rounded-xl p-3 text-center">
+                  <div className="bg-slate-100 text-slate-800 rounded-xl p-3 text-center">
                     <div className="text-[10px] text-slate-400 uppercase tracking-wide">Total</div>
                     <div className="text-xl font-bold">Rs. {total.toFixed(0)}</div>
                   </div>
@@ -199,7 +199,7 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
                   Cancel
                 </button>
                 <button onClick={() => submitOrder(false)} disabled={submitting || !buildItems()}
-                  className="flex-1 py-3 bg-slate-900 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
                   {submitting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/> Placing...</>
                     : <><CheckCircle size={16}/> Place Order <span className="text-slate-400 text-xs">Ctrl+↵</span></>}
                 </button>

@@ -123,7 +123,7 @@ export default function ProductionDashboardView() {
           </Link>
           <Link
             to="/daily-close"
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-[0.98]"
+            className="px-4 py-2.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 active:scale-[0.98]"
           >
             <Lock size={16} /> Daily Close
           </Link>

@@ -12,31 +12,31 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   return (
     <div className="space-y-8 p-2 max-w-[98%] mx-auto pb-10">
       {/* ── Top Executive Banner ───────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white p-6 rounded-2xl shadow-xl border border-slate-700/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center gap-1.5">
-              <Sparkles size={12} className="text-indigo-400" />
+            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1.5">
+              <Sparkles size={12} className="text-indigo-500" />
               {companyTitle} • EXECUTIVE CONTROL
             </span>
-            <span className="text-xs text-slate-400 font-medium">Full Financial & Operations Oversight</span>
+            <span className="text-xs text-slate-500 font-medium">Full Financial & Operations Oversight</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black mt-2 tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-black mt-2 tracking-tight text-slate-900 flex items-center gap-2">
             Executive Owner Dashboard
           </h1>
-          <p className="text-sm text-slate-300 mt-1 max-w-2xl">
+          <p className="text-sm text-slate-500 mt-1 max-w-2xl">
             Live database overview of sales revenue, cash inflow, operating expenses, procurement costs, and inventory health.
           </p>
         </div>
 
         {/* Primary High-Level Metric Badge */}
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex items-center gap-4 min-w-[240px]">
-          <div className={`p-3 rounded-xl ${netCash >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+        <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center gap-4 min-w-[240px]">
+          <div className={`p-3 rounded-xl ${netCash >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
             <Wallet size={28} />
           </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">Today&apos;s Net Cash Position</span>
-            <div className={`text-2xl font-black font-mono ${netCash >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Today&apos;s Net Cash Position</span>
+            <div className={`text-2xl font-black font-mono ${netCash >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               Rs. {netCash.toLocaleString()}
             </div>
             <span className="text-[10px] text-slate-400 block font-medium">Cash Collected - Operating Expenses</span>
