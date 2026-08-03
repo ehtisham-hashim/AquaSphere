@@ -5,9 +5,10 @@ let cachedDashboardData = { aquasphere: null, wadaana: null };
 let sseClients = { aquasphere: [], wadaana: [] };
 
 const getTenantPrefix = (req) => {
+  const queryVal = req.query?.tenant || req.query?.company;
   const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'];
-  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
+  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
+  const tenant = (queryVal || cookieVal || headerVal || req.tenant || 'aquasphere').toLowerCase();
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
@@ -21,7 +22,6 @@ const computeDashboardAnalytics = async (prefix) => {
     todaysSalesOrders,
     todaysPayments,
     todaysExpenses,
-    marketCredit,
     todaysPurchasesAgg,
     monthlyPurchasesAgg,
     pendingPayables,
@@ -30,8 +30,7 @@ const computeDashboardAnalytics = async (prefix) => {
   ] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: {
-        createdAt: { gte: startOfDay, lte: endOfDay },
-        deliveryStatus: 'DELIVERED'
+        createdAt: { gte: startOfDay, lte: endOfDay }
       },
       include: { items: true }
     }),
@@ -43,7 +42,6 @@ const computeDashboardAnalytics = async (prefix) => {
       _sum: { amount: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     }),
-    { _sum: { deposit: 0 } },
     prisma[`${prefix}Purchase`].aggregate({
       _sum: { grandTotal: true },
       _count: { id: true },
@@ -61,30 +59,24 @@ const computeDashboardAnalytics = async (prefix) => {
       where: { type: 'RAW_MATERIAL', archivedAt: null }
     }),
     prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true, litresSold: true },
+      _sum: { cashCollected: true, litresSold: true, creditAmount: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     })
   ]);
 
   const todaysSalesAmount = todaysSalesOrders.reduce((acc, order) => {
-    return acc + order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    return acc + order.items.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
   }, 0);
 
   const spotSalesCash = parseFloat(spotSales._sum.cashCollected || 0);
-
-  // Calculate total credit sales for the day
-  const creditSalesAgg = await prisma[`${prefix}SpotSale`].aggregate({
-    _sum: { creditAmount: true },
-    where: { createdAt: { gte: startOfDay, lte: endOfDay } }
-  });
-  const creditSalesTotal = parseFloat(creditSalesAgg._sum.creditAmount || 0);
+  const creditSalesTotal = parseFloat(spotSales._sum.creditAmount || 0);
 
   const purchaseTotal = pendingPayables.find(e => e.type === 'PURCHASE')?._sum?.amount || 0;
   const paymentTotal = pendingPayables.find(e => e.type === 'PAYMENT')?._sum?.amount || 0;
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
 
   const lowStockMaterials = rawMaterials.filter(
-    item => parseFloat(item.cachedQty) < parseFloat(item.reorderLevel)
+    item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0)
   );
 
   return {
@@ -102,8 +94,8 @@ const computeDashboardAnalytics = async (prefix) => {
     lowStockMaterialsList: lowStockMaterials.map(m => ({
       id: m.id,
       name: m.name,
-      cachedQty: parseFloat(m.cachedQty),
-      reorderLevel: parseFloat(m.reorderLevel),
+      cachedQty: parseFloat(m.cachedQty || 0),
+      reorderLevel: parseFloat(m.reorderLevel || 0),
       unit: m.unit
     }))
   };

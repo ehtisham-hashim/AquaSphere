@@ -27,7 +27,7 @@ export default function ProductionDashboardView() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/analytics/production-dashboard`, {
+      const res = await fetch(`${API}/analytics/production-dashboard?tenant=${tenant}`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });

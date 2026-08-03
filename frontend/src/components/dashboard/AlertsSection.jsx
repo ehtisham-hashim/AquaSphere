@@ -19,8 +19,8 @@ export default function AlertsSection() {
     setError(false);
     try {
       const [mmRes, custRes] = await Promise.all([
-        fetch(`${API_URL}/analytics/mm-alerts`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API_URL}/admin/customer-alerts`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+        fetch(`${API_URL}/analytics/mm-alerts?tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API_URL}/admin/customer-alerts?tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
 
       const mmJson = await mmRes.json();

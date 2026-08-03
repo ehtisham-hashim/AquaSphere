@@ -3,7 +3,13 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 
-const getPrefix = (req) => (req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = (req) => {
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
+  const queryVal = req.query?.tenant || req.query?.company;
+  const tenant = (req.tenant || queryVal || cookieVal || headerVal || 'aquasphere').toString().toLowerCase();
+  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
+};
 
 /**
  * Feature 2: Admin View-Only Dashboard

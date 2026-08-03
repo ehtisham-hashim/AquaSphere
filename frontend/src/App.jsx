@@ -34,9 +34,6 @@ function PublicRoute({ children }) {
 }
 
 function DashboardRoleWrapper() {
-  const { user } = useAuth();
-  if (user?.role === 'ADMIN') return <AdminDashboard />;
-  if (user?.role === 'ACCOUNTANT') return <AccountantDashboard />;
   return <Dashboard />;
 }
 

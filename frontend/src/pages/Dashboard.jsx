@@ -1,6 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
+import { getCompanyFromCookie } from '../utils/companyCookie';
 import {
   OwnerDashboardView,
   AccountantDashboardView,
@@ -11,6 +12,7 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const tenant = getCompanyFromCookie();
   const [data, setData] = useState({
     sales: 0,
     cash: 0,
@@ -27,17 +29,42 @@ export default function Dashboard() {
 
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
-  // Real-time Dashboard SSE Stream
+  // 1. Initial REST Dashboard Fetch (Immediate Data Load)
   useEffect(() => {
-    const sse = new EventSource(`${API_URL}/analytics/dashboard/stream`, {
+    let isMounted = true;
+    const fetchDashboard = async () => {
+      setDashboardLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/analytics/dashboard?tenant=${tenant}`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (isMounted && json.success && json.data) {
+          setData(json.data);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard REST analytics:', err);
+      } finally {
+        if (isMounted) setDashboardLoading(false);
+      }
+    };
+
+    fetchDashboard();
+
+    // 2. Real-time Dashboard SSE Stream with tenant query param
+    const sse = new EventSource(`${API_URL}/analytics/dashboard/stream?tenant=${tenant}`, {
       withCredentials: true
     });
 
     sse.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data);
-        if (parsed.success) setData(parsed.data);
+        if (parsed.success && parsed.data && isMounted) {
+          setData(parsed.data);
+        }
       } catch (err) {
         console.error('Failed to parse SSE data', err);
       }
@@ -47,25 +74,34 @@ export default function Dashboard() {
       console.error('SSE Error:', err);
     };
 
-    return () => sse.close();
-  }, []);
+    return () => {
+      isMounted = false;
+      sse.close();
+    };
+  }, [tenant]);
 
   // Purchasing & Vendor Summary Data
   useEffect(() => {
+    let isMounted = true;
     const fetchSummary = async () => {
       setSummaryLoading(true);
       try {
-        const res = await fetch(`${API_URL}/analytics/purchasing-summary`, { credentials: 'include' });
+        const res = await fetch(`${API_URL}/analytics/purchasing-summary?tenant=${tenant}`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
         const json = await res.json();
-        if (json.success) setSummary(json.data);
+        if (isMounted && json.success) setSummary(json.data);
       } catch (err) {
         console.error('Error fetching purchasing summary:', err);
       } finally {
-        setSummaryLoading(false);
+        if (isMounted) setSummaryLoading(false);
       }
     };
     fetchSummary();
-  }, []);
+
+    return () => { isMounted = false; };
+  }, [tenant]);
 
   const role = user?.role;
 
@@ -74,13 +110,13 @@ export default function Dashboard() {
     case 'PRODUCTION_MANAGER':
       return <ProductionDashboardView />;
     case 'ACCOUNTANT':
-      return <AccountantDashboardView data={data} summary={summary} summaryLoading={summaryLoading} />;
+      return <AccountantDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;
     case 'ADMIN':
-      return <AdminDashboardView data={data} summary={summary} summaryLoading={summaryLoading} />;
+      return <AdminDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;
     case 'MARKETING_MANAGER':
-      return <MarketingDashboardView data={data} />;
+      return <MarketingDashboardView data={data} loading={dashboardLoading} />;
     case 'OWNER':
     default:
-      return <OwnerDashboardView data={data} summary={summary} summaryLoading={summaryLoading} />;
+      return <OwnerDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;
   }
 }
