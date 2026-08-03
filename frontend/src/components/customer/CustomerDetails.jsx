@@ -223,15 +223,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
               <p className="text-slate-500 text-xs">Complete financial, credit, and product profiles</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsEditOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 ${
-                  isWadaana ? 'bg-sky-50 text-[#0ea5e9] hover:bg-sky-100 border-sky-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'
-                } border rounded-xl font-medium text-sm transition-colors shadow-sm`}
-              >
-                <Edit3 size={16} />
-                <span>Edit Customer</span>
-              </button>
+              {['OWNER', 'MARKETING_MANAGER'].includes(user?.role) && (
+                <button
+                  onClick={() => setIsEditOpen(true)}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 ${
+                    isWadaana ? 'bg-sky-50 text-[#0ea5e9] hover:bg-sky-100 border-sky-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'
+                  } border rounded-xl font-medium text-sm transition-colors shadow-sm`}
+                >
+                  <Edit3 size={16} />
+                  <span>Edit Customer</span>
+                </button>
+              )}
               {['OWNER', 'MARKETING_MANAGER'].includes(user?.role) && (
                 <button
                   onClick={handleDelete}

@@ -76,57 +76,8 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-0.5">Total Finished Stock</span>
               <span className="text-3xl font-bold text-slate-900">{totalUnits.toLocaleString()} <span className="text-sm font-normal text-slate-500">Units</span></span>
             </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-0.5">Warehouse Capacity</span>
-              <div className="flex items-center gap-3">
-                <span className="text-xl font-bold text-slate-900">{capacityPercent}%</span>
-                <div className="w-24 h-1.5 bg-slate-200 overflow-hidden rounded-full">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${capacityPercent}%` }}></div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
-
-        {/* 19L Reusable PC Bottle Custody Asset Card (AquaSphere) */}
-        {bottleSummary && (
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-xl border border-slate-700 space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block mb-1">19L Reusable Bottle Asset Custody</span>
-                <div className="text-3xl font-black text-white tracking-tight">
-                  {Number(bottleSummary.totalOwned || 0).toLocaleString()} <span className="text-xs font-semibold text-slate-400">Total Owned Bottles</span>
-                </div>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${bottleSummary.equationReconciled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}`}>
-                {bottleSummary.equationReconciled ? '✓ Reconciled' : '⚠️ Discrepancy'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-700/60 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">At Factory</span>
-                <span className="text-sm font-extrabold text-slate-200">{Number(bottleSummary.atFactory || 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">At Warehouse</span>
-                <span className="text-sm font-extrabold text-sky-400">{Number(bottleSummary.atWarehouse || 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">With Customers</span>
-                <span className="text-sm font-extrabold text-amber-400">{Number(bottleSummary.withCustomers || 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Broken</span>
-                <span className="text-sm font-extrabold text-orange-400">{Number(bottleSummary.broken || 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Lost</span>
-                <span className="text-sm font-extrabold text-rose-400">{Number(bottleSummary.lost || 0).toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 3 Finished Goods Cards with Location Breakdown (Factory vs Warehouse) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -156,10 +107,10 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
                 </div>
                 <div className="text-base font-bold text-slate-800">{Math.floor(data05.factory).toLocaleString()}</div>
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
                   <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse (Available for Sale)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
                 </div>
                 <div className="text-base font-bold text-slate-900">{Math.floor(data05.warehouse).toLocaleString()}</div>
               </div>
@@ -192,10 +143,10 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
                 </div>
                 <div className="text-base font-bold text-slate-800">{Math.floor(data15.factory).toLocaleString()}</div>
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
                   <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse (Available for Sale)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
                 </div>
                 <div className="text-base font-bold text-slate-900">{Math.floor(data15.warehouse).toLocaleString()}</div>
               </div>
@@ -228,8 +179,8 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
                 </div>
                 <div className="text-base font-bold text-slate-800">{Math.round(data19.factory).toLocaleString()}</div>
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
                   <Warehouse size={13} className="text-[#0ea5e9]" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
                 </div>

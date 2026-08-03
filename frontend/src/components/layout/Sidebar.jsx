@@ -18,14 +18,12 @@ import {
   Building2,
   X,
   ShieldCheck,
-  Boxes,
-  ClipboardList
+  Boxes
 } from 'lucide-react';
 
 const navItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Truck, label: 'Orders', path: '/orders' },
-  { icon: ClipboardList, label: 'My Orders', path: '/mm-orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },
   { icon: Boxes, label: 'Finished Goods', path: '/inventory' },

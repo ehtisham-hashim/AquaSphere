@@ -12,7 +12,6 @@ import RawMaterials from './pages/RawMaterials';
 import Production from './pages/Production';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
-import MMOrders from './pages/MMOrders';
 import Expenses from './pages/Expenses';
 import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
@@ -54,7 +53,6 @@ function AppRoutes() {
         <Route path="production" element={<Production />} />
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />
-        <Route path="mm-orders" element={<MMOrders />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />

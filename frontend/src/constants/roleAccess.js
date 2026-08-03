@@ -21,7 +21,6 @@ export const ROLES = {
 export const SIDEBAR_ROUTES = {
   DASHBOARD: '/',
   ORDERS: '/orders',
-  MM_ORDERS: '/mm-orders',
   CUSTOMERS: '/customers',
   PRODUCTION: '/production',
   RAW_MATERIALS: '/raw-materials',
@@ -43,7 +42,6 @@ export const ROLE_ACCESS = {
     [ROLES.OWNER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
@@ -58,7 +56,6 @@ export const ROLE_ACCESS = {
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
@@ -73,7 +70,6 @@ export const ROLE_ACCESS = {
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: false,
-      [SIDEBAR_ROUTES.MM_ORDERS]: false,
       [SIDEBAR_ROUTES.CUSTOMERS]: false,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
@@ -88,7 +84,6 @@ export const ROLE_ACCESS = {
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: false,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
@@ -102,8 +97,7 @@ export const ROLE_ACCESS = {
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
-      [SIDEBAR_ROUTES.ORDERS]: false,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
+      [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
@@ -120,7 +114,6 @@ export const ROLE_ACCESS = {
     [ROLES.OWNER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
@@ -135,7 +128,6 @@ export const ROLE_ACCESS = {
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
@@ -150,7 +142,6 @@ export const ROLE_ACCESS = {
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: false,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
@@ -165,7 +156,6 @@ export const ROLE_ACCESS = {
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
       [SIDEBAR_ROUTES.ORDERS]: true,
-      [SIDEBAR_ROUTES.MM_ORDERS]: false,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.INVENTORY]: true,
@@ -179,8 +169,7 @@ export const ROLE_ACCESS = {
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
-      [SIDEBAR_ROUTES.ORDERS]: false,
-      [SIDEBAR_ROUTES.MM_ORDERS]: true,
+      [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
