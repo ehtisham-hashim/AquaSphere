@@ -28,23 +28,33 @@ export const closeDay = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Day is already finalized by Admin');
   }
 
-  if (existing && !existing.pmConfirmed && req.user.role !== 'OWNER') {
-    throw new ApiError(400, 'Cannot finalize: Production Manager has not confirmed production yet.');
+  const updateFields = {
+    adminConfirmed: true,
+    closedAt: new Date(),
+    closedById: req.user.id
+  };
+  if (!existing?.pmConfirmed) {
+    updateFields.pmConfirmed = true;
+    updateFields.pmConfirmedAt = new Date();
+    updateFields.pmConfirmedById = req.user.id;
   }
-
-  if (existing && !existing.mmConfirmed && req.user.role !== 'OWNER') {
-    throw new ApiError(400, 'Cannot finalize: Marketing Manager has not confirmed sales & customer bottles yet.');
+  if (!existing?.mmConfirmed) {
+    updateFields.mmConfirmed = true;
+    updateFields.mmConfirmedAt = new Date();
+    updateFields.mmConfirmedById = req.user.id;
   }
 
   const closedDay = await dailyCloseModel.upsert({
     where: { date: targetDate },
-    update: {
-      adminConfirmed: true,
-      closedAt: new Date(),
-      closedById: req.user.id
-    },
+    update: updateFields,
     create: {
       date: targetDate,
+      pmConfirmed: true,
+      pmConfirmedAt: new Date(),
+      pmConfirmedById: req.user.id,
+      mmConfirmed: true,
+      mmConfirmedAt: new Date(),
+      mmConfirmedById: req.user.id,
       adminConfirmed: true,
       closedById: req.user.id
     }
@@ -175,17 +185,21 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
 
   const totalCustomerBottles = (customerBottleStats._sum.cachedBottleBalance || 0) || (customerBottleStats._sum.qty19L || 0);
 
+  const adminConfirmed = existing?.adminConfirmed || false;
+  const pmConfirmed = adminConfirmed || existing?.pmConfirmed || false;
+  const mmConfirmed = adminConfirmed || existing?.mmConfirmed || false;
+
   res.status(200).json(new ApiResponse(200, {
-    isClosed: existing?.adminConfirmed || false,
-    pmConfirmed: existing?.pmConfirmed || false,
-    mmConfirmed: existing?.mmConfirmed || false,
-    adminConfirmed: existing?.adminConfirmed || false,
+    isClosed: adminConfirmed,
+    pmConfirmed,
+    mmConfirmed,
+    adminConfirmed,
     closedAt: existing?.closedAt || null,
     pmConfirmedAt: existing?.pmConfirmedAt || null,
     mmConfirmedAt: existing?.mmConfirmedAt || null,
     closedBy: existing?.closedBy || null,
-    pmConfirmedBy: existing?.pmConfirmedBy || null,
-    mmConfirmedBy: existing?.mmConfirmedBy || null,
+    pmConfirmedBy: existing?.pmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
+    mmConfirmedBy: existing?.mmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
     pendingBatchesCount,
     negativeStockCount,
     materialConsumption,

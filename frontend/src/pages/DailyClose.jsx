@@ -1,37 +1,9 @@
 import { useAuth } from '../context/AuthContext';
-import DailyCloseIndex from '../components/dailyClose/index';
+import OwnerClose from '../components/dailyClose/OwnerClose';
+import AdminClose from '../components/dailyClose/AdminClose';
 import ProductionClose from '../components/dailyClose/ProductionClose';
 import AccountantClose from '../components/dailyClose/AccountantClose';
 import MarketingClose from '../components/dailyClose/MarketingClose';
-
-/**
- * Extracts role from document.cookie JWT token if present,
- * or returns role from authenticated AuthContext user.
- */
-function getRoleFromCookieOrUser(user) {
-  if (user?.role) return user.role;
-
-  if (typeof document !== 'undefined') {
-    const cookies = document.cookie.split(';');
-    for (let c of cookies) {
-      const trimmed = c.trim();
-      if (trimmed.startsWith('token=') || trimmed.startsWith('jwt=') || trimmed.startsWith('authToken=')) {
-        const tokenVal = trimmed.split('=')[1];
-        try {
-          const payload = tokenVal.split('.')[1];
-          if (payload) {
-            const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-            if (decoded?.role) return decoded.role;
-          }
-        } catch (e) {
-          // ignore decode error
-        }
-      }
-    }
-  }
-
-  return null;
-}
 
 export default function DailyClosePage() {
   const { user, loading } = useAuth();
@@ -44,26 +16,25 @@ export default function DailyClosePage() {
     );
   }
 
-  const role = getRoleFromCookieOrUser(user);
+  const role = user?.role;
 
-  const isOwnerOrAdmin = role === 'OWNER' || role === 'ADMIN';
-  const isPM = role === 'PRODUCTION_MANAGER';
-  const isAccountant = role === 'ACCOUNTANT';
-  const isMM = role === 'MARKETING_MANAGER';
-
-  if (isOwnerOrAdmin) {
-    return <DailyCloseIndex />;
+  if (role === 'OWNER') {
+    return <OwnerClose />;
   }
 
-  if (isPM) {
+  if (role === 'ADMIN') {
+    return <AdminClose />;
+  }
+
+  if (role === 'PRODUCTION_MANAGER') {
     return <ProductionClose />;
   }
 
-  if (isAccountant) {
+  if (role === 'ACCOUNTANT') {
     return <AccountantClose />;
   }
 
-  if (isMM) {
+  if (role === 'MARKETING_MANAGER') {
     return <MarketingClose />;
   }
 

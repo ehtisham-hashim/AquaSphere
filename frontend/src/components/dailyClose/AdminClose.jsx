@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock } from 'lucide-react';
+import { ShieldCheck, Lock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
-import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay, reopenDay } from '../../services/dailyCloseService';
+import { finalizeDay, fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
 import VerificationChecklist from './VerificationChecklist';
 
-const OWNER_CHECKLIST = [
-  { key: 'departmentsVerified', label: 'All department totals and records verified.' },
-  { key: 'financialsVerified', label: 'Cash, expenses, and bank deposits reconciled.' },
+const ADMIN_CHECKLIST = [
+  { key: 'departmentsVerified', label: 'Department production totals and sales orders verified.' },
+  { key: 'financialsVerified', label: 'Cash register collections and financial expenses verified.' },
 ];
 
-export default function OwnerClose() {
+export default function AdminClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
   const [submitting, setSubmitting] = useState(false);
-  const [reopenReason, setReopenReason] = useState('');
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -44,124 +43,90 @@ export default function OwnerClose() {
     try {
       const json = await finalizeDay(date, tenant);
       if (json.success) {
-        toast.success('Day finalized and locked.');
+        toast.success('Day finalized, verified, and locked.');
         refreshStatus(false);
         fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else { toast.error(json.message || 'Failed to lock day'); }
+      } else {
+        toast.error(json.message || 'Failed to lock day');
+      }
     } catch { toast.error('Error locking day'); }
-    finally { setSubmitting(false); }
-  };
-
-  const handleReopen = async () => {
-    if (!reopenReason.trim()) { toast.error('Reason required'); return; }
-    setSubmitting(true);
-    try {
-      const json = await reopenDay(date, reopenReason, tenant);
-      if (json.success) {
-        toast.success('Day reopened successfully');
-        setReopenReason('');
-        refreshStatus(false);
-        fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else { toast.error(json.message || 'Failed to reopen'); }
-    } catch { toast.error('Error reopening day'); }
     finally { setSubmitting(false); }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 text-amber-600 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
 
+  const p = status?.productionTotals || {};
+  const m = status?.marketingTotals || {};
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto p-6">
       <DailyCloseHeader
-        label="OWNER OVERVIEW"
-        labelColor="amber"
-        icon={Crown}
-        title="Owner Daily Close"
-        description="Full oversight — verify, finalize, or reopen any day."
+        label="ADMIN VERIFICATION"
+        labelColor="indigo"
+        icon={ShieldCheck}
+        title="Admin Daily Close"
+        description="Audit departments and finalize the day. Admin lock auto-confirms PM & MM."
         date={date}
         onDateChange={setDate}
       />
 
-      {/* Status + Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Department Status + Financials */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-bold text-slate-800">Day Status</h3>
-          <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
-          <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
-          <StatusCard label="Admin Lock" confirmed={isClosed} confirmedBy={status?.closedBy?.name} />
+      {isClosed ? (
+        <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Department Status + Stats */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <h3 className="text-lg font-bold text-slate-800">Department Status</h3>
+            <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
+            <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
 
-          {cashSummary && (
-            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-2">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-4">
               <div>
-                <span className="text-slate-500 block">Order Cash</span>
-                <strong className="text-blue-900">Rs {cashSummary.orderCash.toLocaleString()}</strong>
+                <span className="text-slate-500 block">19L Produced</span>
+                <strong className="text-blue-900">{p.total19L || 0}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Counter Sales</span>
-                <strong className="text-emerald-800">Rs {cashSummary.counterSales.toLocaleString()}</strong>
+                <span className="text-slate-500 block">Orders</span>
+                <strong className="text-purple-900">{m.ordersCount || 0}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Expenses</span>
-                <strong className="text-rose-700">Rs {cashSummary.totalExpenses.toLocaleString()}</strong>
+                <span className="text-slate-500 block">Orders Worth</span>
+                <strong className="text-emerald-800">Rs {Number(m.ordersTotalWorth || 0).toLocaleString()}</strong>
               </div>
-              <div>
-                <span className="text-slate-500 block">Net Cash</span>
-                <strong className={cashSummary.netCash >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                  Rs {cashSummary.netCash.toLocaleString()}
-                </strong>
-              </div>
+              {cashSummary && (
+                <div>
+                  <span className="text-slate-500 block">Net Cash</span>
+                  <strong className={cashSummary.netCash >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
+                    Rs {cashSummary.netCash.toLocaleString()}
+                  </strong>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Finalize or Reopen */}
-        <div className="space-y-6">
-          {isClosed ? (
-            <>
-              <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 space-y-3">
-                <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                  <Unlock size={14} /> Owner Override: Reopen Day
-                </span>
-                <input
-                  type="text"
-                  placeholder="Reason for reopening..."
-                  value={reopenReason}
-                  onChange={e => setReopenReason(e.target.value)}
-                  className="w-full border border-amber-300 rounded-lg p-2.5 text-xs bg-white outline-none focus:border-amber-500"
-                />
-                <button
-                  onClick={handleReopen}
-                  disabled={submitting || !reopenReason.trim()}
-                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50"
-                >
-                  {submitting ? 'Reopening...' : 'Reopen Day'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <VerificationChecklist
-              key={date}
-              title="Owner Finalize & Lock"
-              subtitle="Lock day — auto-confirms PM/MM if pending"
-              items={OWNER_CHECKLIST}
-              onConfirm={handleFinalize}
-              confirmLabel="Finalize & Lock Daily Close"
-              confirmIcon={Lock}
-              confirmed={false}
-              submitting={submitting}
-            />
-          )}
+          {/* Admin Finalize */}
+          <VerificationChecklist
+            key={date}
+            title="Admin Master Lock"
+            subtitle="Finalize & lock day — auto-confirms PM/MM if pending"
+            items={ADMIN_CHECKLIST}
+            onConfirm={handleFinalize}
+            confirmLabel="Finalize & Lock Daily Close"
+            confirmIcon={Lock}
+            confirmed={false}
+            submitting={submitting}
+          />
         </div>
-      </div>
+      )}
 
-      {/* History */}
+      {/* History Log */}
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <Calendar size={20} /> History ({history.length})

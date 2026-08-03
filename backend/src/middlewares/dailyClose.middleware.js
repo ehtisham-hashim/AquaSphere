@@ -19,6 +19,7 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     else if (url.includes('/purchases')) modelName = `${prefix}Purchase`;
     else if (url.includes('/production')) modelName = `${prefix}ProductionBatch`;
     else if (url.includes('/expenses')) modelName = `${prefix}Expense`;
+    else if (url.includes('/spot-sales')) modelName = `${prefix}SpotSale`;
 
     if (modelName && prisma[modelName]) {
       try {
@@ -37,11 +38,11 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
 
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
   
+  // ponytail: only lock when admin actually finalized, exact date match
   const closedRecord = await dailyCloseModel.findFirst({
     where: {
-      date: {
-        gte: transactionDate
-      }
+      date: transactionDate,
+      adminConfirmed: true
     }
   });
 
