@@ -1,7 +1,6 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
-import { ApiError } from '../utils/ApiError.js';
 
 const getPrefix = (req) => {
   const cookieVal = req.cookies?.tenant || req.cookies?.company;
@@ -73,8 +72,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     }),
     // Today's daily close status
     prisma[`${prefix}DailyClose`].findFirst({
-      where: { date: { gte: startOfDay, lte: endOfDay } },
-      include: { closedBy: { select: { name: true } } }
+      where: { date: { gte: startOfDay, lte: endOfDay } }
     }),
     // Spot sales cash
     prisma[`${prefix}SpotSale`].aggregate({
@@ -91,9 +89,14 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   // Production summary
   let totalGoodYield = 0;
   let totalWaste = 0;
+  let packs05LToday = 0;
+  let packs15LToday = 0;
+  
   todaysProductionBatches.forEach(b => {
     totalGoodYield += b.quantity || 0;
     totalWaste += b.wasteQuantity || 0;
+    packs05LToday += b.packs05L || 0;
+    packs15LToday += b.packs15L || 0;
   });
 
   // Format orders for table (NO financial amounts — just operational status)
@@ -140,10 +143,12 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       productionBatches: todaysProductionBatches.length,
       totalGoodYield,
       totalWaste,
+      packs05LToday,
+      packs15LToday,
       cashCollected: parseFloat(cashCollected._sum.amount || 0) + parseFloat(spotSalesCash._sum.cashCollected || 0),
       lowStockAlerts: lowStockItems.length,
-      isDayClosed: !!todaysDailyClose,
-      dayClosedBy: todaysDailyClose?.closedBy?.name || null
+      isDayClosed: todaysDailyClose?.adminConfirmed || false,
+      dayClosedBy: todaysDailyClose?.closedById || null
     },
     inventory: {
       rawMaterials: rawMaterials.map(m => ({
@@ -203,7 +208,7 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
   // Group payments by method
   const byMethod = {};
   payments.forEach(p => {
-    const method = p.paymentMethod || 'CASH';
+    const method = p.type || 'CASH';
     if (!byMethod[method]) byMethod[method] = 0;
     byMethod[method] += Number(p.amount);
   });
@@ -240,6 +245,7 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       name: true,
       phone: true,
       type: true,
+      currentBalance: true,
       creditLimit: true,
       creditDuration: true,
       lastDeliveryAt: true,
@@ -247,34 +253,32 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       orders: {
         orderBy: { createdAt: 'desc' },
         take: 5,
-        select: { id: true, createdAt: true, deliveryStatus: true, paymentStatus: true, items: { select: { quantity: true, price: true } } }
+        select: {
+          id: true,
+          createdAt: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          items: { select: { quantity: true, price: true } }
+        }
       }
     }
   });
 
-  // Credit breaches (customers with unpaid orders exceeding credit limit or overdue)
+  // Credit breaches — use stored currentBalance directly, not recalculated from recent orders
   const creditBreaches = allCustomers.filter(c => {
     const limit = Number(c.creditLimit || 0);
     if (limit <= 0) return false;
-    const unpaidSum = c.orders
-      .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
-      .reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
-    return unpaidSum >= limit;
-  }).map(c => {
-    const unpaidSum = c.orders
-      .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
-      .reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
-    return {
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      type: c.type,
-      currentBalance: unpaidSum,
-      creditLimit: Number(c.creditLimit || 0),
-      alertType: 'CREDIT_LIMIT_EXCEEDED',
-      recommendation: 'Generate invoice and request immediate payment settlement.'
-    };
-  });
+    return Number(c.currentBalance || 0) >= limit;
+  }).map(c => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    type: c.type,
+    currentBalance: Number(c.currentBalance || 0),
+    creditLimit: Number(c.creditLimit || 0),
+    alertType: 'CREDIT_LIMIT_EXCEEDED',
+    recommendation: 'Generate invoice and request immediate payment settlement.'
+  }));
 
   // Unpaid bills older than 7 days
   const unpaidBillOver7Days = [];

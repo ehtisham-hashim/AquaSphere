@@ -15,7 +15,7 @@ import {
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { API_URL as API } from '../../utils/api';
 
-export default function AdminDashboardView({ data: propData }) {
+export default function AdminDashboardView() {
   const tenant = getCompanyFromCookie();
   const [data, setData] = useState(null);
   const [cashData, setCashData] = useState(null);
@@ -112,8 +112,19 @@ export default function AdminDashboardView({ data: propData }) {
             <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
               {tenant === 'wadaana' ? 'Good Yield Today' : 'Production Output'}
             </p>
-            <h3 className="text-2xl font-black text-slate-900">{kpis.totalGoodYield || 0} units</h3>
-            <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.totalWaste || 0} units waste</p>
+            {tenant === 'wadaana' ? (
+              <>
+                <h3 className="text-2xl font-black text-slate-900">{kpis.totalGoodYield || 0} units</h3>
+                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.totalWaste || 0} units waste</p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-sm font-black text-slate-900">
+                  0.5L: {kpis.packs05LToday || 0} / 1.5L: {kpis.packs15LToday || 0}
+                </h3>
+                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.totalWaste || 0} units waste</p>
+              </>
+            )}
           </div>
         </div>
 
@@ -280,8 +291,10 @@ export default function AdminDashboardView({ data: propData }) {
                       <td className="p-3 font-black text-slate-900">{o.quantity}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
-                          o.deliveryStatus === 'DELIVERED' 
-                            ? 'bg-emerald-100 text-emerald-700' 
+                          o.deliveryStatus === 'DELIVERED'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : o.deliveryStatus === 'CANCELLED'
+                            ? 'bg-slate-100 text-slate-500'
                             : 'bg-amber-100 text-amber-700'
                         }`}>
                           {o.deliveryStatus}
