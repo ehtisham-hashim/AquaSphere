@@ -31,6 +31,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust Render's proxy (required for rate limiting behind reverse proxy)
+app.set('trust proxy', 1);
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -79,7 +82,7 @@ app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/admin', adminDashboardRoutes);
 
 // Health check endpoint for Render
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'AquaSphere API is running', timestamp: new Date().toISOString() });
 });
 
