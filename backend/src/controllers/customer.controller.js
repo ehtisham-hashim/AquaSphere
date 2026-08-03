@@ -140,6 +140,15 @@ export const createCustomer = asyncHandler(async (req, res) => {
     where: { phone, archivedAt: { not: null } }
   });
 
+  // Check if an ACTIVE record with the same phone already exists
+  const activeCustomer = await prisma[`${prefix}Customer`].findFirst({
+    where: { phone, archivedAt: null }
+  });
+
+  if (activeCustomer) {
+    throw new ApiError(400, `A customer with phone number "${phone}" already exists. Each customer must have a unique phone number.`);
+  }
+
   let customer;
   if (archivedCustomer) {
     // Unarchive and overwrite customer record
