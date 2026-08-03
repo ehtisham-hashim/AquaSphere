@@ -31,6 +31,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust Render's proxy (required for rate limiting behind reverse proxy)
+app.set('trust proxy', 1);
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
