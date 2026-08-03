@@ -30,8 +30,8 @@ async function main() {
 
   // Ensure Finished Goods exist
   const fgs = [
-    { name: 'AquaSphere 500ml Pack (12 bottles)', unit: 'packs' },
-    { name: 'AquaSphere 1.5L Pack (6 bottles)', unit: 'packs' }
+    { name: '0.5L PET Pack (12 Bottles)', unit: 'packs' },
+    { name: '1.5L PET Pack (6 Bottles)', unit: 'packs' }
   ];
 
   for (const fg of fgs) {
@@ -65,21 +65,21 @@ async function main() {
   };
 
   // Recipe: 0.5L PET Pack (12 bottles)
-  const fg500 = 'AquaSphere 500ml Pack (12 bottles)';
+  const fg500 = '0.5L PET Pack (12 Bottles)';
   await createRecipe(fg500, 'PET Bottles (500ml)', 12);
   await createRecipe(fg500, 'Small Caps', 12);
   await createRecipe(fg500, 'Labels (500ml)', 12);
-  await createRecipe(fg500, 'Shrink Wrap', 0.05);
+  await createRecipe(fg500, 'Shrink Wrap', 0.02273);  // 1 kg = 44 packs (0.5L / 12 bottles)
   await createRecipe(fg500, 'Sodium', 0.01);
   await createRecipe(fg500, 'Calcium', 0.005);
   await createRecipe(fg500, 'Magnesium', 0.002);
 
   // Recipe: 1.5L PET Pack (6 bottles)
-  const fg1500 = 'AquaSphere 1.5L Pack (6 bottles)';
+  const fg1500 = '1.5L PET Pack (6 Bottles)';
   await createRecipe(fg1500, 'PET Bottles (1.5L)', 6);
   await createRecipe(fg1500, 'Large Caps', 6);
   await createRecipe(fg1500, 'Labels (1.5L)', 6);
-  await createRecipe(fg1500, 'Shrink Wrap', 0.04);
+  await createRecipe(fg1500, 'Shrink Wrap', 0.025);    // 1 kg = 40 packs (1.5L / 6 bottles)
   await createRecipe(fg1500, 'Sodium', 0.012);
   await createRecipe(fg1500, 'Calcium', 0.006);
   await createRecipe(fg1500, 'Magnesium', 0.003);

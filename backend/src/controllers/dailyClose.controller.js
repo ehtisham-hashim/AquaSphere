@@ -28,19 +28,33 @@ export const closeDay = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Day is already finalized by Admin');
   }
 
-  if (existing && !existing.pmConfirmed) {
-    throw new ApiError(400, 'Cannot finalize: Production Manager has not confirmed production yet.');
+  const updateFields = {
+    adminConfirmed: true,
+    closedAt: new Date(),
+    closedById: req.user.id
+  };
+  if (!existing?.pmConfirmed) {
+    updateFields.pmConfirmed = true;
+    updateFields.pmConfirmedAt = new Date();
+    updateFields.pmConfirmedById = req.user.id;
+  }
+  if (!existing?.mmConfirmed) {
+    updateFields.mmConfirmed = true;
+    updateFields.mmConfirmedAt = new Date();
+    updateFields.mmConfirmedById = req.user.id;
   }
 
   const closedDay = await dailyCloseModel.upsert({
     where: { date: targetDate },
-    update: {
-      adminConfirmed: true,
-      closedAt: new Date(),
-      closedById: req.user.id
-    },
+    update: updateFields,
     create: {
       date: targetDate,
+      pmConfirmed: true,
+      pmConfirmedAt: new Date(),
+      pmConfirmedById: req.user.id,
+      mmConfirmed: true,
+      mmConfirmedAt: new Date(),
+      mmConfirmedById: req.user.id,
       adminConfirmed: true,
       closedById: req.user.id
     }
@@ -72,7 +86,8 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     where: { date: targetDate },
     include: { 
       closedBy: { select: { id: true, name: true } },
-      pmConfirmedBy: { select: { id: true, name: true } }
+      pmConfirmedBy: { select: { id: true, name: true } },
+      mmConfirmedBy: { select: { id: true, name: true } }
     }
   });
 
@@ -80,34 +95,114 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   nextDate.setDate(nextDate.getDate() + 1);
 
   const prodBatchModel = prisma[`${prefix}ProductionBatch`];
-  const prodStats = await prodBatchModel.aggregate({
+  const orderModel = prisma[`${prefix}Order`];
+  const customerModel = prisma[`${prefix}Customer`];
+
+  const itemModel = prisma[`${prefix}Item`];
+
+  const [prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount] = await Promise.all([
+    prodBatchModel.aggregate({
+      where: {
+        batchDate: {
+          gte: targetDate,
+          lt: nextDate
+        }
+      },
+      _sum: {
+        quantity: true,
+        packs05L: true,
+        packs15L: true,
+        brokenBottles05L: true,
+        brokenBottles15L: true,
+        wasteQuantity: true
+      },
+      _count: {
+        id: true
+      }
+    }),
+    orderModel.findMany({
+      where: {
+        createdAt: {
+          gte: targetDate,
+          lt: nextDate
+        }
+      },
+      include: {
+        items: true
+      }
+    }),
+    customerModel.aggregate({
+      where: {
+        archivedAt: null
+      },
+      _sum: prefix === 'wadaana' 
+        ? { cachedBottleBalance: true } 
+        : { cachedBottleBalance: true, qty19L: true }
+    }),
+    prodBatchModel.count({
+      where: {
+        batchDate: { gte: targetDate, lt: nextDate },
+        status: 'PENDING'
+      }
+    }),
+    itemModel.count({
+      where: {
+        archivedAt: null,
+        cachedQty: { lt: 0 }
+      }
+    })
+  ]);
+
+  const batchConsumptionModel = prisma[`${prefix}ProductionBatchConsumption`];
+  const consumptions = await batchConsumptionModel.findMany({
     where: {
-      batchDate: {
-        gte: targetDate,
-        lt: nextDate
+      batch: {
+        batchDate: { gte: targetDate, lt: nextDate }
       }
     },
-    _sum: {
-      quantity: true,
-      packs05L: true,
-      packs15L: true,
-      brokenBottles05L: true,
-      brokenBottles15L: true,
-      wasteQuantity: true
-    },
-    _count: {
-      id: true
-    }
+    include: { item: true }
   });
 
+  const materialConsumptionMap = {};
+  for (const c of consumptions) {
+    const itemName = c.item?.name || 'Raw Material';
+    const unit = c.item?.unit || 'units';
+    if (!materialConsumptionMap[itemName]) {
+      materialConsumptionMap[itemName] = { name: itemName, quantity: 0, unit };
+    }
+    materialConsumptionMap[itemName].quantity += Number(c.quantity) || 0;
+  }
+  const materialConsumption = Object.values(materialConsumptionMap);
+
+  let ordersTotalWorth = 0;
+  for (const ord of orderStats) {
+    for (const item of ord.items || []) {
+      const q = Number(item.quantity) || 0;
+      const p = Number(item.price || item.unitPrice) || 0;
+      ordersTotalWorth += q * p;
+    }
+  }
+
+  const totalCustomerBottles = (customerBottleStats._sum.cachedBottleBalance || 0) || (customerBottleStats._sum.qty19L || 0);
+
+  const adminConfirmed = existing?.adminConfirmed || false;
+  const pmConfirmed = adminConfirmed || existing?.pmConfirmed || false;
+  const mmConfirmed = adminConfirmed || existing?.mmConfirmed || false;
+
   res.status(200).json(new ApiResponse(200, {
-    isClosed: existing?.adminConfirmed || false,
-    pmConfirmed: existing?.pmConfirmed || false,
-    adminConfirmed: existing?.adminConfirmed || false,
+    isClosed: adminConfirmed,
+    pmConfirmed,
+    mmConfirmed,
+    adminConfirmed,
     closedAt: existing?.closedAt || null,
     pmConfirmedAt: existing?.pmConfirmedAt || null,
+    mmConfirmedAt: existing?.mmConfirmedAt || null,
     closedBy: existing?.closedBy || null,
-    pmConfirmedBy: existing?.pmConfirmedBy || null,
+    pmConfirmedBy: existing?.pmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
+    mmConfirmedBy: existing?.mmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
+    pendingBatchesCount,
+    negativeStockCount,
+    materialConsumption,
     productionTotals: {
       batchesCount: prodStats._count.id || 0,
       total19L: prodStats._sum.quantity || 0,
@@ -116,6 +211,11 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
       waste19L: prodStats._sum.wasteQuantity || 0,
       broken05L: prodStats._sum.brokenBottles05L || 0,
       broken15L: prodStats._sum.brokenBottles15L || 0
+    },
+    marketingTotals: {
+      ordersCount: orderStats.length,
+      ordersTotalWorth,
+      customerBottlesCount: totalCustomerBottles
     }
   }, 'Daily close status retrieved'));
 });
@@ -124,7 +224,7 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
 
-  if (req.user.role !== 'PRODUCTION_MANAGER' && req.user.role !== 'OWNER') {
+  if (req.user.role !== 'PRODUCTION_MANAGER' && req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
     throw new ApiError(403, 'Unauthorized to perform PM confirmation');
   }
 
@@ -171,6 +271,57 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updatedDay, 'Production confirmed successfully'));
 });
 
+export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
+  const { date } = req.body;
+  if (!date) throw new ApiError(400, 'Date is required');
+
+  if (req.user.role !== 'MARKETING_MANAGER' && req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
+    throw new ApiError(403, 'Unauthorized to perform MM confirmation');
+  }
+
+  const prefix = getPrefix(req);
+  const targetDate = new Date(date);
+  targetDate.setUTCHours(0, 0, 0, 0);
+
+  const dailyCloseModel = prisma[`${prefix}DailyClose`];
+  const auditLogModel = prisma[`${prefix}AuditLog`];
+
+  const existing = await dailyCloseModel.findFirst({
+    where: { date: targetDate }
+  });
+
+  if (existing?.adminConfirmed) {
+    throw new ApiError(400, 'Day is already finalized by Admin');
+  }
+
+  const updatedDay = await dailyCloseModel.upsert({
+    where: { date: targetDate },
+    update: {
+      mmConfirmed: true,
+      mmConfirmedAt: new Date(),
+      mmConfirmedById: req.user.id
+    },
+    create: {
+      date: targetDate,
+      mmConfirmed: true,
+      mmConfirmedAt: new Date(),
+      mmConfirmedById: req.user.id
+    }
+  });
+
+  await auditLogModel.create({
+    data: {
+      action: 'MM_DAILY_CONFIRM',
+      entityType: 'DailyClose',
+      entityId: updatedDay.id,
+      performedBy: req.user.id,
+      details: `MM confirmed orders and customer bottle holdings for Day ${targetDate.toISOString().split('T')[0]}`
+    }
+  });
+
+  res.status(200).json(new ApiResponse(200, updatedDay, 'MM daily close confirmed successfully'));
+});
+
 export const getDailyCloseHistory = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
@@ -181,7 +332,8 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     orderBy: { date: 'desc' },
     include: { 
       closedBy: { select: { id: true, name: true } },
-      pmConfirmedBy: { select: { id: true, name: true } }
+      pmConfirmedBy: { select: { id: true, name: true } },
+      mmConfirmedBy: { select: { id: true, name: true } }
     },
     take: 30
   });
@@ -204,6 +356,17 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
       }
     });
 
+    const orderItems = await prisma[`${prefix}OrderItem`].findMany({
+      where: { order: { createdAt: { gte: day.date, lt: nextDate } } },
+      select: { quantity: true, price: true }
+    });
+
+    const ordersCount = await prisma[`${prefix}Order`].count({
+      where: { createdAt: { gte: day.date, lt: nextDate } }
+    });
+
+    const ordersTotalWorth = orderItems.reduce((s, item) => s + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
+
     return {
       ...day,
       productionTotals: {
@@ -213,6 +376,10 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
         waste19L: prodStats._sum.wasteQuantity || 0,
         broken15L: prodStats._sum.brokenBottles15L || 0,
         broken05L: prodStats._sum.brokenBottles05L || 0,
+      },
+      marketingTotals: {
+        ordersCount,
+        ordersTotalWorth
       }
     };
   }));

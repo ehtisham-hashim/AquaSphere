@@ -12,13 +12,12 @@ import RawMaterials from './pages/RawMaterials';
 import Production from './pages/Production';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
-import MMOrders from './pages/MMOrders';
 import Expenses from './pages/Expenses';
 import CounterSales from './pages/CounterSales';
 import Users from './pages/Users';
-import BottleLedger from './pages/BottleLedger';
 import Reports from './pages/Reports';
-import DailyClose from './pages/dailyClose/index';
+import DailyClose from './pages/DailyClose';
+import Inventory from './pages/Inventory';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -35,9 +34,6 @@ function PublicRoute({ children }) {
 }
 
 function DashboardRoleWrapper() {
-  const { user } = useAuth();
-  if (user?.role === 'ADMIN') return <AdminDashboard />;
-  if (user?.role === 'ACCOUNTANT') return <AccountantDashboard />;
   return <Dashboard />;
 }
 
@@ -50,14 +46,13 @@ function AppRoutes() {
         <Route path="vendors" element={<Vendors />} />
         <Route path="purchases" element={<Purchases />} />
         <Route path="raw-materials" element={<RawMaterials />} />
+        <Route path="inventory" element={<Inventory />} />
         <Route path="production" element={<Production />} />
         <Route path="customers" element={<Customers />} />
         <Route path="orders" element={<Orders />} />
-        <Route path="mm-orders" element={<MMOrders />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="counter-sales" element={<CounterSales />} />
         <Route path="users" element={<Users />} />
-        <Route path="bottle-ledger" element={<BottleLedger />} />
         <Route path="reports" element={<Reports />} />
         <Route path="daily-close" element={<DailyClose />} />
         <Route path="*" element={<div>Page not found</div>} />

@@ -283,15 +283,35 @@ export default function CustomerHistory({ customer, isWadaana }) {
         {expandedSections.audit && (
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {customer?.auditLogs && customer.auditLogs.length > 0 ? (
-              customer.auditLogs.map(log => (
-                <div key={log.id} className="px-4 py-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800">{log.action}</span>
-                    <span className="text-xs text-slate-500">{formatDate(log.createdAt)}</span>
+              customer.auditLogs.map(log => {
+                const getActionBadge = (action) => {
+                  switch (action) {
+                    case 'CUSTOMER_CREATED':
+                      return <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Customer Created</span>;
+                    case 'PHONE_CHANGED':
+                      return <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Phone Changed</span>;
+                    case 'CREDIT_LIMIT_CHANGED':
+                      return <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Credit Limit Changed</span>;
+                    case 'CUSTOMER_DELETED':
+                      return <span className="bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">Customer Deleted</span>;
+                    default:
+                      return <span className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">{action.replace('_', ' ')}</span>;
+                  }
+                };
+
+                return (
+                  <div key={log.id} className="px-4 py-3 text-sm hover:bg-white/60 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        {getActionBadge(log.action)}
+                        <span className="text-xs font-bold text-slate-700">User: {log.performedBy || 'Admin'}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 font-medium">{formatDate(log.createdAt)}</span>
+                    </div>
+                    {log.details && <p className="text-xs text-slate-600 mt-1 font-medium">{log.details}</p>}
                   </div>
-                  {log.details && <p className="text-xs text-slate-600 mt-1">{log.details}</p>}
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="px-4 py-6 text-center text-slate-500 text-sm">
                 No activity logged

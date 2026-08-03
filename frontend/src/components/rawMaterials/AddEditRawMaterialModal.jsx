@@ -11,6 +11,7 @@ const WADAANA_PRESETS = [
 ];
 
 const AQUASPHERE_PRESETS = [
+  { name: 'Empty 19L Bottles', unit: 'pcs', reorderLevel: 50 },
   { name: 'PET Bottles (500ml)', unit: 'pcs', reorderLevel: 2000 },
   { name: 'PET Bottles (1500ml)', unit: 'pcs', reorderLevel: 1500 },
   { name: 'Bottle Caps (Standard)', unit: 'pcs', reorderLevel: 5000 },
@@ -44,7 +45,13 @@ export default function AddEditRawMaterialModal({
         initialStock: ''
       });
     } else {
-      setFormData({ name: '', unit: isWadaana ? 'kg' : 'pcs', reorderLevel: 100, grams: '15', initialStock: '' });
+      setFormData({ 
+        name: isWadaana ? 'Pure Preform (0.5L - 15g)' : '', 
+        unit: isWadaana ? 'kg' : 'pcs', 
+        reorderLevel: 100, 
+        grams: '15', 
+        initialStock: '' 
+      });
     }
     setError('');
   }, [editingItem, isOpen, isWadaana]);
@@ -169,20 +176,22 @@ export default function AddEditRawMaterialModal({
           {/* Form Fields */}
           <div className="space-y-4 pt-2 border-t border-slate-100">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Material / Preform Name *</label>
-              <input
-                className={`w-full border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 ${
-                  isWadaana ? 'focus:border-[#0ea5e9] focus:ring-[#0ea5e9]/20' : 'focus:border-emerald-500 focus:ring-emerald-500/20'
-                } text-sm font-medium transition-all shadow-sm`}
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder={isWadaana ? 'e.g. Pure Preform (0.5L - 15g)' : 'e.g. Calcium, Labels, Caps'}
-                required
-              />
-              {isWadaana && (
-                <p className="text-xs text-slate-400 mt-1">
-                  Note: Wadaana raw materials are exclusively Pure or Mix Preform hierarchy.
-                </p>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">Material / Preform Name</label>
+              {isWadaana ? (
+                <div className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-800 flex justify-between items-center cursor-not-allowed">
+                  <span>{formData.name || 'Pure Preform (0.5L - 15g)'}</span>
+                  <span className="text-xs text-[#0ea5e9] bg-sky-50 px-2.5 py-0.5 rounded-full font-bold border border-sky-100">
+                    Selected Preset
+                  </span>
+                </div>
+              ) : (
+                <input
+                  className="w-full border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:border-emerald-500 focus:ring-emerald-500/20 text-sm font-medium transition-all shadow-sm"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Calcium, Labels, Caps"
+                  required
+                />
               )}
             </div>
 

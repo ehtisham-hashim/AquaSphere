@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
 
 const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 
@@ -11,16 +12,23 @@ export const isValidGoogleMapsUrl = (url) => {
 };
 
 export const getCustomers = asyncHandler(async (req, res) => {
-  const { search } = req.query;
+  const { search, status } = req.query;
   const prefix = getPrefix(req);
   
+  let archivedFilter = { archivedAt: null };
+  if (status === 'archived') {
+    archivedFilter = { archivedAt: { not: null } };
+  } else if (status === 'all') {
+    archivedFilter = {};
+  }
+
   const where = search ? {
+    ...archivedFilter,
     OR: [
       { name: { contains: search, mode: 'insensitive' } },
       { phone: { contains: search } }
-    ],
-    archivedAt: null
-  } : { archivedAt: null };
+    ]
+  } : archivedFilter;
 
   const customers = await prisma[`${prefix}Customer`].findMany({
     where,
@@ -105,7 +113,8 @@ export const createCustomer = asyncHandler(async (req, res) => {
     creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
     creditDuration: creditDuration ? parseInt(creditDuration) : 1,
     remarks,
-    homePictureUrl
+    homePictureUrl,
+    archivedAt: null
   };
 
   if (prefix === 'aquasphere') {
@@ -126,17 +135,33 @@ export const createCustomer = asyncHandler(async (req, res) => {
     customerData.qtyMix15L = qtyMix15L ? parseInt(qtyMix15L) : 0;
   }
 
-  const customer = await prisma[`${prefix}Customer`].create({
-    data: customerData
+  // Check if an archived record with the same phone exists
+  const archivedCustomer = await prisma[`${prefix}Customer`].findFirst({
+    where: { phone, archivedAt: { not: null } }
   });
+
+  let customer;
+  if (archivedCustomer) {
+    // Unarchive and overwrite customer record
+    customer = await prisma[`${prefix}Customer`].update({
+      where: { id: archivedCustomer.id },
+      data: customerData
+    });
+  } else {
+    customer = await prisma[`${prefix}Customer`].create({
+      data: customerData
+    });
+  }
+
+  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
   await prisma[`${prefix}AuditLog`].create({
     data: {
-      action: 'CUSTOMER_ADDED',
+      action: 'CUSTOMER_CREATED',
       entityType: 'Customer',
       entityId: customer.id,
-      performedBy: req.user?.id || 'Unknown',
-      details: `New Customer Added: ${customer.name} (${customer.phone})`
+      performedBy,
+      details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
     }
   });
 
@@ -168,7 +193,6 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     ...(address !== undefined && { address }),
     ...(mapLink !== undefined && { mapLink }),
     ...(securityDeposit !== undefined && { deposit: parseInt(securityDeposit || 0) }),
-    ...(currentBalance !== undefined && { currentBalance: parseFloat(currentBalance || 0) }),
     ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit || 0) }),
     ...(creditDuration !== undefined && { creditDuration: parseInt(creditDuration || 1) }),
     ...(remarks !== undefined && { remarks }),
@@ -193,6 +217,44 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     if (qtyMix15L !== undefined) updateData.qtyMix15L = parseInt(qtyMix15L || 0);
   }
 
+  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
+
+  // Audit Logs for specific changes
+  const auditLogsToCreate = [];
+
+  if (phone !== undefined && phone !== existing.phone) {
+    auditLogsToCreate.push({
+      action: 'PHONE_CHANGED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy,
+      details: `Phone number changed from '${existing.phone}' to '${phone}'`
+    });
+  }
+
+  if (creditLimit !== undefined && parseFloat(creditLimit) !== parseFloat(existing.creditLimit || 0)) {
+    auditLogsToCreate.push({
+      action: 'CREDIT_LIMIT_CHANGED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy,
+      details: `Credit limit changed from Rs. ${parseFloat(existing.creditLimit || 0).toLocaleString()} to Rs. ${parseFloat(creditLimit).toLocaleString()}`
+    });
+  }
+
+  // General edit audit log
+  auditLogsToCreate.push({
+    action: 'CUSTOMER_EDITED',
+    entityType: 'Customer',
+    entityId: id,
+    performedBy,
+    details: `Customer details updated for ${existing.name}`
+  });
+
+  for (const log of auditLogsToCreate) {
+    await prisma[`${prefix}AuditLog`].create({ data: log });
+  }
+
   const customer = await prisma[`${prefix}Customer`].update({
     where: { id },
     data: updateData
@@ -212,9 +274,14 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
+  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
+
   await prisma[`${prefix}Customer`].update({
     where: { id },
-    data: { archivedAt: new Date() }
+    data: { 
+      archivedAt: new Date(),
+      phone: `${customer.phone}_archived_${Date.now()}`
+    }
   });
 
   await prisma[`${prefix}AuditLog`].create({
@@ -222,10 +289,55 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       action: 'CUSTOMER_DELETED',
       entityType: 'Customer',
       entityId: id,
-      performedBy: req.user?.id || 'Unknown',
-      details: `Customer ${customer.name} (${customer.phone}) deleted`
+      performedBy,
+      details: `Customer ${customer.name} (${customer.phone}) soft deleted`
     }
   });
 
   res.json({ success: true, message: 'Customer deleted successfully' });
+});
+
+export const restoreCustomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const prefix = getPrefix(req);
+
+  const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
+  if (!customer) throw new ApiError(404, 'Customer not found');
+
+  const cleanPhone = customer.phone.includes('_archived_') 
+    ? customer.phone.split('_archived_')[0] 
+    : customer.phone;
+
+  const updated = await prisma[`${prefix}Customer`].update({
+    where: { id },
+    data: { 
+      archivedAt: null,
+      phone: cleanPhone
+    }
+  });
+
+  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
+
+  await prisma[`${prefix}AuditLog`].create({
+    data: {
+      action: 'CUSTOMER_RESTORED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy,
+      details: `Customer ${updated.name} restored from archive`
+    }
+  });
+
+  res.json({ success: true, data: updated, message: 'Customer unarchived successfully' });
+});
+
+export const uploadCustomerPicture = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'Image file is required');
+  const prefix = getPrefix(req);
+  const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);
+  res.status(200).json({ 
+    success: true, 
+    homePictureUrl: secure_url,
+    publicId: public_id
+  });
 });

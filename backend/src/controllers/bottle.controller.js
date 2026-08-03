@@ -181,13 +181,39 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
     if (customerId) {
       let balanceChange = 0;
       if (type === 'DELIVERED_TO_CUSTOMER') balanceChange = qty;
-      if (type === 'RETURNED_GOOD' || type === 'RETURNED_BROKEN') balanceChange = -qty;
+      if (type === 'RETURNED_GOOD' || type === 'RETURNED_BROKEN' || type === 'MARKED_LOST') balanceChange = -qty;
 
       if (balanceChange !== 0) {
         await tx[`${prefix}Customer`].update({
           where: { id: customerId },
           data: { cachedBottleBalance: { increment: balanceChange } }
         });
+      }
+
+      if (type === 'RETURNED_GOOD') {
+        const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+        });
+        if (emptyBottleItem) {
+          await tx[`${prefix}Item`].update({
+            where: { id: emptyBottleItem.id },
+            data: { 
+              cachedQty: { increment: qty },
+              factoryQty: { increment: qty }
+            }
+          });
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: emptyBottleItem.id,
+              quantity: qty,
+              direction: 'IN',
+              reason: 'BOTTLE_RETRIEVAL',
+              refType: 'CUSTOMER',
+              refId: customerId,
+              location: 'FACTORY'
+            }
+          });
+        }
       }
     }
 

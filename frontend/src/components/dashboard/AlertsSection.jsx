@@ -4,25 +4,32 @@ import {
   Package, ShieldAlert, PhoneCall, RefreshCw, XCircle
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
+import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function AlertsSection() {
+  const tenant = getCompanyFromCookie();
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const [custAlerts, setCustAlerts] = useState(null);
 
   const fetchAlerts = async () => {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(`${API_URL}/analytics/mm-alerts`, { credentials: 'include' });
-      const json = await res.json();
-      if (json.success) {
-        setAlerts(json.data);
-      } else {
-        setError(true);
-      }
+      const [mmRes, custRes] = await Promise.all([
+        fetch(`${API_URL}/analytics/mm-alerts?tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API_URL}/admin/customer-alerts?tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+      ]);
+
+      const mmJson = await mmRes.json();
+      const custJson = await custRes.json();
+
+      if (mmJson.success) setAlerts(mmJson.data);
+      if (custJson.success) setCustAlerts(custJson.data);
     } catch (err) {
-      console.error('Failed to fetch MM alerts:', err);
+      console.error('Failed to fetch alerts:', err);
       setError(true);
     } finally {
       setLoading(false);
@@ -37,7 +44,7 @@ export default function AlertsSection() {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
         <RefreshCw className="w-8 h-8 text-blue-500 animate-spin mb-4" />
-        <p className="text-slate-500 font-medium">Loading Marketing Manager Alerts...</p>
+        <p className="text-slate-500 font-medium">Loading Alerts...</p>
       </div>
     );
   }
@@ -128,46 +135,53 @@ export default function AlertsSection() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Credit Limit Breaches */}
+        {/* Inactive Customers (No order in 7+ days) Alert */}
         <AlertListCard 
-          title="Credit Limit Exceeded"
-          icon={<AlertTriangle className="w-5 h-5 text-rose-500" />}
-          count={alerts.creditLimitBreaches?.length}
-          items={alerts.creditLimitBreaches}
-          emptyMsg="No credit limit breaches."
+          title="Inactive Customers (No Order 7+ Days)"
+          icon={<PhoneCall className="w-5 h-5 text-rose-500" />}
+          count={custAlerts?.inactiveCustomers?.length}
+          items={custAlerts?.inactiveCustomers || []}
+          emptyMsg="No inactive customers (all active within 7 days)."
           renderItem={(c) => (
-            <div key={c.id} className="py-3 flex items-center justify-between text-sm border-b border-slate-50 last:border-0 hover:bg-slate-50 p-2 rounded-lg transition-colors">
-              <div>
-                <span className="font-bold text-slate-800 block">{c.name}</span>
-                <span className="text-[11px] text-slate-400 block">{c.phone}</span>
+            <div key={c.id} className="py-3 flex flex-col justify-center text-sm border-b border-slate-100 last:border-0 hover:bg-slate-50 p-2 rounded-lg transition-colors">
+              <div className="flex justify-between items-center mb-1">
+                <div>
+                  <span className="font-bold text-slate-800 block">{c.name}</span>
+                  <span className="text-[11px] text-slate-400 block">{c.phone}</span>
+                </div>
+                <span className="px-2 py-0.5 bg-rose-100 text-rose-800 font-extrabold text-[10px] rounded-md">
+                  {c.daysSinceLastOrder} days inactive
+                </span>
               </div>
-              <div className="text-right">
-                <span className="font-mono font-black text-rose-600 block">Rs. {Number(c.currentBalance || 0).toLocaleString()}</span>
-                <span className="text-[10px] font-semibold text-slate-400">Limit: Rs. {Number(c.creditLimit || 0).toLocaleString()}</span>
-              </div>
+              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-100 mt-1">
+                📞 {c.recommendation}
+              </p>
             </div>
           )}
         />
 
-        {/* Credit Duration Expired */}
+        {/* Credit Limit & Overdue Bill Alerts */}
         <AlertListCard 
-          title="Credit Duration Expired"
-          icon={<Clock className="w-5 h-5 text-amber-500" />}
-          count={alerts.creditDurationExpired?.length}
-          items={alerts.creditDurationExpired}
-          emptyMsg="No expired credit durations."
-          renderItem={(c) => (
-            <div key={c.id} className="py-3 flex items-center justify-between text-sm border-b border-slate-50 last:border-0 hover:bg-slate-50 p-2 rounded-lg transition-colors">
-              <div>
-                <span className="font-bold text-slate-800 block">{c.name}</span>
-                <span className="text-[11px] text-slate-400 block">{c.phone}</span>
+          title="Credit Limit & Overdue Invoices"
+          icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
+          count={(custAlerts?.creditBreaches?.length || 0) + (custAlerts?.unpaidBillOver7Days?.length || 0)}
+          items={[...(custAlerts?.creditBreaches || []), ...(custAlerts?.unpaidBillOver7Days || [])]}
+          emptyMsg="No overdue credit or unpaid bill breaches."
+          renderItem={(c, idx) => (
+            <div key={idx} className="py-3 flex flex-col justify-center text-sm border-b border-slate-100 last:border-0 hover:bg-slate-50 p-2 rounded-lg transition-colors">
+              <div className="flex justify-between items-center mb-1">
+                <div>
+                  <span className="font-bold text-slate-800 block">{c.name}</span>
+                  <span className="text-[11px] text-slate-400 block">{c.phone}</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-black text-rose-600 block">Rs. {Number(c.currentBalance || c.unpaidAmount || 0).toLocaleString()}</span>
+                  {c.creditLimit > 0 && <span className="text-[10px] text-slate-400">Limit: Rs. {Number(c.creditLimit).toLocaleString()}</span>}
+                </div>
               </div>
-              <div className="text-right">
-                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 font-bold text-[10px] rounded block mb-1">
-                  {c.daysOverdue} days overdue
-                </span>
-                <span className="text-[10px] font-semibold text-slate-400">Bal: Rs. {Number(c.currentBalance || 0).toLocaleString()}</span>
-              </div>
+              <p className="text-[11px] font-bold text-amber-800 bg-amber-50 p-1.5 rounded border border-amber-200 mt-1">
+                🧾 {c.recommendation}
+              </p>
             </div>
           )}
         />
@@ -175,7 +189,7 @@ export default function AlertsSection() {
         {/* Customer Reminders */}
         <AlertListCard 
           title="Customer Reminders"
-          icon={<PhoneCall className="w-5 h-5 text-sky-500" />}
+          icon={<Clock className="w-5 h-5 text-sky-500" />}
           count={alerts.customerReminders?.length}
           items={alerts.customerReminders}
           emptyMsg="No active reminders."

@@ -1,7 +1,14 @@
 import { prisma } from '../src/config/db.js';
 
 async function main() {
-  const fg = await prisma.aquasphereItem.findFirst({ where: { name: 'AquaSphere 500ml Pack (12 bottles)' } });
+  const fg = await prisma.aquasphereItem.findFirst({ 
+    where: { 
+      OR: [
+        { name: '0.5L PET Pack (12 Bottles)' },
+        { name: { contains: '500ml', mode: 'insensitive' } }
+      ] 
+    } 
+  });
   const rm = await prisma.aquasphereItem.findFirst({ where: { name: 'PET Bottles (500ml)' } });
 
   if (fg && rm) {

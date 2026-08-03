@@ -13,7 +13,7 @@ const getTenantPrefix = (req) => {
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
-    include: { customer: true, items: { include: { item: true } } },
+    include: { customer: true, items: { include: { item: true } }, payments: true, deliveries: true },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
@@ -28,8 +28,28 @@ export const createOrder = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  const orderTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.quantity)), 0);
-  const totalQty = items.reduce((sum, i) => sum + parseInt(i.quantity), 0);
+  // Resolve each order item to a real DB Item record (find-or-create by productName)
+  const resolvedItems = [];
+  for (const i of items) {
+    let dbItemId = i.itemId;
+    // If itemId is not a UUID (catalog-only ID like PURE_05L), find or create the Item
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbItemId);
+    if (!isUUID && i.productName) {
+      let dbItem = await prisma[`${prefix}Item`].findFirst({
+        where: { name: { equals: i.productName, mode: 'insensitive' }, archivedAt: null }
+      });
+      if (!dbItem) {
+        dbItem = await prisma[`${prefix}Item`].create({
+          data: { name: i.productName, type: 'FINISHED_GOOD', unit: 'Bottles', cachedQty: 0 }
+        });
+      }
+      dbItemId = dbItem.id;
+    }
+    resolvedItems.push({ itemId: dbItemId, quantity: parseInt(i.quantity), price: parseFloat(i.price) });
+  }
+
+  const orderTotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const totalQty = resolvedItems.reduce((sum, i) => sum + i.quantity, 0);
 
   // Quantity soft-block check based on customer type
   const qtyThresholds = {
@@ -66,21 +86,20 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   // 2. Check Bottle Security Deposit Soft-Block (for 19L orders)
-  // Assuming a standard security deposit of Rs 1000 per 19L bottle
   const BOTTLE_SECURITY_RATE = 1000;
   
-  const itemIds = items.map(i => i.itemId);
-  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } });
+  const resolvedItemIds = resolvedItems.map(i => i.itemId);
+  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItemIds } } });
   
-  const qty19LOrdered = items.reduce((sum, i) => {
+  const qty19LOrdered = resolvedItems.reduce((sum, i) => {
     const dbItem = dbItems.find(di => di.id === i.itemId);
     if (dbItem && dbItem.name.toLowerCase().includes('19l')) {
-      return sum + parseInt(i.quantity);
+      return sum + i.quantity;
     }
     return sum;
   }, 0);
 
-  if (qty19LOrdered > 0 && !bypassCreditCheck) { // Re-using bypassCreditCheck flag for both for now, or could use a separate one
+  if (qty19LOrdered > 0 && !bypassCreditCheck) {
     const currentBottles = parseInt(customer.cachedBottleBalance || 0);
     const newBottleBalance = currentBottles + qty19LOrdered;
     const coveredBottles = Math.floor(parseInt(customer.deposit || 0) / BOTTLE_SECURITY_RATE);
@@ -104,28 +123,33 @@ export const createOrder = asyncHandler(async (req, res) => {
         remarks,
         paymentStatus: paymentStatus || 'UNPAID',
         items: {
-          create: items.map(i => ({
+          create: resolvedItems.map(i => ({
             itemId: i.itemId,
-            quantity: parseInt(i.quantity),
-            price: parseFloat(i.price)
+            quantity: i.quantity,
+            price: i.price
           }))
         }
       },
       include: { items: { include: { item: true } } }
     });
 
+    const customerObj = await tx[`${prefix}Customer`].findUnique({ where: { id: customerId }, select: { name: true } });
+    const totalQty = resolvedItems.reduce((s, i) => s + (i.quantity || 0), 0);
+    const totalAmount = resolvedItems.reduce((s, i) => s + (i.quantity * i.price), 0);
+    const orderShortId = o.id.slice(0, 6).toUpperCase();
+
     await tx[`${prefix}AuditLog`].create({
       data: {
         action: 'ORDER_CREATED',
         entityType: 'Order',
         entityId: o.id,
-        performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ customerId, type, items: items.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price })) })
+        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+        details: `Order #${orderShortId} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${totalAmount.toLocaleString()})`
       }
     });
 
     return o;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.status(201).json({ success: true, data: order });
 });
@@ -165,7 +189,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
       },
       include: { items: { include: { item: true } } }
     });
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   res.json({ success: true, data: updated });
 });
@@ -190,11 +214,12 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       where: { id }, 
       include: { 
         items: { include: { item: true } }, 
-        customer: true 
+        customer: true,
+        payments: true,
+        deliveries: true
       } 
     });
     if (!o) throw new ApiError(404, 'Order not found');
-    if (o.deliveryStatus === 'DELIVERED') throw new ApiError(400, 'Order is already delivered');
 
     const qty = parseInt(qtyDelivered || 0); // 19L delivered
     const retGood = parseInt(bottlesReturnedGood || 0);
@@ -203,10 +228,186 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const q15 = parseInt(qty15LDelivered || 0);
     const cash = parseFloat(cashReceived || 0);
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    
+    // Calculate total already paid on this order across all payment entries
+    const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+    const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
+
+    const currentDebt = Math.max(0, parseFloat(o.customer.currentBalance || 0));
+    const maxPayable = remainingOrderBalance + currentDebt;
+
+    if (cash > maxPayable && maxPayable > 0) {
+      throw new ApiError(400, `Cash received (Rs. ${cash}) cannot exceed total customer payable balance (Rs. ${maxPayable}).`);
+    }
+
+    // CASE 1: Order is ALREADY DELIVERED — Process Payment Settlement Run
+    if (o.deliveryStatus === 'DELIVERED') {
+      if (cash <= 0 && retGood <= 0 && retBroken <= 0) {
+        throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
+      }
+
+      // 19L Bottle return check on settlement
+      const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
+      const prevReturnedOnOrder = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0), 0) || 0;
+      const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturnedOnOrder);
+
+      if (qty19LOnOrder > 0 && (retGood + retBroken > remainingBottlesAllowed)) {
+        throw new ApiError(400, `Returned bottles (${retGood + retBroken}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
+      }
+
+      // ===== ATOMIC PAYMENT SETTLEMENT =====
+      // Read current customer state ONCE inside transaction for consistency
+      const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
+        where: { id: o.customerId },
+        select: { 
+          currentBalance: true, 
+          deposit: true,
+          cachedBottleBalance: true 
+        }
+      });
+
+      const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
+      const currentDeposit = Number(customerSnapshot.deposit || 0);
+
+      // Calculate payment allocation atomically
+      let debtReduction = 0;
+      let depositRestored = 0;
+
+      if (cash > 0) {
+        // Priority 1: Reduce debt first
+        if (currentCustomerDebt > 0) {
+          debtReduction = Math.min(currentCustomerDebt, cash);
+        }
+
+        // Priority 2: Restore security deposit with remaining cash
+        const remainingCashAfterDebt = cash - debtReduction;
+        if (remainingCashAfterDebt > 0) {
+          depositRestored = remainingCashAfterDebt;
+        }
+
+        // Record payment transaction
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: o.id,
+            customerId: o.customerId,
+            amount: cash,
+            type: paymentMethod || 'CASH'
+          }
+        });
+      }
+
+      // Build atomic customer update
+      const customerUpdateData = {};
+      if (debtReduction > 0) {
+        customerUpdateData.currentBalance = { decrement: debtReduction };
+      }
+      if (depositRestored > 0) {
+        customerUpdateData.deposit = { increment: depositRestored };
+      }
+      if (retGood + retBroken > 0) {
+        customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
+      }
+
+      // Execute single atomic customer update
+      if (Object.keys(customerUpdateData).length > 0) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: o.customerId },
+          data: customerUpdateData
+        });
+      }
+
+      // Record bottle returns
+      if (retGood > 0 || retBroken > 0) {
+        await tx[`${prefix}Delivery`].create({
+          data: {
+            orderId: o.id,
+            qtyDelivered: 0,
+            bottlesReturnedGood: retGood,
+            bottlesReturnedBroken: retBroken,
+            cashReceived: cash,
+            paymentMethod,
+            remarks
+          }
+        });
+
+        if (retGood > 0) {
+          await tx[`${prefix}BottleTransaction`].create({
+            data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id} (Payment Settlement)` }
+          });
+          const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+          });
+          if (emptyBottleItem) {
+            await tx[`${prefix}Item`].update({
+              where: { id: emptyBottleItem.id },
+              data: { 
+                cachedQty: { increment: retGood },
+                factoryQty: { increment: retGood }
+              }
+            });
+            await tx[`${prefix}InventoryTransaction`].create({
+              data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+            });
+          }
+        }
+        if (retBroken > 0) {
+          await tx[`${prefix}BottleTransaction`].create({
+            data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id} (Payment Settlement)` }
+          });
+        }
+      }
+
+      // Update order payment status
+      const newTotalPaid = alreadyPaid + cash;
+      const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+
+      const updated = await tx[`${prefix}Order`].update({
+        where: { id },
+        data: { paymentStatus: newPaymentStatus },
+        include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
+      });
+
+      await tx[`${prefix}AuditLog`].create({
+        data: {
+          action: 'ORDER_PAYMENT_SETTLED',
+          entityType: 'Order',
+          entityId: updated.id,
+          performedBy: req.user?.id || 'Unknown',
+          details: JSON.stringify({ 
+            cashReceived: cash, 
+            newTotalPaid, 
+            newPaymentStatus, 
+            debtReduction,
+            depositRestored,
+            bottlesReturnedGood: retGood, 
+            bottlesReturnedBroken: retBroken 
+          })
+        }
+      });
+
+      return updated;
+    }
+
+    // Validate finished goods stock on Factory Floor for every item in order before processing delivery
+    for (const orderItem of o.items) {
+      if (orderItem.itemId) {
+        const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
+        if (itemObj) {
+          const factoryStock = Number(itemObj.factoryQty !== undefined && itemObj.factoryQty !== null ? itemObj.factoryQty : itemObj.cachedQty || 0);
+          const reqQty = Number(orderItem.quantity || 0);
+          if (factoryStock < reqQty) {
+            throw new ApiError(
+              400,
+              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty}, Available on Factory Floor: ${factoryStock}. Stock in Warehouse cannot be automatically delivered — please run a Production batch or Transfer Stock from Warehouse to Factory Floor first.`
+            );
+          }
+        }
+      }
+    }
 
     // 19L Calculations
-    const has19L = o.items.some(i => i.item.name.toLowerCase().includes('19l'));
-    const qty19L = o.items.filter(i => i.item.name.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
+    const has19L = o.items.some(i => i.item?.name?.toLowerCase().includes('19l'));
+    const qty19L = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
 
     // Soft-block check for bottle returns
     const currentBottles = o.customer.cachedBottleBalance || 0;
@@ -290,6 +491,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       await tx[`${prefix}BottleTransaction`].create({
         data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
       });
+      const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
+        where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+      });
+      if (emptyBottleItem) {
+        await tx[`${prefix}Item`].update({
+          where: { id: emptyBottleItem.id },
+          data: { 
+            cachedQty: { increment: retGood },
+            factoryQty: { increment: retGood }
+          }
+        });
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+        });
+      }
     }
     if (retBroken > 0) {
       await tx[`${prefix}BottleTransaction`].create({
@@ -297,26 +513,97 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // PET Deductions (deduct any item that isn't 19L)
-    const petItems = o.items.filter(i => !i.item.name.toLowerCase().includes('19l'));
-    for (const orderItem of petItems) {
-      await tx[`${prefix}Item`].update({
-        where: { id: orderItem.itemId },
-        data: { cachedQty: { decrement: orderItem.quantity } }
-      });
-      await tx[`${prefix}InventoryTransaction`].create({
-        data: { itemId: orderItem.itemId, quantity: orderItem.quantity, direction: 'OUT', reason: 'PET_DELIVERY', refType: 'ORDER', refId: o.id }
-      });
+    // Finished Goods Deductions (deduct exclusively from Factory Floor stock)
+    for (const orderItem of o.items) {
+      if (orderItem.itemId) {
+        const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
+        const qtyToDeduct = Number(orderItem.quantity || 0);
+
+        await tx[`${prefix}Item`].update({
+          where: { id: orderItem.itemId },
+          data: { 
+            cachedQty: { decrement: qtyToDeduct },
+            factoryQty: { decrement: qtyToDeduct }
+          }
+        });
+
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { 
+            itemId: orderItem.itemId, 
+            quantity: orderItem.quantity, 
+            direction: 'OUT', 
+            reason: is19LItem ? '19L_DELIVERY' : 'PET_DELIVERY', 
+            refType: 'ORDER', 
+            refId: o.id,
+            location: 'FACTORY'
+          }
+        });
+      }
     }
 
-    // Update Customer Bottle Balance and Financial Balance (Debt)
-    const balanceChange = orderTotal - cash; // Positive = debt increases
+    // Update Customer Deposit, Financial Balance (Debt), and Tenant-specific Bottle Holdings
+    // ATOMIC OPERATION: Read customer state once and perform single update
+    const unpaidAmount = Math.max(0, orderTotal - cash);
+    
+    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
+      where: { id: o.customerId },
+      select: { deposit: true }
+    });
+    const existingDeposit = parseFloat(customerSnapshot.deposit || 0);
+
+    let depositDeduction = 0;
+    let debtAddition = 0;
+
+    if (unpaidAmount > 0) {
+      if (existingDeposit > 0) {
+        depositDeduction = Math.min(existingDeposit, unpaidAmount);
+        debtAddition = unpaidAmount - depositDeduction;
+      } else {
+        debtAddition = unpaidAmount;
+      }
+    }
+
+    const isWadaana = prefix === 'wadaana';
+    const customerUpdateData = {
+      lastDeliveryAt: new Date()
+    };
+
+    // Financial updates
+    if (depositDeduction > 0) {
+      customerUpdateData.deposit = { decrement: depositDeduction };
+    }
+    if (debtAddition > 0) {
+      customerUpdateData.currentBalance = { increment: debtAddition };
+    }
+
+    // Bottle balance updates
+    if (!isWadaana) {
+      customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
+    } else {
+      // Wadaana PET bottle customer tracking
+      for (const orderItem of o.items) {
+        const iName = orderItem.item?.name?.toLowerCase() || '';
+        const qtyItem = orderItem.quantity || 0;
+        if (iName.includes('pure') && (iName.includes('0.5l') || iName.includes('500ml'))) {
+          customerUpdateData.qtyPure05L = { increment: qtyItem };
+          customerUpdateData.buysPure05L = true;
+        } else if (iName.includes('pure') && (iName.includes('1.5l') || iName.includes('1500ml'))) {
+          customerUpdateData.qtyPure15L = { increment: qtyItem };
+          customerUpdateData.buysPure15L = true;
+        } else if (iName.includes('mix') && (iName.includes('0.5l') || iName.includes('500ml'))) {
+          customerUpdateData.qtyMix05L = { increment: qtyItem };
+          customerUpdateData.buysMix05L = true;
+        } else if (iName.includes('mix') && (iName.includes('1.5l') || iName.includes('1500ml'))) {
+          customerUpdateData.qtyMix15L = { increment: qtyItem };
+          customerUpdateData.buysMix15L = true;
+        }
+      }
+    }
+
+    // Execute single atomic customer update
     await tx[`${prefix}Customer`].update({
       where: { id: o.customerId },
-      data: { 
-        cachedBottleBalance: { increment: qty19L - retGood - retBroken },
-        currentBalance: { increment: balanceChange }
-      }
+      data: customerUpdateData
     });
 
     // Update Order Status
@@ -330,13 +617,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         action: 'ORDER_DELIVERED',
         entityType: 'Order',
         entityId: updated.id,
-        performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ qtyDelivered: qty, cashReceived: cash, returnedGood: retGood, returnedBroken: retBroken })
+        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+        details: `Order #${updated.id.slice(0, 6).toUpperCase()} delivered to ${o.customer?.name || 'Customer'} • Cash Received: Rs. ${cash.toLocaleString()}${retGood > 0 ? ` (${retGood} bottles returned)` : ''}`
       }
     });
 
     return updated;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate();
   res.json({ success: true, data: order });
@@ -375,23 +662,25 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, 'Order not found');
 
   if (order.deliveryStatus === 'DELIVERED') {
-    throw new ApiError(400, 'Cannot delete an order that has already been delivered. Please contact support to reverse transactions manually.');
+    throw new ApiError(400, 'Cannot cancel/delete an order that has already been delivered.');
   }
 
-  // Delete related items
-  await prisma[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
-  await prisma[`${prefix}Order`].delete({ where: { id } });
+  // Soft delete / mark order as CANCELLED
+  await prisma[`${prefix}Order`].update({
+    where: { id },
+    data: { deliveryStatus: 'CANCELLED' }
+  });
 
   await prisma[`${prefix}AuditLog`].create({
     data: {
-      action: 'ORDER_DELETED',
+      action: 'ORDER_CANCELLED',
       entityType: 'Order',
       entityId: id,
       performedBy: req.user?.id || 'Unknown',
-      details: `Order ${id} deleted`
+      details: `Order ${id} soft-deleted and marked as CANCELLED`
     }
   });
 
   broadcastDashboardUpdate();
-  res.json({ success: true, message: 'Order deleted successfully' });
+  res.json({ success: true, message: 'Order marked as cancelled' });
 });

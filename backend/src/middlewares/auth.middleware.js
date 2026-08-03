@@ -15,8 +15,16 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired token');
   }
 
-  // Determine tenant from header (set by frontend interceptor)
-  const rawTenant = (req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase();
+  // Determine tenant from query, cookies, or header
+  const rawTenant = (
+    req.query?.tenant ||
+    req.query?.company ||
+    req.cookies?.tenant ||
+    req.cookies?.company ||
+    req.headers['x-company-context'] ||
+    req.headers['x-tenant'] ||
+    'aquasphere'
+  ).toString().toLowerCase();
   const requestedPrefix = rawTenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 
   // Look up user in requested tenant first

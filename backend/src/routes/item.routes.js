@@ -8,22 +8,32 @@ import {
   updateItem,
   archiveItem,
   restoreItem,
-  adjustInventory
+  adjustInventory,
+  getInventoryTransactions,
+  transferStock,
+  reconcileInventory
 } from '../controllers/item.controller.js';
 
 const router = Router();
 
 router.use(verifyJWT);
 
-// GET is accessible to all authenticated roles (Production Manager needs to see inventory levels)
+// GET is accessible to all authenticated roles
+router.get('/transactions', getInventoryTransactions);
 router.get('/', getItems);
 router.get('/:id', getItemById);
 
-// Mutations on the Raw Material master are Owner/Accountant only
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), createItem);
-router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT'), updateItem);
+// Adding & updating items is allowed for OWNER, ACCOUNTANT, PRODUCTION_MANAGER, and MATERIAL_MANAGER
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), createItem);
+router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), updateItem);
+
+// Stock transfers & manual adjustments
+router.post('/transfer-stock', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MATERIAL_MANAGER'), transferStock);
+router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
+router.post('/:id/reconcile', requireRoles('OWNER', 'ADMIN'), reconcileInventory);
+
+// Archiving & restoring items remain restricted to OWNER & ACCOUNTANT only
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveItem);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreItem);
-router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
 
 export default router;

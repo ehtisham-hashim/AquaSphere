@@ -1,9 +1,14 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
-import { ApiError } from '../utils/ApiError.js';
 
-const getPrefix = (req) => (req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = (req) => {
+  const cookieVal = req.cookies?.tenant || req.cookies?.company;
+  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
+  const queryVal = req.query?.tenant || req.query?.company;
+  const tenant = (req.tenant || queryVal || cookieVal || headerVal || 'aquasphere').toString().toLowerCase();
+  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
+};
 
 /**
  * Feature 2: Admin View-Only Dashboard
@@ -67,8 +72,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     }),
     // Today's daily close status
     prisma[`${prefix}DailyClose`].findFirst({
-      where: { date: { gte: startOfDay, lte: endOfDay } },
-      include: { closedBy: { select: { name: true } } }
+      where: { date: { gte: startOfDay, lte: endOfDay } }
     }),
     // Spot sales cash
     prisma[`${prefix}SpotSale`].aggregate({
@@ -85,9 +89,14 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   // Production summary
   let totalGoodYield = 0;
   let totalWaste = 0;
+  let packs05LToday = 0;
+  let packs15LToday = 0;
+  
   todaysProductionBatches.forEach(b => {
     totalGoodYield += b.quantity || 0;
     totalWaste += b.wasteQuantity || 0;
+    packs05LToday += b.packs05L || 0;
+    packs15LToday += b.packs15L || 0;
   });
 
   // Format orders for table (NO financial amounts — just operational status)
@@ -134,10 +143,12 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       productionBatches: todaysProductionBatches.length,
       totalGoodYield,
       totalWaste,
+      packs05LToday,
+      packs15LToday,
       cashCollected: parseFloat(cashCollected._sum.amount || 0) + parseFloat(spotSalesCash._sum.cashCollected || 0),
       lowStockAlerts: lowStockItems.length,
-      isDayClosed: !!todaysDailyClose,
-      dayClosedBy: todaysDailyClose?.closedBy?.name || null
+      isDayClosed: todaysDailyClose?.adminConfirmed || false,
+      dayClosedBy: todaysDailyClose?.closedById || null
     },
     inventory: {
       rawMaterials: rawMaterials.map(m => ({
@@ -197,7 +208,7 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
   // Group payments by method
   const byMethod = {};
   payments.forEach(p => {
-    const method = p.paymentMethod || 'CASH';
+    const method = p.type || 'CASH';
     if (!byMethod[method]) byMethod[method] = 0;
     byMethod[method] += Number(p.amount);
   });
@@ -234,44 +245,85 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       name: true,
       phone: true,
       type: true,
+      currentBalance: true,
       creditLimit: true,
-      cachedBottleBalance: true,
+      creditDuration: true,
+      lastDeliveryAt: true,
       createdAt: true,
       orders: {
         orderBy: { createdAt: 'desc' },
-        take: 1,
-        select: { createdAt: true, deliveryStatus: true, paymentStatus: true }
+        take: 5,
+        select: {
+          id: true,
+          createdAt: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          items: { select: { quantity: true, price: true } }
+        }
       }
     }
   });
 
-  // Credit breaches disabled since balance tracking is removed
-  const creditBreaches = [];
-
-  // Unpaid bill alerts disabled since balance tracking is removed
-  const unpaidBillOver7Days = [];
-
-  // Inactivity / No repeat order > 30 days
-  const inactiveCustomers = allCustomers.filter(c => {
-    const lastOrderDate = c.orders[0]?.createdAt;
-    if (!lastOrderDate) return new Date(c.createdAt) < thirtyDaysAgo;
-    return new Date(lastOrderDate) < thirtyDaysAgo;
+  // Credit breaches — use stored currentBalance directly, not recalculated from recent orders
+  const creditBreaches = allCustomers.filter(c => {
+    const limit = Number(c.creditLimit || 0);
+    if (limit <= 0) return false;
+    return Number(c.currentBalance || 0) >= limit;
   }).map(c => ({
     id: c.id,
     name: c.name,
     phone: c.phone,
     type: c.type,
-    lastOrderDate: c.orders[0]?.createdAt || null,
-    daysSinceLastOrder: c.orders[0]?.createdAt
-      ? Math.floor((Date.now() - new Date(c.orders[0].createdAt).getTime()) / (1000 * 60 * 60 * 24))
-      : 'Never ordered',
-    alertType: 'INACTIVE_30d'
+    currentBalance: Number(c.currentBalance || 0),
+    creditLimit: Number(c.creditLimit || 0),
+    alertType: 'CREDIT_LIMIT_EXCEEDED',
+    recommendation: 'Generate invoice and request immediate payment settlement.'
   }));
+
+  // Unpaid bills older than 7 days
+  const unpaidBillOver7Days = [];
+  allCustomers.forEach(c => {
+    const oldUnpaid = c.orders.filter(o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < sevenDaysAgo);
+    if (oldUnpaid.length > 0) {
+      const unpaidSum = oldUnpaid.reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
+      unpaidBillOver7Days.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        type: c.type,
+        unpaidAmount: unpaidSum,
+        oldestOrderDate: oldUnpaid[oldUnpaid.length - 1].createdAt,
+        daysOverdue: Math.floor((Date.now() - new Date(oldUnpaid[oldUnpaid.length - 1].createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        alertType: 'UNPAID_BILL_OVER_7D',
+        recommendation: 'Generate invoice and contact customer for collection.'
+      });
+    }
+  });
+
+  // Inactivity / No repeat order in 7+ days
+  const inactiveCustomers = allCustomers.filter(c => {
+    const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+    if (!lastDate) return new Date(c.createdAt) < sevenDaysAgo;
+    return new Date(lastDate) < sevenDaysAgo;
+  }).map(c => {
+    const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+    const days = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)) : '7+';
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      type: c.type,
+      lastOrderDate: lastDate || null,
+      daysSinceLastOrder: days,
+      alertType: 'INACTIVE_7D',
+      recommendation: 'Call customer to ask if they are still an active customer.'
+    };
+  });
 
   res.status(200).json(new ApiResponse(200, {
     creditBreaches,
     unpaidBillOver7Days,
     inactiveCustomers,
     totalAlerts: creditBreaches.length + unpaidBillOver7Days.length + inactiveCustomers.length
-  }, 'Customer alerts fetched'));
+  }, 'Customer alerts fetched successfully'));
 });

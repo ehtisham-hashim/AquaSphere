@@ -4,9 +4,17 @@ import { toast } from 'sonner';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
+import { useAuth } from '../context/AuthContext';
+
 const API = API_URL;
 
 export default function RawMaterials() {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
+  const canEditMaterial = ['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role);
+  const canArchiveMaterial = isOwner;
+  const isReadOnly = !canEditMaterial;
+
   const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,27 +46,45 @@ export default function RawMaterials() {
   }, [fetchMaterials]);
 
   const handleOpenAdd = () => {
+    if (!canEditMaterial) {
+      toast.error('You do not have permission to add materials directly');
+      return;
+    }
     setEditingItem(null);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (item) => {
+    if (!canEditMaterial) {
+      toast.error('You do not have permission to edit raw materials');
+      return;
+    }
     setEditingItem(item);
     setIsModalOpen(true);
   };
 
   const handleToggleArchive = async (item) => {
+    if (!canArchiveMaterial) {
+      toast.error('Only the Owner has permission to archive or restore raw materials');
+      return;
+    }
     const isArchived = !!item.archivedAt;
     const action = isArchived ? 'restore' : 'archive';
     if (!confirm(`Are you sure you want to ${action} "${item.name}"?`)) return;
 
     try {
-      await fetch(`${API}/items/${item.id}/${action}`, {
+      const res = await fetch(`${API}/items/${item.id}/${action}`, {
         method: 'PATCH',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
-      fetchMaterials();
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Material ${action}d successfully`);
+        fetchMaterials();
+      } else {
+        toast.error(data.message || `Only the Owner can ${action} materials`);
+      }
     } catch (err) {
       toast.error(`Failed to ${action} material`);
     }
@@ -79,6 +105,7 @@ export default function RawMaterials() {
         onToggleArchived={setIncludeArchived}
         onOpenAdd={handleOpenAdd}
         tenant={tenant}
+        isReadOnly={isReadOnly}
       />
 
       <RawMaterialsTable 
@@ -87,6 +114,8 @@ export default function RawMaterials() {
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
         tenant={tenant}
+        isReadOnly={isReadOnly}
+        canArchive={canArchiveMaterial}
       />
 
       <AddEditRawMaterialModal 

@@ -7,19 +7,29 @@ import {
   getPurchases,
   getPurchaseById,
   createPurchase,
-  uploadReceipt
+  uploadReceipt,
+  approvePurchase,
+  deletePurchase,
+  updatePurchaseStatus
 } from '../controllers/purchase.controller.js';
 
 const router = Router();
 
 router.use(verifyJWT);
-router.use(requireRoles('OWNER', 'ACCOUNTANT'));
 
-router.get('/', getPurchases);
-router.get('/:id', getPurchaseById);
-router.post('/', checkDailyCloseLock, createPurchase);
+// GET routes: All roles can view purchases
+router.get('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN', 'MARKETING_MANAGER'), getPurchases);
+router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN', 'MARKETING_MANAGER'), getPurchaseById);
 
-// Dedicated receipt upload endpoint — returns { receiptUrl } for frontend to use
-router.post('/upload-receipt', upload.single('receipt'), uploadReceipt);
+// POST routes: Only OWNER and PRODUCTION_MANAGER can record purchases and upload receipts
+router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER'), checkDailyCloseLock, createPurchase);
+router.post('/upload-receipt', requireRoles('OWNER', 'PRODUCTION_MANAGER'), upload.single('receipt'), uploadReceipt);
+router.patch('/:id/status', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT'), updatePurchaseStatus);
+
+// APPROVE route: ACCOUNTANT and OWNER can verify bills
+router.post('/:id/approve', requireRoles('OWNER', 'ACCOUNTANT'), approvePurchase);
+
+// DELETE route: Strictly OWNER can delete purchases and reverse stock/ledger
+router.delete('/:id', requireRoles('OWNER'), checkDailyCloseLock, deletePurchase);
 
 export default router;

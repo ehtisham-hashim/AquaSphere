@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -65,7 +64,7 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-sans: 'Montserrat', system-ui, sans-serif;
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

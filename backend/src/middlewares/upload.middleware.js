@@ -1,22 +1,29 @@
 import multer from 'multer';
 
-// Use memory storage — file stays in buffer, streamed directly to Cloudinary.
-// No disk writes, no temp file cleanup required.
+// Images stay in memory as a Buffer and are streamed directly to Cloudinary.
+// Nothing is written to disk.
 const storage = multer.memoryStorage();
 
-const fileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
-  if (allowed.includes(file.mimetype)) {
+// Only allow the four image types listed in the requirements.
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+const fileFilter = (_req, file, cb) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files (JPEG, PNG, WEBP, GIF) and PDF are allowed for receipts'), false);
+    cb(
+      new Error('Invalid file type. Only JPEG, JPG, PNG, and WEBP images are accepted.'),
+      false
+    );
   }
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB max
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB hard limit
+  },
 });
 
 export default upload;

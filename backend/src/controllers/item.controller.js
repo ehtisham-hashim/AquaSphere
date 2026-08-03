@@ -7,10 +7,98 @@ const getTenantPrefix = (req) => {
   return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
+const consolidateDuplicateFinishedGoods = async (prefix) => {
+  if (prefix === 'wadaana') return; // Wadaana operates on single bottle items, do not consolidate
+  try {
+    const allFG = await prisma[`${prefix}Item`].findMany({
+      where: { archivedAt: null }
+    });
+
+    const groups = [
+      {
+        canonicalName: '0.5L PET Pack (12 Bottles)',
+        unit: 'packs',
+        keywords: ['0.5', '500']
+      },
+      {
+        canonicalName: '1.5L PET Pack (6 Bottles)',
+        unit: 'packs',
+        keywords: ['1.5', '1500']
+      },
+      {
+        canonicalName: '19L Refill Bottle',
+        unit: 'bottles',
+        keywords: ['19']
+      }
+    ];
+
+    for (const g of groups) {
+      const matchingItems = allFG.filter(i => 
+        (i.type === 'FINISHED_GOOD' || !i.type) && 
+        g.keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase()))
+      );
+
+      if (matchingItems.length === 0) continue;
+
+      let canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
+
+      await prisma[`${prefix}Item`].update({
+        where: { id: canonicalItem.id },
+        data: { name: g.canonicalName, unit: g.unit, type: 'FINISHED_GOOD' }
+      });
+
+      for (const dupe of matchingItems) {
+        if (dupe.id === canonicalItem.id) continue;
+
+        // Re-link ALL foreign key references
+        await prisma[`${prefix}InventoryTransaction`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}OrderItem`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}PurchaseItem`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatchConsumption`].updateMany({
+          where: { itemId: dupe.id },
+          data: { itemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatch`].updateMany({
+          where: { outputItemId: dupe.id },
+          data: { outputItemId: canonicalItem.id }
+        }).catch(() => null);
+
+        await prisma[`${prefix}ProductionBatch`].updateMany({
+          where: { inputItemId: dupe.id },
+          data: { inputItemId: canonicalItem.id }
+        }).catch(() => null);
+
+        // Soft-archive duplicate item so it never appears in inventory or transfer dropdowns
+        await prisma[`${prefix}Item`].update({
+          where: { id: dupe.id },
+          data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
+        }).catch(() => null);
+      }
+    }
+  } catch (err) {
+    console.error('Consolidation warning:', err);
+  }
+};
+
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
   
+  await consolidateDuplicateFinishedGoods(prefix);
+
   const where = {};
   if (type) where.type = type;
   if (includeArchived !== 'true') where.archivedAt = null;
@@ -21,11 +109,51 @@ export const getItems = asyncHandler(async (req, res) => {
     include: {
       recipeFinishedGoods: {
         include: { rawMaterial: true }
+      },
+      inventoryTransactions: {
+        select: { quantity: true, direction: true, refType: true }
       }
     }
   });
 
-  res.json({ success: true, data: items });
+  const itemsData = items.map(item => {
+    if (item.type === 'FINISHED_GOOD' || !item.type) {
+      const nameLower = (item.name || '').toLowerCase();
+      if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
+        item.unit = 'packs';
+      } else if (nameLower.includes('19')) {
+        item.unit = 'bottles';
+      }
+    }
+    if (item.inventoryTransactions && item.inventoryTransactions.length > 0) {
+      let netQty = 0;
+      for (const t of item.inventoryTransactions) {
+        if (t.refType === 'TRANSFER') continue;
+        const q = Number(t.quantity || 0);
+        if (t.direction === 'IN') netQty += q;
+        else if (t.direction === 'OUT') netQty -= q;
+      }
+      item.cachedQty = netQty;
+
+      // Check for Factory/Warehouse mismatch but DO NOT auto-fix silently
+      const fQty = Number(item.factoryQty || 0);
+      const wQty = Number(item.warehouseQty || 0);
+      if (fQty + wQty !== netQty) {
+        // Flag discrepancy but don't auto-correct
+        item.stockDiscrepancy = {
+          expected: netQty,
+          actual: fQty + wQty,
+          factory: fQty,
+          warehouse: wQty,
+          difference: (fQty + wQty) - netQty
+        };
+      }
+    }
+    delete item.inventoryTransactions;
+    return item;
+  });
+
+  res.json({ success: true, data: itemsData });
 });
 
 export const getItemById = asyncHandler(async (req, res) => {
@@ -219,4 +347,192 @@ export const adjustInventory = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, data: updatedItem });
+});
+
+export const getInventoryTransactions = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { type, limit = 100 } = req.query;
+
+  const whereClause = {};
+  if (type) {
+    whereClause.item = { type };
+  }
+
+  const txns = await prisma[`${prefix}InventoryTransaction`].findMany({
+    where: whereClause,
+    include: {
+      item: {
+        select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: parseInt(limit) || 100
+  });
+
+  res.json({ success: true, data: txns });
+});
+
+export const transferStock = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { itemId, fromLocation, toLocation, quantity, batchNo, notes } = req.body;
+
+  const qty = parseFloat(quantity);
+  if (isNaN(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be a positive number');
+  if (!itemId) throw new ApiError(400, 'Item selection is required');
+  if (!fromLocation || !toLocation) throw new ApiError(400, 'From and To locations are required');
+  if (fromLocation === toLocation) throw new ApiError(400, 'From and To locations must be different');
+
+  const item = await prisma[`${prefix}Item`].findUnique({ where: { id: itemId } });
+  if (!item) throw new ApiError(404, 'Item not found');
+
+  const fac = Number(item.factoryQty || 0);
+  const wh = Number(item.warehouseQty || 0);
+  const cached = Number(item.cachedQty || 0);
+
+  const effectiveFac = (fac === 0 && wh === 0) ? cached : fac;
+  const effectiveWh = (fac === 0 && wh === 0) ? 0 : wh;
+
+  const srcQty = fromLocation === 'FACTORY' ? effectiveFac : effectiveWh;
+  if (srcQty < qty) {
+    throw new ApiError(400, `Insufficient stock at ${fromLocation} (Available: ${srcQty}, Requested: ${qty})`);
+  }
+
+  const updatedItem = await prisma.$transaction(async (tx) => {
+    const newFactoryQty = effectiveFac + (fromLocation === 'FACTORY' ? -qty : qty);
+    const newWarehouseQty = effectiveWh + (fromLocation === 'WAREHOUSE' ? -qty : qty);
+
+    const updated = await tx[`${prefix}Item`].update({
+      where: { id: itemId },
+      data: {
+        factoryQty: Math.max(0, newFactoryQty),
+        warehouseQty: Math.max(0, newWarehouseQty)
+      }
+    });
+
+    const now = new Date();
+    const expiry = new Date();
+    expiry.setFullYear(expiry.getFullYear() + 1);
+
+    await tx[`${prefix}InventoryTransaction`].create({
+      data: {
+        itemId,
+        quantity: qty,
+        direction: 'IN',
+        reason: `STOCK_TRANSFER: ${fromLocation} ➔ ${toLocation}${notes ? ` (${notes})` : ''}`,
+        refType: 'TRANSFER',
+        refId: 'TRANSFER',
+        location: `${fromLocation} -> ${toLocation}`,
+        batchNo: batchNo || `AQ-BATCH-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`,
+        productionDate: now,
+        expiryDate: expiry
+      }
+    });
+
+    return updated;
+  });
+
+  res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
+});
+
+export const reconcileInventory = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { itemId } = req.params;
+
+  if (!['OWNER', 'ADMIN'].includes(req.user?.role)) {
+    throw new ApiError(403, 'Only Owner or Admin can perform inventory reconciliation');
+  }
+
+  const item = await prisma[`${prefix}Item`].findUnique({ 
+    where: { id: itemId },
+    include: {
+      inventoryTransactions: {
+        select: { quantity: true, direction: true, refType: true }
+      }
+    }
+  });
+
+  if (!item) throw new ApiError(404, 'Item not found');
+
+  // Calculate net quantity from transactions
+  let netQty = 0;
+  for (const t of item.inventoryTransactions) {
+    if (t.refType === 'TRANSFER') continue;
+    const q = Number(t.quantity || 0);
+    if (t.direction === 'IN') netQty += q;
+    else if (t.direction === 'OUT') netQty -= q;
+  }
+
+  const fQty = Number(item.factoryQty || 0);
+  const wQty = Number(item.warehouseQty || 0);
+  const cachedQty = Number(item.cachedQty || 0);
+  const diff = (fQty + wQty) - netQty;
+
+  if (diff === 0 && cachedQty === netQty) {
+    return res.json({ 
+      success: true, 
+      message: 'Inventory is already reconciled',
+      data: { item, reconciled: false }
+    });
+  }
+
+  // Perform reconciliation
+  let newF = fQty;
+  let newW = wQty;
+
+  if (diff > 0) {
+    // Excess stock: deduct from Factory first, then Warehouse
+    if (newF >= diff) {
+      newF -= diff;
+    } else {
+      const remainder = diff - newF;
+      newF = 0;
+      newW = Math.max(0, newW - remainder);
+    }
+  } else {
+    // Deficit: add to Factory
+    newF += Math.abs(diff);
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const reconciled = await tx[`${prefix}Item`].update({
+      where: { id: itemId },
+      data: { 
+        factoryQty: newF, 
+        warehouseQty: newW, 
+        cachedQty: netQty 
+      }
+    });
+
+    // Create audit log entry
+    await tx[`${prefix}AuditLog`].create({
+      data: {
+        action: 'INVENTORY_RECONCILED',
+        entityType: 'Item',
+        entityId: itemId,
+        performedBy: req.user?.name || req.user?.id || 'Admin',
+        details: JSON.stringify({
+          itemName: item.name,
+          before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+          after: { factory: newF, warehouse: newW, cached: netQty },
+          discrepancy: diff
+        })
+      }
+    });
+
+    return reconciled;
+  });
+
+  res.json({ 
+    success: true, 
+    message: 'Inventory reconciled successfully',
+    data: { 
+      item: updated,
+      reconciled: true,
+      changes: {
+        before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+        after: { factory: newF, warehouse: newW, cached: netQty },
+        discrepancy: diff
+      }
+    }
+  });
 });

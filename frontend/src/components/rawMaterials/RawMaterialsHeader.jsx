@@ -6,7 +6,8 @@ export default function RawMaterialsHeader({
   includeArchived, 
   onToggleArchived, 
   onOpenAdd, 
-  tenant = 'aquasphere' 
+  tenant = 'aquasphere',
+  isReadOnly = false
 }) {
   const isWadaana = tenant === 'wadaana';
 
@@ -37,17 +38,19 @@ export default function RawMaterialsHeader({
           </div>
         </div>
 
-        <button
-          onClick={onOpenAdd}
-          className={`${
-            isWadaana 
-              ? 'bg-[#0ea5e9] hover:bg-[#0284c7] shadow-sky-500/20' 
-              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-          } text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2.5 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] self-start sm:self-auto`}
-        >
-          <Plus size={20} className="stroke-[2.5]" /> 
-          <span>{isWadaana ? 'Add Preform Material' : 'Add Raw Material'}</span>
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={onOpenAdd}
+            className={`${
+              isWadaana 
+                ? 'bg-[#0ea5e9] hover:bg-[#0284c7] shadow-sky-500/20' 
+                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+            } text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2.5 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] self-start sm:self-auto`}
+          >
+            <Plus size={20} className="stroke-[2.5]" /> 
+            <span>{isWadaana ? 'Add Preform Material' : 'Add Raw Material'}</span>
+          </button>
+        )}
       </div>
 
       {/* Search and Filters Bar */}

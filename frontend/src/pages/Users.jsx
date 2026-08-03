@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
-import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, X, Search, ShieldCheck, Mail, Building2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
+  const tenant = getCompanyFromCookie();
+  const isWadaana = tenant === 'wadaana';
+
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -12,24 +16,27 @@ export default function Users() {
   
   // New/Edit User Form State
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', role: 'ADMIN', company: 'aquasphere', isActive: true
+    name: '', email: '', password: '', role: 'ADMIN', company: tenant, isActive: true
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true);
-    // Fetch users for both companies since the owner might want to see both
-    // If not owner, just fetch current company
-    const companyToFetch = currentUser?.role === 'OWNER' ? 'aquasphere' : currentUser?.company || 'aquasphere';
-    const res = await fetch(`${API_URL}/users?company=${companyToFetch}`, { credentials: 'include' });
-    const json = await res.json();
-    if (json.success) setUsers(json.data);
-    setIsLoading(false);
-  };
+    try {
+      const res = await fetch(`${API_URL}/users?company=${tenant}`, { credentials: 'include' });
+      const json = await res.json();
+      if (json.success) setUsers(json.data || []);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenant]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -39,7 +46,7 @@ export default function Users() {
   const openAddModal = () => {
     setIsEditing(false);
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: 'ADMIN', company: 'aquasphere', isActive: true });
+    setFormData({ name: '', email: '', password: '', role: 'ADMIN', company: tenant, isActive: true });
     setIsModalOpen(true);
   };
 
@@ -51,7 +58,7 @@ export default function Users() {
       email: u.email || '', 
       password: '', // blank password for editing
       role: u.role || 'ADMIN', 
-      company: 'aquasphere', // assuming fetching from current context
+      company: tenant,
       isActive: u.isActive !== false
     });
     setIsModalOpen(true);
@@ -85,7 +92,7 @@ export default function Users() {
     await fetch(`${API_URL}/users/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ company: 'aquasphere', isActive: !currentStatus }),
+      body: JSON.stringify({ company: tenant, isActive: !currentStatus }),
       credentials: 'include'
     });
     fetchUsers();
@@ -100,12 +107,19 @@ export default function Users() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Users & Roles</h2>
-          <p className="text-slate-500 text-sm">Manage system access, roles, and employee accounts</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-slate-800">Users & Roles</h2>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wide border ${
+              isWadaana ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              {isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}
+            </span>
+          </div>
+          <p className="text-slate-500 text-sm">Manage system access, roles, and employee accounts for {isWadaana ? 'Wadaana Industries' : 'AquaSphere Water'}</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+          className={`${isWadaana ? 'bg-purple-600 hover:bg-purple-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm`}
         >
           <Plus size={20} /> Add User
         </button>

@@ -4,7 +4,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -46,6 +45,7 @@ model AquasphereCustomer {
   orders             AquasphereOrder[]
   bottleTransactions AquasphereBottleTransaction[]
   payments           AquaspherePayment[]
+  spotSales          AquasphereSpotSale[]
 
   @@index([name])
   @@index([createdAt(sort: Desc)])
@@ -59,6 +59,8 @@ model AquasphereItem {
   type         AquasphereItemType
   unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  factoryQty   Decimal   @default(0.0) @map("factory_qty")
+  warehouseQty Decimal   @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -86,16 +88,19 @@ enum AquasphereItemType {
 }
 
 model AquasphereInventoryTransaction {
-  id        String         @id @default(uuid())
-  itemId    String         @map("item_id")
-  item      AquasphereItem @relation(fields: [itemId], references: [id])
-  quantity  Decimal
-  direction AquasphereTransactionDirection
-  reason    String
-  refType   String?        @map("ref_type")
-  refId     String?        @map("ref_id")
-  location  String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid())
+  itemId         String         @map("item_id")
+  item           AquasphereItem @relation(fields: [itemId], references: [id])
+  quantity       Decimal
+  direction      AquasphereTransactionDirection
+  reason         String
+  refType        String?        @map("ref_type")
+  refId          String?        @map("ref_id")
+  location       String?
+  batchNo        String?        @map("batch_no")
+  productionDate DateTime?      @map("production_date")
+  expiryDate     DateTime?      @map("expiry_date")
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
   @@map("inventory_transactions")
@@ -277,6 +282,11 @@ model AquaspherePurchase {
   receiptUrl   String?   @map("receipt_url")
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
+  deliveredTo  String    @default("FACTORY") @map("delivered_to")
+  status       String    @default("RECEIVED")                  // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  paymentStatus String   @default("PAID") @map("payment_status") // PAID, PARTIAL, CREDIT
+  verifiedBy   String?   @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")
   createdBy    String?   @map("created_by")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -348,8 +358,12 @@ model AquasphereVendorPayment {
   id        String         @id @default(uuid())
   vendorId  String         @map("vendor_id")
   vendor    AquasphereVendor @relation(fields: [vendorId], references: [id])
-  amount    Decimal
-  createdAt DateTime       @default(now()) @map("created_at")
+  amount        Decimal
+  paymentMethod String         @default("CASH") @map("payment_method")
+  referenceNo   String?        @map("reference_no")
+  proofUrl      String?        @map("proof_url")
+  remarks       String?
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   @@index([vendorId, createdAt])
   @@map("vendor_payments")
@@ -357,11 +371,14 @@ model AquasphereVendorPayment {
 }
 
 model AquasphereExpense {
-  id         String   @id @default(uuid())
-  category   String
-  amount     Decimal
-  receiptUrl String   @map("receipt_url")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          String          @id @default(uuid())
+  category    String
+  amount      Decimal
+  remarks     String?
+  receiptUrl  String          @map("receipt_url")
+  createdById String?         @map("created_by_id")
+  createdBy   AquasphereUser? @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now()) @map("created_at")
 
   @@index([createdAt, category])
   @@map("expenses")
@@ -376,6 +393,11 @@ model AquasphereDailyClose {
   pmConfirmedAt   DateTime? @map("pm_confirmed_at")
   pmConfirmedById String?  @map("pm_confirmed_by_id")
   pmConfirmedBy   AquasphereUser? @relation("PMConfirmer", fields: [pmConfirmedById], references: [id])
+
+  mmConfirmed     Boolean  @default(false) @map("mm_confirmed")
+  mmConfirmedAt   DateTime? @map("mm_confirmed_at")
+  mmConfirmedById String?  @map("mm_confirmed_by_id")
+  mmConfirmedBy   AquasphereUser? @relation("MMConfirmer", fields: [mmConfirmedById], references: [id])
 
   adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
   closedAt        DateTime @default(now()) @map("closed_at")
@@ -398,7 +420,10 @@ model AquasphereUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   pmConfirmedCloses AquasphereDailyClose[] @relation("PMConfirmer")
+  mmConfirmedCloses AquasphereDailyClose[] @relation("MMConfirmer")
   adminConfirmedCloses AquasphereDailyClose[] @relation("AdminConfirmer")
+  expenses AquasphereExpense[]
+  spotSales AquasphereSpotSale[]
 
   @@map("users")
   @@schema("aquasphere")
@@ -474,14 +499,22 @@ model AquasphereRecipeItem {
 }
 
 model AquasphereSpotSale {
-  id             String   @id @default(uuid())
-  litresSold     Decimal  @map("litres_sold")
-  capsIssued     Int      @default(0) @map("caps_issued")
-  cashCollected  Decimal  @default(0.0) @map("cash_collected")
-  paymentMethod  String   @default("CASH") @map("payment_method")
-  remarks        String?
-  createdById    String?  @map("created_by_id")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id               String             @id @default(uuid())
+  saleNumber       String?            @map("sale_number")
+  productType      String?            @map("product_type")
+  productQty       Decimal            @default(1.0) @map("product_qty")
+  openPackLeftover Int                @default(0) @map("open_pack_leftover")
+  litresSold       Decimal            @map("litres_sold")
+  capsIssued       Int                @default(0) @map("caps_issued")
+  cashCollected    Decimal            @default(0.0) @map("cash_collected")
+  creditAmount     Decimal            @default(0.0) @map("credit_amount")
+  paymentMethod    String             @default("CASH") @map("payment_method")
+  remarks          String?
+  customerId       String?            @map("customer_id")
+  customer         AquasphereCustomer? @relation(fields: [customerId], references: [id])
+  createdById      String?            @map("created_by_id")
+  createdBy        AquasphereUser?    @relation(fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@map("spot_sales")
@@ -525,6 +558,7 @@ model WadaanaCustomer {
   orders             WadaanaOrder[]
   bottleTransactions WadaanaBottleTransaction[]
   payments           WadaanaPayment[]
+  spotSales          WadaanaSpotSale[]
 
   @@index([name])
   @@index([createdAt(sort: Desc)])
@@ -538,6 +572,8 @@ model WadaanaItem {
   type         WadaanaItemType
   unit         String    @default("kg")
   cachedQty    Decimal   @default(0.0) @map("cached_qty")
+  factoryQty   Decimal   @default(0.0) @map("factory_qty")
+  warehouseQty Decimal   @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal   @default(0.0) @map("reorder_level")
   archivedAt   DateTime? @map("archived_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -565,16 +601,19 @@ enum WadaanaItemType {
 }
 
 model WadaanaInventoryTransaction {
-  id        String         @id @default(uuid())
-  itemId    String         @map("item_id")
-  item      WadaanaItem @relation(fields: [itemId], references: [id])
-  quantity  Decimal
-  direction WadaanaTransactionDirection
-  reason    String
-  refType   String?        @map("ref_type")
-  refId     String?        @map("ref_id")
-  location  String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid())
+  itemId         String         @map("item_id")
+  item           WadaanaItem    @relation(fields: [itemId], references: [id])
+  quantity       Decimal
+  direction      WadaanaTransactionDirection
+  reason         String
+  refType        String?        @map("ref_type")
+  refId          String?        @map("ref_id")
+  location       String?
+  batchNo        String?        @map("batch_no")
+  productionDate DateTime?      @map("production_date")
+  expiryDate     DateTime?      @map("expiry_date")
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
   @@map("inventory_transactions")
@@ -699,6 +738,14 @@ model WadaanaProductionBatch {
   remarks             String?
   packs05L            Int      @default(0) @map("packs_05l")      // 0.5L packs produced (good output)
   packs15L            Int      @default(0) @map("packs_15l")      // 1.5L packs produced (good output)
+  qtyPure05L          Int      @default(0) @map("qty_pure_05l")   // 0.5L Pure preform bottles produced
+  qtyPure15L          Int      @default(0) @map("qty_pure_15l")   // 1.5L Pure preform bottles produced
+  qtyMix05L           Int      @default(0) @map("qty_mix_05l")    // 0.5L Mix preform bottles produced
+  qtyMix15L           Int      @default(0) @map("qty_mix_15l")    // 1.5L Mix preform bottles produced
+  brokenPure05L       Int      @default(0) @map("broken_pure_05l")
+  brokenPure15L       Int      @default(0) @map("broken_pure_15l")
+  brokenMix05L        Int      @default(0) @map("broken_mix_05l")
+  brokenMix15L        Int      @default(0) @map("broken_mix_15l")
   brokenBottles05L    Int      @default(0) @map("broken_bottles_05l")
   brokenBottles15L    Int      @default(0) @map("broken_bottles_15l")
   batchDate           DateTime @default(now()) @map("batch_date")
@@ -756,6 +803,11 @@ model WadaanaPurchase {
   receiptUrl   String?   @map("receipt_url")
   remarks      String?
   grandTotal   Decimal   @default(0.0) @map("grand_total")
+  deliveredTo  String    @default("FACTORY") @map("delivered_to")
+  status       String    @default("RECEIVED")                  // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
+  paymentStatus String   @default("PAID") @map("payment_status") // PAID, PARTIAL, CREDIT
+  verifiedBy   String?   @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
   purchaseDate DateTime  @default(now()) @map("purchase_date")
   createdBy    String?   @map("created_by")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -827,8 +879,12 @@ model WadaanaVendorPayment {
   id        String         @id @default(uuid())
   vendorId  String         @map("vendor_id")
   vendor    WadaanaVendor @relation(fields: [vendorId], references: [id])
-  amount    Decimal
-  createdAt DateTime       @default(now()) @map("created_at")
+  amount        Decimal
+  paymentMethod String        @default("CASH") @map("payment_method")
+  referenceNo   String?       @map("reference_no")
+  proofUrl      String?       @map("proof_url")
+  remarks       String?
+  createdAt     DateTime      @default(now()) @map("created_at")
 
   @@index([vendorId, createdAt])
   @@map("vendor_payments")
@@ -836,11 +892,14 @@ model WadaanaVendorPayment {
 }
 
 model WadaanaExpense {
-  id         String   @id @default(uuid())
-  category   String
-  amount     Decimal
-  receiptUrl String   @map("receipt_url")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          String       @id @default(uuid())
+  category    String
+  amount      Decimal
+  remarks     String?
+  receiptUrl  String       @map("receipt_url")
+  createdById String?      @map("created_by_id")
+  createdBy   WadaanaUser? @relation(fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now()) @map("created_at")
 
   @@index([createdAt, category])
   @@map("expenses")
@@ -855,6 +914,11 @@ model WadaanaDailyClose {
   pmConfirmedAt   DateTime? @map("pm_confirmed_at")
   pmConfirmedById String?  @map("pm_confirmed_by_id")
   pmConfirmedBy   WadaanaUser? @relation("PMConfirmerW", fields: [pmConfirmedById], references: [id])
+
+  mmConfirmed     Boolean  @default(false) @map("mm_confirmed")
+  mmConfirmedAt   DateTime? @map("mm_confirmed_at")
+  mmConfirmedById String?  @map("mm_confirmed_by_id")
+  mmConfirmedBy   WadaanaUser? @relation("MMConfirmerW", fields: [mmConfirmedById], references: [id])
 
   adminConfirmed  Boolean  @default(false) @map("admin_confirmed")
   closedAt        DateTime @default(now()) @map("closed_at")
@@ -877,7 +941,10 @@ model WadaanaUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   pmConfirmedCloses WadaanaDailyClose[] @relation("PMConfirmerW")
+  mmConfirmedCloses WadaanaDailyClose[] @relation("MMConfirmerW")
   adminConfirmedCloses WadaanaDailyClose[] @relation("AdminConfirmerW")
+  expenses WadaanaExpense[]
+  spotSales WadaanaSpotSale[]
 
   @@map("users")
   @@schema("wadaana")
@@ -953,14 +1020,22 @@ model WadaanaRecipeItem {
 }
 
 model WadaanaSpotSale {
-  id             String   @id @default(uuid())
-  litresSold     Decimal  @map("litres_sold")
-  capsIssued     Int      @default(0) @map("caps_issued")
-  cashCollected  Decimal  @default(0.0) @map("cash_collected")
-  paymentMethod  String   @default("CASH") @map("payment_method")
-  remarks        String?
-  createdById    String?  @map("created_by_id")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id               String          @id @default(uuid())
+  saleNumber       String?         @map("sale_number")
+  productType      String?         @map("product_type")
+  productQty       Decimal         @default(1.0) @map("product_qty")
+  openPackLeftover Int             @default(0) @map("open_pack_leftover")
+  litresSold       Decimal         @map("litres_sold")
+  capsIssued       Int             @default(0) @map("caps_issued")
+  cashCollected    Decimal         @default(0.0) @map("cash_collected")
+  creditAmount     Decimal         @default(0.0) @map("credit_amount")
+  paymentMethod    String          @default("CASH") @map("payment_method")
+  remarks          String?
+  customerId       String?         @map("customer_id")
+  customer         WadaanaCustomer? @relation(fields: [customerId], references: [id])
+  createdById      String?         @map("created_by_id")
+  createdBy        WadaanaUser?    @relation(fields: [createdById], references: [id])
+  createdAt        DateTime        @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@map("spot_sales")

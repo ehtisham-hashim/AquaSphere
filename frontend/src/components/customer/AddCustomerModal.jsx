@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { X, UserPlus, Image as ImageIcon, MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { X, UserPlus, MapPin, DollarSign, FileText, ShoppingBag, Upload, Image as ImageIcon } from 'lucide-react';
 
 import { API_URL as API } from '../../utils/api';
 
@@ -38,6 +38,9 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
   const [formData, setFormData] = useState(initialFormData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   if (!isOpen) return null;
 
@@ -47,6 +50,71 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, and WEBP images are allowed');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setImageFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({ ...prev, homePictureUrl: '' }));
+  };
+
+  const uploadImageToCloudinary = async () => {
+    if (!imageFile) return null;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const res = await fetch(`${API}/customers/upload-picture`, {
+        method: 'POST',
+        headers: {
+          'x-tenant': tenant
+        },
+        body: formData,
+        credentials: 'include'
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        return json.homePictureUrl;
+      } else {
+        toast.error('Failed to upload image');
+        return null;
+      }
+    } catch (err) {
+      toast.error('Error uploading image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -65,6 +133,17 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
     setError('');
 
     try {
+      // Upload image first if present
+      let uploadedImageUrl = formData.homePictureUrl;
+      if (imageFile) {
+        uploadedImageUrl = await uploadImageToCloudinary();
+        if (!uploadedImageUrl) {
+          toast.error('Failed to upload image. Please try again.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await fetch(`${API}/customers`, {
         method: 'POST',
         headers: {
@@ -73,6 +152,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
         },
         body: JSON.stringify({
           ...formData,
+          homePictureUrl: uploadedImageUrl,
           securityDeposit: formData.securityDeposit ? parseInt(formData.securityDeposit) : 0,
           currentBalance: formData.currentBalance ? parseFloat(formData.currentBalance) : 0,
           creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
@@ -84,6 +164,8 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       if (json.success || res.ok) {
         toast.success('✅ Customer created successfully.');
         setFormData(initialFormData);
+        setImageFile(null);
+        setImagePreview(null);
         if (onCustomerAdded) onCustomerAdded(json.data);
         onClose();
       } else {
@@ -178,76 +260,37 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             
             {!isWadaana ? (
               /* Aquasphere Buying Options */
-              <div className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys19L"
-                      checked={formData.buys19L}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>19L Bottles</span>
-                  </label>
-                  {formData.buys19L && (
-                    <input
-                      type="number"
-                      name="qty19L"
-                      min="0"
-                      value={formData.qty19L}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys05LPet"
-                      checked={formData.buys05LPet}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>0.5L PET</span>
-                  </label>
-                  {formData.buys05LPet && (
-                    <input
-                      type="number"
-                      name="qty05LPet"
-                      min="0"
-                      value={formData.qty05LPet}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      name="buys15LPet"
-                      checked={formData.buys15LPet}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>1.5L PET</span>
-                  </label>
-                  {formData.buys15LPet && (
-                    <input
-                      type="number"
-                      name="qty15LPet"
-                      min="0"
-                      value={formData.qty15LPet}
-                      onChange={handleChange}
-                      placeholder="Qty"
-                      className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                    />
-                  )}
-                </div>
+              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys19L"
+                    checked={formData.buys19L}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>19L Bottles</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys05LPet"
+                    checked={formData.buys05LPet}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>0.5L PET</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="buys15LPet"
+                    checked={formData.buys15LPet}
+                    onChange={handleChange}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>1.5L PET</span>
+                </label>
               </div>
             ) : (
               /* Wadaana Pure/Mix Preform Bottles Hierarchy */
@@ -257,53 +300,27 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     <span className="w-2 h-2 rounded-full bg-[#0ea5e9]"></span>
                     Pure Preform Bottles
                   </div>
-                  <div className="space-y-2 pl-3.5 border-l-2 border-[#0ea5e9]/30">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysPure05L"
-                          checked={formData.buysPure05L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
-                        />
-                        <span>0.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(15g)</span></span>
-                      </label>
-                      {formData.buysPure05L && (
-                        <input
-                          type="number"
-                          name="qtyPure05L"
-                          min="0"
-                          value={formData.qtyPure05L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysPure15L"
-                          checked={formData.buysPure15L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
-                        />
-                        <span>1.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(30g)</span></span>
-                      </label>
-                      {formData.buysPure15L && (
-                        <input
-                          type="number"
-                          name="qtyPure15L"
-                          min="0"
-                          value={formData.qtyPure15L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                        />
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 pl-3.5 border-l-2 border-[#0ea5e9]/30">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysPure05L"
+                        checked={formData.buysPure05L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
+                      />
+                      <span>0.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(15g)</span></span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysPure15L"
+                        checked={formData.buysPure15L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-[#0ea5e9] focus:ring-[#0ea5e9]"
+                      />
+                      <span>1.5L Pure Bottle <span className="text-xs text-slate-400 font-normal">(30g)</span></span>
+                    </label>
                   </div>
                 </div>
 
@@ -312,53 +329,27 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                     Mix Preform Bottles
                   </div>
-                  <div className="space-y-2 pl-3.5 border-l-2 border-amber-500/30">
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysMix05L"
-                          checked={formData.buysMix05L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                        />
-                        <span>0.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(13g)</span></span>
-                      </label>
-                      {formData.buysMix05L && (
-                        <input
-                          type="number"
-                          name="qtyMix05L"
-                          min="0"
-                          value={formData.qtyMix05L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                        />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          name="buysMix15L"
-                          checked={formData.buysMix15L}
-                          onChange={handleChange}
-                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                        />
-                        <span>1.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(27g)</span></span>
-                      </label>
-                      {formData.buysMix15L && (
-                        <input
-                          type="number"
-                          name="qtyMix15L"
-                          min="0"
-                          value={formData.qtyMix15L}
-                          onChange={handleChange}
-                          placeholder="Qty"
-                          className="w-20 border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none"
-                        />
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 pl-3.5 border-l-2 border-amber-500/30">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysMix05L"
+                        checked={formData.buysMix05L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <span>0.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(13g)</span></span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        name="buysMix15L"
+                        checked={formData.buysMix15L}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      />
+                      <span>1.5L Mix Bottle <span className="text-xs text-slate-400 font-normal">(27g)</span></span>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -371,6 +362,63 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
               <MapPin size={16} className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
               <span>Location & Media</span>
             </div>
+            
+            {/* Image Upload Section */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <label className="block text-sm font-medium text-slate-700 mb-2">House/Shop Picture</label>
+              <div className="flex items-start gap-4">
+                {/* Image Preview */}
+                <div className={`w-32 h-32 rounded-xl border-2 border-dashed ${isWadaana ? 'border-sky-300 bg-sky-50' : 'border-emerald-300 bg-emerald-50'} flex items-center justify-center overflow-hidden relative`}>
+                  {imagePreview ? (
+                    <>
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <ImageIcon size={40} className={`${isWadaana ? 'text-sky-400' : 'text-emerald-400'} opacity-50`} />
+                  )}
+                </div>
+
+                {/* Upload Button */}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    id="customerImage"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="customerImage"
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 ${
+                      isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'
+                    } text-white rounded-lg font-medium text-sm cursor-pointer transition-colors shadow-sm`}
+                  >
+                    <Upload size={16} />
+                    <span>{imagePreview ? 'Change Picture' : 'Upload Picture'}</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-2">
+                    JPEG, PNG, or WEBP • Max 5MB • Recommended: 400x400px
+                  </p>
+                  {uploadingImage && (
+                    <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                      <span className="animate-spin">⏳</span> Uploading image...
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Full Address</label>
@@ -405,15 +453,10 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Current Debt (Rs)</label>
-                <input
-                  name="currentBalance"
-                  type="number"
-                  step="0.01"
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none"
-                  value={formData.currentBalance}
-                  onChange={handleChange}
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Current Debt (Auto-Calculated)</label>
+                <div className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-500 cursor-not-allowed">
+                  Rs. 0 (Auto-calculated on orders)
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Security Deposit (Rs)</label>
