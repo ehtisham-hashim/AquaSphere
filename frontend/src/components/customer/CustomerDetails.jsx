@@ -286,12 +286,14 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                   {!isWadaana ? `${c.cachedBottleBalance || 0} Empty` : `${c.creditDuration || 1} Days`}
                 </span>
                 {!isWadaana ? (
-                  <button
-                    onClick={() => setIsBottleModalOpen(true)}
-                    className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-0.5 block mx-auto"
-                  >
-                    Retrieve / Adjust
-                  </button>
+                  (c.cachedBottleBalance || 0) > 0 && (
+                    <button
+                      onClick={() => setIsBottleModalOpen(true)}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-0.5 block mx-auto"
+                    >
+                      Retrieve / Adjust
+                    </button>
+                  )
                 ) : (
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
                     Allowed credit span

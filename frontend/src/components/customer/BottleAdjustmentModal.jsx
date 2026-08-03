@@ -24,6 +24,11 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
       return setError('Please enter a valid quantity greater than zero.');
     }
 
+    const isReturnType = ['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type);
+    if (isReturnType && qty > currentBalance) {
+      return setError(`Cannot retrieve more than ${currentBalance} bottles.`);
+    }
+
     setSubmitting(true);
     try {
       const tenant = getCompanyFromCookie();
