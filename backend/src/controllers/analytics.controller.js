@@ -296,6 +296,8 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     }
   });
 });
+
+export const getProductionDashboard = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
