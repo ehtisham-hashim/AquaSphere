@@ -241,7 +241,7 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       orders: {
         orderBy: { createdAt: 'desc' },
         take: 5,
-        select: { id: true, createdAt: true, deliveryStatus: true, paymentStatus: true, totalAmount: true }
+        select: { id: true, createdAt: true, deliveryStatus: true, paymentStatus: true, items: { select: { quantity: true, price: true } } }
       }
     }
   });
@@ -252,12 +252,12 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     if (limit <= 0) return false;
     const unpaidSum = c.orders
       .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
-      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      .reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
     return unpaidSum >= limit;
   }).map(c => {
     const unpaidSum = c.orders
       .filter(o => o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL')
-      .reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      .reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
     return {
       id: c.id,
       name: c.name,
@@ -275,7 +275,7 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
   allCustomers.forEach(c => {
     const oldUnpaid = c.orders.filter(o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < sevenDaysAgo);
     if (oldUnpaid.length > 0) {
-      const unpaidSum = oldUnpaid.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
+      const unpaidSum = oldUnpaid.reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0), 0);
       unpaidBillOver7Days.push({
         id: c.id,
         name: c.name,
