@@ -63,7 +63,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
-      [SIDEBAR_ROUTES.USERS]: true,
+      [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
     },
@@ -136,7 +136,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
-      [SIDEBAR_ROUTES.USERS]: true,
+      [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
     },
     [ROLES.PRODUCTION_MANAGER]: {
