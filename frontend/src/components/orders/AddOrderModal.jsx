@@ -432,7 +432,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
         {/* Soft-Block Warning Modal Overlay */}
         {softBlockData && (
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-6 z-20 rounded-2xl">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-6 z-60">
             <div className="bg-white border border-amber-200 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
               <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
                 <AlertTriangle size={28} />
