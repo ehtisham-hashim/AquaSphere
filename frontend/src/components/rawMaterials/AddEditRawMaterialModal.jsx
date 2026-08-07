@@ -6,11 +6,12 @@ const AQUASPHERE_PRESETS = [
   { id: '19l_bottles', name: 'Empty 19L Bottles', unit: 'pcs', defaultReorder: 50 },
   { id: 'pet_500ml', name: 'PET Bottles (500ml)', unit: 'pcs', defaultReorder: 2000 },
   { id: 'pet_1500ml', name: 'PET Bottles (1500ml)', unit: 'pcs', defaultReorder: 1500 },
-  { id: 'caps_std', name: 'Bottle Caps (Standard)', unit: 'pcs', defaultReorder: 5000 },
+  { id: 'calcium', name: 'Calcium', unit: 'kg', defaultReorder: 120 },
+  { id: 'magnesium', name: 'Magnesium', unit: 'kg', defaultReorder: 100 },
+  { id: 'sodium', name: 'Sodium', unit: 'kg', defaultReorder: 100 },
   { id: 'labels_500ml', name: 'Labels (500ml)', unit: 'pcs', defaultReorder: 3000 },
   { id: 'labels_1500ml', name: 'Labels (1500ml)', unit: 'pcs', defaultReorder: 2500 },
-  { id: 'shrink_wrap', name: 'Shrink Wrap Rolls', unit: 'rolls', defaultReorder: 20 },
-  { id: 'minerals_salts', name: 'Minerals & Salts (Calcium/Magnesium)', unit: 'kg', defaultReorder: 50 }
+  { id: 'shrink_wrap', name: 'Shrink Wrap Rolls', unit: 'rolls', defaultReorder: 20 }
 ];
 
 const WADAANA_PRESETS = [
