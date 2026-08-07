@@ -5,10 +5,8 @@ import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 
 const getTenantPrefix = (req) => {
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'];
-  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
+  const rawTenant = req.tenant || req.headers['x-tenant'] || req.headers['x-company-context'] || req.query?.tenant || req.cookies?.tenant || req.cookies?.company || 'aquasphere';
+  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
 };
 
 const VALID_CATEGORIES = [
