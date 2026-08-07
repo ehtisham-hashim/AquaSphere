@@ -668,7 +668,10 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   // Soft delete / mark order as CANCELLED
   await prisma[`${prefix}Order`].update({
     where: { id },
-    data: { deliveryStatus: 'CANCELLED' }
+    data: { 
+      deliveryStatus: 'CANCELLED',
+      paymentStatus: 'UNPAID'
+    }
   });
 
   await prisma[`${prefix}AuditLog`].create({

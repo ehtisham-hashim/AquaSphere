@@ -155,15 +155,21 @@ export default function OrdersTable({
                     <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${deliveryBadge(o.deliveryStatus)}`}>
                       {o.deliveryStatus}
                     </span>
-                    <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${pBadge.style}`}>
-                      {pBadge.label}
-                    </span>
+                    {o.deliveryStatus !== 'CANCELLED' && (
+                      <span className={`text-[10px] uppercase px-2 py-0.5 rounded ${pBadge.style}`}>
+                        {pBadge.label}
+                      </span>
+                    )}
                   </div>
                 </td>
 
                 {/* Verification column */}
                 <td className="px-4 py-3 whitespace-nowrap text-xs font-medium">
-                  {alreadyPaid >= total && total > 0 ? (
+                  {o.deliveryStatus === 'CANCELLED' ? (
+                    <span className="text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded-lg border border-rose-200 text-[11px]">
+                      Order Cancelled
+                    </span>
+                  ) : alreadyPaid >= total && total > 0 ? (
                     <div className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
                       <ShieldCheck size={14} className="text-emerald-600" />
                       <span>Payment Verified</span>

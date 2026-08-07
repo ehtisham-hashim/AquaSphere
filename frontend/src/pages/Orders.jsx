@@ -63,6 +63,8 @@ export default function Orders() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const [orderToCancel, setOrderToCancel] = useState(null);
+
   const openDeliverModal = (order) => {
     setSelectedOrder(order);
     setIsDeliverModalOpen(true);
@@ -73,8 +75,7 @@ export default function Orders() {
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteOrder = async (id) => {
-    if (!window.confirm('Are you sure you want to cancel this order? It will be moved to Cancelled Orders.')) return;
+  const confirmCancelOrder = async (id) => {
     try {
       const tenant = getCompanyFromCookie();
       const res = await fetch(`${API_URL}/orders/${id}`, { 
@@ -91,6 +92,8 @@ export default function Orders() {
       }
     } catch (err) {
       toast.error('Error cancelling order');
+    } finally {
+      setOrderToCancel(null);
     }
   };
 
@@ -275,12 +278,14 @@ export default function Orders() {
                           }`}>
                             {o.deliveryStatus}
                           </span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 
-                            o.paymentStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {o.paymentStatus}
-                          </span>
+                          {o.deliveryStatus !== 'CANCELLED' && (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 
+                              o.paymentStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {o.paymentStatus}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="p-4 text-right">
@@ -311,7 +316,7 @@ export default function Orders() {
                             </button>
                           )}
                           {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                            <button onClick={() => handleDeleteOrder(o.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
+                            <button onClick={() => setOrderToCancel(o)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
                               Cancel Order
                             </button>
                           )}
@@ -379,6 +384,40 @@ export default function Orders() {
           order={invoiceOrder}
           onClose={() => setInvoiceOrder(null)}
         />
+      )}
+
+      {/* Cancel Order Confirmation Pop-Up Modal */}
+      {orderToCancel && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-100">
+                <Printer className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Cancel Order #{orderToCancel.id?.substring(0, 8).toUpperCase()}?</h3>
+                <p className="text-xs text-slate-500 font-medium">{orderToCancel.customer?.name || 'Customer'}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+              Are you sure you want to cancel this order? It will be moved to <strong className="text-rose-700">Cancelled Orders</strong>.
+            </p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setOrderToCancel(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+              >
+                Keep Order
+              </button>
+              <button
+                onClick={() => confirmCancelOrder(orderToCancel.id)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-2xs"
+              >
+                Yes, Cancel Order
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

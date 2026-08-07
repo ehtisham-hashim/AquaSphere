@@ -91,6 +91,44 @@ const computeDashboardAnalytics = async (prefix) => {
   const monthly = calcPeriod(startOfMonth);
   const yearly = calcPeriod(startOfYear);
 
+  // Compute 30-day daily sales history for Marketing Manager & Executive charts
+  const dailySalesHistory = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const dateKey = d.toISOString().split('T')[0];
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+    const dayOrders = yearOrders.filter(o => {
+      const t = new Date(o.createdAt);
+      return t >= dayStart && t <= dayEnd;
+    });
+
+    const dayPayments = yearPayments.filter(p => {
+      const t = new Date(p.createdAt);
+      return t >= dayStart && t <= dayEnd;
+    });
+
+    const daySpotSales = yearSpotSales.filter(s => {
+      const t = new Date(s.createdAt);
+      return t >= dayStart && t <= dayEnd;
+    });
+
+    const ordersCount = dayOrders.length;
+    const cashCollected = dayPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) +
+      daySpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+    const creditBilled = daySpotSales.reduce((s, st) => s + parseFloat(st.creditAmount || 0), 0);
+
+    dailySalesHistory.push({
+      date: dateKey,
+      day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      ordersCount,
+      cashCollected,
+      creditBilled
+    });
+  }
+
   const purchaseTotal = pendingPayables.find(e => e.type === 'PURCHASE')?._sum?.amount || 0;
   const paymentTotal = pendingPayables.find(e => e.type === 'PAYMENT')?._sum?.amount || 0;
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
@@ -100,18 +138,11 @@ const computeDashboardAnalytics = async (prefix) => {
   );
 
   return {
-    // Default to monthly values for backward compatibility & default monthly view
-    sales: monthly.sales,
-    cash: monthly.cash,
-    expenses: monthly.expenses,
-    credit: monthly.credit,
-    bottlesSold: monthly.bottlesSold,
-    purchases: monthly.purchases,
-    purchasesCount: monthly.purchasesCount,
-    todaysPurchases: daily.purchases,
-    todaysPurchasesCount: daily.purchasesCount,
-    monthlyPurchases: monthly.purchases,
-    netCash: monthly.netCash,
+    ...daily,
+    daily,
+    monthly,
+    yearly,
+    dailySalesHistory,
     pendingVendorPayables,
     lowStockMaterialsCount: lowStockMaterials.length,
     lowStockMaterialsList: lowStockMaterials.map(m => ({
@@ -323,6 +354,11 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
+  const daysNum = Math.min(Math.max(parseInt(req.query.days || '7', 10), 1), 30);
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - (daysNum - 1));
+  startDate.setHours(0, 0, 0, 0);
+
   const prodBatchModel = prisma[`${prefix}ProductionBatch`];
   const itemModel = prisma[`${prefix}Item`];
   const purchaseModel = prisma[`${prefix}Purchase`];
@@ -335,7 +371,8 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     rawMaterials,
     recentPurchases,
     dailyCloseStatus,
-    pendingBatchesCount
+    pendingBatchesCount,
+    pastWeekBatches
   ] = await Promise.all([
     prodBatchModel.aggregate({
       where: { batchDate: { gte: startOfDay, lte: endOfDay } },
@@ -374,8 +411,42 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     }),
     prodBatchModel.count({
       where: { batchDate: { gte: startOfDay, lte: endOfDay }, status: 'PENDING' }
+    }),
+    prodBatchModel.findMany({
+      where: { batchDate: { gte: startDate } },
+      orderBy: { batchDate: 'asc' }
     })
   ]);
+
+  const dailyHistory = [];
+  for (let i = daysNum - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const dayStr = daysNum > 14 
+      ? `${d.getMonth() + 1}/${d.getDate()}` 
+      : d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dateKey = d.toISOString().split('T')[0];
+
+    const dayBatches = pastWeekBatches.filter(b => {
+      if (!b.batchDate) return false;
+      const bKey = new Date(b.batchDate).toISOString().split('T')[0];
+      return bKey === dateKey;
+    });
+
+    const total19L = dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0);
+    const packs15L = dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0);
+    const packs05L = dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0);
+    const totalWaste = dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0);
+
+    dailyHistory.push({
+      day: dayStr,
+      date: dateKey,
+      total19L,
+      packs15L,
+      packs05L,
+      totalWaste
+    });
+  }
 
   const rawMaterialHealth = rawMaterials.map(mat => {
     const qty = Number(mat.cachedQty || 0);
@@ -407,6 +478,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         packs05L: todaysBatchesAgg._sum.packs05L || 0,
         totalWaste: (todaysBatchesAgg._sum.wasteQuantity || 0) + (todaysBatchesAgg._sum.brokenBottles15L || 0) + (todaysBatchesAgg._sum.brokenBottles05L || 0)
       },
+      dailyProductionHistory: dailyHistory,
       finishedGoods: finishedGoods.map(fg => ({
         id: fg.id,
         name: fg.name,
