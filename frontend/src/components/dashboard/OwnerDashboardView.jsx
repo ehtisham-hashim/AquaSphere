@@ -21,7 +21,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       cash: Number(data.cash || 0),
       expenses: Number(data.expenses || 0),
       netCash: Number(data.netCash || (Number(data.cash || 0) - Number(data.expenses || 0))),
-      purchases: Number(data.purchases || data.todaysPurchases || 0),
+      purchases: Number(data.purchases || data.monthlyPurchases || data.todaysPurchases || 0),
       purchasesCount: Number(data.purchasesCount || data.todaysPurchasesCount || 0),
       bottlesSold: Number(data.bottlesSold || 0)
     };
