@@ -413,6 +413,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
 
 export const getProductionDashboard = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
+  const isWadaana = prefix === 'wadaana';
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -439,7 +440,16 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   ] = await Promise.all([
     prodBatchModel.aggregate({
       where: { batchDate: { gte: startOfDay, lte: endOfDay } },
-      _sum: {
+      _sum: isWadaana ? {
+        qtyPure05L: true,
+        qtyPure15L: true,
+        qtyMix05L: true,
+        qtyMix15L: true,
+        brokenPure05L: true,
+        brokenPure15L: true,
+        brokenMix05L: true,
+        brokenMix15L: true
+      } : {
         quantity: true,
         packs05L: true,
         packs15L: true,
@@ -496,19 +506,42 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
       return bKey === dateKey;
     });
 
-    const total19L = dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0);
-    const packs15L = dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0);
-    const packs05L = dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0);
-    const totalWaste = dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0);
+    if (isWadaana) {
+      const qtyPure05L = dayBatches.reduce((s, b) => s + Number(b.qtyPure05L || 0), 0);
+      const qtyPure15L = dayBatches.reduce((s, b) => s + Number(b.qtyPure15L || 0), 0);
+      const qtyMix05L = dayBatches.reduce((s, b) => s + Number(b.qtyMix05L || 0), 0);
+      const qtyMix15L = dayBatches.reduce((s, b) => s + Number(b.qtyMix15L || 0), 0);
+      const totalWaste = dayBatches.reduce((s, b) => s + (
+        Number(b.brokenPure05L || 0) + 
+        Number(b.brokenPure15L || 0) + 
+        Number(b.brokenMix05L || 0) + 
+        Number(b.brokenMix15L || 0)
+      ), 0);
 
-    dailyHistory.push({
-      day: dayStr,
-      date: dateKey,
-      total19L,
-      packs15L,
-      packs05L,
-      totalWaste
-    });
+      dailyHistory.push({
+        day: dayStr,
+        date: dateKey,
+        qtyPure05L,
+        qtyPure15L,
+        qtyMix05L,
+        qtyMix15L,
+        totalWaste
+      });
+    } else {
+      const total19L = dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0);
+      const packs15L = dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0);
+      const packs05L = dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0);
+      const totalWaste = dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0);
+
+      dailyHistory.push({
+        day: dayStr,
+        date: dateKey,
+        total19L,
+        packs15L,
+        packs05L,
+        totalWaste
+      });
+    }
   }
 
   const rawMaterialHealth = rawMaterials.map(mat => {
@@ -531,16 +564,46 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
 
   const lowStockCount = rawMaterialHealth.filter(m => m.status !== 'IN_STOCK').length;
 
+  const todaysProduction = isWadaana ? {
+    batchesCount: todaysBatchesAgg._count.id || 0,
+    qtyPure05L: todaysBatchesAgg._sum.qtyPure05L || 0,
+    qtyPure15L: todaysBatchesAgg._sum.qtyPure15L || 0,
+    qtyMix05L: todaysBatchesAgg._sum.qtyMix05L || 0,
+    qtyMix15L: todaysBatchesAgg._sum.qtyMix15L || 0,
+    totalProduced: (todaysBatchesAgg._sum.qtyPure05L || 0) + (todaysBatchesAgg._sum.qtyPure15L || 0) + (todaysBatchesAgg._sum.qtyMix05L || 0) + (todaysBatchesAgg._sum.qtyMix15L || 0),
+    totalWaste: (todaysBatchesAgg._sum.brokenPure05L || 0) + (todaysBatchesAgg._sum.brokenPure15L || 0) + (todaysBatchesAgg._sum.brokenMix05L || 0) + (todaysBatchesAgg._sum.brokenMix15L || 0)
+  } : {
+    batchesCount: todaysBatchesAgg._count.id || 0,
+    total19L: todaysBatchesAgg._sum.quantity || 0,
+    packs15L: todaysBatchesAgg._sum.packs15L || 0,
+    packs05L: todaysBatchesAgg._sum.packs05L || 0,
+    totalWaste: (todaysBatchesAgg._sum.wasteQuantity || 0) + (todaysBatchesAgg._sum.brokenBottles15L || 0) + (todaysBatchesAgg._sum.brokenBottles05L || 0)
+  };
+
+  const userIds = [...new Set(recentBatches.map(b => b.producedBy).filter(Boolean))];
+  const userRecords = userIds.length > 0 ? await prisma[`${prefix}User`].findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, role: true }
+  }) : [];
+  const userMap = Object.fromEntries(userRecords.map(u => [u.id, u]));
+
+  const formatLoggedBy = (producedBy) => {
+    if (!producedBy) return 'Production Manager';
+    const u = userMap[producedBy];
+    if (u) {
+      if (u.name) return u.name;
+      if (u.role) return u.role.replace(/_/g, ' ');
+    }
+    // If producedBy is a UUID string that doesn't match a user row, don't show raw UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(producedBy);
+    if (isUUID) return 'Production Manager';
+    return producedBy;
+  };
+
   res.json({
     success: true,
     data: {
-      todaysProduction: {
-        batchesCount: todaysBatchesAgg._count.id || 0,
-        total19L: todaysBatchesAgg._sum.quantity || 0,
-        packs15L: todaysBatchesAgg._sum.packs15L || 0,
-        packs05L: todaysBatchesAgg._sum.packs05L || 0,
-        totalWaste: (todaysBatchesAgg._sum.wasteQuantity || 0) + (todaysBatchesAgg._sum.brokenBottles15L || 0) + (todaysBatchesAgg._sum.brokenBottles05L || 0)
-      },
+      todaysProduction,
       dailyProductionHistory: dailyHistory,
       finishedGoods: finishedGoods.map(fg => ({
         id: fg.id,
@@ -553,17 +616,36 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
       rawMaterialHealth,
       lowStockCount,
       pendingBatchesCount,
-      recentBatches: recentBatches.map(b => ({
-        id: b.id,
-        shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
-        batchDate: b.batchDate,
-        status: b.status,
-        quantity: b.quantity || 0,
-        packs15L: b.packs15L || 0,
-        packs05L: b.packs05L || 0,
-        wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0),
-        createdBy: b.producedBy || 'Production Manager'
-      })),
+      recentBatches: recentBatches.map(b => {
+        const creatorName = formatLoggedBy(b.producedBy);
+        if (isWadaana) {
+          const waste = (b.brokenPure05L || 0) + (b.brokenPure15L || 0) + (b.brokenMix05L || 0) + (b.brokenMix15L || 0);
+          return {
+            id: b.id,
+            shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
+            batchDate: b.batchDate,
+            status: b.status,
+            qtyPure05L: b.qtyPure05L || 0,
+            qtyPure15L: b.qtyPure15L || 0,
+            qtyMix05L: b.qtyMix05L || 0,
+            qtyMix15L: b.qtyMix15L || 0,
+            wasteQuantity: waste,
+            createdBy: creatorName
+          };
+        } else {
+          return {
+            id: b.id,
+            shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
+            batchDate: b.batchDate,
+            status: b.status,
+            quantity: b.quantity || 0,
+            packs15L: b.packs15L || 0,
+            packs05L: b.packs05L || 0,
+            wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0),
+            createdBy: creatorName
+          };
+        }
+      }),
       recentPurchases: recentPurchases.map(p => ({
         id: p.id,
         invoiceNo: p.invoiceNo || `INV-${p.id.substring(0, 6).toUpperCase()}`,

@@ -79,6 +79,8 @@ export default function ProductionDashboardView() {
     dailyClose = {}
   } = data || {};
 
+  const isWadaana = tenant === 'wadaana';
+
   // Top 5 raw materials closest to reorder level (ascending by stock ratio)
   const sortedRawMaterials = useMemo(() => {
     return [...rawMaterialHealth]
@@ -92,15 +94,28 @@ export default function ProductionDashboardView() {
 
   // Recharts data formatting
   const chartData = useMemo(() => {
-    return dailyProductionHistory.map(d => ({
-      day: d.day,
-      date: d.date,
-      '19L Bottles': Number(d.total19L || 0),
-      '1.5L Packs': Number(d.packs15L || 0),
-      '0.5L Packs': Number(d.packs05L || 0),
-      'Broken / Waste': Number(d.totalWaste || 0)
-    }));
-  }, [dailyProductionHistory]);
+    return dailyProductionHistory.map(d => {
+      if (isWadaana) {
+        return {
+          day: d.day,
+          date: d.date,
+          'Pure 0.5L': Number(d.qtyPure05L || 0),
+          'Pure 1.5L': Number(d.qtyPure15L || 0),
+          'Mix 0.5L': Number(d.qtyMix05L || 0),
+          'Mix 1.5L': Number(d.qtyMix15L || 0),
+          'Broken / Waste': Number(d.totalWaste || 0)
+        };
+      }
+      return {
+        day: d.day,
+        date: d.date,
+        '19L Bottles': Number(d.total19L || 0),
+        '1.5L Packs': Number(d.packs15L || 0),
+        '0.5L Packs': Number(d.packs05L || 0),
+        'Broken / Waste': Number(d.totalWaste || 0)
+      };
+    });
+  }, [dailyProductionHistory, isWadaana]);
 
   if (loading) {
     return (
@@ -123,7 +138,7 @@ export default function ProductionDashboardView() {
     );
   }
 
-  const companyTitle = tenant === 'wadaana' ? 'Wadaana Ind.' : 'AquaSphere';
+  const companyTitle = isWadaana ? 'Wadaana Ind.' : 'AquaSphere';
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto pb-8 text-slate-800">
@@ -178,9 +193,13 @@ export default function ProductionDashboardView() {
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900">
-            {todaysProduction.total19L || (todaysProduction.packs15L + todaysProduction.packs05L) || 0}
+            {isWadaana ? (
+              Number(todaysProduction.totalProduced || 0).toLocaleString()
+            ) : (
+              Number(todaysProduction.total19L || (todaysProduction.packs15L + todaysProduction.packs05L) || 0).toLocaleString()
+            )}
             <span className="text-xs font-semibold text-slate-500 ml-1">
-              {tenant === 'wadaana' ? 'Packs' : '19L / Packs'}
+              {isWadaana ? 'Bottles' : '19L / Packs'}
             </span>
           </div>
           <div className="text-[11px] font-medium text-slate-500 mt-1.5 flex items-center gap-1">
@@ -198,8 +217,10 @@ export default function ProductionDashboardView() {
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900">
-            {finishedGoods.reduce((sum, item) => sum + item.factoryQty, 0).toLocaleString()}
-            <span className="text-xs font-semibold text-slate-500 ml-1">Units</span>
+            {finishedGoods.reduce((sum, item) => sum + Number(item.factoryQty || 0), 0).toLocaleString()}
+            <span className="text-xs font-semibold text-slate-500 ml-1">
+              {isWadaana ? 'Bottles' : 'Units'}
+            </span>
           </div>
           <div className="text-[11px] font-medium text-slate-500 mt-1.5">
             Available at factory floor
@@ -314,16 +335,28 @@ export default function ProductionDashboardView() {
                     wrapperStyle={{ paddingTop: '10px', fontSize: '11px', fontWeight: 600 }} 
                     iconType="circle"
                   />
-                  <Bar dataKey="19L Bottles" stackId="a" fill="#2563eb" isAnimationActive={true} animationDuration={800} />
-                  <Bar dataKey="1.5L Packs" stackId="a" fill="#9333ea" isAnimationActive={true} animationDuration={800} />
-                  <Bar dataKey="0.5L Packs" stackId="a" fill="#10b981" isAnimationActive={true} animationDuration={800} />
-                  <Bar dataKey="Broken / Waste" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                  {isWadaana ? (
+                    <>
+                      <Bar dataKey="Pure 0.5L" stackId="a" fill="#0284c7" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="Pure 1.5L" stackId="a" fill="#0ea5e9" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="Mix 0.5L" stackId="a" fill="#8b5cf6" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="Mix 1.5L" stackId="a" fill="#a855f7" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="Broken / Waste" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                    </>
+                  ) : (
+                    <>
+                      <Bar dataKey="19L Bottles" stackId="a" fill="#2563eb" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="1.5L Packs" stackId="a" fill="#9333ea" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="0.5L Packs" stackId="a" fill="#10b981" isAnimationActive={true} animationDuration={800} />
+                      <Bar dataKey="Broken / Waste" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                    </>
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Recent Production Runs Table (Shifted below graph per request) */}
+          {/* Recent Production Runs Table */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
             <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -358,9 +391,52 @@ export default function ProductionDashboardView() {
                       <tr key={b.id} className="hover:bg-slate-50 transition">
                         <td className="p-3 font-mono font-bold text-slate-800">{b.shortId}</td>
                         <td className="p-3 font-bold text-slate-900">
-                          {b.quantity > 0 && <span>+{b.quantity} 19L </span>}
-                          {b.packs15L > 0 && <span>+{b.packs15L} pk (1.5L) </span>}
-                          {b.packs05L > 0 && <span>+{b.packs05L} pk (0.5L) </span>}
+                          {isWadaana ? (
+                            (() => {
+                              const parts = [];
+                              if (b.qtyPure05L > 0) parts.push(`Pure 0.5L (${b.qtyPure05L})`);
+                              if (b.qtyPure15L > 0) parts.push(`Pure 1.5L (${b.qtyPure15L})`);
+                              if (b.qtyMix05L > 0) parts.push(`Mix 0.5L (${b.qtyMix05L})`);
+                              if (b.qtyMix15L > 0) parts.push(`Mix 1.5L (${b.qtyMix15L})`);
+
+                              if (parts.length === 0) return <span className="text-slate-400 font-normal">0 bottles</span>;
+                              if (parts.length === 1) return parts[0];
+
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <span>{parts[0]}</span>
+                                  <span 
+                                    title={parts.slice(1).join(', ')} 
+                                    className="px-1.5 py-0.2 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
+                                  >
+                                    +{parts.length - 1}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            (() => {
+                              const parts = [];
+                              if (b.quantity > 0) parts.push(`${b.quantity} (19L)`);
+                              if (b.packs15L > 0) parts.push(`${b.packs15L} pk (1.5L)`);
+                              if (b.packs05L > 0) parts.push(`${b.packs05L} pk (0.5L)`);
+
+                              if (parts.length === 0) return <span className="text-slate-400 font-normal">0 units</span>;
+                              if (parts.length === 1) return parts[0];
+
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <span>{parts[0]}</span>
+                                  <span 
+                                    title={parts.slice(1).join(', ')} 
+                                    className="px-1.5 py-0.2 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
+                                  >
+                                    +{parts.length - 1}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          )}
                         </td>
                         <td className="p-3 font-semibold text-rose-600">
                           {b.wasteQuantity > 0 ? `${b.wasteQuantity} units` : <span className="text-slate-400 font-normal">0</span>}
@@ -397,11 +473,13 @@ export default function ProductionDashboardView() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {finishedGoods.map(fg => {
                 const isLow = Number(fg.factoryQty || 0) <= 20;
                 return (
-                  <div key={fg.id} className={`border rounded-xl p-3 space-y-1.5 ${isLow ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
+                  <div key={fg.id} className={`border rounded-xl p-3.5 space-y-2 transition shadow-2xs ${
+                    isLow ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
+                  }`}>
                     <div className="flex justify-between items-start">
                       <div className="font-bold text-slate-900 text-xs">{fg.name}</div>
                       {isLow && (
@@ -410,17 +488,19 @@ export default function ProductionDashboardView() {
                         </span>
                       )}
                     </div>
-                    <div className="flex justify-between text-xs text-slate-600">
-                      <span>Factory Floor:</span>
-                      <span className="font-bold text-slate-900">{formatNum(fg.factoryQty)} {fg.unit}</span>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-slate-600">
+                        <span>Factory Floor:</span>
+                        <span className="font-bold text-slate-900 font-mono">{formatNum(fg.factoryQty)} {fg.unit}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-600">
+                        <span>Warehouse:</span>
+                        <span className="font-semibold text-slate-700 font-mono">{formatNum(fg.warehouseQty)} {fg.unit}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs text-slate-600">
-                      <span>Warehouse:</span>
-                      <span className="font-semibold text-slate-700">{formatNum(fg.warehouseQty)} {fg.unit}</span>
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-200/80 flex justify-between text-xs font-black text-slate-900">
+                    <div className="pt-2 border-t border-slate-200 flex justify-between text-xs font-black text-slate-900">
                       <span>Total Stock:</span>
-                      <span className="text-slate-900">{formatNum(fg.cachedQty)} {fg.unit}</span>
+                      <span className="text-slate-900 font-mono">{formatNum(fg.cachedQty)} {fg.unit}</span>
                     </div>
                   </div>
                 );

@@ -5,7 +5,8 @@ import { EXPENSE_CATEGORIES } from '../../constants/expenses';
 
 const API = API_URL;
 
-export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant }) {
+export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aquasphere' }) {
+  const isWadaana = tenant === 'wadaana';
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -180,13 +181,19 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant }) {
           </div>
 
           {/* Receipt Upload — MANDATORY */}
-          <div className="border-2 border-dashed border-emerald-200 rounded-2xl p-4 space-y-3 bg-emerald-50/40">
+          <div className={`border-2 border-dashed rounded-2xl p-4 space-y-3 ${
+            isWadaana ? 'border-sky-200 bg-sky-50/40' : 'border-emerald-200 bg-emerald-50/40'
+          }`}>
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
+              <label className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1 ${
+                isWadaana ? 'text-sky-800' : 'text-emerald-800'
+              }`}>
                 <Receipt size={14}/> Receipt Photo <span className="text-amber-600">* MANDATORY</span>
               </label>
               {uploadedUrl && (
-                <span className="flex items-center gap-1 text-xs text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">
+                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
+                  isWadaana ? 'text-sky-700 bg-sky-100' : 'text-emerald-700 bg-emerald-100'
+                }`}>
                   <CheckCircle size={13}/> Uploaded
                 </span>
               )}
@@ -208,7 +215,9 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant }) {
                   type="button" 
                   onClick={handleUpload} 
                   disabled={uploading}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-3.5 py-2 text-xs font-bold disabled:opacity-60 shadow-xs"
+                  className={`flex items-center gap-2 ${
+                    isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
+                  } text-white rounded-xl px-3.5 py-2 text-xs font-bold disabled:opacity-60 shadow-xs`}
                 >
                   {uploading ? <><Loader2 size={13} className="animate-spin"/> Uploading...</> : 'Upload Receipt'}
                 </button>
@@ -220,12 +229,14 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant }) {
             </p>
 
             {receiptPreview && receiptPreview !== 'pdf' && !uploadedUrl && (
-              <img src={receiptPreview} alt="preview" className="h-20 rounded-xl object-cover border border-emerald-200"/>
+              <img src={receiptPreview} alt="preview" className="h-20 rounded-xl object-cover border border-slate-200"/>
             )}
 
             {uploadedUrl && (
-              <div className="flex items-center gap-2 text-xs bg-emerald-100/70 border border-emerald-200 text-emerald-800 rounded-xl p-2.5">
-                <CheckCircle size={14} className="shrink-0 text-emerald-600" />
+              <div className={`flex items-center gap-2 text-xs border rounded-xl p-2.5 ${
+                isWadaana ? 'bg-sky-100/70 border-sky-200 text-sky-800' : 'bg-emerald-100/70 border-emerald-200 text-emerald-800'
+              }`}>
+                <CheckCircle size={14} className={`shrink-0 ${isWadaana ? 'text-sky-600' : 'text-emerald-600'}`} />
                 <a href={uploadedUrl} target="_blank" rel="noreferrer" className="underline truncate font-semibold">{uploadedUrl}</a>
               </div>
             )}
@@ -248,7 +259,9 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant }) {
             <button 
               type="submit" 
               disabled={submitting || !uploadedUrl}
-              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold disabled:opacity-40 flex items-center justify-center gap-2 shadow-md transition-colors"
+              className={`flex-1 py-2.5 ${
+                isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
+              } text-white rounded-xl text-xs font-bold disabled:opacity-40 flex items-center justify-center gap-2 shadow-md transition-colors`}
             >
               {submitting ? <><Loader2 size={14} className="animate-spin"/> Saving...</> : 'Log Expense'}
             </button>

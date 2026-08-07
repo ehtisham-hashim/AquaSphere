@@ -107,6 +107,7 @@ export default function Expenses() {
         onExportCSV={handleExportCSV}
         onOpenModal={() => setIsModalOpen(true)}
         hasExpenses={filteredExpenses.length > 0}
+        tenant={tenant}
       />
 
       <ExpensesSummaryCards 
