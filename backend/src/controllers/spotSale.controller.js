@@ -135,6 +135,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   const { 
     productType = 'CUSTOM',
     productQty = 1,
+    items: inputItems,
     litresSold, 
     capsIssued = 0, 
     cashCollected = 0, 
@@ -144,7 +145,10 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     remarks 
   } = req.body;
 
-  const qty = parseFloat(productQty || 1);
+  const itemsList = (Array.isArray(inputItems) && inputItems.length > 0) 
+    ? inputItems 
+    : [{ productType, productQty: parseFloat(productQty || 1) }];
+
   const cash = parseFloat(cashCollected || 0);
   const credit = parseFloat(creditAmount || 0);
   const caps = parseInt(capsIssued || 0, 10);
@@ -157,7 +161,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     'BOTTLE_19L': 24.0,
     'CUSTOM': 1.0
   };
-  const litres = parseFloat(litresSold) || ((litresMap[productType] || 1.0) * qty);
 
   if (isNaN(cash) || cash < 0) {
     throw new ApiError(400, 'Cash collected must be a non-negative number');
@@ -180,24 +183,18 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       throw new ApiError(404, 'Selected customer not found');
     }
     
-    // CREDIT LIMIT VALIDATION (matches Orders logic)
     if (credit > 0 && customerObj.creditLimit > 0) {
       const currentBalance = Number(customerObj.currentBalance || 0);
       const creditLimit = Number(customerObj.creditLimit || 0);
       const projectedBalance = currentBalance + credit;
       
       if (projectedBalance > creditLimit) {
-        // Soft warning - log but allow (same as Orders module)
         console.warn(`CREDIT_LIMIT_EXCEEDED: Customer ${customerObj.name} balance will reach Rs ${projectedBalance} (Limit: Rs ${creditLimit})`);
-        // Note: We allow it to proceed, but system tracks this
       }
     }
   }
 
   const saleNumber = generateSaleNumber();
-
-  // Deduct finished goods packs and loose bottles derivation
-  let openPackLeftover = 0;
 
   const spotSale = await prisma.$transaction(async (tx) => {
     const allItems = await tx[`${prefix}Item`].findMany({
@@ -253,53 +250,62 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       });
     };
 
-    // 1. Finished Goods Stock Deduction for 0.5L and 1.5L Packs & Single Bottles
-    if (productType === 'PACK_05L' || productType === 'SINGLE_05L') {
-      const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
+    let totalLitresCalculated = 0;
+    let openPackLeftover = 0;
+    const summaryProductType = itemsList.map(i => `${i.productType} (x${i.productQty})`).join(', ');
+    const totalQty = itemsList.reduce((acc, i) => acc + Number(i.productQty || 1), 0);
 
-      if (fg05L) {
-        if (productType === 'PACK_05L') {
-          await deductStock(fg05L, qty, 'SPOT_SALE_PACK_05L');
-        } else if (productType === 'SINGLE_05L') {
-          const packDeduction = Number(new Prisma.Decimal(qty).dividedBy(12));
-          const looseBottles = qty % 12;
-          openPackLeftover = (12 - looseBottles) % 12;
+    for (const item of itemsList) {
+      const pType = item.productType;
+      const pQty = parseFloat(item.productQty || 1);
+      const itemLitres = (litresMap[pType] || 1.0) * pQty;
+      totalLitresCalculated += itemLitres;
 
-          await deductStock(fg05L, packDeduction, 'SPOT_SALE_SINGLE_05L');
+      if (pType === 'PACK_05L' || pType === 'SINGLE_05L') {
+        const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
+        if (fg05L) {
+          if (pType === 'PACK_05L') {
+            await deductStock(fg05L, pQty, 'SPOT_SALE_PACK_05L');
+          } else {
+            const packDeduction = Number(new Prisma.Decimal(pQty).dividedBy(12));
+            const looseBottles = pQty % 12;
+            openPackLeftover += (12 - looseBottles) % 12;
+            await deductStock(fg05L, packDeduction, 'SPOT_SALE_SINGLE_05L');
+          }
         }
-      }
-    } else if (productType === 'PACK_15L' || productType === 'SINGLE_15L') {
-      const fg15L = findFG(['1.5l', '1500ml', '1.5', '1500']);
-
-      if (fg15L) {
-        if (productType === 'PACK_15L') {
-          await deductStock(fg15L, qty, 'SPOT_SALE_PACK_15L');
-        } else if (productType === 'SINGLE_15L') {
-          const packDeduction = Number(new Prisma.Decimal(qty).dividedBy(6));
-          const looseBottles = qty % 6;
-          openPackLeftover = (6 - looseBottles) % 6;
-
-          await deductStock(fg15L, packDeduction, 'SPOT_SALE_SINGLE_15L');
+      } else if (pType === 'PACK_15L' || pType === 'SINGLE_15L') {
+        const fg15L = findFG(['1.5l', '1500ml', '1.5', '1500']);
+        if (fg15L) {
+          if (pType === 'PACK_15L') {
+            await deductStock(fg15L, pQty, 'SPOT_SALE_PACK_15L');
+          } else {
+            const packDeduction = Number(new Prisma.Decimal(pQty).dividedBy(6));
+            const looseBottles = pQty % 6;
+            openPackLeftover += (6 - looseBottles) % 6;
+            await deductStock(fg15L, packDeduction, 'SPOT_SALE_SINGLE_15L');
+          }
         }
+      } else if (pType === 'BOTTLE_19L') {
+        const fg19L = findFG(['19l', '19']);
+        if (fg19L) {
+          await deductStock(fg19L, pQty, 'SPOT_SALE_19L');
+        }
+        await tx[`${prefix}BottleTransaction`].create({
+          data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(pQty), reason: `Counter Sale 19L Refill (${saleNumber})` }
+        });
       }
-    } else if (productType === 'BOTTLE_19L') {
-      const fg19L = findFG(['19l', '19']);
-      if (fg19L) {
-        await deductStock(fg19L, qty, 'SPOT_SALE_19L');
-      }
-      await tx[`${prefix}BottleTransaction`].create({
-        data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(qty), reason: `Counter Sale 19L Refill (${saleNumber})` }
-      });
     }
+
+    const finalLitres = parseFloat(litresSold) || totalLitresCalculated;
 
     // 2. Create Spot Sale record
     const sale = await tx[`${prefix}SpotSale`].create({
       data: {
         saleNumber,
-        productType,
-        productQty: qty,
+        productType: summaryProductType,
+        productQty: totalQty,
         openPackLeftover,
-        litresSold: litres,
+        litresSold: finalLitres,
         capsIssued: caps,
         cashCollected: cash,
         creditAmount: credit,
@@ -334,7 +340,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         action: 'COUNTER_SALE_CREATED',
         entityType: 'SPOT_SALE',
         entityId: sale.id,
-        details: `Counter Sale ${saleNumber} created. Product: ${productType} x ${qty}, Litres: ${litres}L, Caps: ${caps}, Amount: Rs. ${cash + credit}, Recorded By: ${req.user?.name || 'User'} (${req.user?.role || 'MM'})`,
+        details: `Counter Sale ${saleNumber} created. Product: ${summaryProductType}, Total Qty: ${totalQty}, Litres: ${finalLitres}L, Caps: ${caps}, Amount: Rs. ${cash + credit}, Recorded By: ${req.user?.name || 'User'} (${req.user?.role || 'MM'})`,
         performedBy: req.user?.name || req.user?.id || 'System'
       }
     });

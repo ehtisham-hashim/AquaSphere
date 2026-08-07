@@ -5,11 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
-import { 
-  COUNTER_PRODUCTS, 
-  calculateProductMetrics, 
-  generateSaleNumber 
-} from '../constants/counterSale';
+import { generateSaleNumber } from '../constants/counterSale';
 
 import {
   CounterSalesHeader,
@@ -17,7 +13,6 @@ import {
   CounterSalesMetrics,
   LogCounterSaleForm,
   CounterSalesHistoryTable,
-  ConfirmCounterSaleModal,
   CounterSaleReceiptModal
 } from '../components/counterSales';
 
@@ -37,16 +32,6 @@ export default function CounterSales() {
   const [liveSaleNumber, setLiveSaleNumber] = useState(generateSaleNumber());
   const [liveDateTime, setLiveDateTime] = useState(new Date());
 
-  const [selectedProductId, setSelectedProductId] = useState('PACK_05L');
-  const [productQuantity, setProductQuantity] = useState('1');
-
-  const [cashCollected, setCashCollected] = useState('360');
-  const [creditAmount, setCreditAmount] = useState('0');
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [customerId, setCustomerId] = useState('');
-  const [remarks, setRemarks] = useState('');
-
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [receiptSale, setReceiptSale] = useState(null);
   const [lastRecordedSale, setLastRecordedSale] = useState(null);
 
@@ -99,25 +84,6 @@ export default function CounterSales() {
     fetchData(); 
   }, [fetchData]);
 
-  const handleProductOrQtyChange = (prodId, qtyStr) => {
-    setSelectedProductId(prodId);
-    setProductQuantity(qtyStr);
-    const qty = parseFloat(qtyStr) || 1;
-    const metrics = calculateProductMetrics(prodId, qty);
-    setCashCollected(String(metrics.suggestedPrice));
-  };
-
-  const resetForm = () => {
-    setSelectedProductId('PACK_05L');
-    setProductQuantity('1');
-    setCashCollected('360');
-    setCreditAmount('0');
-    setPaymentMethod('CASH');
-    setCustomerId('');
-    setRemarks('');
-    setLiveSaleNumber(generateSaleNumber());
-  };
-
   // Stock calculations
   const available05LPacks = useMemo(() => items
     .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')))
@@ -139,123 +105,13 @@ export default function CounterSales() {
   const loose15L = Math.round((Math.max(0, available15LPacks) - full15L) * 6);
   const totalBottles15L = Math.round(Math.max(0, available15LPacks) * 6);
 
-  const getStockValidation = () => {
-    const qty = parseFloat(productQuantity) || 0;
-    if (qty <= 0) return { valid: false, message: 'Quantity must be greater than zero.' };
-
-    switch (selectedProductId) {
-      case 'PACK_05L': {
-        const availablePacks = Math.floor(available05LPacks);
-        if (qty > availablePacks) {
-          return {
-            valid: false,
-            message: availablePacks === 0
-              ? 'No 0.5L packs available.'
-              : `Only ${availablePacks} pack${availablePacks === 1 ? '' : 's'} available.`
-          };
-        }
-        return { valid: true };
-      }
-      case 'SINGLE_05L': {
-        const availableBottles = totalBottles05L;
-        if (qty > availableBottles) {
-          return {
-            valid: false,
-            message: availableBottles === 0
-              ? 'No 0.5L bottles available.'
-              : `Only ${availableBottles} bottle${availableBottles === 1 ? '' : 's'} available.`
-          };
-        }
-        return { valid: true };
-      }
-      case 'PACK_15L': {
-        const availablePacks = Math.floor(available15LPacks);
-        if (qty > availablePacks) {
-          return {
-            valid: false,
-            message: availablePacks === 0
-              ? 'No 1.5L packs available.'
-              : `Only ${availablePacks} pack${availablePacks === 1 ? '' : 's'} available.`
-          };
-        }
-        return { valid: true };
-      }
-      case 'SINGLE_15L': {
-        const availableBottles = totalBottles15L;
-        if (qty > availableBottles) {
-          return {
-            valid: false,
-            message: availableBottles === 0
-              ? 'No 1.5L bottles available.'
-              : `Only ${availableBottles} bottle${availableBottles === 1 ? '' : 's'} available.`
-          };
-        }
-        return { valid: true };
-      }
-      case 'BOTTLE_19L': {
-        if (qty > available19LBottles) {
-          return {
-            valid: false,
-            message: available19LBottles === 0
-              ? 'No 19L bottles available.'
-              : `Only ${available19LBottles} bottle${available19LBottles === 1 ? '' : 's'} available.`
-          };
-        }
-        return { valid: true };
-      }
-      default:
-        return { valid: true };
-    }
-  };
-
-  const stockValidation = getStockValidation();
-  const selectedCustomer = customers.find(c => c.id === customerId);
-  const numericCredit = parseFloat(creditAmount || 0);
-  const isCreditSale = numericCredit > 0;
-  const customerBalance = selectedCustomer ? Number(selectedCustomer.currentBalance || 0) : 0;
-  const customerLimit = selectedCustomer ? Number(selectedCustomer.creditLimit || 0) : 0;
-  const projectedBalance = customerBalance + numericCredit;
-  const isCreditLimitExceeded = isCreditSale && customerLimit > 0 && projectedBalance > customerLimit;
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (!stockValidation.valid) {
-      toast.error(stockValidation.message);
-      return;
-    }
-    if (isCreditSale && !customerId) {
-      toast.error('Customer profile selection is mandatory for Credit Sales!');
-      return;
-    }
-
-    // For credit sales or limit warnings, show confirmation modal.
-    // For standard cash sales, execute immediately for high-speed counter processing!
-    if (isCreditSale || isCreditLimitExceeded) {
-      setShowConfirmModal(true);
-    } else {
-      executeCreateSale();
-    }
-  };
-
-  const executeCreateSale = async () => {
-    setShowConfirmModal(false);
+  const handleMultiItemSubmit = async (payload) => {
     setSubmitting(true);
     try {
-      const cash = parseFloat(cashCollected || 0);
-      const credit = parseFloat(creditAmount || 0);
-
       const res = await fetch(`${API_URL}/spot-sales`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productType: selectedProductId,
-          productQty: parseFloat(productQuantity || 1),
-          cashCollected: cash,
-          creditAmount: credit,
-          paymentMethod,
-          customerId: credit > 0 ? customerId : (customerId || null),
-          remarks
-        }),
+        body: JSON.stringify(payload),
         credentials: 'include'
       });
       const json = await res.json();
@@ -268,8 +124,7 @@ export default function CounterSales() {
       toast.success(`Counter sale ${createdSale?.saleNumber || liveSaleNumber} recorded!`);
       
       setLastRecordedSale(createdSale);
-      resetForm();
-      // Stay on 'new-sale' tab so cashier can do 100 sales back-to-back!
+      setLiveSaleNumber(generateSaleNumber());
       fetchData();
     } catch (err) {
       toast.error('Error recording sale');
@@ -358,7 +213,7 @@ export default function CounterSales() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 max-w-7xl mx-auto space-y-4">
       <CounterSalesHeader 
         onExportCSV={handleExportCSV} 
         hasSales={filteredSales.length > 0} 
@@ -386,25 +241,25 @@ export default function CounterSales() {
         {canCreate && (
           <button
             onClick={() => setActiveTab('new-sale')}
-            className={`whitespace-nowrap px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 border-t border-x ${
+            className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'new-sale'
-                ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-xs'
+                ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <Plus size={16} /> Log Retail Sale
+            <Plus size={15} /> Log Retail Sale (Multi-Item POS)
           </button>
         )}
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`whitespace-nowrap px-5 py-3 rounded-t-xl text-sm font-bold transition-all flex items-center gap-2 border-t border-x ${
+          className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
             activeTab === 'history'
-              ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-xs'
+              ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-2xs'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
           }`}
         >
-          <Calendar size={16} /> Sales History ({sales.length})
+          <Calendar size={15} /> Sales History ({sales.length})
         </button>
       </div>
 
@@ -413,9 +268,6 @@ export default function CounterSales() {
           liveSaleNumber={liveSaleNumber}
           user={user}
           liveDateTime={liveDateTime}
-          selectedProductId={selectedProductId}
-          productQuantity={productQuantity}
-          handleProductOrQtyChange={handleProductOrQtyChange}
           available19LBottles={available19LBottles}
           available05LPacks={available05LPacks}
           loose05L={loose05L}
@@ -423,24 +275,8 @@ export default function CounterSales() {
           available15LPacks={available15LPacks}
           loose15L={loose15L}
           totalBottles15L={totalBottles15L}
-          stockValidation={stockValidation}
-          cashCollected={cashCollected}
-          setCashCollected={setCashCollected}
-          creditAmount={creditAmount}
-          setCreditAmount={setCreditAmount}
-          isCreditSale={isCreditSale}
-          customerId={customerId}
-          setCustomerId={setCustomerId}
           customers={customers}
-          isCreditLimitExceeded={isCreditLimitExceeded}
-          numericCredit={numericCredit}
-          projectedBalance={projectedBalance}
-          customerLimit={customerLimit}
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          remarks={remarks}
-          setRemarks={setRemarks}
-          handleFormSubmit={handleFormSubmit}
+          handleMultiItemSubmit={handleMultiItemSubmit}
           submitting={submitting}
           lastRecordedSale={lastRecordedSale}
           onPrintReceipt={setReceiptSale}
@@ -460,18 +296,6 @@ export default function CounterSales() {
           userName={user?.name}
         />
       )}
-
-      <ConfirmCounterSaleModal 
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={executeCreateSale}
-        liveSaleNumber={liveSaleNumber}
-        selectedProductId={selectedProductId}
-        productQuantity={productQuantity}
-        cashCollected={cashCollected}
-        numericCredit={numericCredit}
-        user={user}
-      />
 
       <CounterSaleReceiptModal 
         receiptSale={receiptSale}
