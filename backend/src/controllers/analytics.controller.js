@@ -17,39 +17,36 @@ const computeDashboardAnalytics = async (prefix) => {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
 
   const [
-    todaysSalesOrders,
-    todaysPayments,
-    todaysExpenses,
-    todaysPurchasesAgg,
-    monthlyPurchasesAgg,
+    yearOrders,
+    yearPayments,
+    yearExpenses,
+    yearPurchases,
+    yearSpotSales,
     pendingPayables,
-    rawMaterials,
-    spotSales
+    rawMaterials
   ] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
-      where: {
-        createdAt: { gte: startOfDay, lte: endOfDay }
-      },
-      include: { items: true }
+      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      select: { createdAt: true, items: { select: { price: true, quantity: true } } }
     }),
-    prisma[`${prefix}Payment`].aggregate({
-      _sum: { amount: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    prisma[`${prefix}Payment`].findMany({
+      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      select: { createdAt: true, amount: true }
     }),
-    prisma[`${prefix}Expense`].aggregate({
-      _sum: { amount: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    prisma[`${prefix}Expense`].findMany({
+      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      select: { createdAt: true, amount: true }
     }),
-    prisma[`${prefix}Purchase`].aggregate({
-      _sum: { grandTotal: true },
-      _count: { id: true },
-      where: { purchaseDate: { gte: startOfDay, lte: endOfDay } }
+    prisma[`${prefix}Purchase`].findMany({
+      where: { purchaseDate: { gte: startOfYear, lte: endOfDay } },
+      select: { purchaseDate: true, grandTotal: true }
     }),
-    prisma[`${prefix}Purchase`].aggregate({
-      _sum: { grandTotal: true },
-      where: { purchaseDate: { gte: startOfMonth, lte: endOfDay } }
+    prisma[`${prefix}SpotSale`].findMany({
+      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      select: { createdAt: true, cashCollected: true, creditAmount: true }
     }),
     prisma[`${prefix}VendorLedgerEntry`].groupBy({
       by: ['type'],
@@ -57,19 +54,42 @@ const computeDashboardAnalytics = async (prefix) => {
     }),
     prisma[`${prefix}Item`].findMany({
       where: { type: 'RAW_MATERIAL', archivedAt: null }
-    }),
-    prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true, litresSold: true, creditAmount: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     })
   ]);
 
-  const todaysSalesAmount = todaysSalesOrders.reduce((acc, order) => {
-    return acc + order.items.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
-  }, 0);
+  const calcPeriod = (startDate) => {
+    const periodOrders = yearOrders.filter(o => new Date(o.createdAt) >= startDate);
+    const periodPayments = yearPayments.filter(p => new Date(p.createdAt) >= startDate);
+    const periodExpenses = yearExpenses.filter(e => new Date(e.createdAt) >= startDate);
+    const periodPurchases = yearPurchases.filter(p => new Date(p.purchaseDate) >= startDate);
+    const periodSpotSales = yearSpotSales.filter(s => new Date(s.createdAt) >= startDate);
 
-  const spotSalesCash = parseFloat(spotSales._sum.cashCollected || 0);
-  const creditSalesTotal = parseFloat(spotSales._sum.creditAmount || 0);
+    const sales = periodOrders.reduce((acc, order) => {
+      return acc + (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+    }, 0);
+
+    const cash = periodPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) +
+      periodSpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+
+    const expenseTotal = periodExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const credit = periodSpotSales.reduce((s, st) => s + parseFloat(st.creditAmount || 0), 0);
+    const purchasesTotal = periodPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
+
+    return {
+      sales,
+      cash,
+      expenses: expenseTotal,
+      credit,
+      bottlesSold: periodOrders.length,
+      purchases: purchasesTotal,
+      purchasesCount: periodPurchases.length,
+      netCash: cash - expenseTotal
+    };
+  };
+
+  const daily = calcPeriod(startOfDay);
+  const monthly = calcPeriod(startOfMonth);
+  const yearly = calcPeriod(startOfYear);
 
   const purchaseTotal = pendingPayables.find(e => e.type === 'PURCHASE')?._sum?.amount || 0;
   const paymentTotal = pendingPayables.find(e => e.type === 'PAYMENT')?._sum?.amount || 0;
@@ -80,16 +100,19 @@ const computeDashboardAnalytics = async (prefix) => {
   );
 
   return {
-    sales: todaysSalesAmount,
-    cash: parseFloat(todaysPayments._sum.amount || 0) + spotSalesCash,
-    expenses: parseFloat(todaysExpenses._sum.amount || 0),
-    credit: creditSalesTotal,
-    bottlesSold: todaysSalesOrders.length,
-    todaysPurchases: parseFloat(todaysPurchasesAgg._sum.grandTotal || 0),
-    todaysPurchasesCount: todaysPurchasesAgg._count.id || 0,
-    monthlyPurchases: parseFloat(monthlyPurchasesAgg._sum.grandTotal || 0),
+    // Default to monthly values for backward compatibility & default monthly view
+    sales: monthly.sales,
+    cash: monthly.cash,
+    expenses: monthly.expenses,
+    credit: monthly.credit,
+    bottlesSold: monthly.bottlesSold,
+    purchases: monthly.purchases,
+    purchasesCount: monthly.purchasesCount,
+    todaysPurchases: daily.purchases,
+    todaysPurchasesCount: daily.purchasesCount,
+    monthlyPurchases: monthly.purchases,
+    netCash: monthly.netCash,
     pendingVendorPayables,
-    spotSalesCash,
     lowStockMaterialsCount: lowStockMaterials.length,
     lowStockMaterialsList: lowStockMaterials.map(m => ({
       id: m.id,
@@ -97,7 +120,12 @@ const computeDashboardAnalytics = async (prefix) => {
       cachedQty: parseFloat(m.cachedQty || 0),
       reorderLevel: parseFloat(m.reorderLevel || 0),
       unit: m.unit
-    }))
+    })),
+
+    // Pre-calculated period metrics for instant JS switching in frontend
+    daily,
+    monthly,
+    yearly
   };
 };
 

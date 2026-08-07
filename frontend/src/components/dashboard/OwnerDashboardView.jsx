@@ -1,13 +1,45 @@
-import { Wallet, TrendingUp, Receipt, ShoppingCart, ShieldCheck, CreditCard, Sparkles } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, Clock } from 'lucide-react';
 import DashboardKpiCard from './DashboardKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { TimeframeDropdown } from '../ui';
 
 export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const tenant = getCompanyFromCookie();
   const companyTitle = tenant === 'wadaana' ? 'Wadaana Industries' : 'AquaSphere';
-  const netCash = Number(data?.cash || 0) - Number(data?.expenses || 0);
+
+  const [timeframe, setTimeframe] = useState('MONTHLY'); // 'MONTHLY', 'DAILY', 'YEARLY'
+
+  const activeData = useMemo(() => {
+    if (!data) return {};
+    const tfKey = timeframe.toLowerCase();
+    if (data[tfKey]) return data[tfKey];
+    return {
+      sales: Number(data.sales || 0),
+      cash: Number(data.cash || 0),
+      expenses: Number(data.expenses || 0),
+      netCash: Number(data.netCash || (Number(data.cash || 0) - Number(data.expenses || 0))),
+      purchases: Number(data.purchases || data.todaysPurchases || 0),
+      purchasesCount: Number(data.purchasesCount || data.todaysPurchasesCount || 0),
+      bottlesSold: Number(data.bottlesSold || 0)
+    };
+  }, [data, timeframe]);
+
+  const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
+
+  const getPeriodLabel = () => {
+    if (timeframe === 'DAILY') return "Today's";
+    if (timeframe === 'YEARLY') return "This Year's";
+    return "This Month's";
+  };
+
+  const getPeriodText = () => {
+    if (timeframe === 'DAILY') return 'today';
+    if (timeframe === 'YEARLY') return 'this year';
+    return 'this month';
+  };
 
   return (
     <div className="space-y-8 p-2 max-w-[98%] mx-auto pb-10">
@@ -35,7 +67,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             <Wallet size={28} />
           </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Today&apos;s Net Cash Position</span>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">{getPeriodLabel()} Net Cash Position</span>
             <div className={`text-2xl font-black font-mono ${netCash >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               Rs. {netCash.toLocaleString()}
             </div>
@@ -45,17 +77,66 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       </div>
 
       {/* ── 1. Executive Financial Overview Grid ────────────────────────────── */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={20} className="text-slate-400" />
-          <h2 className="text-lg font-bold text-slate-800 tracking-tight">Executive Financial Overview</h2>
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={20} className="text-slate-400" />
+            <h2 className="text-lg font-bold text-slate-800 tracking-tight">Executive Financial Overview</h2>
+          </div>
+
+          {/* Time Horizon Selector Dropdown */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+          </div>
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <DashboardKpiCard icon={<Wallet />} title="TODAY'S SALES" value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`} subtitle={`${data?.bottlesSold || 0} orders today`} color="text-sky-600" bg="bg-sky-50" border="border-sky-100" />
-          <DashboardKpiCard icon={<CreditCard />} title="CASH COLLECTED" value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`} subtitle="Cash received today" color="text-emerald-600" bg="bg-emerald-50" border="border-emerald-100" />
-          <DashboardKpiCard icon={<Receipt />} title="EXPENSES TODAY" value={`Rs. ${Number(data?.expenses || 0).toLocaleString()}`} subtitle="Logged operating cost" color="text-rose-600" bg="bg-rose-50" border="border-rose-100" />
-          <DashboardKpiCard icon={<Wallet />} title="NET CASH" value={`Rs. ${netCash.toLocaleString()}`} subtitle="Cash - Expenses" color={netCash >= 0 ? "text-emerald-700" : "text-rose-700"} bg={netCash >= 0 ? "bg-emerald-50" : "bg-rose-50"} border={netCash >= 0 ? "border-emerald-100" : "border-rose-100"} />
-          <DashboardKpiCard icon={<ShoppingCart />} title="TODAY'S PURCHASES" value={`Rs. ${Number(data?.todaysPurchases || 0).toLocaleString()}`} subtitle={`${data?.todaysPurchasesCount || 0} purchase logs`} color="text-purple-600" bg="bg-purple-50" border="border-purple-100" />
+          <DashboardKpiCard 
+            icon={<Wallet />} 
+            title={timeframe === 'DAILY' ? "TODAY'S SALES" : timeframe === 'YEARLY' ? "YEARLY SALES" : "MONTHLY SALES"} 
+            value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`} 
+            subtitle={`${activeData?.bottlesSold || 0} orders ${getPeriodText()}`} 
+            color="text-sky-600" 
+            bg="bg-sky-50" 
+            border="border-sky-100" 
+          />
+          <DashboardKpiCard 
+            icon={<CreditCard />} 
+            title="CASH COLLECTED" 
+            value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`} 
+            subtitle={`Cash received ${getPeriodText()}`} 
+            color="text-emerald-600" 
+            bg="bg-emerald-50" 
+            border="border-emerald-100" 
+          />
+          <DashboardKpiCard 
+            icon={<Receipt />} 
+            title={timeframe === 'DAILY' ? "EXPENSES TODAY" : timeframe === 'YEARLY' ? "YEARLY EXPENSES" : "MONTHLY EXPENSES"} 
+            value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`} 
+            subtitle="Logged operating cost" 
+            color="text-rose-600" 
+            bg="bg-rose-50" 
+            border="border-rose-100" 
+          />
+          <DashboardKpiCard 
+            icon={<Wallet />} 
+            title="NET CASH" 
+            value={`Rs. ${netCash.toLocaleString()}`} 
+            subtitle="Cash - Expenses" 
+            color={netCash >= 0 ? "text-emerald-700" : "text-rose-700"} 
+            bg={netCash >= 0 ? "bg-emerald-50" : "bg-rose-50"} 
+            border={netCash >= 0 ? "border-emerald-100" : "border-rose-100"} 
+          />
+          <DashboardKpiCard 
+            icon={<ShoppingCart />} 
+            title={timeframe === 'DAILY' ? "TODAY'S PURCHASES" : timeframe === 'YEARLY' ? "YEARLY PURCHASES" : "MONTHLY PURCHASES"} 
+            value={`Rs. ${Number(activeData?.purchases || 0).toLocaleString()}`} 
+            subtitle={`${activeData?.purchasesCount || 0} purchase logs`} 
+            color="text-purple-600" 
+            bg="bg-purple-50" 
+            border="border-purple-100" 
+          />
         </div>
       </section>
 
@@ -70,7 +151,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             <div>
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Monthly Purchases Total</h4>
               <p className="text-3xl font-black text-slate-800 font-mono">
-                Rs. {Number(data?.monthlyPurchases || 0).toLocaleString()}
+                Rs. {Number(data?.monthlyPurchases || data?.monthly?.purchases || 0).toLocaleString()}
               </p>
               <p className="text-xs text-slate-500 mt-1">Raw material spend this month.</p>
             </div>

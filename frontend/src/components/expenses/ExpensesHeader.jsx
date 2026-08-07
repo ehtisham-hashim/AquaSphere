@@ -1,4 +1,14 @@
-import { Plus, Download, Clock } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
+import { TimeframeDropdown } from '../ui';
+
+const EXPENSE_TIMEFRAME_OPTIONS = [
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'YEARLY', label: 'Yearly' },
+  { value: 'LIFETIME', label: 'Lifetime' },
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'DAILY', label: 'Daily' }
+];
 
 export default function ExpensesHeader({ 
   timeRange, 
@@ -20,22 +30,11 @@ export default function ExpensesHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Time Horizon Selector */}
-        <div className="relative">
-          <select
-            value={timeRange}
-            onChange={e => setTimeRange(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-white border border-slate-200 text-slate-800 rounded-xl text-xs font-bold outline-none focus:border-emerald-500 shadow-xs cursor-pointer"
-          >
-            <option value="MONTHLY">📅 Monthly (This Month)</option>
-            <option value="QUARTERLY">📊 Quarterly (This Quarter)</option>
-            <option value="YEARLY">🗓️ Yearly (This Year)</option>
-            <option value="LIFETIME">♾️ Lifetime (All Time)</option>
-            <option value="WEEKLY">📆 Weekly (This Week)</option>
-            <option value="DAILY">📌 Daily (Today)</option>
-          </select>
-          <Clock className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
+        <TimeframeDropdown 
+          value={timeRange} 
+          onChange={setTimeRange} 
+          options={EXPENSE_TIMEFRAME_OPTIONS} 
+        />
 
         <button 
           onClick={onExportCSV}
