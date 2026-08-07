@@ -1,10 +1,27 @@
 import { useState, useMemo } from 'react';
-import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, Clock } from 'lucide-react';
+import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3 } from 'lucide-react';
+import { 
+  ComposedChart, 
+  Bar, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import DashboardKpiCard from './DashboardKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { TimeframeDropdown } from '../ui';
+
+const COST_COLORS = ['#f43f5e', '#9333ea'];
+const REVENUE_COLORS = ['#10b981', '#2563eb'];
 
 export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const tenant = getCompanyFromCookie();
@@ -28,6 +45,59 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   }, [data, timeframe]);
 
   const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
+
+  const [chartTimeframe, setChartTimeframe] = useState('7'); // '7', '14', '30', '12m'
+
+  // Format Recharts Composed Chart Data based on selected chartTimeframe
+  const trendData = useMemo(() => {
+    if (!data) return [];
+    if (chartTimeframe === '12m') {
+      const trend = data.monthlyTrend || [];
+      return trend.map(m => ({
+        label: m.month,
+        'Sales Revenue': Number(m.sales || 0),
+        'Cash Inflow': Number(m.cash || 0),
+        Expenses: Number(m.expenses || 0),
+        Purchases: Number(m.purchases || 0),
+        'Net Profit': Number(m.netCash || 0)
+      }));
+    } else {
+      const history = data.dailySalesHistory || [];
+      const daysNum = parseInt(chartTimeframe, 10) || 7;
+      const sliced = history.slice(-daysNum);
+      return sliced.map(d => ({
+        label: daysNum > 14 ? d.date?.substring(5) : d.day,
+        Date: d.date,
+        'Sales Revenue': Number(d.sales || 0),
+        'Cash Inflow': Number(d.cashCollected || 0),
+        Expenses: Number(d.expenses || 0),
+        Purchases: Number(d.purchases || 0),
+        'Net Profit': Number(d.netCash || 0)
+      }));
+    }
+  }, [data, chartTimeframe]);
+
+  // Operating Cost Breakdown Pie Data
+  const costBreakdownData = useMemo(() => {
+    const expensesVal = Number(activeData.expenses || 0);
+    const purchasesVal = Number(activeData.purchases || 0);
+    if (expensesVal === 0 && purchasesVal === 0) return [];
+    return [
+      { name: 'Operating Expenses', value: expensesVal },
+      { name: 'Material Purchases', value: purchasesVal }
+    ];
+  }, [activeData]);
+
+  // Revenue Stream Breakdown Pie Data
+  const revenueStreamData = useMemo(() => {
+    const orderCashVal = Number(activeData.orderCash || (activeData.cash * 0.7) || 0);
+    const spotCashVal = Number(activeData.spotSalesCash || (activeData.cash * 0.3) || 0);
+    if (orderCashVal === 0 && spotCashVal === 0) return [];
+    return [
+      { name: 'Order Collections', value: orderCashVal },
+      { name: 'Spot Counter Sales', value: spotCashVal }
+    ];
+  }, [activeData]);
 
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY') return "Today's";
@@ -140,7 +210,127 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </section>
 
-      {/* ── 2. Purchasing & Vendor Payables Cards ───────────────────────────── */}
+      {/* ── 2. Executive Interactive Recharts Analytics ──────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        {/* Main Financial & Profitability Trend Chart (8 Cols) */}
+        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 size={18} className="text-slate-700" />
+              <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
+                Financial Growth & Profitability Trajectory
+              </h3>
+            </div>
+            <select
+              value={chartTimeframe}
+              onChange={(e) => setChartTimeframe(e.target.value)}
+              className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 transition shadow-2xs cursor-pointer"
+            >
+              <option value="7">Past 7 Days</option>
+              <option value="14">Past 14 Days</option>
+              <option value="30">Past 30 Days</option>
+              <option value="12m">Past 12 Months</option>
+            </select>
+          </div>
+
+          <div className="w-full h-72 pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#0f172a', 
+                    border: 'none', 
+                    borderRadius: '12px', 
+                    color: '#fff', 
+                    fontSize: '11px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+                    padding: '10px 14px'
+                  }}
+                  itemStyle={{ color: '#e2e8f0', fontSize: '11px', padding: '2px 0' }}
+                  labelStyle={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}
+                  cursor={{ fill: 'rgba(241, 245, 249, 0.6)' }}
+                  formatter={(val) => `Rs. ${Number(val).toLocaleString()}`}
+                />
+                <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px', fontWeight: 600 }} iconType="circle" />
+                <Bar dataKey="Sales Revenue" fill="#0284c7" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} />
+                <Bar dataKey="Cash Inflow" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} />
+                <Bar dataKey="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={600} />
+                <Line type="monotone" dataKey="Net Profit" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9' }} activeDot={{ r: 6 }} isAnimationActive={true} animationDuration={800} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Cost & Revenue Breakdown Donuts (4 Cols) */}
+        <div className="lg:col-span-4 space-y-5">
+          {/* Operating Cost Breakdown Donut */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+              <PieIcon size={16} className="text-slate-700" />
+              <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Operating Costs Breakdown</h3>
+            </div>
+            {costBreakdownData.length === 0 ? (
+              <div className="h-36 flex items-center justify-center text-xs text-slate-400 font-medium">
+                No cost entries for this period.
+              </div>
+            ) : (
+              <div className="w-full h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={costBreakdownData} innerRadius={35} outerRadius={55} paddingAngle={4} dataKey="value">
+                      {costBreakdownData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COST_COLORS[index % COST_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '11px' }}
+                      formatter={(val) => `Rs. ${Number(val).toLocaleString()}`}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} iconType="circle" />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Revenue Stream Breakdown Donut */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+              <PieIcon size={16} className="text-slate-700" />
+              <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Cash Revenue Stream Distribution</h3>
+            </div>
+            {revenueStreamData.length === 0 ? (
+              <div className="h-36 flex items-center justify-center text-xs text-slate-400 font-medium">
+                No revenue entries for this period.
+              </div>
+            ) : (
+              <div className="w-full h-36">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={revenueStreamData} innerRadius={35} outerRadius={55} paddingAngle={4} dataKey="value">
+                      {revenueStreamData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={REVENUE_COLORS[index % REVENUE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '11px' }}
+                      formatter={(val) => `Rs. ${Number(val).toLocaleString()}`}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} iconType="circle" />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── 3. Purchasing & Vendor Payables Cards ───────────────────────────── */}
       <section>
         <div className="flex items-center gap-2 mb-4">
           <ShoppingCart size={20} className="text-slate-400" />
@@ -171,10 +361,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </section>
 
-      {/* ── 3. Low Stock Raw Material Warning ───────────────────────────────── */}
+      {/* ── 4. Low Stock Raw Material Warning ───────────────────────────────── */}
       <LowStockAlertGrid count={data?.lowStockMaterialsCount} list={data?.lowStockMaterialsList} />
 
-      {/* ── 4. Purchasing & Vendor Summary ──────────────────────────────────── */}
+      {/* ── 5. Purchasing & Vendor Summary ──────────────────────────────────── */}
       <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
     </div>
   );

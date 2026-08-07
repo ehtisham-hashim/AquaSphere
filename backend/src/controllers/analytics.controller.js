@@ -110,22 +110,89 @@ const computeDashboardAnalytics = async (prefix) => {
       return t >= dayStart && t <= dayEnd;
     });
 
+    const dayExpenses = yearExpenses.filter(e => {
+      const t = new Date(e.createdAt);
+      return t >= dayStart && t <= dayEnd;
+    });
+
+    const dayPurchases = yearPurchases.filter(p => {
+      const t = new Date(p.purchaseDate);
+      return t >= dayStart && t <= dayEnd;
+    });
+
     const daySpotSales = yearSpotSales.filter(s => {
       const t = new Date(s.createdAt);
       return t >= dayStart && t <= dayEnd;
     });
 
     const ordersCount = dayOrders.length;
-    const cashCollected = dayPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) +
-      daySpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+    const orderCash = dayPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const spotSalesCash = daySpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+    const cashCollected = orderCash + spotSalesCash;
     const creditBilled = daySpotSales.reduce((s, st) => s + parseFloat(st.creditAmount || 0), 0);
+    const expensesVal = dayExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const purchasesVal = dayPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
+    const salesVal = dayOrders.reduce((acc, o) => acc + (o.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * (i.quantity || 0)), 0), 0);
 
     dailySalesHistory.push({
       date: dateKey,
       day: d.toLocaleDateString('en-US', { weekday: 'short' }),
       ordersCount,
+      sales: salesVal,
       cashCollected,
-      creditBilled
+      orderCash,
+      spotSalesCash,
+      creditBilled,
+      expenses: expensesVal,
+      purchases: purchasesVal,
+      netCash: cashCollected - expensesVal
+    });
+  }
+
+  // Compute 12-month trend for Executive Owner view
+  const monthlyTrend = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0);
+    const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+    const label = d.toLocaleDateString('en-US', { month: 'short' });
+
+    const mOrders = yearOrders.filter(o => {
+      const t = new Date(o.createdAt);
+      return t >= d && t <= mEnd;
+    });
+    const mPayments = yearPayments.filter(p => {
+      const t = new Date(p.createdAt);
+      return t >= d && t <= mEnd;
+    });
+    const mExpenses = yearExpenses.filter(e => {
+      const t = new Date(e.createdAt);
+      return t >= d && t <= mEnd;
+    });
+    const mPurchases = yearPurchases.filter(p => {
+      const t = new Date(p.purchaseDate);
+      return t >= d && t <= mEnd;
+    });
+    const mSpotSales = yearSpotSales.filter(s => {
+      const t = new Date(s.createdAt);
+      return t >= d && t <= mEnd;
+    });
+
+    const sales = mOrders.reduce((acc, o) => acc + (o.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * (i.quantity || 0)), 0), 0);
+    const orderCash = mPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const spotSalesCash = mSpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+    const cash = orderCash + spotSalesCash;
+    const expenses = mExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const purchases = mPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
+
+    monthlyTrend.push({
+      month: label,
+      sales,
+      cash,
+      expenses,
+      purchases,
+      spotSalesCash,
+      orderCash,
+      netCash: cash - expenses
     });
   }
 
@@ -143,6 +210,7 @@ const computeDashboardAnalytics = async (prefix) => {
     monthly,
     yearly,
     dailySalesHistory,
+    monthlyTrend,
     pendingVendorPayables,
     lowStockMaterialsCount: lowStockMaterials.length,
     lowStockMaterialsList: lowStockMaterials.map(m => ({
@@ -151,12 +219,7 @@ const computeDashboardAnalytics = async (prefix) => {
       cachedQty: parseFloat(m.cachedQty || 0),
       reorderLevel: parseFloat(m.reorderLevel || 0),
       unit: m.unit
-    })),
-
-    // Pre-calculated period metrics for instant JS switching in frontend
-    daily,
-    monthly,
-    yearly
+    }))
   };
 };
 
