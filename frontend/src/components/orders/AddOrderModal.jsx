@@ -80,6 +80,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       });
       setSelectedItems(initialSelected);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderData.customerId]);
 
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {

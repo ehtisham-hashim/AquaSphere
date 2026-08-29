@@ -1,8 +1,9 @@
 import { prisma } from '../config/db.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = getTenantPrefix;
 
 export const getAuditLogs = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);

@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { X, Plus, Trash2, Upload, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { getDefaultUnitPrice } from '../../constants/purchases';
 

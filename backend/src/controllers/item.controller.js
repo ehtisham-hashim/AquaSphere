@@ -1,103 +1,11 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-
-const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
-
-const consolidateDuplicateFinishedGoods = async (prefix) => {
-  if (prefix === 'wadaana') return; // Wadaana operates on single bottle items, do not consolidate
-  try {
-    const allFG = await prisma[`${prefix}Item`].findMany({
-      where: { archivedAt: null }
-    });
-
-    const groups = [
-      {
-        canonicalName: '0.5L PET Pack (12 Bottles)',
-        unit: 'packs',
-        keywords: ['0.5', '500']
-      },
-      {
-        canonicalName: '1.5L PET Pack (6 Bottles)',
-        unit: 'packs',
-        keywords: ['1.5', '1500']
-      },
-      {
-        canonicalName: '19L Refill Bottle',
-        unit: 'bottles',
-        keywords: ['19']
-      }
-    ];
-
-    for (const g of groups) {
-      const matchingItems = allFG.filter(i => 
-        (i.type === 'FINISHED_GOOD' || !i.type) && 
-        g.keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase()))
-      );
-
-      if (matchingItems.length === 0) continue;
-
-      let canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
-
-      await prisma[`${prefix}Item`].update({
-        where: { id: canonicalItem.id },
-        data: { name: g.canonicalName, unit: g.unit, type: 'FINISHED_GOOD' }
-      });
-
-      for (const dupe of matchingItems) {
-        if (dupe.id === canonicalItem.id) continue;
-
-        // Re-link ALL foreign key references
-        await prisma[`${prefix}InventoryTransaction`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}OrderItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}PurchaseItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatchConsumption`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { outputItemId: dupe.id },
-          data: { outputItemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { inputItemId: dupe.id },
-          data: { inputItemId: canonicalItem.id }
-        }).catch(() => null);
-
-        // Soft-archive duplicate item so it never appears in inventory or transfer dropdowns
-        await prisma[`${prefix}Item`].update({
-          where: { id: dupe.id },
-          data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
-        }).catch(() => null);
-      }
-    }
-  } catch (err) {
-    console.error('Consolidation warning:', err);
-  }
-};
+import { getTenantPrefix } from '../utils/tenant.js';
 
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
-  
-  await consolidateDuplicateFinishedGoods(prefix);
 
   const where = {};
   if (type) where.type = type;
@@ -109,9 +17,6 @@ export const getItems = asyncHandler(async (req, res) => {
     include: {
       recipeFinishedGoods: {
         include: { rawMaterial: true }
-      },
-      inventoryTransactions: {
-        select: { quantity: true, direction: true, refType: true }
       }
     }
   });
@@ -125,31 +30,6 @@ export const getItems = asyncHandler(async (req, res) => {
         item.unit = 'bottles';
       }
     }
-    if (item.inventoryTransactions && item.inventoryTransactions.length > 0) {
-      let netQty = 0;
-      for (const t of item.inventoryTransactions) {
-        if (t.refType === 'TRANSFER') continue;
-        const q = Number(t.quantity || 0);
-        if (t.direction === 'IN') netQty += q;
-        else if (t.direction === 'OUT') netQty -= q;
-      }
-      item.cachedQty = netQty;
-
-      // Check for Factory/Warehouse mismatch but DO NOT auto-fix silently
-      const fQty = Number(item.factoryQty || 0);
-      const wQty = Number(item.warehouseQty || 0);
-      if (fQty + wQty !== netQty) {
-        // Flag discrepancy but don't auto-correct
-        item.stockDiscrepancy = {
-          expected: netQty,
-          actual: fQty + wQty,
-          factory: fQty,
-          warehouse: wQty,
-          difference: (fQty + wQty) - netQty
-        };
-      }
-    }
-    delete item.inventoryTransactions;
     return item;
   });
 

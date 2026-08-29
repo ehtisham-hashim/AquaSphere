@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Clock, UserPlus, Printer, CreditCard } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { getCompanyFromCookie } from '../utils/companyCookie';

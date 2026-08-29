@@ -1,4 +1,4 @@
-import { Clock, Truck, CheckCircle, MessageCircle, Printer, CreditCard, ShieldCheck } from 'lucide-react';
+import { Truck, CheckCircle, MessageCircle, Printer, CreditCard, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 const deliveryBadge = (s) => {

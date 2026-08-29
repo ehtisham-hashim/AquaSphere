@@ -24,27 +24,25 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   const productStr = receiptSale.productType || 'CUSTOM';
 
   // Parse items from productType string
-  let items = [];
-  if (productStr.includes('(') || productStr.includes(',')) {
-    items = productStr.split(',').map(part => {
-      const trimmed = part.trim();
-      const match = trimmed.match(/^([A-Z0-9_]+)\s*\(x(\d+)\)$/);
-      if (match) {
-        const code = match[1];
-        const qty = parseInt(match[2], 10);
-        const name = nameMap[code] || code;
-        const unitPrice = priceMap[code] || 0;
-        return { name, qty, unitPrice, lineTotal: qty * unitPrice };
-      }
-      return { name: trimmed, qty: 1, unitPrice: 0, lineTotal: 0 };
-    });
-  } else {
-    const code = productStr;
-    const qty = Number(receiptSale.productQty || 1);
-    const name = nameMap[code] || code;
-    const unitPrice = priceMap[code] || 0;
-    items = [{ name, qty, unitPrice, lineTotal: qty * unitPrice }];
-  }
+  const items = (productStr.includes('(') || productStr.includes(','))
+    ? productStr.split(',').map(part => {
+        const trimmed = part.trim();
+        const match = trimmed.match(/^([A-Z0-9_]+)\s*\(x(\d+)\)$/);
+        if (match) {
+          const code = match[1];
+          const qty = parseInt(match[2], 10);
+          const name = nameMap[code] || code;
+          const unitPrice = priceMap[code] || 0;
+          return { name, qty, unitPrice, lineTotal: qty * unitPrice };
+        }
+        return { name: trimmed, qty: 1, unitPrice: 0, lineTotal: 0 };
+      })
+    : [{
+        name: nameMap[productStr] || productStr,
+        qty: Number(receiptSale.productQty || 1),
+        unitPrice: priceMap[productStr] || 0,
+        lineTotal: Number(receiptSale.productQty || 1) * (priceMap[productStr] || 0)
+      }];
 
   const cash = Number(receiptSale.cashCollected || 0);
   const credit = Number(receiptSale.creditAmount || 0);

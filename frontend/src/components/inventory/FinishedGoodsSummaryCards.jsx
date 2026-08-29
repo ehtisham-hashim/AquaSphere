@@ -1,6 +1,6 @@
-import { Droplets, Warehouse, Factory, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Warehouse, Factory, ShieldCheck } from 'lucide-react';
 
-export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere', bottleSummary = null }) {
+export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere', _bottleSummary = null }) {
   const isWadaana = tenant === 'wadaana';
 
   // Helper to extract factory & warehouse quantities
@@ -33,8 +33,6 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
     const data19 = getLocQty(items19);
 
     const totalUnits = Math.round(data05.total + data15.total + data19.total);
-    const maxCapacityTarget = 5000; // Target warehouse capacity threshold
-    const capacityPercent = Math.min(100, Math.round((totalUnits / maxCapacityTarget) * 100));
 
     // Status Helper
     const getBadge = (qty, reorder = 20) => {

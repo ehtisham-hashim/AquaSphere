@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wallet, CreditCard, ShieldAlert, TrendingUp, ShoppingBag, BarChart3 } from 'lucide-react';
+import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3 } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 

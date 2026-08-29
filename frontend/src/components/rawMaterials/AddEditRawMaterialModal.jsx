@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Package, Flame, Check, Minus, Plus, Search, CheckSquare, Square } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 

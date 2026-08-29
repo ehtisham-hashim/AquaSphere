@@ -2,13 +2,9 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
-
-const getTenantPrefix = (req) => {
-  const rawTenant = req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
-  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
 
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -224,8 +220,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const qty = parseInt(qtyDelivered || 0); // 19L delivered
     const retGood = parseInt(bottlesReturnedGood || 0);
     const retBroken = parseInt(bottlesReturnedBroken || 0);
-    const q05 = parseInt(qty05LDelivered || 0);
-    const q15 = parseInt(qty15LDelivered || 0);
+    const _q05 = parseInt(qty05LDelivered || 0);
+    const _q15 = parseInt(qty15LDelivered || 0);
     const cash = parseFloat(cashReceived || 0);
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     
@@ -267,7 +263,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
 
       const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
-      const currentDeposit = Number(customerSnapshot.deposit || 0);
+      const _currentDeposit = Number(customerSnapshot.deposit || 0);
 
       // Calculate payment allocation atomically
       let debtReduction = 0;

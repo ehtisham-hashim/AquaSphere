@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DollarSign, CheckCircle2, User, Loader2, AlertTriangle, ShoppingBag, Zap, Printer, Plus, Minus, Trash2 } from 'lucide-react';
+import { DollarSign, CheckCircle2, User, Loader2, ShoppingBag, Zap, Printer, Plus, Minus, Trash2 } from 'lucide-react';
 import { COUNTER_PRODUCTS, PAYMENT_METHODS } from '../../constants/counterSale';
 
 export default function LogCounterSaleForm({
@@ -8,10 +8,10 @@ export default function LogCounterSaleForm({
   liveDateTime,
   available19LBottles,
   available05LPacks,
-  loose05L,
+  _loose05L,
   totalBottles05L,
   available15LPacks,
-  loose15L,
+  _loose15L,
   totalBottles15L,
   customers,
   handleMultiItemSubmit,
@@ -390,11 +390,16 @@ export default function LogCounterSaleForm({
               >
                 <option value="">-- {isCreditSale ? 'Select Mandatory Customer' : 'Walk-In Cash Customer'} --</option>
                 {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.phone}) — Bal: Rs {Number(c.currentBalance || 0).toLocaleString()}
-                  </option>
-                ))}
-              </select>
+                   <option key={c.id} value={c.id}>
+                     {c.name} ({c.phone}) — Bal: Rs {Number(c.currentBalance || 0).toLocaleString()}
+                   </option>
+                 ))}
+               </select>
+              {isCreditLimitExceeded && (
+                <p className="text-[11px] font-bold text-amber-600 mt-1">
+                  Credit limit (Rs {customerLimit.toLocaleString()}) will be exceeded (Projected: Rs {projectedBalance.toLocaleString()})
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">

@@ -3,11 +3,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
-
-const getTenantPrefix = (req) => {
-  const rawTenant = req.tenant || req.headers['x-tenant'] || req.headers['x-company-context'] || req.query?.tenant || req.cookies?.tenant || req.cookies?.company || 'aquasphere';
-  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 const VALID_CATEGORIES = [
   'Fuel / Transport', 'Fuel',
@@ -48,7 +45,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
         }
       }
     },
-    take: 5000
+    take: 200
   });
 
   res.json({ success: true, data: expenses });
@@ -93,17 +90,13 @@ export const createExpense = asyncHandler(async (req, res) => {
   });
 
   // Audit log
-  try {
-    await prisma[`${prefix}AuditLog`].create({
-      data: {
-        action: 'EXPENSE_CREATED',
-        entityType: 'EXPENSE',
-        entityId: expense.id,
-        details: JSON.stringify({ category, amount: expense.amount }),
-        performedBy: req.user?.id || 'SYSTEM'
-      }
-    });
-  } catch (_) {}
+  await createAuditLog(prefix, {
+    action: 'EXPENSE_CREATED',
+    entityType: 'EXPENSE',
+    entityId: expense.id,
+    details: { category, amount: expense.amount },
+    performedBy: req.user?.id || 'SYSTEM'
+  });
 
   broadcastDashboardUpdate(prefix);
   res.status(201).json({ success: true, data: expense });

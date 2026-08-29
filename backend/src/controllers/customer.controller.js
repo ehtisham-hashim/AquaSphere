@@ -2,8 +2,10 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
+import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
-const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = getTenantPrefix;
 
 export const isValidGoogleMapsUrl = (url) => {
   if (!url) return true;
@@ -39,7 +41,7 @@ export const getCustomers = asyncHandler(async (req, res) => {
   res.json({ success: true, data: customers });
 });
 
-// Get single customer with complete history
+// Get single customer with bounded history
 export const getCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getPrefix(req);
@@ -53,13 +55,16 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
           deliveries: true,
           payments: true
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 50
       },
       bottleTransactions: {
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 50
       },
       payments: {
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 50
       }
     }
   });
@@ -164,14 +169,12 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
-  await prisma[`${prefix}AuditLog`].create({
-    data: {
-      action: 'CUSTOMER_CREATED',
-      entityType: 'Customer',
-      entityId: customer.id,
-      performedBy,
-      details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
-    }
+  await createAuditLog(prefix, {
+    action: 'CUSTOMER_CREATED',
+    entityType: 'Customer',
+    entityId: customer.id,
+    performedBy,
+    details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
   });
 
   res.status(201).json({ success: true, data: customer });
@@ -180,7 +183,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { 
-    name, phone, type, address, mapLink, securityDeposit, currentBalance,
+    name, phone, type, address, mapLink, securityDeposit,
     creditLimit, creditDuration, remarks, homePictureUrl,
     buys19L, qty19L, buys05LPet, qty05LPet, buys15LPet, qty15LPet,
     buysPure05L, qtyPure05L, buysPure15L, qtyPure15L,
@@ -228,11 +231,8 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
   const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
-  // Audit Logs for specific changes
-  const auditLogsToCreate = [];
-
   if (phone !== undefined && phone !== existing.phone) {
-    auditLogsToCreate.push({
+    await createAuditLog(prefix, {
       action: 'PHONE_CHANGED',
       entityType: 'Customer',
       entityId: id,
@@ -242,7 +242,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   }
 
   if (creditLimit !== undefined && parseFloat(creditLimit) !== parseFloat(existing.creditLimit || 0)) {
-    auditLogsToCreate.push({
+    await createAuditLog(prefix, {
       action: 'CREDIT_LIMIT_CHANGED',
       entityType: 'Customer',
       entityId: id,
@@ -251,18 +251,13 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     });
   }
 
-  // General edit audit log
-  auditLogsToCreate.push({
+  await createAuditLog(prefix, {
     action: 'CUSTOMER_EDITED',
     entityType: 'Customer',
     entityId: id,
     performedBy,
     details: `Customer details updated for ${existing.name}`
   });
-
-  for (const log of auditLogsToCreate) {
-    await prisma[`${prefix}AuditLog`].create({ data: log });
-  }
 
   const customer = await prisma[`${prefix}Customer`].update({
     where: { id },
@@ -293,14 +288,12 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
     }
   });
 
-  await prisma[`${prefix}AuditLog`].create({
-    data: {
-      action: 'CUSTOMER_DELETED',
-      entityType: 'Customer',
-      entityId: id,
-      performedBy,
-      details: `Customer ${customer.name} (${customer.phone}) soft deleted`
-    }
+  await createAuditLog(prefix, {
+    action: 'CUSTOMER_DELETED',
+    entityType: 'Customer',
+    entityId: id,
+    performedBy,
+    details: `Customer ${customer.name} (${customer.phone}) soft deleted`
   });
 
   res.json({ success: true, message: 'Customer deleted successfully' });
@@ -327,14 +320,12 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
 
   const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
-  await prisma[`${prefix}AuditLog`].create({
-    data: {
-      action: 'CUSTOMER_RESTORED',
-      entityType: 'Customer',
-      entityId: id,
-      performedBy,
-      details: `Customer ${updated.name} restored from archive`
-    }
+  await createAuditLog(prefix, {
+    action: 'CUSTOMER_RESTORED',
+    entityType: 'Customer',
+    entityId: id,
+    performedBy,
+    details: `Customer ${updated.name} restored from archive`
   });
 
   res.json({ success: true, data: updated, message: 'Customer unarchived successfully' });
@@ -342,7 +333,6 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
 
 export const uploadCustomerPicture = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Image file is required');
-  const prefix = getPrefix(req);
   const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);
   res.status(200).json({ 
     success: true, 

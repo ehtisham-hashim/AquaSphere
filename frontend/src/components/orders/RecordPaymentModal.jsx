@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, CreditCard, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, CreditCard, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';

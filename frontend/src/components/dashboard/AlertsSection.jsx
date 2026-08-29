@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   AlertTriangle, Clock, Truck, Receipt, 
   Package, ShieldAlert, PhoneCall, RefreshCw, XCircle
@@ -13,7 +13,7 @@ export default function AlertsSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
@@ -36,11 +36,11 @@ export default function AlertsSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenant]);
 
   useEffect(() => {
     fetchAlerts();
-  }, [tenant]);
+  }, [fetchAlerts]);
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import { ShoppingCart, CreditCard, Receipt } from 'lucide-react';
+import { ShoppingCart, CreditCard } from 'lucide-react';
 
 export default function PurchasesHeaderStats({ totalCount, totalAmount }) {
   return (

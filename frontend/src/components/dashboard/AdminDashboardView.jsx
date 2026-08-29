@@ -25,7 +25,7 @@ export default function AdminDashboardView() {
 
   const companyTitle = tenant === 'wadaana' ? 'Wadaana Industries' : 'AquaSphere';
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
       const headers = { 'x-tenant': tenant };
@@ -47,11 +47,11 @@ export default function AdminDashboardView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenant]);
 
   useEffect(() => {
     fetchData();
-  }, [tenant]);
+  }, [fetchData]);
 
   if (loading) {
     return (

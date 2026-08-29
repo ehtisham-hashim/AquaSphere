@@ -1,4 +1,4 @@
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, _next) => {
   if (err.code === 'P2002') {
     return res.status(409).json({ status: 409, message: 'Record already exists. Unique constraint failed.' });
   }

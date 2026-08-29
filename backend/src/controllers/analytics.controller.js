@@ -1,16 +1,9 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
 let cachedDashboardData = { aquasphere: null, wadaana: null };
 let sseClients = { aquasphere: [], wadaana: [] };
-
-const getTenantPrefix = (req) => {
-  const queryVal = req.query?.tenant || req.query?.company;
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
-  const tenant = (queryVal || cookieVal || headerVal || req.tenant || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
 
 const computeDashboardAnalytics = async (prefix) => {
   const now = new Date();
@@ -342,8 +335,9 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
 export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
 
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
   res.write(`data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`);

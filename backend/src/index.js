@@ -5,7 +5,12 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger.js';
+import { devLogger, prodLogger } from './middlewares/logger.middleware.js';
+import { closeDatabaseConnections } from './config/db.js';
 import { errorHandler } from './middlewares/error.middleware.js';
+
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import vendorRoutes from './routes/vendor.routes.js';
@@ -31,7 +36,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Trust Render's proxy (required for rate limiting behind reverse proxy)
+// Trust reverse proxy (Traefik on Dokploy / Render proxy)
 app.set('trust proxy', 1);
 
 const apiLimiter = rateLimit({
@@ -41,8 +46,18 @@ const apiLimiter = rateLimit({
   legacyHeaders: false
 });
 
-app.use(helmet());
+// Logging middleware
+if (process.env.NODE_ENV === 'production') {
+  app.use(prodLogger);
+} else {
+  app.use(devLogger);
+}
+
+app.use(helmet({
+  contentSecurityPolicy: false // Allow Swagger UI inline scripts/styles
+}));
 app.use(compression());
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
@@ -59,9 +74,22 @@ app.use(cors({
   },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Swagger API Documentation Console
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'AquaSphere API Docs & Testing Console',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    docExpansion: 'none',
+    filter: true
+  }
+}));
+
 app.use('/api/', apiLimiter);
 
 app.use('/api/v1/auth', authRoutes);
@@ -81,7 +109,7 @@ app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/admin', adminDashboardRoutes);
 
-// Health check endpoint for Render
+// Health check endpoint
 app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', message: 'AquaSphere API is running', timestamp: new Date().toISOString() });
 });
@@ -89,4 +117,22 @@ app.get('/', (_req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Graceful shutdown
+const shutdown = async (signal) => {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  server.close(async () => {
+    await closeDatabaseConnections();
+    console.log('HTTP server and Database connection pool closed.');
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

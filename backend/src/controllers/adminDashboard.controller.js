@@ -1,14 +1,9 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getPrefix = (req) => {
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
-  const queryVal = req.query?.tenant || req.query?.company;
-  const tenant = (req.tenant || queryVal || cookieVal || headerVal || 'aquasphere').toString().toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+const getPrefix = getTenantPrefix;
 
 /**
  * Feature 2: Admin View-Only Dashboard
@@ -43,7 +38,8 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     prisma[`${prefix}Order`].findMany({
       where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } },
       include: { customer: { select: { name: true, phone: true } }, items: { include: { item: { select: { name: true } } } } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: 50
     }),
     // Today's completed deliveries count
     prisma[`${prefix}Delivery`].findMany({

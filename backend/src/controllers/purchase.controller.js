@@ -3,13 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { paginationArgs } from '../utils/pagination.js';
-
-const getTenantPrefix = (req) => {
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'];
-  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { getTenantPrefix } from '../utils/tenant.js';
 
 export const getPurchases = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);

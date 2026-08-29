@@ -2,14 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { calculateProductionBatch } from '../utils/productionFormulas.js';
-import pkg from '@prisma/client';
-const { Prisma } = pkg;
-
-// Dynamic tenant helper for AquaSphere & Wadaana Production
-const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { getTenantPrefix } from '../utils/tenant.js';
 
 export const getProductionBatches = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
@@ -189,7 +182,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
-  const { brokenBottles05L, brokenBottles15L, wasteQuantity, confirmed } = req.body;
+  const { brokenBottles05L, brokenBottles15L, wasteQuantity, confirmed: _confirmed } = req.body;
 
   const batch = await prisma[`${prefix}ProductionBatch`].findUnique({
     where: { id }
@@ -367,7 +360,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Broken 19L bottles (${wasteQtyNum}) cannot exceed produced amount (${max19LBottles} pcs)`);
   }
 
-  const { deductions, finishedGoods, broken } = calculateProductionBatch({
+  const { deductions, finishedGoods } = calculateProductionBatch({
     packs05L: packs05LNum,
     packs15L: packs15LNum,
     quantity: quantityNum,

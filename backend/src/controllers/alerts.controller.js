@@ -1,13 +1,6 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-
-const getTenantPrefix = (req) => {
-  const queryVal = req.query?.tenant || req.query?.company;
-  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const tenant = (queryVal || headerVal || cookieVal || req.tenant || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { getTenantPrefix } from '../utils/tenant.js';
 
 export const getMMAlerts = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -39,7 +32,7 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
     }),
     // 3. Customer Reminders
     prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, remarks: { not: null, not: '' } },
+      where: { archivedAt: null, remarks: { not: '' } },
       select: { id: true, name: true, phone: true, remarks: true }
     }),
     // 4. Pending Deliveries

@@ -2,8 +2,9 @@ import { prisma } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getPrefix = (req) => (req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere').toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = getTenantPrefix;
 
 export const getReportData = asyncHandler(async (req, res) => {
   const { reportType } = req.params;
@@ -17,8 +18,8 @@ export const getReportData = asyncHandler(async (req, res) => {
   if (startDate) start.setUTCHours(0, 0, 0, 0);
   if (endDate) end.setUTCHours(23, 59, 59, 999);
 
-  let kpis = [];
-  let table = [];
+  let kpis;
+  let table;
 
   switch (reportType) {
     case 'sales': {
@@ -73,7 +74,9 @@ export const getReportData = asyncHandler(async (req, res) => {
       const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
       // Compute Weighted Average COGS dynamically from PurchaseItem records
-      const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany();
+      const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany({
+        where: { purchase: { purchaseDate: { lte: end } } }
+      });
 
       const itemTotalCost = {};
       const itemTotalQty = {};
@@ -255,20 +258,24 @@ export const getReportData = asyncHandler(async (req, res) => {
     case 'fleet':
     case 'bottle-summary': {
       const [transactions, customerBottleSum] = await Promise.all([
-        prisma[`${prefix}BottleTransaction`].findMany(),
+        prisma[`${prefix}BottleTransaction`].groupBy({
+          by: ['type'],
+          _sum: { quantity: true }
+        }),
         prisma[`${prefix}Customer`].aggregate({
           _sum: { cachedBottleBalance: true },
           where: { archivedAt: null }
         })
       ]);
 
-      let totalOwned = 0, broken = 0, lost = 0;
-      
+      const map = {};
       transactions.forEach(t => {
-        if (t.type === 'NEW_PURCHASE') totalOwned += t.quantity;
-        if (t.type === 'RETURNED_BROKEN') broken += t.quantity;
-        if (t.type === 'MARKED_LOST') lost += t.quantity;
+        map[t.type] = t._sum.quantity || 0;
       });
+
+      const totalOwned = map.NEW_PURCHASE || 0;
+      const broken = map.RETURNED_BROKEN || 0;
+      const lost = map.MARKED_LOST || 0;
 
       const withCustomers = Math.max(0, Number(customerBottleSum._sum.cachedBottleBalance || 0));
       const atFactory = Math.max(0, totalOwned - withCustomers - broken - lost);

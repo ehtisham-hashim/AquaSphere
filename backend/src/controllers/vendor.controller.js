@@ -1,14 +1,8 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
-
-const getTenantPrefix = (req) => {
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'];
-  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { uploadImage } from '../utils/cloudinaryUpload.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
 export const getVendors = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -71,6 +65,7 @@ export const getVendorById = asyncHandler(async (req, res) => {
     include: {
       purchases: {
         orderBy: { createdAt: 'desc' },
+        take: 50,
         include: {
           items: {
             include: { item: true }
@@ -78,10 +73,12 @@ export const getVendorById = asyncHandler(async (req, res) => {
         }
       },
       payments: {
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        take: 50
       },
       ledgerEntries: {
-        orderBy: { createdAt: 'asc' } // Ascending to compute running balance accurately
+        orderBy: { createdAt: 'asc' }, // Ascending to compute running balance accurately
+        take: 100
       }
     }
   });
@@ -269,16 +266,18 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     return { payment, ledgerEntry };
   });
 
-  const ledgerEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
-    where: { vendorId }
+  const ledgerSums = await prisma[`${prefix}VendorLedgerEntry`].groupBy({
+    by: ['type'],
+    where: { vendorId },
+    _sum: { amount: true }
   });
 
-  const totalPurchases = ledgerEntries
-    .filter(l => l.type === 'PURCHASE')
-    .reduce((sum, l) => sum + Number(l.amount), 0);
-  const totalPaid = ledgerEntries
-    .filter(l => l.type === 'PAYMENT')
-    .reduce((sum, l) => sum + Number(l.amount), 0);
+  let totalPurchases = 0;
+  let totalPaid = 0;
+  for (const s of ledgerSums) {
+    if (s.type === 'PURCHASE') totalPurchases = Number(s._sum.amount || 0);
+    if (s.type === 'PAYMENT') totalPaid = Number(s._sum.amount || 0);
+  }
 
   res.status(201).json({
     success: true,
