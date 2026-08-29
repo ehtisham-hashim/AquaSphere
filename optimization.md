@@ -4,7 +4,7 @@
 
 Backend slowdown after ~15 minutes is caused by **three compounding issues**: (1) `getItems()` runs a full-table consolidation migration (`consolidateDuplicateFinishedGoods`) on **every single GET request** (item.controller.js:100), which scans all items and performs cascading updateMany across 6 tables; (2) `getSpotSales()` runs an "auto-heal" loop querying 20 recent sales × 1 findFirst each = N+1 + writes on every GET (spotSale.controller.js:31-101); (3) `getDailyCloseHistory()` fires N sequential `aggregate` + `findMany` + `count` queries per closed day inside a `Promise.all(history.map(async ...))` (dailyClose.controller.js:341-385). Combined, these create escalating DB pressure on the **Neon Serverless PostgreSQL Free Tier** (which enforces a strict 5-connection limit). The `getTenantPrefix()` function is copy-pasted into **15 separate files** with 7 different implementations. Overall code volume can be reduced ~55-60% through shared tenant resolution, controller wrappers, and splitting 1000+ line frontend pages.
 
-*(Note: For VPS infrastructure setup, Traefik reverse proxy configuration, Dockerfiles, and production host settings on Contabo via Dokploy, refer directly to [`context/deployment.md`](file:///home/ehtisham/Desktop/AquaSphere/context/deployment.md)).*
+*(Note: For VPS infrastructure setup, Traefik reverse proxy configuration, Dockerfiles, and production host settings on Contabo via Dokploy, refer directly to [`context/deployment.md`](context/deployment.md)).*
 
 ---
 

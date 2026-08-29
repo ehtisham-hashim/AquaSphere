@@ -8,10 +8,20 @@ morgan.token('user', (req) => {
   return req.user ? `${req.user.role}:${req.user.name || req.user.id?.substring(0, 6)}` : 'anon';
 });
 
+/**
+ * Development request logger middleware formatting human-readable CLI outputs with tenant tags.
+ *
+ * @type {import('express').RequestHandler}
+ */
 export const devLogger = morgan(
   ':method :url :status :response-time ms - [:tenant] [:user] :res[content-length]B'
 );
 
+/**
+ * Production structured JSON request logger middleware for logging engines.
+ *
+ * @type {import('express').RequestHandler}
+ */
 export const prodLogger = morgan((tokens, req, res) => {
   return JSON.stringify({
     timestamp: new Date().toISOString(),

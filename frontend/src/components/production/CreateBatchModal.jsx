@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,6 +24,21 @@ export default function CreateBatchModal({
   const [qtyPure15L, setQtyPure15L] = useState('');
   const [qtyMix05L, setQtyMix05L] = useState('');
   const [qtyMix15L, setQtyMix15L] = useState('');
+
+  // Reset internal form state whenever modal opens or closes
+  useEffect(() => {
+    if (isOpen) {
+      setBatchDate(new Date().toISOString().split('T')[0]);
+      setNotes('');
+      setPacks05L('');
+      setPacks15L('');
+      setQuantity('');
+      setQtyPure05L('');
+      setQtyPure15L('');
+      setQtyMix05L('');
+      setQtyMix15L('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

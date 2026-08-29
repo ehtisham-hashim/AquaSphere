@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,6 +20,19 @@ export default function CompleteBatchModal({
   const [brokenBottles05L, setBrokenBottles05L] = useState('');
   const [brokenBottles15L, setBrokenBottles15L] = useState('');
   const [wasteQuantity, setWasteQuantity] = useState('');
+
+  // Reset internal breakage state whenever modal opens or active batch changes
+  useEffect(() => {
+    if (isOpen) {
+      setBrokenPure05L('');
+      setBrokenPure15L('');
+      setBrokenMix05L('');
+      setBrokenMix15L('');
+      setBrokenBottles05L('');
+      setBrokenBottles15L('');
+      setWasteQuantity('');
+    }
+  }, [isOpen, batchToComplete?.id]);
 
   if (!isOpen || !batchToComplete) return null;
 

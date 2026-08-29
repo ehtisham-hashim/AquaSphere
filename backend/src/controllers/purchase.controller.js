@@ -5,6 +5,13 @@ import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { paginationArgs } from '../utils/pagination.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Retrieves raw material purchase orders with vendor search and date filtering.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getPurchases = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { search, dateFilter } = req.query;
@@ -49,6 +56,13 @@ export const getPurchases = asyncHandler(async (req, res) => {
   res.json({ success: true, data: purchases, nextCursor });
 });
 
+/**
+ * Retrieves single purchase record with item details and vendor ledger entry.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getPurchaseById = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -68,6 +82,13 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
   res.json({ success: true, data: purchase });
 });
 
+/**
+ * Records a new purchase of raw materials, creating vendor ledger liabilities and updating raw material stock atomically.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createPurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { 
@@ -232,6 +253,13 @@ export const createPurchase = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: fullPurchase });
 });
 
+/**
+ * Uploads a purchase invoice or receipt document to Cloudinary.
+ *
+ * @param {import('express').Request} req - Express request object with file.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const uploadReceipt = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   if (!req.file) throw new ApiError(400, 'Receipt file is required. Please attach an image or PDF.');
@@ -239,6 +267,13 @@ export const uploadReceipt = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, receiptUrl: secure_url });
 });
 
+/**
+ * Marks a purchase order as verified and approved by the accountant.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const approvePurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -267,6 +302,13 @@ export const approvePurchase = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: updated, message: 'Purchase verified successfully' });
 });
 
+/**
+ * Deletes a purchase record and rolls back stock increments and vendor ledger entries (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deletePurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -331,6 +373,13 @@ export const deletePurchase = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Purchase deleted and stock/ledger reversed successfully' });
 });
 
+/**
+ * Updates status or paymentStatus for a purchase record.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updatePurchaseStatus = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;

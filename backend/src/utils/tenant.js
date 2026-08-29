@@ -1,7 +1,8 @@
 /**
- * Resolves tenant prefix from request.
- * Auth middleware sets req.tenant — controllers should use this.
- * Falls back to header/cookie for middleware that runs before auth.
+ * Resolves normalized tenant prefix ('aquasphere' or 'wadaana') from request context.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @returns {'aquasphere' | 'wadaana'} Validated tenant prefix.
  */
 export function getTenantPrefix(req) {
   const raw = (

@@ -7,8 +7,12 @@ const getPrefix = getTenantPrefix;
 
 /**
  * Feature 2: Admin View-Only Dashboard
- * Shows: Inventory, Production, Orders, Cash — NO profit, NO cost metrics
- * All data is read-only; Admin cannot mutate anything from this endpoint.
+ * Retrieves aggregated operational metrics (inventory levels, production yield, active orders, cash collected)
+ * for the current tenant. Deliberately omits profit and COGS metrics per permission matrix.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
  */
 export const getAdminDashboard = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
@@ -98,71 +102,83 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   // Format orders for table (NO financial amounts — just operational status)
   const ordersTable = todaysOrders.map(o => ({
     id: o.id,
-    shortId: `#${o.id.substring(0, 6).toUpperCase()}`,
-    customer: o.customer?.name || 'Walk-in',
-    phone: o.customer?.phone || '-',
-    type: o.type === 'NINETEEN_L' ? '19L Bottle' : 'PET Bottle',
-    itemName: o.items[0]?.item?.name || 'N/A',
-    quantity: o.items[0]?.quantity || 0,
+    customerName: o.customer?.name || 'Walk-in / Unknown',
+    customerPhone: o.customer?.phone || '—',
+    type: o.type,
     deliveryStatus: o.deliveryStatus,
     paymentStatus: o.paymentStatus,
+    itemSummary: o.items.map(i => `${i.quantity}x ${i.item?.name || 'Item'}`).join(', ') || 'No items',
     createdAt: o.createdAt
   }));
 
   const pendingOrdersTable = pendingOrders.map(o => ({
     id: o.id,
-    shortId: `#${o.id.substring(0, 6).toUpperCase()}`,
-    customer: o.customer?.name || 'Walk-in',
-    phone: o.customer?.phone || '-',
-    type: o.type === 'NINETEEN_L' ? '19L Bottle' : 'PET Bottle',
-    itemName: o.items[0]?.item?.name || 'N/A',
-    quantity: o.items[0]?.quantity || 0,
+    customerName: o.customer?.name || 'Unknown',
+    customerPhone: o.customer?.phone || '—',
+    type: o.type,
     deliveryStatus: o.deliveryStatus,
+    paymentStatus: o.paymentStatus,
+    itemSummary: o.items.map(i => `${i.quantity}x ${i.item?.name || 'Item'}`).join(', ') || 'No items',
     createdAt: o.createdAt
   }));
 
+  // Format production table
   const productionTable = todaysProductionBatches.map(b => ({
     id: b.id,
-    shortId: `#${b.id.substring(0, 6).toUpperCase()}`,
-    outputItem: b.outputItem?.name || 'Unknown',
-    goodYield: b.quantity || 0,
-    waste: b.wasteQuantity || 0,
-    batchDate: b.batchDate || b.createdAt
+    outputItem: b.outputItem?.name || (b.quantity ? '19L Refill Bottle' : 'PET Production Run'),
+    quantity: b.quantity || 0,
+    wasteQuantity: b.wasteQuantity || 0,
+    packs05L: b.packs05L || 0,
+    packs15L: b.packs15L || 0,
+    broken05L: b.brokenBottles05L || 0,
+    broken15L: b.brokenBottles15L || 0,
+    status: b.status,
+    notes: b.notes || '—',
+    createdAt: b.createdAt
   }));
 
-  // IMPORTANT: No profit, no cost, no margin — only operational + cash collection
+  const orderPayments = Number(cashCollected._sum.amount || 0);
+  const spotCash = Number(spotSalesCash._sum.cashCollected || 0);
+
   res.status(200).json(new ApiResponse(200, {
     kpis: {
       todaysOrdersCount: todaysOrders.length,
       pendingOrdersCount: pendingOrders.length,
-      deliveriesCompleted: todaysDeliveries.length,
-      productionBatches: todaysProductionBatches.length,
-      totalGoodYield,
-      totalWaste,
-      packs05LToday,
-      packs15LToday,
-      cashCollected: parseFloat(cashCollected._sum.amount || 0) + parseFloat(spotSalesCash._sum.cashCollected || 0),
-      lowStockAlerts: lowStockItems.length,
-      isDayClosed: todaysDailyClose?.adminConfirmed || false,
-      dayClosedBy: todaysDailyClose?.closedById || null
+      todaysDeliveriesCount: todaysDeliveries.length,
+      totalProductionYield: totalGoodYield,
+      packs05LProduced: packs05LToday,
+      packs15LProduced: packs15LToday,
+      productionWaste: totalWaste,
+      // Operational cash collected ONLY (no profit, no expenses)
+      totalCashCollected: orderPayments + spotCash,
+      cashFromOrders: orderPayments,
+      cashFromSpotSales: spotCash,
+      dailyCloseStatus: {
+        isClosed: Boolean(todaysDailyClose?.adminConfirmed),
+        pmConfirmed: Boolean(todaysDailyClose?.pmConfirmed),
+        mmConfirmed: Boolean(todaysDailyClose?.mmConfirmed),
+        adminConfirmed: Boolean(todaysDailyClose?.adminConfirmed),
+        closedAt: todaysDailyClose?.closedAt || null
+      }
     },
-    inventory: {
-      rawMaterials: rawMaterials.map(m => ({
-        id: m.id,
-        name: m.name,
-        unit: m.unit,
-        cachedQty: parseFloat(m.cachedQty),
-        reorderLevel: parseFloat(m.reorderLevel),
-        isLow: parseFloat(m.cachedQty) < parseFloat(m.reorderLevel)
-      })),
-      finishedGoods: finishedGoods.map(fg => ({
-        id: fg.id,
-        name: fg.name,
-        unit: fg.unit,
-        cachedQty: parseFloat(fg.cachedQty)
+    alerts: {
+      lowStockCount: lowStockItems.length,
+      lowStockItems: lowStockItems.map(i => ({
+        id: i.id,
+        name: i.name,
+        currentStock: parseFloat(i.cachedQty),
+        reorderLevel: parseFloat(i.reorderLevel),
+        unit: i.unit
       }))
     },
-    lowStockItems: lowStockItems.map(m => ({
+    rawMaterials: rawMaterials.map(m => ({
+      id: m.id,
+      name: m.name,
+      unit: m.unit,
+      cachedQty: parseFloat(m.cachedQty),
+      reorderLevel: parseFloat(m.reorderLevel)
+    })),
+    finishedGoods: finishedGoods.map(m => ({
       id: m.id,
       name: m.name,
       unit: m.unit,
@@ -177,7 +193,11 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
 
 /**
  * Feature 4: Cash Summary (No Profit)
- * Shows cash collected only — deliberately omits COGS, expenses, and profit margin.
+ * Shows cash collected only from orders and spot sales — deliberately omits COGS, expenses, and profit margin.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
  */
 export const getAdminCashSummary = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
@@ -223,7 +243,11 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
 
 /**
  * Feature 5: Customer Alert Monitoring (Read-Only)
- * Shows: credit breaches + inactivity (>7 days no order)
+ * Analyzes customer balances and order history to identify credit breaches, overdue invoices (>7 days), and inactive customers.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
  */
 export const getCustomerAlerts = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);

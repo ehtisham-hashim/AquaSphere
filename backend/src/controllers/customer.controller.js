@@ -7,12 +7,25 @@ import { createAuditLog } from '../utils/auditLog.js';
 
 const getPrefix = getTenantPrefix;
 
+/**
+ * Validates whether a provided URL belongs to a recognized Google Maps domain.
+ *
+ * @param {string} url - Map link URL to validate.
+ * @returns {boolean} True if valid or empty, false otherwise.
+ */
 export const isValidGoogleMapsUrl = (url) => {
   if (!url) return true;
   const validDomains = ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'];
   return validDomains.some(d => url.includes(d));
 };
 
+/**
+ * Retrieves customers with optional search filtering by name or phone.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getCustomers = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
   const prefix = getPrefix(req);
@@ -41,7 +54,13 @@ export const getCustomers = asyncHandler(async (req, res) => {
   res.json({ success: true, data: customers });
 });
 
-// Get single customer with bounded history
+/**
+ * Retrieves detailed customer history including orders, bottle transactions, and payments.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getPrefix(req);
@@ -90,7 +109,13 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
   });
 });
 
-// Handles customer creation; uses regenerated Prisma schema with deposit synced
+/**
+ * Handles creation of a customer with tenant-specific product configuration.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createCustomer = asyncHandler(async (req, res) => {
   const { 
     name, phone, type, address, mapLink, securityDeposit, currentBalance,
@@ -180,6 +205,13 @@ export const createCustomer = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: customer });
 });
 
+/**
+ * Updates an existing customer profile with audit trail logging for sensitive changes.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { 
@@ -195,21 +227,20 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (!existing) throw new ApiError(404, 'Customer not found');
 
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
-    throw new ApiError(400, 'Invalid Google Maps URL');
+    throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
   }
 
-  const updateData = {
-    ...(name !== undefined && { name }),
-    ...(phone !== undefined && { phone }),
-    ...(type !== undefined && { type }),
-    ...(address !== undefined && { address }),
-    ...(mapLink !== undefined && { mapLink }),
-    ...(securityDeposit !== undefined && { deposit: parseInt(securityDeposit || 0) }),
-    ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit || 0) }),
-    ...(creditDuration !== undefined && { creditDuration: parseInt(creditDuration || 1) }),
-    ...(remarks !== undefined && { remarks }),
-    ...(homePictureUrl !== undefined && { homePictureUrl })
-  };
+  const updateData = {};
+  if (name !== undefined) updateData.name = name.trim();
+  if (phone !== undefined) updateData.phone = phone.trim();
+  if (type !== undefined) updateData.type = type;
+  if (address !== undefined) updateData.address = address;
+  if (mapLink !== undefined) updateData.mapLink = mapLink;
+  if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit || 0);
+  if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit || 0);
+  if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration || 1);
+  if (remarks !== undefined) updateData.remarks = remarks;
+  if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
 
   if (prefix === 'aquasphere') {
     if (buys19L !== undefined) updateData.buys19L = Boolean(buys19L);
@@ -231,13 +262,13 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
   const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
-  if (phone !== undefined && phone !== existing.phone) {
+  if (phone !== undefined && phone.trim() !== existing.phone) {
     await createAuditLog(prefix, {
       action: 'PHONE_CHANGED',
       entityType: 'Customer',
       entityId: id,
       performedBy,
-      details: `Phone number changed from '${existing.phone}' to '${phone}'`
+      details: `Phone number changed from '${existing.phone}' to '${phone.trim()}'`
     });
   }
 
@@ -267,6 +298,13 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   res.json({ success: true, data: customer });
 });
 
+/**
+ * Soft deletes a customer and archives their associated phone identifier.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getPrefix(req);
@@ -299,6 +337,13 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Customer deleted successfully' });
 });
 
+/**
+ * Restores an archived customer and restores their clean phone number.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const restoreCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getPrefix(req);
@@ -331,6 +376,13 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updated, message: 'Customer unarchived successfully' });
 });
 
+/**
+ * Uploads a customer premises or home picture to Cloudinary storage.
+ *
+ * @param {import('express').Request} req - Express request object with file.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const uploadCustomerPicture = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Image file is required');
   const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);

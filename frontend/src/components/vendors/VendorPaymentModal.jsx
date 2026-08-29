@@ -229,9 +229,9 @@ export default function VendorPaymentModal({
             </button>
             <button
               type="submit"
-              disabled={paymentSubmitting || Number(selectedVendor?.payableBalance || 0) <= 0}
+              disabled={paymentSubmitting || Number(selectedVendor?.payableBalance || 0) <= 0 || !paymentData.amount || Number(paymentData.amount) <= 0}
               className={`px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2 text-white transition-all ${
-                paymentSubmitting || Number(selectedVendor?.payableBalance || 0) <= 0
+                paymentSubmitting || Number(selectedVendor?.payableBalance || 0) <= 0 || !paymentData.amount || Number(paymentData.amount) <= 0
                   ? 'bg-slate-300 cursor-not-allowed shadow-none'
                   : 'bg-emerald-600 hover:bg-emerald-500'
               }`}

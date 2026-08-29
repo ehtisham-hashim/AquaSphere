@@ -6,6 +6,13 @@ import { getTenantPrefix } from '../utils/tenant.js';
 
 const getPrefix = getTenantPrefix;
 
+/**
+ * Generates structured KPI summaries and tabular datasets for various business reports (sales, profitability, expenses, inventory, production, fleet).
+ *
+ * @param {import('express').Request} req - Express request object with reportType and date range parameters.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getReportData = asyncHandler(async (req, res) => {
   const { reportType } = req.params;
   const { startDate, endDate } = req.query;

@@ -114,7 +114,7 @@ export default function VendorDetailModal({
           {/* TAB 1: LEDGER */}
           {profileTab === 'ledger' && (
             <div>
-              {selectedVendorDetail.ledgerEntries?.length === 0 ? (
+              {(!selectedVendorDetail.ledgerEntries || selectedVendorDetail.ledgerEntries.length === 0) ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No ledger activity recorded for this vendor.</p>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">

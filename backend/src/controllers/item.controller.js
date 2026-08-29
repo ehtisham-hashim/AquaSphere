@@ -3,6 +3,13 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Retrieves catalog items (raw materials / finished goods) with recipe relations.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
@@ -36,6 +43,13 @@ export const getItems = asyncHandler(async (req, res) => {
   res.json({ success: true, data: itemsData });
 });
 
+/**
+ * Retrieves a single inventory item by ID.
+ *
+ * @param {import('express').Request} req - Express request object with item id parameter.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getItemById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -46,6 +60,13 @@ export const getItemById = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item });
 });
 
+/**
+ * Creates a new catalog item or reactivates an archived one with initial stock balance.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createItem = asyncHandler(async (req, res) => {
   const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0 } = req.body;
   const prefix = getTenantPrefix(req);
@@ -120,6 +141,13 @@ export const createItem = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: item });
 });
 
+/**
+ * Updates an item's configuration (name, unit, reorder level) and optionally increments stock atomically.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0 } = req.body;
@@ -159,6 +187,13 @@ export const updateItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updated });
 });
 
+/**
+ * Soft archives an item, hiding it from default inventory listings.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const archiveItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -171,6 +206,13 @@ export const archiveItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item, message: 'Item archived successfully' });
 });
 
+/**
+ * Restores a soft-archived item back to active inventory listings.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const restoreItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -183,6 +225,13 @@ export const restoreItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item, message: 'Item restored successfully' });
 });
 
+/**
+ * Manually adjusts inventory quantity up or down with transaction tracking.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const adjustInventory = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { quantity, direction, reason } = req.body;
@@ -229,6 +278,13 @@ export const adjustInventory = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updatedItem });
 });
 
+/**
+ * Retrieves inventory ledger transactions with optional item type filtering.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getInventoryTransactions = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { type, limit = 100 } = req.query;
@@ -252,6 +308,13 @@ export const getInventoryTransactions = asyncHandler(async (req, res) => {
   res.json({ success: true, data: txns });
 });
 
+/**
+ * Transfers stock between factory and warehouse locations with batch tracking.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const transferStock = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId, fromLocation, toLocation, quantity, batchNo, notes } = req.body;
@@ -314,6 +377,13 @@ export const transferStock = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
 });
 
+/**
+ * Reconciles an item's cached stock balance from the sum of its historic inventory transactions.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const reconcileInventory = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId } = req.params;

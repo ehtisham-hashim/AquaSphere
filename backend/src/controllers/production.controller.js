@@ -4,6 +4,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { calculateProductionBatch } from '../utils/productionFormulas.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Retrieves paginated production batch runs enriched with output and raw material consumption details.
+ *
+ * @param {import('express').Request} req - Express request object with pagination parameters.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getProductionBatches = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const skip = (page - 1) * limit;
@@ -50,6 +57,13 @@ export const getProductionBatches = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Retrieves single production batch by ID with recipe consumptions.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getProductionBatchById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -72,6 +86,13 @@ export const getProductionBatchById = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: batch });
 });
 
+/**
+ * Retrieves aggregated production statistics (yield, packs produced, waste) for today and current month.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getProductionStats = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const startOfDay = new Date();
@@ -115,6 +136,13 @@ export const getProductionStats = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Creates a new pending production batch with planned output targets for PET packs or 19L refills.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createProductionBatch = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
@@ -178,6 +206,13 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Completes a production batch run, deducting consumed raw materials and adding good finished goods into stock.
+ *
+ * @param {import('express').Request} req - Express request object with actual yields and breakages.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const completeProductionBatch = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -437,6 +472,13 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: updatedBatch });
 });
 
+/**
+ * Deletes a production batch and rolls back all inventory impacts (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deleteProductionBatch = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);

@@ -15,7 +15,14 @@ const generateSaleNumber = () => {
   return `CS-${d}${m}${y}-${rand}`;
 };
 
-// GET /api/v1/spot-sales
+/**
+ * GET /api/v1/spot-sales
+ * Retrieves paginated spot/counter sales with customer and cashier details.
+ *
+ * @param {import('express').Request} req - Express request object with pagination parameters.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getSpotSales = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const skip = (page - 1) * limit;
@@ -50,7 +57,14 @@ export const getSpotSales = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/spot-sales
+/**
+ * POST /api/v1/spot-sales
+ * Records a walk-in / spot sale transaction, updates customer credit balance if on credit, and decrements item stock.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createSpotSale = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { 
@@ -272,7 +286,14 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: spotSale });
 });
 
-// PUT /api/v1/spot-sales/:id
+/**
+ * PUT /api/v1/spot-sales/:id
+ * Updates notes or payment method on a spot sale before daily close.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -314,7 +335,14 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: updated });
 });
 
-// DELETE /api/v1/spot-sales/:id
+/**
+ * DELETE /api/v1/spot-sales/:id
+ * Deletes a counter sale transaction and reverts credit balances (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deleteSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);

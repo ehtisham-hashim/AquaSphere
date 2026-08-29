@@ -72,28 +72,35 @@ Update system packages and configure basic firewall:
 apt update && apt upgrade -y
 apt install -y curl ufw git htop fail2ban
 
-# Configure UFW firewall
+# Configure UFW firewall (Keep port 3000 closed to public traffic)
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp    # SSH
-ufw allow 80/tcp    # HTTP (Traefik)
-ufw allow 443/tcp   # HTTPS (Traefik)
-ufw allow 3000/tcp  # Dokploy Dashboard (Default setup port)
+ufw allow 80/tcp    # HTTP (Traefik reverse proxy)
+ufw allow 443/tcp   # HTTPS (Traefik reverse proxy)
 ufw --force enable
 ```
 
-### 2.2 Install Dokploy
+### 2.2 Install Dokploy & Secure Initial Admin Setup
 
-Run the official one-line Dokploy installation script:
+Run the official one-line Dokploy installation script on the VPS:
 
 ```bash
 curl -sSL https://dokploy.com/install.sh | sh
 ```
 
-Once installation finishes, open your browser and navigate to:
-`http://<YOUR_CONTABO_IP>:3000`
-
-Create your initial administrative account and configure your domain name (e.g. `dokploy.yourdomain.com`).
+> [!IMPORTANT]
+> **Security Notice**: Do **NOT** expose port 3000 publicly over unencrypted HTTP.
+> Connect securely using an **encrypted SSH Tunnel** from your local machine:
+>
+> ```bash
+> ssh -L 3000:localhost:3000 root@<YOUR_CONTABO_IP>
+> ```
+>
+> Once connected, open your local browser to:
+> `http://localhost:3000`
+>
+> Complete the initial administrator account creation and configure your production management domain with automatic SSL (e.g., `https://dokploy.yourdomain.com`). All subsequent management must be performed through HTTPS or the private SSH tunnel.
 
 ---
 
@@ -371,17 +378,35 @@ Create `/root/backup-db.sh`:
 
 ```bash
 #!/bin/bash
-BACKUP_DIR="/root/db_backups"
-mkdir -p $BACKUP_DIR
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-FILENAME="$BACKUP_DIR/aquasphere_$TIMESTAMP.sql.gz"
+set -eo pipefail
 
-# Dump using direct Neon connection (replace with your direct URL)
-pg_dump "postgresql://user:pass@ep-xyz.region.aws.neon.tech/aquasphere?sslmode=require" | gzip > $FILENAME
+BACKUP_DIR="/root/db_backups"
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TEMP_FILENAME="$BACKUP_DIR/aquasphere_${TIMESTAMP}.sql.gz.tmp"
+FINAL_FILENAME="$BACKUP_DIR/aquasphere_${TIMESTAMP}.sql.gz"
+
+echo "[$(date)] Starting database backup..."
+
+# Dump using direct Neon connection with pipefail set to detect errors
+if pg_dump "postgresql://user:pass@ep-xyz.region.aws.neon.tech/aquasphere?sslmode=require" | gzip > "$TEMP_FILENAME"; then
+  # Verify that the dumped archive is non-empty before committing
+  if [ -s "$TEMP_FILENAME" ]; then
+    mv "$TEMP_FILENAME" "$FINAL_FILENAME"
+    echo "[$(date)] Backup created successfully: $FINAL_FILENAME"
+  else
+    echo "[$(date)] ERROR: Backup file is empty." >&2
+    rm -f "$TEMP_FILENAME"
+    exit 1
+  fi
+else
+  echo "[$(date)] ERROR: pg_dump or gzip pipeline failed." >&2
+  rm -f "$TEMP_FILENAME"
+  exit 1
+fi
 
 # Keep only last 14 days of backups
-find $BACKUP_DIR -name "aquasphere_*.sql.gz" -mtime +14 -exec rm {} \;
-echo "Backup created: $FILENAME"
+find "$BACKUP_DIR" -name "aquasphere_*.sql.gz" -mtime +14 -exec rm {} \;
 ```
 
 Make executable and add to crontab:

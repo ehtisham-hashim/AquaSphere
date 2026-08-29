@@ -1,6 +1,12 @@
-// Small self-test script for verifying backend endpoints
+/**
+ * Self-test verification script for testing core backend endpoints.
+ * Configurable via PORT environment variable.
+ *
+ * @returns {Promise<void>}
+ */
 async function runTests() {
   console.log('--- Starting Backend Self-Test ---');
+  const PORT = process.env.PORT || 3000;
 
   const endpoints = [
     { method: 'GET', path: '/' },
@@ -9,10 +15,10 @@ async function runTests() {
 
   for (const ep of endpoints) {
     try {
-      const res = await fetch(`http://localhost:3000${ep.path}`);
+      const res = await fetch(`http://localhost:${PORT}${ep.path}`);
       console.log(`[PASS] ${ep.method} ${ep.path} -> Status: ${res.status}`);
     } catch (err) {
-      console.log(`[NOTE] ${ep.method} ${ep.path} -> ${err.message} (Server not running on port 3000)`);
+      console.log(`[NOTE] ${ep.method} ${ep.path} -> ${err.message} (Server not running on port ${PORT})`);
     }
   }
 

@@ -4,6 +4,13 @@ import { ApiError } from '../utils/ApiError.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Retrieves all vendors for the current tenant along with aggregated purchase and payment totals.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getVendors = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { includeArchived } = req.query;
@@ -56,9 +63,20 @@ export const getVendors = asyncHandler(async (req, res) => {
   res.json({ success: true, data: formatted });
 });
 
+/**
+ * Retrieves a single vendor by ID with complete ledger totals calculated via database aggregation,
+ * and paginated/windowed recent ledger entries with accurate opening and running balances.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getVendorById = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
+  const page = Math.max(1, parseInt(req.query.page || '1', 10));
+  const limit = Math.max(1, parseInt(req.query.limit || '100', 10));
+  const skip = (page - 1) * limit;
 
   const vendor = await prisma[`${prefix}Vendor`].findUnique({
     where: { id },
@@ -75,19 +93,58 @@ export const getVendorById = asyncHandler(async (req, res) => {
       payments: {
         orderBy: { createdAt: 'desc' },
         take: 50
-      },
-      ledgerEntries: {
-        orderBy: { createdAt: 'asc' }, // Ascending to compute running balance accurately
-        take: 100
       }
     }
   });
 
   if (!vendor) throw new ApiError(404, 'Vendor not found');
 
-  // Compute Running Balance for Payable Registry
-  let currentBalance = 0;
-  const ledgerWithRunningBalance = vendor.ledgerEntries.map(entry => {
+  // 1. Calculate overall totals across the COMPLETE dataset via database aggregation
+  const [ledgerSums, totalLedgerCount] = await Promise.all([
+    prisma[`${prefix}VendorLedgerEntry`].groupBy({
+      by: ['type'],
+      where: { vendorId: id },
+      _sum: { amount: true }
+    }),
+    prisma[`${prefix}VendorLedgerEntry`].count({
+      where: { vendorId: id }
+    })
+  ]);
+
+  let totalPurchases = 0;
+  let totalPaid = 0;
+  for (const s of ledgerSums) {
+    if (s.type === 'PURCHASE') totalPurchases = Number(s._sum.amount || 0);
+    if (s.type === 'PAYMENT') totalPaid = Number(s._sum.amount || 0);
+  }
+  const payableBalance = totalPurchases - totalPaid;
+
+  // 2. Fetch opening balance prior to current window/page if skip > 0
+  let openingBalance = 0;
+  if (skip > 0) {
+    const priorEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
+      where: { vendorId: id },
+      orderBy: { createdAt: 'asc' },
+      take: skip,
+      select: { type: true, amount: true }
+    });
+    openingBalance = priorEntries.reduce((sum, entry) => {
+      const amt = Number(entry.amount);
+      return entry.type === 'PURCHASE' ? sum + amt : sum - amt;
+    }, 0);
+  }
+
+  // 3. Fetch windowed ledger entries
+  const pageEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
+    where: { vendorId: id },
+    orderBy: { createdAt: 'asc' },
+    skip,
+    take: limit
+  });
+
+  // 4. Compute accurate running balance for displayed entries
+  let currentBalance = openingBalance;
+  const ledgerWithRunningBalance = pageEntries.map(entry => {
     const amt = Number(entry.amount);
     if (entry.type === 'PURCHASE') {
       currentBalance += amt;
@@ -100,12 +157,6 @@ export const getVendorById = asyncHandler(async (req, res) => {
     };
   }).reverse(); // Reverse back so latest entry is on top for UI display
 
-  const totalPurchases = vendor.ledgerEntries
-    .filter(l => l.type === 'PURCHASE')
-    .reduce((sum, l) => sum + Number(l.amount), 0);
-  const totalPaid = vendor.ledgerEntries
-    .filter(l => l.type === 'PAYMENT')
-    .reduce((sum, l) => sum + Number(l.amount), 0);
   const lastPurchaseDate = vendor.purchases[0]?.createdAt || null;
 
   res.json({
@@ -115,13 +166,26 @@ export const getVendorById = asyncHandler(async (req, res) => {
       ledgerEntries: ledgerWithRunningBalance,
       totalPurchases,
       totalPaid,
-      payableBalance: totalPurchases - totalPaid,
+      payableBalance,
       lastPurchaseDate,
-      status: vendor.archivedAt ? 'ARCHIVED' : 'ACTIVE'
+      status: vendor.archivedAt ? 'ARCHIVED' : 'ACTIVE',
+      pagination: {
+        page,
+        limit,
+        totalRecords: totalLedgerCount,
+        totalPages: Math.ceil(totalLedgerCount / limit) || 1
+      }
     }
   });
 });
 
+/**
+ * Creates a new vendor record.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createVendor = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { name, phone, email, address, notes } = req.body;
@@ -151,6 +215,13 @@ export const createVendor = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: vendor });
 });
 
+/**
+ * Updates an existing vendor profile.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateVendor = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -164,6 +235,13 @@ export const updateVendor = asyncHandler(async (req, res) => {
   res.json({ success: true, data: vendor });
 });
 
+/**
+ * Soft archives a vendor.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const archiveVendor = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -174,6 +252,13 @@ export const archiveVendor = asyncHandler(async (req, res) => {
   res.json({ success: true, data: vendor, message: 'Vendor archived successfully' });
 });
 
+/**
+ * Restores an archived vendor.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const restoreVendor = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -184,6 +269,13 @@ export const restoreVendor = asyncHandler(async (req, res) => {
   res.json({ success: true, data: vendor, message: 'Vendor restored successfully' });
 });
 
+/**
+ * Records a vendor payment, logs audit entries, and creates matching ledger records inside a transaction.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const recordVendorPayment = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id: vendorId } = req.params;
@@ -286,6 +378,14 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
     message: 'Vendor payment recorded successfully'
   });
 });
+
+/**
+ * Uploads a payment proof image to Cloudinary and returns the secure URL and public ID.
+ *
+ * @param {import('express').Request} req - Express request object with uploaded file.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const uploadPaymentProof = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Payment proof image is required');
   const prefix = getTenantPrefix(req);

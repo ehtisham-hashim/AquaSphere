@@ -113,6 +113,7 @@ export default function ProductionBatchTable({
                 const p05 = b.packs05L || 0;
                 const p15 = b.packs15L || 0;
                 const qty = b.quantity || 0;
+                // Treated water specifications: 9L per 0.5L pack (12x0.75L), 12L per 1.5L pack (6x2.0L), 24L per 19L bottle
                 const litres = (p05 * 9) + (p15 * 12) + (qty * 24);
                 const b05 = b.brokenBottles05L || 0;
                 const b15 = b.brokenBottles15L || 0;

@@ -18,6 +18,13 @@ const VALID_CATEGORIES = [
   'Miscellaneous'
 ];
 
+/**
+ * Retrieves filtered list of expenses by date range with creator details.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { startDate, endDate } = req.query;
@@ -51,6 +58,13 @@ export const getExpenses = asyncHandler(async (req, res) => {
   res.json({ success: true, data: expenses });
 });
 
+/**
+ * Creates a new expense entry with mandatory receipt proof and audit logging.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createExpense = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { category, amount, remarks, receiptUrl, expenseDate } = req.body;
@@ -102,6 +116,13 @@ export const createExpense = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: expense });
 });
 
+/**
+ * Uploads an expense receipt photo to Cloudinary storage.
+ *
+ * @param {import('express').Request} req - Express request object with file.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const prefix = getTenantPrefix(req);

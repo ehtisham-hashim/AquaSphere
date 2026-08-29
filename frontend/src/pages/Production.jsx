@@ -232,28 +232,32 @@ export default function Production() {
       />
 
       {/* Create Batch Modal */}
-      <CreateBatchModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleLogBatch}
-        isWadaana={isWadaana}
-        items={items}
-        batchesCount={batches.length}
-        submitting={submitting}
-      />
+      {isModalOpen && (
+        <CreateBatchModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleLogBatch}
+          isWadaana={isWadaana}
+          items={items}
+          batchesCount={batches.length}
+          submitting={submitting}
+        />
+      )}
 
       {/* Complete Batch Modal */}
-      <CompleteBatchModal
-        isOpen={isCompleteModalOpen}
-        onClose={() => {
-          setIsCompleteModalOpen(false);
-          setCompletingBatchId(null);
-        }}
-        onSubmit={handleCompleteBatch}
-        batchToComplete={batchToComplete}
-        isWadaana={isWadaana}
-        submitting={submitting}
-      />
+      {isCompleteModalOpen && (
+        <CompleteBatchModal
+          isOpen={isCompleteModalOpen}
+          onClose={() => {
+            setIsCompleteModalOpen(false);
+            setCompletingBatchId(null);
+          }}
+          onSubmit={handleCompleteBatch}
+          batchToComplete={batchToComplete}
+          isWadaana={isWadaana}
+          submitting={submitting}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

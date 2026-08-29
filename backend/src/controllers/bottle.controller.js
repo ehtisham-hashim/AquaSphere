@@ -3,6 +3,22 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Computes bottle fleet reconciliation statistics across factory, warehouse, and customers.
+ *
+ * @param {object} client - Prisma client or transaction instance.
+ * @param {string} prefix - Tenant prefix ('aquasphere' | 'wadaana').
+ * @returns {Promise<{
+ *   totalPurchased: number,
+ *   totalOwned: number,
+ *   atFactory: number,
+ *   atWarehouse: number,
+ *   withCustomers: number,
+ *   broken: number,
+ *   lost: number,
+ *   equationReconciled: boolean
+ * }>}
+ */
 async function computeBottleStats(client, prefix) {
   const [txnSums, customerSum] = await Promise.all([
     client[`${prefix}BottleTransaction`].groupBy({
@@ -39,19 +55,32 @@ async function computeBottleStats(client, prefix) {
     withCustomers,
     broken: brokenCount,
     lost: lostCount,
-    equationReconciled: (atFactory + atWarehouse + withCustomers + brokenCount) === totalOwned
+    equationReconciled: (atFactory + atWarehouse + withCustomers) === totalOwned
   };
 }
 
-// GET /api/v1/bottles/summary
-// Fleet reconciliation equation: Total Owned = At Factory + With Customers + Broken + Lost
+/**
+ * GET /api/v1/bottles/summary
+ * Fleet reconciliation equation: Total Owned = At Factory + With Customers + At Warehouse
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getBottleSummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const data = await computeBottleStats(prisma, prefix);
   res.status(200).json({ success: true, data });
 });
 
-// GET /api/v1/bottles/transactions
+/**
+ * GET /api/v1/bottles/transactions
+ * Paginated bottle fleet transaction history.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getBottleTransactions = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50, customerId } = req.query;
   const skip = (page - 1) * limit;
@@ -85,7 +114,14 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/bottles/transactions
+/**
+ * POST /api/v1/bottles/transactions
+ * Records bottle movements, issuances, returns, or breakages with fleet balance adjustments.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createBottleTransaction = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, quantity, reason } = req.body;

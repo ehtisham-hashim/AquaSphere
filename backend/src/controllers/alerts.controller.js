@@ -2,6 +2,13 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 
+/**
+ * Retrieves operational Marketing Manager alerts (credit breaches, duration expirations, bottle warnings, deliveries).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getMMAlerts = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();

@@ -216,6 +216,12 @@ const computeDashboardAnalytics = async (prefix) => {
   };
 };
 
+/**
+ * Broadcasts updated live dashboard analytics data to connected Server-Sent Events (SSE) clients.
+ *
+ * @param {'aquasphere' | 'wadaana'} [prefix='aquasphere'] - Target tenant prefix.
+ * @returns {Promise<void>}
+ */
 export const broadcastDashboardUpdate = async (prefix = 'aquasphere') => {
   try {
     cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
@@ -226,11 +232,26 @@ export const broadcastDashboardUpdate = async (prefix = 'aquasphere') => {
   }
 };
 
+/**
+ * Retrieves cached or computed high-level dashboard analytics (revenue, orders, expenses, cash).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
   res.json({ success: true, data: cachedDashboardData[prefix] });
 });
+
+/**
+ * Retrieves monthly purchasing summary, vendor balances, and top raw materials purchased.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getPurchasingSummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
@@ -332,6 +353,13 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Streams real-time dashboard analytics over a Server-Sent Events (SSE) connection with Traefik anti-buffering.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   res.setHeader('Content-Type', 'text/event-stream');
@@ -351,6 +379,13 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Retrieves daily cash inflows, credit sales, and expenses summary for the specified date.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDailySummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { date } = req.query;
@@ -405,6 +440,13 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Retrieves production performance dashboard data including batch breakdown, wastage, and raw material health.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getProductionDashboard = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';

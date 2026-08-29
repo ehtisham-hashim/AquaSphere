@@ -7,6 +7,13 @@ import { invalidateDailyCloseLockCache } from '../middlewares/dailyClose.middlew
 
 const getPrefix = getTenantPrefix;
 
+/**
+ * Finalizes and locks daily operations for the specified calendar date by Admin or Owner.
+ *
+ * @param {import('express').Request} req - Express request object containing date.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const closeDay = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -77,6 +84,13 @@ export const closeDay = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, closedDay, 'Day closed successfully'));
 });
 
+/**
+ * Retrieves multi-role confirmation status and comprehensive daily operational stats for a specific date.
+ *
+ * @param {import('express').Request} req - Express request object containing query date.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -224,6 +238,13 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   }, 'Daily close status retrieved'));
 });
 
+/**
+ * Confirms production operations for the specified date by Production Manager.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -275,6 +296,13 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updatedDay, 'Production confirmed successfully'));
 });
 
+/**
+ * Confirms orders and customer bottle balances for the specified date by Marketing Manager.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -326,6 +354,13 @@ export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updatedDay, 'MM daily close confirmed successfully'));
 });
 
+/**
+ * Retrieves full historical timeline of closed days enriched with production and order statistics.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDailyCloseHistory = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
@@ -425,6 +460,13 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, historyWithStats, 'Daily close history retrieved'));
 });
 
+/**
+ * Reopens a finalized closed day for administrative corrections (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object containing date and reason.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const reopenDay = asyncHandler(async (req, res) => {
   const { date, reason } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');

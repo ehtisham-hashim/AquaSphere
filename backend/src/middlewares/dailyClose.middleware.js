@@ -7,6 +7,13 @@ import { getTenantPrefix } from '../utils/tenant.js';
 const lockCache = new Map();
 const LOCK_CACHE_TTL = 60_000;
 
+/**
+ * Invalidates the in-memory daily close lock cache for a tenant and optional specific date.
+ *
+ * @param {'aquasphere' | 'wadaana'} prefix - Tenant schema prefix.
+ * @param {string} [dateStr] - Optional ISO date string (YYYY-MM-DD).
+ * @returns {void}
+ */
 export function invalidateDailyCloseLockCache(prefix, dateStr) {
   if (dateStr) {
     lockCache.delete(`${prefix}:${dateStr}`);
@@ -17,6 +24,15 @@ export function invalidateDailyCloseLockCache(prefix, dateStr) {
   }
 }
 
+/**
+ * Express middleware that checks if the target transaction date has been locked by Daily Close.
+ * Rejects modifications with 403 unless user possesses the OWNER role.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @param {import('express').NextFunction} next - Express next middleware function.
+ * @returns {Promise<void>}
+ */
 export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
   const prefix = getTenantPrefix(req);
   

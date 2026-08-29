@@ -5,6 +5,13 @@ import { comparePassword } from '../utils/passwordUtils.js';
 import { generateToken } from '../utils/jwtUtils.js';
 import { prisma } from '../config/db.js';
 
+/**
+ * Authenticates a user by email, password, and tenant, generating a JWT token and HTTP-only cookie.
+ *
+ * @param {import('express').Request} req - Express request object containing email, password, tenant.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const login = asyncHandler(async (req, res) => {
   const { email, password, tenant = 'aquasphere' } = req.body;
   const prefix = tenant.toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
@@ -44,6 +51,13 @@ export const login = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, { user: userWithoutPassword, token }, 'Login successful'));
 });
 
+/**
+ * Logs out the authenticated user by clearing the JWT authentication cookie.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const logout = asyncHandler(async (req, res) => {
   const cookieOptions = {
     httpOnly: true,
@@ -57,6 +71,13 @@ export const logout = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, 'Logged out successfully'));
 });
 
+/**
+ * Retrieves the currently authenticated user's session profile.
+ *
+ * @param {import('express').Request} req - Express request object with req.user attached.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getMe = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { user: req.user }, 'Current user retrieved'));
 });
