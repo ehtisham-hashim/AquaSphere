@@ -17,7 +17,16 @@ async function runCurlTests() {
   console.log('======================================================\n');
 
   // 1. Log in via API to get genuine token (Owner)
-  const loginCmd = `curl -s -X POST "${BASE_URL}/api/v1/auth/login" -H "Content-Type: application/json" -d '{"email":"owner@aquasphere.com","password":"Admin@123","company":"aquasphere"}'`;
+  const testEmail = process.env.TEST_EMAIL || process.env.TEST_AUTH_EMAIL;
+  const testPassword = process.env.TEST_PASSWORD || process.env.TEST_AUTH_PASSWORD;
+  const testCompany = process.env.TEST_COMPANY || process.env.TEST_AUTH_COMPANY;
+
+  if (!testEmail || !testPassword || !testCompany) {
+    console.error('❌ Missing required test environment variables: TEST_EMAIL, TEST_PASSWORD, TEST_COMPANY');
+    process.exit(1);
+  }
+
+  const loginCmd = `curl -s -X POST "${BASE_URL}/api/v1/auth/login" -H "Content-Type: application/json" -d '{"email":"${testEmail}","password":"${testPassword}","company":"${testCompany}"}'`;
   const loginResRaw = execSync(loginCmd, { encoding: 'utf-8' });
   const loginJson = JSON.parse(loginResRaw);
 

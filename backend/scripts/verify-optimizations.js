@@ -7,6 +7,7 @@
 async function runTests() {
   console.log('--- Starting Backend Self-Test ---');
   const PORT = process.env.PORT || 3000;
+  let hasFailure = false;
 
   const endpoints = [
     { method: 'GET', path: '/' },
@@ -16,13 +17,22 @@ async function runTests() {
   for (const ep of endpoints) {
     try {
       const res = await fetch(`http://localhost:${PORT}${ep.path}`);
-      console.log(`[PASS] ${ep.method} ${ep.path} -> Status: ${res.status}`);
+      if (res.ok) {
+        console.log(`[PASS] ${ep.method} ${ep.path} -> Status: ${res.status}`);
+      } else {
+        console.error(`[FAIL] ${ep.method} ${ep.path} -> Status: ${res.status} (Non-OK response)`);
+        hasFailure = true;
+      }
     } catch (err) {
-      console.log(`[NOTE] ${ep.method} ${ep.path} -> ${err.message} (Server not running on port ${PORT})`);
+      console.error(`[FAIL] ${ep.method} ${ep.path} -> ${err.message} (Server connection failed on port ${PORT})`);
+      hasFailure = true;
     }
   }
 
   console.log('--- Backend Self-Test Complete ---');
+  if (hasFailure) {
+    process.exit(1);
+  }
 }
 
-runTests().then(() => process.exit(0)).catch(() => process.exit(1));
+runTests().catch(() => process.exit(1));

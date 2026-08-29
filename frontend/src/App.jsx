@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
+import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
 
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -43,9 +44,18 @@ function PublicRoute({ children }) {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <RouteErrorBoundary>
       <Routes>
-        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <Login />
+              </Suspense>
+            </PublicRoute>
+          }
+        />
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="vendors" element={<Vendors />} />
@@ -63,7 +73,7 @@ function AppRoutes() {
           <Route path="*" element={<div>Page not found</div>} />
         </Route>
       </Routes>
-    </Suspense>
+    </RouteErrorBoundary>
   );
 }
 

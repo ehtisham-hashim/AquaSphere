@@ -4,8 +4,6 @@ export default function InventoryHeader({
   search, 
   onSearchChange, 
   tenant = 'aquasphere',
-  _totalFinishedGoods = 0,
-  _totalUnitsCount = 0,
   onOpenTransferModal
 }) {
   const isWadaana = tenant === 'wadaana';

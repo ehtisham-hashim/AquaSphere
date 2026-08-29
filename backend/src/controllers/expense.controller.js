@@ -27,7 +27,7 @@ const VALID_CATEGORIES = [
  */
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, page, limit } = req.query;
 
   const where = {};
   if (startDate || endDate) {
@@ -40,22 +40,42 @@ export const getExpenses = asyncHandler(async (req, res) => {
     }
   }
 
-  const expenses = await prisma[`${prefix}Expense`].findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          role: true
-        }
-      }
-    },
-    take: 200
-  });
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const pageSize = limit ? Math.max(1, parseInt(limit, 10) || 200) : 200;
+  const skip = (pageNum - 1) * pageSize;
 
-  res.json({ success: true, data: expenses });
+  const [totalCount, expenses] = await Promise.all([
+    prisma[`${prefix}Expense`].count({ where }),
+    prisma[`${prefix}Expense`].findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        }
+      },
+      skip,
+      take: pageSize
+    })
+  ]);
+
+  const hasMore = skip + expenses.length < totalCount;
+
+  res.json({
+    success: true,
+    data: expenses,
+    pagination: {
+      page: pageNum,
+      limit: pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize) || 1,
+      hasMore
+    }
+  });
 });
 
 /**

@@ -262,6 +262,11 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
   const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
+  const customer = await prisma[`${prefix}Customer`].update({
+    where: { id },
+    data: updateData
+  });
+
   if (phone !== undefined && phone.trim() !== existing.phone) {
     await createAuditLog(prefix, {
       action: 'PHONE_CHANGED',
@@ -288,11 +293,6 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     entityId: id,
     performedBy,
     details: `Customer details updated for ${existing.name}`
-  });
-
-  const customer = await prisma[`${prefix}Customer`].update({
-    where: { id },
-    data: updateData
   });
 
   res.json({ success: true, data: customer });

@@ -24,6 +24,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   const [
     todaysOrders,
     pendingOrders,
+    pendingOrdersCount,
     todaysDeliveries,
     todaysProductionBatches,
     rawMaterials,
@@ -38,12 +39,16 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       include: { customer: { select: { name: true, phone: true } }, items: { include: { item: { select: { name: true } } } } },
       orderBy: { createdAt: 'desc' }
     }),
-    // Pending orders
+    // Pending orders (table display capped at 50)
     prisma[`${prefix}Order`].findMany({
       where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } },
       include: { customer: { select: { name: true, phone: true } }, items: { include: { item: { select: { name: true } } } } },
       orderBy: { createdAt: 'desc' },
       take: 50
+    }),
+    // Uncapped pending orders count for KPI
+    prisma[`${prefix}Order`].count({
+      where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } }
     }),
     // Today's completed deliveries count
     prisma[`${prefix}Delivery`].findMany({
@@ -143,7 +148,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {
     kpis: {
       todaysOrdersCount: todaysOrders.length,
-      pendingOrdersCount: pendingOrders.length,
+      pendingOrdersCount: pendingOrdersCount,
       todaysDeliveriesCount: todaysDeliveries.length,
       totalProductionYield: totalGoodYield,
       packs05LProduced: packs05LToday,

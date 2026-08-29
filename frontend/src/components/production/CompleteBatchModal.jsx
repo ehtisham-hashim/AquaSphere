@@ -40,10 +40,10 @@ export default function CompleteBatchModal({
     e.preventDefault();
 
     if (isWadaana) {
-      const brP05 = parseInt(brokenPure05L || 0);
-      const brP15 = parseInt(brokenPure15L || 0);
-      const brM05 = parseInt(brokenMix05L || 0);
-      const brM15 = parseInt(brokenMix15L || 0);
+      const brP05 = parseInt(brokenPure05L || 0, 10);
+      const brP15 = parseInt(brokenPure15L || 0, 10);
+      const brM05 = parseInt(brokenMix05L || 0, 10);
+      const brM15 = parseInt(brokenMix15L || 0, 10);
 
       const maxP05 = batchToComplete?.qtyPure05L || 0;
       const maxP15 = batchToComplete?.qtyPure15L || 0;
@@ -75,9 +75,9 @@ export default function CompleteBatchModal({
         confirmed: true
       });
     } else {
-      const br05 = parseInt(brokenBottles05L || 0);
-      const br15 = parseInt(brokenBottles15L || 0);
-      const w19 = parseInt(wasteQuantity || 0);
+      const br05 = parseInt(brokenBottles05L || 0, 10);
+      const br15 = parseInt(brokenBottles15L || 0, 10);
+      const w19 = parseInt(wasteQuantity || 0, 10);
 
       const max05LBottles = (batchToComplete?.packs05L || 0) * 12;
       const max15LBottles = (batchToComplete?.packs15L || 0) * 6;

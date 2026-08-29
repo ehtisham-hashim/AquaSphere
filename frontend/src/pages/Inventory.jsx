@@ -74,8 +74,6 @@ export default function Inventory() {
     );
   }, [transactions, search]);
 
-  const totalFinishedGoodsCount = items.length;
-  const totalUnitsSum = items.reduce((acc, curr) => acc + Number(curr.cachedQty || 0), 0);
   const negativeStockItems = items.filter(i => Number(i.cachedQty || 0) < 0);
   const hasNegativeStock = negativeStockItems.length > 0;
 
@@ -86,8 +84,6 @@ export default function Inventory() {
         search={search}
         onSearchChange={setSearch}
         tenant={tenant}
-        totalFinishedGoods={totalFinishedGoodsCount}
-        totalUnitsCount={totalUnitsSum}
         onOpenTransferModal={canTransferStock ? () => setIsTransferModalOpen(true) : null}
       />
 
@@ -125,7 +121,6 @@ export default function Inventory() {
       <FinishedGoodsSummaryCards 
         items={items}
         tenant={tenant}
-        bottleSummary={bottleSummary}
       />
 
       {/* Module 4: Audit Ledger & Transaction History Table */}

@@ -162,7 +162,7 @@ export default function VendorDetailModal({
           {/* TAB 2: PURCHASES */}
           {profileTab === 'purchases' && (
             <div>
-              {selectedVendorDetail.purchases?.length === 0 ? (
+              {!selectedVendorDetail.purchases?.length ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No purchases recorded from this vendor.</p>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -208,7 +208,7 @@ export default function VendorDetailModal({
           {/* TAB 3: PAYMENTS */}
           {profileTab === 'payments' && (
             <div>
-              {selectedVendorDetail.payments?.length === 0 ? (
+              {!selectedVendorDetail.payments?.length ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No payment transactions recorded for this vendor.</p>
               ) : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl">

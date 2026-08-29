@@ -495,6 +495,8 @@ export const reopenDay = asyncHandler(async (req, res) => {
     where: { id: existing.id }
   });
 
+  invalidateDailyCloseLockCache(prefix, targetDate.toISOString().split('T')[0]);
+
   await auditLogModel.create({
     data: {
       action: 'DAILY_REOPEN',

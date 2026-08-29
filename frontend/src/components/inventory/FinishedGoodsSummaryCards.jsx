@@ -1,6 +1,6 @@
 import { Warehouse, Factory, ShieldCheck } from 'lucide-react';
 
-export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere', _bottleSummary = null }) {
+export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere' }) {
   const isWadaana = tenant === 'wadaana';
 
   // Helper to extract factory & warehouse quantities

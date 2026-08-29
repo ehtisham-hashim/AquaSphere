@@ -270,10 +270,8 @@ export default function CounterSales() {
           liveDateTime={liveDateTime}
           available19LBottles={available19LBottles}
           available05LPacks={available05LPacks}
-          loose05L={loose05L}
           totalBottles05L={totalBottles05L}
           available15LPacks={available15LPacks}
-          loose15L={loose15L}
           totalBottles15L={totalBottles15L}
           customers={customers}
           handleMultiItemSubmit={handleMultiItemSubmit}

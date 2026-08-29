@@ -10,10 +10,11 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="customer-name" className="block text-xs font-semibold text-slate-700 mb-1">
               Customer Name <span className="text-rose-500">*</span>
             </label>
             <input
+              id="customer-name"
               type="text"
               name="name"
               required
@@ -25,10 +26,11 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="customer-phone" className="block text-xs font-semibold text-slate-700 mb-1">
               Phone Number <span className="text-rose-500">*</span>
             </label>
             <input
+              id="customer-phone"
               type="text"
               name="phone"
               required
@@ -40,8 +42,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Customer Type</label>
+            <label htmlFor="customer-type" className="block text-xs font-semibold text-slate-700 mb-1">Customer Type</label>
             <select
+              id="customer-type"
               name="type"
               value={formData.type || 'Home'}
               onChange={handleChange}
@@ -55,8 +58,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Delivery Address</label>
+            <label htmlFor="customer-address" className="block text-xs font-semibold text-slate-700 mb-1">Delivery Address</label>
             <input
+              id="customer-address"
               type="text"
               name="address"
               value={formData.address || ''}
@@ -67,8 +71,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Google Maps Pin Link</label>
+            <label htmlFor="customer-mapLink" className="block text-xs font-semibold text-slate-700 mb-1">Google Maps Pin Link</label>
             <input
+              id="customer-mapLink"
               type="url"
               name="mapLink"
               value={formData.mapLink || ''}
@@ -268,8 +273,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Credit Limit (Rs)</label>
+            <label htmlFor="customer-creditLimit" className="block text-xs font-semibold text-slate-700 mb-1">Credit Limit (Rs)</label>
             <input
+              id="customer-creditLimit"
               type="number"
               name="creditLimit"
               min="0"
@@ -281,8 +287,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Credit Duration (Days)</label>
+            <label htmlFor="customer-creditDuration" className="block text-xs font-semibold text-slate-700 mb-1">Credit Duration (Days)</label>
             <input
+              id="customer-creditDuration"
               type="number"
               name="creditDuration"
               min="1"
@@ -294,8 +301,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Security Deposit (Rs)</label>
+            <label htmlFor="customer-securityDeposit" className="block text-xs font-semibold text-slate-700 mb-1">Security Deposit (Rs)</label>
             <input
+              id="customer-securityDeposit"
               type="number"
               name="securityDeposit"
               min="0"
@@ -314,6 +322,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           <FileText size={14} className="text-slate-500" /> Notes & Remarks
         </h4>
         <textarea
+          id="customer-remarks"
           name="remarks"
           value={formData.remarks || ''}
           onChange={handleChange}
