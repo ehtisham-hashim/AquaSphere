@@ -11,34 +11,36 @@ const computeDashboardAnalytics = async (prefix) => {
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
   const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
+  const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
   const [
-    yearOrders,
-    yearPayments,
-    yearExpenses,
-    yearPurchases,
-    yearSpotSales,
+    orders,
+    payments,
+    expenses,
+    purchases,
+    spotSales,
     pendingPayables,
     rawMaterials
   ] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
-      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: { createdAt: true, items: { select: { price: true, quantity: true } } }
     }),
     prisma[`${prefix}Payment`].findMany({
-      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: { createdAt: true, amount: true }
     }),
     prisma[`${prefix}Expense`].findMany({
-      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: { createdAt: true, amount: true }
     }),
     prisma[`${prefix}Purchase`].findMany({
-      where: { purchaseDate: { gte: startOfYear, lte: endOfDay } },
+      where: { purchaseDate: { gte: minDate, lte: endOfDay } },
       select: { purchaseDate: true, grandTotal: true }
     }),
     prisma[`${prefix}SpotSale`].findMany({
-      where: { createdAt: { gte: startOfYear, lte: endOfDay } },
+      where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: { createdAt: true, cashCollected: true, creditAmount: true }
     }),
     prisma[`${prefix}VendorLedgerEntry`].groupBy({
@@ -50,142 +52,151 @@ const computeDashboardAnalytics = async (prefix) => {
     })
   ]);
 
-  const calcPeriod = (startDate) => {
-    const periodOrders = yearOrders.filter(o => new Date(o.createdAt) >= startDate);
-    const periodPayments = yearPayments.filter(p => new Date(p.createdAt) >= startDate);
-    const periodExpenses = yearExpenses.filter(e => new Date(e.createdAt) >= startDate);
-    const periodPurchases = yearPurchases.filter(p => new Date(p.purchaseDate) >= startDate);
-    const periodSpotSales = yearSpotSales.filter(s => new Date(s.createdAt) >= startDate);
+  // ponytail: single O(N) bucketing pass replaces 226 filter sweeps
+  const dayMap = Object.create(null);
+  const monthMap = Object.create(null);
 
-    const sales = periodOrders.reduce((acc, order) => {
-      return acc + (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
-    }, 0);
+  const daily = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const monthly = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const yearly = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
 
-    const cash = periodPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0) +
-      periodSpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
+  const getDKey = (d) => d.toISOString().split('T')[0];
+  const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-    const expenseTotal = periodExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-    const credit = periodSpotSales.reduce((s, st) => s + parseFloat(st.creditAmount || 0), 0);
-    const purchasesTotal = periodPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
-
-    return {
-      sales,
-      cash,
-      expenses: expenseTotal,
-      credit,
-      bottlesSold: periodOrders.length,
-      purchases: purchasesTotal,
-      purchasesCount: periodPurchases.length,
-      netCash: cash - expenseTotal
-    };
+  const ensureDay = (key) => {
+    if (!dayMap[key]) {
+      dayMap[key] = { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 };
+    }
+    return dayMap[key];
   };
 
-  const daily = calcPeriod(startOfDay);
-  const monthly = calcPeriod(startOfMonth);
-  const yearly = calcPeriod(startOfYear);
+  const ensureMonth = (key) => {
+    if (!monthMap[key]) {
+      monthMap[key] = { sales: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 };
+    }
+    return monthMap[key];
+  };
 
-  // Compute 30-day daily sales history for Marketing Manager & Executive charts
+  for (const o of orders) {
+    const d = new Date(o.createdAt);
+    const total = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+
+    day.sales += total;
+    day.ordersCount += 1;
+    month.sales += total;
+
+    if (d >= startOfDay) { daily.sales += total; daily.bottlesSold += 1; }
+    if (d >= startOfMonth) { monthly.sales += total; monthly.bottlesSold += 1; }
+    if (d >= startOfYear) { yearly.sales += total; yearly.bottlesSold += 1; }
+  }
+
+  for (const p of payments) {
+    const d = new Date(p.createdAt);
+    const amt = parseFloat(p.amount || 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+
+    day.orderCash += amt;
+    day.cashCollected += amt;
+    month.orderCash += amt;
+    month.cash += amt;
+
+    if (d >= startOfDay) daily.cash += amt;
+    if (d >= startOfMonth) monthly.cash += amt;
+    if (d >= startOfYear) yearly.cash += amt;
+  }
+
+  for (const st of spotSales) {
+    const d = new Date(st.createdAt);
+    const cashAmt = parseFloat(st.cashCollected || 0);
+    const creditAmt = parseFloat(st.creditAmount || 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+
+    day.spotSalesCash += cashAmt;
+    day.cashCollected += cashAmt;
+    day.creditBilled += creditAmt;
+    month.spotSalesCash += cashAmt;
+    month.cash += cashAmt;
+
+    if (d >= startOfDay) { daily.cash += cashAmt; daily.credit += creditAmt; }
+    if (d >= startOfMonth) { monthly.cash += cashAmt; monthly.credit += creditAmt; }
+    if (d >= startOfYear) { yearly.cash += cashAmt; yearly.credit += creditAmt; }
+  }
+
+  for (const e of expenses) {
+    const d = new Date(e.createdAt);
+    const amt = parseFloat(e.amount || 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+
+    day.expenses += amt;
+    month.expenses += amt;
+
+    if (d >= startOfDay) daily.expenses += amt;
+    if (d >= startOfMonth) monthly.expenses += amt;
+    if (d >= startOfYear) yearly.expenses += amt;
+  }
+
+  for (const pu of purchases) {
+    const d = new Date(pu.purchaseDate);
+    const total = parseFloat(pu.grandTotal || 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+
+    day.purchases += total;
+    month.purchases += total;
+
+    if (d >= startOfDay) { daily.purchases += total; daily.purchasesCount += 1; }
+    if (d >= startOfMonth) { monthly.purchases += total; monthly.purchasesCount += 1; }
+    if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; }
+  }
+
+  daily.netCash = daily.cash - daily.expenses;
+  monthly.netCash = monthly.cash - monthly.expenses;
+  yearly.netCash = yearly.cash - yearly.expenses;
+
+  // 30-day daily history in O(30)
   const dailySalesHistory = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    const dateKey = d.toISOString().split('T')[0];
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
-    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-
-    const dayOrders = yearOrders.filter(o => {
-      const t = new Date(o.createdAt);
-      return t >= dayStart && t <= dayEnd;
-    });
-
-    const dayPayments = yearPayments.filter(p => {
-      const t = new Date(p.createdAt);
-      return t >= dayStart && t <= dayEnd;
-    });
-
-    const dayExpenses = yearExpenses.filter(e => {
-      const t = new Date(e.createdAt);
-      return t >= dayStart && t <= dayEnd;
-    });
-
-    const dayPurchases = yearPurchases.filter(p => {
-      const t = new Date(p.purchaseDate);
-      return t >= dayStart && t <= dayEnd;
-    });
-
-    const daySpotSales = yearSpotSales.filter(s => {
-      const t = new Date(s.createdAt);
-      return t >= dayStart && t <= dayEnd;
-    });
-
-    const ordersCount = dayOrders.length;
-    const orderCash = dayPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-    const spotSalesCash = daySpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
-    const cashCollected = orderCash + spotSalesCash;
-    const creditBilled = daySpotSales.reduce((s, st) => s + parseFloat(st.creditAmount || 0), 0);
-    const expensesVal = dayExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-    const purchasesVal = dayPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
-    const salesVal = dayOrders.reduce((acc, o) => acc + (o.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * (i.quantity || 0)), 0), 0);
+    const dateKey = getDKey(d);
+    const bucket = dayMap[dateKey] || { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 };
 
     dailySalesHistory.push({
       date: dateKey,
       day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      ordersCount,
-      sales: salesVal,
-      cashCollected,
-      orderCash,
-      spotSalesCash,
-      creditBilled,
-      expenses: expensesVal,
-      purchases: purchasesVal,
-      netCash: cashCollected - expensesVal
+      ordersCount: bucket.ordersCount,
+      sales: bucket.sales,
+      cashCollected: bucket.cashCollected,
+      orderCash: bucket.orderCash,
+      spotSalesCash: bucket.spotSalesCash,
+      creditBilled: bucket.creditBilled,
+      expenses: bucket.expenses,
+      purchases: bucket.purchases,
+      netCash: bucket.cashCollected - bucket.expenses
     });
   }
 
-  // Compute 12-month trend for Executive Owner view
+  // 12-month trend in O(12)
   const monthlyTrend = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0);
-    const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
-    const label = d.toLocaleDateString('en-US', { month: 'short' });
-
-    const mOrders = yearOrders.filter(o => {
-      const t = new Date(o.createdAt);
-      return t >= d && t <= mEnd;
-    });
-    const mPayments = yearPayments.filter(p => {
-      const t = new Date(p.createdAt);
-      return t >= d && t <= mEnd;
-    });
-    const mExpenses = yearExpenses.filter(e => {
-      const t = new Date(e.createdAt);
-      return t >= d && t <= mEnd;
-    });
-    const mPurchases = yearPurchases.filter(p => {
-      const t = new Date(p.purchaseDate);
-      return t >= d && t <= mEnd;
-    });
-    const mSpotSales = yearSpotSales.filter(s => {
-      const t = new Date(s.createdAt);
-      return t >= d && t <= mEnd;
-    });
-
-    const sales = mOrders.reduce((acc, o) => acc + (o.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * (i.quantity || 0)), 0), 0);
-    const orderCash = mPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-    const spotSalesCash = mSpotSales.reduce((s, st) => s + parseFloat(st.cashCollected || 0), 0);
-    const cash = orderCash + spotSalesCash;
-    const expenses = mExpenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-    const purchases = mPurchases.reduce((s, p) => s + parseFloat(p.grandTotal || 0), 0);
+    const mKey = getMKey(d);
+    const bucket = monthMap[mKey] || { sales: 0, cash: 0, expenses: 0, purchases: 0, spotSalesCash: 0, orderCash: 0 };
 
     monthlyTrend.push({
-      month: label,
-      sales,
-      cash,
-      expenses,
-      purchases,
-      spotSalesCash,
-      orderCash,
-      netCash: cash - expenses
+      month: d.toLocaleDateString('en-US', { month: 'short' }),
+      sales: bucket.sales,
+      cash: bucket.cash,
+      expenses: bucket.expenses,
+      purchases: bucket.purchases,
+      spotSalesCash: bucket.spotSalesCash,
+      orderCash: bucket.orderCash,
+      netCash: bucket.cash - bucket.expenses
     });
   }
 

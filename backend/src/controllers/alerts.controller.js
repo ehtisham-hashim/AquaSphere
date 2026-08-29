@@ -16,53 +16,44 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const BOTTLE_COST = 1500;
 
-  // Execute all queries in parallel for maximum performance
+  // Execute consolidated queries in parallel
   const [
-    creditLimitBreaches,
-    creditDurationExpired,
-    customerReminders,
+    candidateCustomers,
     pendingDeliveriesCount,
     pendingPayments,
-    outstandingBottles,
-    securityDepositWarnings,
     todaysDeliveriesAgg
   ] = await Promise.all([
-    // 1. Credit Limit Breaches
+    // ponytail: 1 consolidated Customer query replaces 5 parallel queries
     prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, currentBalance: { gt: 0 }, creditLimit: { gt: 0 } },
-      select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true }
+      where: {
+        archivedAt: null,
+        OR: [
+          { currentBalance: { gt: 0 } },
+          { cachedBottleBalance: { gt: 0 } },
+          { remarks: { not: '' } }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        currentBalance: true,
+        creditLimit: true,
+        creditDuration: true,
+        lastDeliveryAt: true,
+        remarks: true,
+        cachedBottleBalance: true,
+        deposit: true
+      }
     }),
-    // 2. Credit Duration Expired
-    prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, currentBalance: { gt: 0 }, lastDeliveryAt: { not: null }, creditDuration: { gt: 0 } },
-      select: { id: true, name: true, phone: true, currentBalance: true, creditDuration: true, lastDeliveryAt: true }
-    }),
-    // 3. Customer Reminders
-    prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, remarks: { not: '' } },
-      select: { id: true, name: true, phone: true, remarks: true }
-    }),
-    // 4. Pending Deliveries
     prisma[`${prefix}Order`].count({
       where: { deliveryStatus: 'PENDING' }
     }),
-    // 5. Pending Payments
     prisma[`${prefix}Order`].findMany({
       where: { deliveryStatus: 'DELIVERED', paymentStatus: 'UNPAID' },
       take: 25,
       select: { id: true, customer: { select: { name: true, phone: true } } }
     }),
-    // 6. Outstanding 19L Bottle Balance
-    prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, cachedBottleBalance: { gt: 0 } },
-      select: { id: true, name: true, phone: true, cachedBottleBalance: true }
-    }),
-    // 7. Security Deposit Warning
-    prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, cachedBottleBalance: { gt: 0 } },
-      select: { id: true, name: true, phone: true, cachedBottleBalance: true, deposit: true }
-    }),
-    // 8. Today's Delivery Summary
     prisma[`${prefix}Order`].groupBy({
       by: ['deliveryStatus'],
       _count: { id: true },
@@ -70,25 +61,72 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
     })
   ]);
 
-  const validCreditBreaches = creditLimitBreaches.filter(
-    c => Number(c.currentBalance) > Number(c.creditLimit)
-  );
+  const creditLimitBreaches = [];
+  const creditDurationExpired = [];
+  const customerReminders = [];
+  const outstandingBottles = [];
+  const securityDepositWarnings = [];
 
-  const validDurationBreaches = creditDurationExpired.filter(c => {
-    const daysSinceLastDelivery = (now - new Date(c.lastDeliveryAt)) / (1000 * 60 * 60 * 24);
-    return daysSinceLastDelivery > c.creditDuration;
-  }).map(c => ({
-    ...c,
-    daysOverdue: Math.floor((now - new Date(c.lastDeliveryAt)) / (1000 * 60 * 60 * 24)) - c.creditDuration
-  }));
+  for (const c of candidateCustomers) {
+    const bal = Number(c.currentBalance || 0);
+    const limit = Number(c.creditLimit || 0);
+    const bottles = Number(c.cachedBottleBalance || 0);
 
-  const validDepositWarnings = securityDepositWarnings.filter(c => {
-    const coveredBottles = Math.floor((c.deposit || 0) / BOTTLE_COST);
-    return c.cachedBottleBalance > coveredBottles;
-  }).map(c => ({
-    ...c,
-    coveredBottles: Math.floor((c.deposit || 0) / BOTTLE_COST)
-  }));
+    if (bal > 0 && limit > 0 && bal > limit) {
+      creditLimitBreaches.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        currentBalance: c.currentBalance,
+        creditLimit: c.creditLimit
+      });
+    }
+
+    if (bal > 0 && c.lastDeliveryAt && Number(c.creditDuration || 0) > 0) {
+      const daysSince = (now - new Date(c.lastDeliveryAt)) / (1000 * 60 * 60 * 24);
+      if (daysSince > c.creditDuration) {
+        creditDurationExpired.push({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          currentBalance: c.currentBalance,
+          creditDuration: c.creditDuration,
+          lastDeliveryAt: c.lastDeliveryAt,
+          daysOverdue: Math.floor(daysSince) - c.creditDuration
+        });
+      }
+    }
+
+    if (c.remarks && c.remarks.trim() !== '') {
+      customerReminders.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        remarks: c.remarks
+      });
+    }
+
+    if (bottles > 0) {
+      outstandingBottles.push({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        cachedBottleBalance: c.cachedBottleBalance
+      });
+
+      const coveredBottles = Math.floor((c.deposit || 0) / BOTTLE_COST);
+      if (bottles > coveredBottles) {
+        securityDepositWarnings.push({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          cachedBottleBalance: c.cachedBottleBalance,
+          deposit: c.deposit,
+          coveredBottles
+        });
+      }
+    }
+  }
 
   const todaysDeliverySummary = {
     PENDING: 0,
@@ -102,13 +140,13 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      creditLimitBreaches: validCreditBreaches,
-      creditDurationExpired: validDurationBreaches,
+      creditLimitBreaches,
+      creditDurationExpired,
       customerReminders,
       pendingDeliveriesCount,
       pendingPayments,
       outstandingBottles,
-      securityDepositWarnings: validDepositWarnings,
+      securityDepositWarnings,
       todaysDeliverySummary
     }
   });

@@ -131,12 +131,13 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   const saleNumber = generateSaleNumber();
 
   const spotSale = await prisma.$transaction(async (tx) => {
-    const allItems = await tx[`${prefix}Item`].findMany({
-      where: { archivedAt: null }
+    // ponytail: query only active finished goods instead of scanning entire items table
+    const finishedGoods = await tx[`${prefix}Item`].findMany({
+      where: { type: 'FINISHED_GOOD', archivedAt: null }
     });
 
     const findFG = (keywords) => {
-      return allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
+      return finishedGoods.find(i => keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
     };
 
     // Helper for location-based stock deduction

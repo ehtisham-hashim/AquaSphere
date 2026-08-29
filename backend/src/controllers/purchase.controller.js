@@ -120,6 +120,13 @@ export const createPurchase = asyncHandler(async (req, res) => {
   let grandTotal = 0;
   const validatedItems = [];
 
+  // ponytail: batch find raw materials in 1 query
+  const itemIds = items.map(it => it.itemId).filter(Boolean);
+  const rawMaterials = itemIds.length > 0
+    ? await prisma[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } })
+    : [];
+  const rawMatMap = new Map(rawMaterials.map(m => [m.id, m]));
+
   for (const it of items) {
     if (!it.itemId) throw new ApiError(400, 'Item selection is required for all rows');
     
@@ -129,7 +136,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
     if (isNaN(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be greater than zero');
     if (isNaN(unitPrice) || unitPrice < 0) throw new ApiError(400, 'Unit price cannot be negative');
 
-    const rawMat = await prisma[`${prefix}Item`].findUnique({ where: { id: it.itemId } });
+    const rawMat = rawMatMap.get(it.itemId);
     if (!rawMat) throw new ApiError(404, `Raw Material #${it.itemId} not found`);
     if (rawMat.archivedAt) throw new ApiError(400, `Material "${rawMat.name}" is archived and cannot be purchased`);
 
@@ -194,8 +201,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
         data: updateData
       });
 
-      const itemInfo = await tx[`${prefix}Item`].findUnique({ where: { id: vItem.itemId } });
-      if (itemInfo && (itemInfo.name.toLowerCase().includes('19l') || itemInfo.name.toLowerCase().includes('19 l'))) {
+      if (vItem.itemName && (vItem.itemName.toLowerCase().includes('19l') || vItem.itemName.toLowerCase().includes('19 l'))) {
         await tx[`${prefix}BottleTransaction`].create({
           data: {
             type: 'NEW_PURCHASE',

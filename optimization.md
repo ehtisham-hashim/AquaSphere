@@ -1,773 +1,313 @@
-# AquaSphere OS — Optimization Report
+# AquaSphere OS — Backend Optimization & Code Reduction Report
 
-## Executive Summary
+## 1. Executive Summary
 
-Backend slowdown after ~15 minutes is caused by **three compounding issues**: (1) `getItems()` runs a full-table consolidation migration (`consolidateDuplicateFinishedGoods`) on **every single GET request** (item.controller.js:100), which scans all items and performs cascading updateMany across 6 tables; (2) `getSpotSales()` runs an "auto-heal" loop querying 20 recent sales × 1 findFirst each = N+1 + writes on every GET (spotSale.controller.js:31-101); (3) `getDailyCloseHistory()` fires N sequential `aggregate` + `findMany` + `count` queries per closed day inside a `Promise.all(history.map(async ...))` (dailyClose.controller.js:341-385). Combined, these create escalating DB pressure on the **Neon Serverless PostgreSQL Free Tier** (which enforces a strict 5-connection limit). The `getTenantPrefix()` function is copy-pasted into **15 separate files** with 7 different implementations. Overall code volume can be reduced ~55-60% through shared tenant resolution, controller wrappers, and splitting 1000+ line frontend pages.
+A comprehensive, file-by-file audit of the entire backend codebase (`backend/src/`) was conducted. This report details exact locations where database queries can be optimized, memory leaks eliminated, and controller code volume reduced by **~58%** (from ~5,662 lines across controllers down to ~2,400 lines) through clean service extraction and query consolidation.
 
-*(Note: For VPS infrastructure setup, Traefik reverse proxy configuration, Dockerfiles, and production host settings on Contabo via Dokploy, refer directly to [`context/deployment.md`](context/deployment.md)).*
+### Current Backend Status & Neon Free-Tier Context
+The backend operates against a **Neon Serverless PostgreSQL** database with a strict connection pool constraint (`max: 5` connections). While initial quick fixes (60s in-memory JWT user caching, 60s Daily Close lock caching, item consolidation migration removal, and 2-query history batching) are in place, several major database query bottlenecks and memory-heavy operations still persist.
 
 ---
 
-## 1. Root Cause: Backend Slowdown
+## 2. File-by-File Audit & Code Reduction Targets
 
-### Finding
+| File | Current Lines | Target Lines | Line Reduction | Primary Issues & Optimization Strategy |
+|------|---------------|--------------|----------------|----------------------------------------|
+| `order.controller.js` | 728 | ~220 | -508 lines (70%) | N+1 `findUnique` query loop during delivery stock check; extract delivery logic & bottle return calculation to `services/delivery.service.js`. |
+| `analytics.controller.js` | 708 | ~180 | -528 lines (74%) | **Critical Memory Bomb**: Fires 7 parallel queries fetching entire year of data into RAM; generates 226 runtime `.filter()` executions per dashboard load. Replace with DB-level `_sum` & `groupBy`. |
+| `production.controller.js` | 540 | ~190 | -350 lines (65%) | Sequential `create` and `update` mutations inside transaction loops during batch completion. Batch using `createMany` and extract recipe logic to `services/production.service.js`. |
+| `dailyClose.controller.js` | 512 | ~150 | -362 lines (70%) | Large controller with inline transaction management. Move daily close confirmation, KPI aggregation, and reopen workflows to `services/dailyClose.service.js`. |
+| `item.controller.js` | 489 | ~160 | -329 lines (67%) | Stock transfer and inventory reconciliation logic mixed with CRUD. Extract stock math and audit trails to `services/inventory.service.js`. |
+| `purchase.controller.js` | 410 | ~140 | -270 lines (66%) | N+1 `findUnique` loop over raw material rows during purchase creation. Batch item lookups with `in: itemIds` and extract ledger posting to `services/purchase.service.js`. |
+| `customer.controller.js` | 405 | ~150 | -255 lines (63%) | Duplicate tenant-product mapping and inline credit validation. Extract validation to `services/customer.service.js`. |
+| `vendor.controller.js` | 398 | ~130 | -268 lines (67%) | **Memory Leak on Pagination**: `take: skip` loads up to thousands of prior rows into RAM to compute opening balance. Replace with DB `_sum` aggregation. |
+| `spotSale.controller.js` | 382 | ~140 | -242 lines (63%) | **Full Table Scan**: `findMany` on all items inside transaction to do JS string matching. Query only target SKUs or use cached catalog map. |
+| `adminDashboard.controller.js` | 355 | ~120 | -235 lines (66%) | Fetches full delivery & order record arrays just to read `.length`. Replace with lightweight DB `count()` and capped queries (`take: 50`). |
+| `reports.controller.js` | 313 | ~110 | -203 lines (65%) | Unbounded table queries in sales, profitability, and vendor reports. Enforce date filters and push computations down to DB aggregations. |
+| `bottle.controller.js` | 221 | ~90 | -131 lines (59%) | Controller handles transaction orchestration directly. Move bottle movement rules to `services/bottle.service.js`. |
+| `expense.controller.js` | 152 | ~90 | -62 lines (41%) | Clean pagination already present; extract audit logging and validation helpers. |
+| `alerts.controller.js` | 116 | ~60 | -56 lines (48%) | Fires 5 separate parallel queries to the `Customer` table (with duplicate criteria). Consolidate into 1 indexed query. |
+| `user.controller.js` | 105 | ~70 | -35 lines (33%) | Already streamlined; minor tenant mapper cleanup. |
+| `auth.controller.js` | 84 | ~60 | -24 lines (28%) | Standard auth flow; keep lean. |
+| `auditLog.controller.js` | 61 | ~40 | -21 lines (34%) | Standard log retrieval; keep lean. |
+| **Total Across Controllers** | **5,662** | **2,390** | **-3,272 lines (~58% reduction)** | |
 
-Three "hidden work on every request" patterns drain the Neon free-tier database connection pool (max 5 connections):
+---
 
-| # | File | Lines | What happens on every request |
-|---|------|-------|-------------------------------|
-| 1 | `item.controller.js` | L100 | `consolidateDuplicateFinishedGoods()` called inside `getItems()`. Runs `findMany` on ALL items, loops groups, does `updateMany` × 6 tables per duplicate, soft-archives rows. This is a **migration task** running on every inventory page load. |
-| 2 | `spotSale.controller.js` | L31-101 | "Auto-heal" block inside `getSpotSales()`. Fetches 20 recent sales, then for EACH checks `findFirst` for existing inventory transaction. If missing, creates write transactions. N+1 read + potential writes on every page load. |
-| 3 | `dailyClose.controller.js` | L341-385 | `getDailyCloseHistory()` fetches up to 30 closed days, then `Promise.all(history.map(async ...))` fires 3 queries per day = **90 sequential queries** on every page load. |
-| 4 | `analytics.controller.js` | L22-58 | `computeDashboardAnalytics()` fetches entire year of orders/payments/expenses/purchases/spotSales into memory, then JS-filters 30 days × 5 arrays + 12 months × 5 arrays. As data grows, this becomes a memory bomb. |
-| 5 | `auth.middleware.js` | L31-46 | JWT middleware hits DB **twice** per request (primary tenant lookup + fallback tenant lookup). With 300 req/15min rate limit and 5-connection pool, this alone can saturate connections. |
+## 3. Database Query Bottlenecks & Optimization Blueprints
 
-### Fix
+### 3.1 Analytics Memory Bomb (`analytics.controller.js:8-217`)
 
-```diff
-# item.controller.js — Remove from getItems, run as one-time migration script
-- await consolidateDuplicateFinishedGoods(prefix);
-+ // Move to backend/scripts/consolidate-items.js, run once via `node scripts/consolidate-items.js`
+#### Current Problem:
+On every dashboard page load and Server-Sent Event (SSE) broadcast, `computeDashboardAnalytics(prefix)` executes 7 parallel queries (5 `findMany` for Orders/Payments/Expenses/Purchases/SpotSales + 1 `groupBy` for VendorLedgerEntry + 1 `findMany` for raw material Items) fetching **all records from January 1st to the current day** into Node.js heap memory. It then executes 30 iterations for daily charts and 12 iterations for monthly trends, running 5 `.filter()` calls per iteration — producing **226 runtime `.filter()` executions** across all in-memory arrays on every single call.
 
-# spotSale.controller.js — Remove auto-heal block entirely
-- // Lines 31-101: auto-heal block
-+ // Move to backend/scripts/heal-spot-sales.js, run once
-
-# dailyClose.controller.js — Replace N+1 with single aggregation query
-- const historyWithStats = await Promise.all(history.map(async (day) => { ... }));
-+ // Use a single SQL query with date grouping instead of N sequential queries
-
-# auth.middleware.js — Cache user lookup per JWT for request lifetime
-+ // Add LRU cache (Map<userId, {user, prefix, expiresAt}>) with 60s TTL
+```javascript
+// Current: Pulls thousands of rows into Node.js memory via 7 parallel queries
+const [yearOrders, yearPayments, yearExpenses, yearPurchases, yearSpotSales, vendorPayables, rawMaterials] = await Promise.all([
+  prisma[`${prefix}Order`].findMany({ where: { createdAt: { gte: startOfYear, lte: endOfDay } }, select: { createdAt: true, items: { select: { price: true, quantity: true } } } }),
+  prisma[`${prefix}Payment`].findMany({ where: { createdAt: { gte: startOfYear, lte: endOfDay } }, select: { createdAt: true, amount: true } }),
+  prisma[`${prefix}Expense`].findMany({ where: { createdAt: { gte: startOfYear, lte: endOfDay } }, select: { createdAt: true, amount: true } }),
+  prisma[`${prefix}Purchase`].findMany({ where: { purchaseDate: { gte: startOfYear, lte: endOfDay } }, select: { purchaseDate: true, grandTotal: true } }),
+  prisma[`${prefix}SpotSale`].findMany({ where: { createdAt: { gte: startOfYear, lte: endOfDay } }, select: { createdAt: true, cashCollected: true, creditAmount: true } }),
+  prisma[`${prefix}VendorLedgerEntry`].groupBy({ ... }),   // vendor payables aggregation
+  prisma[`${prefix}Item`].findMany({ ... })                 // raw materials for low-stock check
+]);
 ```
 
----
-
-## 2. Database & Query Issues
-
-### N+1 Queries Found
-
-| Location | Pattern |
-|----------|---------|
-| `item.controller.js:100` | `consolidateDuplicateFinishedGoods()` loops items, does sequential `updateMany` × 6 tables per group |
-| `spotSale.controller.js:38-97` | Loop over 20 sales, each does `findFirst` then conditional writes |
-| `dailyClose.controller.js:341-385` | `Promise.all(history.map(async ...))` — 3 queries per day × 30 days |
-| `order.controller.js:33-47` | `createOrder` loops `items` array, does `findFirst` + conditional `create` per item |
-| `order.controller.js:392-406` | `deliverOrder` loops `o.items`, does `findUnique` per item for stock check |
-| `production.controller.js:430-438` | Loops `deductions` and `finishedGoods` arrays, does sequential `create` + `update` per item |
-| `bottle.controller.js:129-151` | `createBottleTransaction` fetches ALL bottle transactions + ALL customers just to compute a balance |
-| `reports.controller.js:76` | `getReportData('profitability')` fetches ALL `PurchaseItem` records (no date filter) |
-| `reports.controller.js:258` | `getReportData('fleet')` fetches ALL `BottleTransaction` records (unbounded) |
-
-### Missing Pagination / Unbounded Queries
-
-| File | Line | Query | Risk |
-|------|------|-------|------|
-| `expense.controller.js` | L39-52 | `findMany({ take: 5000 })` | Hard limit of 5000 is dangerously high |
-| `analytics.controller.js` | L31-57 | 7 `findMany` calls fetching entire year of data | Memory grows linearly with business activity |
-| `bottle.controller.js` | L16 | `findMany()` on ALL bottle transactions | Grows unbounded |
-| `reports.controller.js` | L76 | `PurchaseItem.findMany()` — no filter | Fetches every purchase item ever |
-| `reports.controller.js` | L258 | `BottleTransaction.findMany()` — no filter | Fetches every bottle transaction ever |
-| `customer.controller.js` | L47-65 | `getCustomerDetails` includes ALL orders, ALL bottle transactions, ALL payments | Single customer page can pull thousands of records |
-| `vendor.controller.js` | L69-86 | `getVendorById` includes ALL purchases, ALL payments, ALL ledger entries | Same unbounded issue |
-| `adminDashboard.controller.js` | L43-46 | `pendingOrders` — `findMany` with no `take` | Could return all historical pending orders |
-
-### Prisma Client Instantiation
-
-**Current (db.js):** Single instance using `@prisma/adapter-pg` with a `pg.Pool` of `max: 5`.
-
-**Free-Tier Assessment:** Single instance pattern is correct. Pool size of `5` is mandatory for **Neon Free Tier** (0.25 CU limit). To prevent connection pool exhaustion under 5 connections:
-1. Use the Neon pooled URL (`-pooler` domain with `pgbouncer=true`).
-2. Add the in-memory caches for Auth and Daily Close lock check (Section 3).
-3. Set `idleTimeoutMillis: 10000` to rapidly return idle connections to Neon.
+#### Optimized Blueprint:
+1. Push aggregations to PostgreSQL using `aggregate` and `_sum` for single metrics (today, this month, this year).
+2. For the 30-day daily sales history, query only the **30-day window** (`createdAt: { gte: thirtyDaysAgo }`) instead of the full year.
+3. Group data using Prisma `groupBy` or a single indexed raw SQL query (`date_trunc('day', created_at)`).
 
 ---
 
-## 3. Middleware Optimizations
+### 3.2 N+1 Query Loops in Orders (`order.controller.js:416-430`)
 
-### Daily Close Lock Caching
+#### Current Problem:
+During order delivery (`deliverOrder`), the code loops through `o.items` and executes an individual `findUnique` query per item to check stock availability on the factory floor:
 
-**Current (`dailyClose.middleware.js`):** Queries DB on every write request. When `req.params.id` exists and no date in body, it makes an ADDITIONAL `findUnique` to fetch the existing record (L24-33), then queries `DailyClose.findFirst` (L42-47). That's 1-2 DB calls per write request.
-
-**Before:**
 ```javascript
-// L42-47 — DB hit every time
-const closedRecord = await dailyCloseModel.findFirst({
-  where: { date: transactionDate, adminConfirmed: true }
+// Current: N database queries for an order with N items
+for (const orderItem of o.items) {
+  if (orderItem.itemId) {
+    const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
+    // check stock...
+  }
+}
+```
+
+#### Optimized Blueprint:
+Batch all item IDs into a single database round-trip:
+```javascript
+// Optimized: Exactly 1 database query
+const itemIds = o.items.map(i => i.itemId).filter(Boolean);
+const itemObjs = await tx[`${prefix}Item`].findMany({
+  where: { id: { in: itemIds } }
 });
-```
+const itemMap = new Map(itemObjs.map(i => [i.id, i]));
 
-**After (with 60s TTL cache):**
-```javascript
-const lockCache = new Map();
-const LOCK_TTL = 60_000;
-
-function getCachedLock(key) {
-  const entry = lockCache.get(key);
-  if (entry && Date.now() - entry.ts < LOCK_TTL) return entry.value;
-  lockCache.delete(key);
-  return undefined;
-}
-
-// Inside middleware:
-const cacheKey = `${prefix}:${transactionDate.toISOString().split('T')[0]}`;
-let isLocked = getCachedLock(cacheKey);
-if (isLocked === undefined) {
-  const closedRecord = await dailyCloseModel.findFirst({
-    where: { date: transactionDate, adminConfirmed: true }
-  });
-  isLocked = !!closedRecord;
-  lockCache.set(cacheKey, { value: isLocked, ts: Date.now() });
+for (const orderItem of o.items) {
+  const itemObj = itemMap.get(orderItem.itemId);
+  // check stock in memory...
 }
 ```
-
-### JWT Middleware
-
-**Assessment:** Makes **2 DB round-trips per request** (L31-46). First queries `${requestedPrefix}User.findUnique`, then if not found, queries the fallback tenant. For most requests (single-tenant users), it's 1 query. For cross-tenant owners, it's 2.
-
-**Fix:** Add in-memory LRU cache keyed by `${userId}:${prefix}` with 60s TTL. JWT decode is already pure crypto — the DB hit is for checking `isActive` status, which rarely changes.
-
-```javascript
-const userCache = new Map();
-const USER_TTL = 60_000;
-
-// Before DB query:
-const cacheKey = `${decodedToken.id}:${requestedPrefix}`;
-const cached = userCache.get(cacheKey);
-if (cached && Date.now() - cached.ts < USER_TTL) {
-  req.user = cached.user;
-  req.tenant = requestedPrefix;
-  return next();
-}
-// ... existing DB query ...
-userCache.set(cacheKey, { user, ts: Date.now() });
-```
-
-### Multi-Tenancy
-
-**Finding:** Tenant prefix resolved via `getTenantPrefix(req)` — copy-pasted 15 times across controllers with **7 different implementations** that check different combinations of `req.tenant`, `req.headers`, `req.cookies`, `req.query`. This inconsistency is a latent bug (different endpoints resolve different tenants from the same request).
-
-**Fix:** Single `getTenantPrefix` in `utils/tenant.js`, imported everywhere. Auth middleware already sets `req.tenant` — controllers should just read `req.tenant`.
-
-### Rate Limiting
-
-**Assessment:** Uses in-memory store (express-rate-limit default). 300 requests / 15 minutes. Not a slowdown cause. ✅
 
 ---
 
-## 4. Code Reduction Plan
+### 3.3 N+1 Query Loops in Purchases (`purchase.controller.js:123-146`)
 
-### Backend — Target: ~55% reduction
+#### Current Problem:
+When creating a purchase order (`createPurchase`), the code iterates over `items` and executes a separate `findUnique` query per row to validate raw materials:
 
-| File | Current Lines | Target Lines | Strategy |
-|------|--------------|--------------|----------|
-| `order.controller.js` | 690 | ~250 | Extract delivery logic to `services/delivery.service.js`, shared `getTenantPrefix` import, extract audit helper |
-| `analytics.controller.js` | 672 | ~200 | Move `computeDashboardAnalytics` to `services/analytics.service.js`, use DB aggregations instead of JS filtering |
-| `item.controller.js` | 539 | ~150 | Remove `consolidateDuplicateFinishedGoods` (run-once script), shared tenant, extract reconciliation to `services/inventory.service.js` |
-| `production.controller.js` | 505 | ~180 | Extract wadaana/aquasphere branches to strategy pattern or separate service files |
-| `spotSale.controller.js` | 434 | ~150 | Remove auto-heal block, shared tenant, extract deduction logic |
-| `dailyClose.controller.js` | 430 | ~150 | Replace N+1 history with single query, extract confirm logic to shared function |
-| `purchase.controller.js` | 367 | ~150 | Shared tenant, extract validation to service |
-| `customer.controller.js` | 353 | ~150 | Shared tenant, extract audit logging to helper |
-| `adminDashboard.controller.js` | 330 | ~120 | Shared tenant, reuse analytics service |
-| `reports.controller.js` | 299 | ~100 | Add query bounds, extract report generators |
-| `vendor.controller.js` | 299 | ~120 | Shared tenant, extract ledger computation |
-| `productionFormulas.js` | 228 | 228 | Keep as-is (domain-specific, well-documented) |
-| `bottle.controller.js` | 225 | ~100 | Replace unbounded findMany with aggregate query |
-| 15× `getTenantPrefix` copies | ~60 total | 8 | Single `utils/tenant.js` export |
-| **Total backend** | **~6,900** | **~3,100** | **~55% reduction** |
+```javascript
+// Current: N database queries for N purchase items
+for (const it of items) {
+  const rawMat = await prisma[`${prefix}Item`].findUnique({ where: { id: it.itemId } });
+  // validate...
+}
+```
 
-### Frontend — Target: ~55% reduction
-
-| File | Current Lines | Target Lines | Strategy |
-|------|--------------|--------------|----------|
-| `Production.jsx` (page) | 1,193 | ~100 | Split: ProductionPage (shell), ProductionBatchList, CreateBatchForm, CompleteBatchModal, ProductionStats (~5 files × 100) |
-| `Vendors.jsx` (page) | 1,017 | ~80 | Split: VendorsPage, VendorList, VendorDetailPanel, VendorPaymentModal, AddVendorModal (~5 files × 100) |
-| `ProductionDashboardView.jsx` | 602 | ~100 | Split: DashboardCards, DailyChart, RecentBatches, RawMaterialHealth |
-| `AddCustomerModal.jsx` | 539 | ~100 | Extract form fields to CustomerFormFields, validation to useCustomerForm hook |
-| `AddOrderModal.jsx` | 473 | ~100 | Extract to OrderFormFields, useOrderForm hook |
-| `AddEditRawMaterialModal.jsx` | 460 | ~100 | Simpler form, extract fields |
-| `LogCounterSaleForm.jsx` | 440 | ~100 | Extract product selector, payment section |
-| `CustomerDetails.jsx` | 433 | ~100 | Split: CustomerInfo, OrderHistory, BottleLedger, PaymentHistory |
-| `AdminDashboardView.jsx` | 421 | ~100 | Split: AdminKPIs, AdminOrdersTable, AdminInventory |
-| `EditCustomerModal.jsx` | 415 | ~100 | Share form fields with AddCustomerModal via shared component |
-| `ProcessDeliveryModal.jsx` | 410 | ~100 | Extract bottle section, payment section |
-| `Orders.jsx` (page) | 424 | ~80 | Split: OrdersPage, OrdersTable (already exists), OrderFilters |
-| `Purchases.jsx` (page) | 443 | ~80 | Split: PurchasesPage, PurchaseList, PurchaseDetails |
-| **Total frontend** | **~12,700 (components + pages)** | **~5,700** | **~55% reduction** |
+#### Optimized Blueprint:
+Execute a single batch query with `id: { in: itemIds }` before validation:
+```javascript
+// Optimized: 1 query for all purchase items
+const itemIds = items.map(i => i.itemId);
+const rawMaterials = await prisma[`${prefix}Item`].findMany({
+  where: { id: { in: itemIds } }
+});
+const rawMatMap = new Map(rawMaterials.map(m => [m.id, m]));
+```
 
 ---
 
-## 5. Modularization Plan
+### 3.4 Full Table Scan on Spot Sale Creation (`spotSale.controller.js:134-140`)
 
-Files currently over 100 lines, with proposed splits:
+#### Current Problem:
+Inside `createSpotSale`, the transaction executes:
+`const allItems = await tx[\`${prefix}Item\`].findMany({ where: { archivedAt: null } });`
+This loads the entire catalog into memory to run loose JavaScript substring matching (`findFG(['500ml', '0.5l', ...])`).
 
-### Backend Controllers
-
-| Current File (lines) | Split Into |
-|----------------------|------------|
-| `order.controller.js` (690) | `order.controller.js` (80), `services/order.service.js` (100), `services/delivery.service.js` (100) |
-| `analytics.controller.js` (672) | `analytics.controller.js` (60), `services/dashboard.service.js` (100), `services/analytics.service.js` (100) |
-| `item.controller.js` (539) | `item.controller.js` (80), `services/inventory.service.js` (80), `scripts/consolidate-items.js` (90) |
-| `production.controller.js` (505) | `production.controller.js` (80), `services/production.service.js` (100), `services/production-wadaana.service.js` (100) |
-| `spotSale.controller.js` (434) | `spotSale.controller.js` (60), `services/spotSale.service.js` (90) |
-| `dailyClose.controller.js` (430) | `dailyClose.controller.js` (60), `services/dailyClose.service.js` (90) |
-| `purchase.controller.js` (367) | `purchase.controller.js` (60), `services/purchase.service.js` (90) |
-| `customer.controller.js` (353) | `customer.controller.js` (60), `services/customer.service.js` (90) |
-| `adminDashboard.controller.js` (330) | `adminDashboard.controller.js` (50), reuse `services/dashboard.service.js` |
-| `reports.controller.js` (299) | `reports.controller.js` (50), `services/reports/` (5 files × 50) |
-| `vendor.controller.js` (299) | `vendor.controller.js` (60), `services/vendor.service.js` (80) |
-| `productionFormulas.js` (228) | Keep (domain formulas, well-documented) |
-| `bottle.controller.js` (225) | `bottle.controller.js` (60), `services/bottle.service.js` (80) |
-
-### Frontend Pages
-
-| Current File (lines) | Split Into |
-|----------------------|------------|
-| `Production.jsx` (1,193) | `Production.jsx` (60 shell), `ProductionBatchList.jsx` (100), `CreateBatchModal.jsx` (100), `CompleteBatchModal.jsx` (100), `WadaanaProduction.jsx` (100), `AquasphereProduction.jsx` (100), `hooks/useProductionBatches.js` (40) |
-| `Vendors.jsx` (1,017) | `Vendors.jsx` (60 shell), `VendorList.jsx` (80), `VendorDetailPanel.jsx` (100), `VendorPaymentModal.jsx` (100), `AddVendorModal.jsx` (80), `hooks/useVendors.js` (40) |
-| `ProductionDashboardView.jsx` (602) | `ProductionDashboardView.jsx` (60), `ProductionKPICards.jsx` (80), `DailyProductionChart.jsx` (80), `RecentBatchesTable.jsx` (80), `RawMaterialHealth.jsx` (80) |
-
----
-
-## 6. Quick Wins (Apply Today)
-
-Ordered by impact, each under 30 minutes:
-
-1. **Remove `consolidateDuplicateFinishedGoods()` from `getItems()`** — Delete line 100 of `item.controller.js`. Move to a one-time script. **Impact: Eliminates the single biggest source of slow inventory page loads.**
-2. **Remove auto-heal block from `getSpotSales()`** — Delete lines 31-101 of `spotSale.controller.js`. Move to a one-time script. **Impact: Eliminates N+1 reads + writes on every counter sales page load.**
-3. **Cache auth user lookup** — Add 60s in-memory cache in `auth.middleware.js`. **Impact: Cuts 1-2 DB queries from every single request.**
-4. **Cache daily close lock check** — Add 60s TTL Map in `dailyClose.middleware.js`. **Impact: Eliminates 1-2 DB queries from every write request.**
-5. **Extract shared `getTenantPrefix`** — Create `utils/tenant.js`, import everywhere. **Impact: Removes 15 copies of inconsistent tenant resolution.**
-6. **Fix `getDailyCloseHistory()` N+1** — Replace `Promise.all(history.map(async ...))` with single grouped query. **Impact: Reduces 90 queries to 3.**
-7. **Add `take: 200` to unbounded queries** — `bottle.controller.js:16`, `reports.controller.js:76,258`, `vendor.controller.js:69-86`. **Impact: Prevents memory blowout as data grows.**
-8. **Bound `getCustomerDetails` includes** — Add `take: 50` to orders, bottleTransactions, payments includes. **Impact: Prevents single-customer page from pulling 1000+ records.**
-9. **Fix expense query limit** — Change `take: 5000` to `take: 200` with pagination in `expense.controller.js`. **Impact: Prevents 5K record responses.**
-10. **Move dashboard analytics to DB-level aggregation** — Replace in-memory year-data filtering with `_sum` / `groupBy` queries per period. **Impact: Reduces memory usage and speeds up dashboard by 5-10x.**
-
----
-
-## 7. Refactored Code Snippets
-
-### utils/tenant.js — Shared Tenant Resolver
-
+#### Optimized Blueprint:
+Directly resolve product types to specific SKU names using a constant dictionary, and query only the 1-2 items involved in the sale:
 ```javascript
-/**
- * Resolves tenant prefix from request.
- * Auth middleware sets req.tenant — controllers should use this.
- * Falls back to header/cookie for middleware that runs before auth.
- */
-export function getTenantPrefix(req) {
-  const raw = (
-    req.tenant ||
-    req.headers['x-tenant'] ||
-    req.headers['x-company-context'] ||
-    req.cookies?.tenant ||
-    req.cookies?.company ||
-    req.query?.tenant ||
-    req.query?.company ||
-    'aquasphere'
-  ).toString().toLowerCase();
-  return raw === 'wadaana' ? 'wadaana' : 'aquasphere';
-}
-```
-
-### config/db.js — Neon Free-Tier Optimized Prisma Client Singleton
-
-```javascript
-import 'dotenv/config';
-import pg from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pkg from '@prisma/client';
-const { PrismaClient } = pkg;
-
-const { Pool } = pg;
-const connectionString = process.env.DATABASE_URL;
-
-// Neon free-tier pool settings — keep pool at max 5
-const pool = new Pool({
-  connectionString,
-  max: parseInt(process.env.DATABASE_POOL_SIZE || '5', 10),
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 10000,
-  allowExitOnIdle: true
-});
-
-pool.on('error', (err) => {
-  console.error('PostgreSQL pool error:', err.message);
-});
-
-const adapter = new PrismaPg(pool);
-
-export const prisma = new PrismaClient({
-  adapter,
-  log: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn']
-});
-
-export async function closeDatabaseConnections() {
-  await prisma.$disconnect();
-  await pool.end();
-}
-```
-
-### utils/auditLog.js — Shared Audit Logger
-
-```javascript
-import { prisma } from '../config/db.js';
-
-export async function createAuditLog(prefix, { action, entityType, entityId, performedBy, details }) {
-  try {
-    await prisma[`${prefix}AuditLog`].create({
-      data: { action, entityType, entityId, performedBy, details }
-    });
-  } catch (_) {
-    // Audit log failures should never crash the request
+const targetKeywords = getKeywordsForProductTypes(itemsList.map(i => i.productType));
+const fgItems = await tx[`${prefix}Item`].findMany({
+  where: {
+    archivedAt: null,
+    type: 'FINISHED_GOOD',
+    OR: targetKeywords.map(kw => ({ name: { contains: kw, mode: 'insensitive' } }))
   }
-}
-```
-
-### api.js — Frontend Fetch Utility
-
-```javascript
-import { getCompanyFromCookie } from './companyCookie';
-
-const BASE = import.meta.env.VITE_API_URL || '/api/v1';
-
-async function request(method, path, body) {
-  const tenant = getCompanyFromCookie();
-  const options = {
-    method,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-tenant': tenant,
-      'x-company-context': tenant,
-    },
-  };
-  if (body !== undefined) options.body = JSON.stringify(body);
-  const res = await fetch(`${BASE}${path}`, options);
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || `Request failed: ${res.status}`);
-  return json;
-}
-
-export const api = {
-  get: (path) => request('GET', path),
-  post: (path, body) => request('POST', path, body),
-  put: (path, body) => request('PUT', path, body),
-  del: (path) => request('DELETE', path),
-};
-```
-
-### dailyCloseLockMiddleware.js — With Cache
-
-```javascript
-import { prisma } from '../config/db.js';
-import { ApiError } from '../utils/ApiError.js';
-import { asyncHandler } from '../utils/asyncHandler.js';
-import { getTenantPrefix } from '../utils/tenant.js';
-
-const lockCache = new Map();
-const LOCK_TTL = 60_000; // 60 seconds
-
-function getCachedLock(key) {
-  const entry = lockCache.get(key);
-  if (entry && Date.now() - entry.ts < LOCK_TTL) return entry.value;
-  lockCache.delete(key);
-  return undefined;
-}
-
-// Invalidate cache when day is closed/reopened
-export function invalidateLockCache(prefix, dateStr) {
-  lockCache.delete(`${prefix}:${dateStr}`);
-}
-
-export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
-  const prefix = getTenantPrefix(req);
-
-  let transactionDateRaw = req.body.date || req.body.batchDate
-    || req.body.purchaseDate || req.body.deliveredAt;
-
-  if (!transactionDateRaw && req.params.id) {
-    const url = req.baseUrl || req.originalUrl || '';
-    const modelMap = {
-      '/orders': 'Order', '/purchases': 'Purchase',
-      '/production': 'ProductionBatch', '/expenses': 'Expense',
-      '/spot-sales': 'SpotSale',
-    };
-    for (const [route, model] of Object.entries(modelMap)) {
-      if (url.includes(route)) {
-        const rec = await prisma[`${prefix}${model}`]
-          .findUnique({ where: { id: req.params.id }, select: { createdAt: true } })
-          .catch(() => null);
-        if (rec) transactionDateRaw = rec.createdAt;
-        break;
-      }
-    }
-  }
-
-  const transactionDate = transactionDateRaw ? new Date(transactionDateRaw) : new Date();
-  transactionDate.setUTCHours(0, 0, 0, 0);
-  const dateStr = transactionDate.toISOString().split('T')[0];
-  const cacheKey = `${prefix}:${dateStr}`;
-
-  let isLocked = getCachedLock(cacheKey);
-  if (isLocked === undefined) {
-    const closedRecord = await prisma[`${prefix}DailyClose`].findFirst({
-      where: { date: transactionDate, adminConfirmed: true },
-    });
-    isLocked = !!closedRecord;
-    lockCache.set(cacheKey, { value: isLocked, ts: Date.now() });
-  }
-
-  if (isLocked && req.user.role !== 'OWNER') {
-    throw new ApiError(403, 'Date is closed for editing by Admin. Contact Owner to request override.');
-  }
-
-  next();
-});
-```
-
-### auth.middleware.js — With User Cache
-
-```javascript
-import { ApiError } from '../utils/ApiError.js';
-import { verifyToken } from '../utils/jwtUtils.js';
-import { prisma } from '../config/db.js';
-import { asyncHandler } from '../utils/asyncHandler.js';
-
-const userCache = new Map();
-const USER_TTL = 60_000;
-
-export const verifyJWT = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.token || req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) throw new ApiError(401, 'Unauthorized request');
-
-  const decoded = verifyToken(token);
-  if (!decoded) throw new ApiError(401, 'Invalid or expired token');
-
-  const rawTenant = (
-    req.query?.tenant || req.query?.company ||
-    req.cookies?.tenant || req.cookies?.company ||
-    req.headers['x-company-context'] || req.headers['x-tenant'] ||
-    'aquasphere'
-  ).toString().toLowerCase();
-  const requestedPrefix = rawTenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-
-  // Check cache
-  const cacheKey = `${decoded.id}:${requestedPrefix}`;
-  const cached = userCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < USER_TTL) {
-    req.user = cached.user;
-    req.tenant = requestedPrefix;
-    return next();
-  }
-
-  // DB lookup (primary tenant, then fallback)
-  let user = await prisma[`${requestedPrefix}User`].findUnique({
-    where: { id: decoded.id },
-    select: { id: true, email: true, name: true, role: true, isActive: true }
-  });
-
-  if (!user) {
-    const fallback = requestedPrefix === 'wadaana' ? 'aquasphere' : 'wadaana';
-    user = await prisma[`${fallback}User`].findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true, name: true, role: true, isActive: true }
-    });
-  }
-
-  if (!user || !user.isActive) throw new ApiError(401, 'Invalid access token or user is inactive');
-
-  userCache.set(cacheKey, { user, ts: Date.now() });
-  req.user = user;
-  req.tenant = requestedPrefix;
-  next();
 });
 ```
 
 ---
 
-## 8. Estimated Impact
+### 3.5 Sequential Mutations in Production Batches (`production.controller.js:458-468`)
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Avg response time (after 15 min) | ~2,000-5,000ms (degrading) | ~50-200ms (stable) |
-| DB queries per `getItems()` call | 1 + consolidation sweep (~20+) | 1 |
-| DB queries per `getSpotSales()` call | 20-40 (auto-heal) | 2 |
-| DB queries per `getDailyCloseHistory()` | 90+ (N+1) | 3 |
-| DB queries per authenticated request | 2-4 (auth + daily close) | 0-1 (cached) |
-| Total backend controller files | 17 | 17 controllers + ~12 service files |
-| Largest backend file (lines) | 690 (`order.controller.js`) | ≤100 |
-| Largest frontend file (lines) | 1,193 (`Production.jsx`) | ≤100 |
-| Backend controller code volume | ~6,900 lines | ~3,100 lines (~55% reduction) |
-| Frontend pages + components | ~17,500 lines | ~8,000 lines (~55% reduction) |
-| `getTenantPrefix` copies | 15 (7 variants) | 1 |
-| `apiInterceptor.js` | Empty file (0 bytes) | Not needed (use `api.js` utility) |
+#### Current Problem:
+When completing a production batch, the code iterates over `deductions` and `finishedGoods` arrays executing sequential `await tx.create(...)` and `await tx.update(...)` queries one after another inside a database transaction lock.
+
+#### Optimized Blueprint:
+1. Use `prisma.productionBatchConsumption.createMany({ data: consumptionRows })` in 1 query.
+2. Use `prisma.inventoryTransaction.createMany({ data: transactionRows })` in 1 query.
+3. Batch update item balances using parallel `Promise.all(itemUpdates)`.
 
 ---
 
-## 9. Ponytail Review — Over-Engineering Findings
+### 3.6 Redundant Parallel Customer Scans (`alerts.controller.js:29-71`)
 
-`item.controller.js:L10-94`: **delete** `consolidateDuplicateFinishedGoods`. 94-line migration function called on every GET. Run once as script.
+#### Current Problem:
+`getMMAlerts` fires 5 separate parallel queries to the `Customer` table:
+1. `findMany` where `currentBalance > 0, creditLimit > 0`
+2. `findMany` where `currentBalance > 0, lastDeliveryAt != null, creditDuration > 0`
+3. `findMany` where `remarks != ''`
+4. `findMany` where `cachedBottleBalance > 0` (Query 6)
+5. `findMany` where `cachedBottleBalance > 0` (Query 7 — **identical criteria to Query 6**)
 
-`item.controller.js:L119-154`: **shrink** inventoryTransaction scan inside getItems. Replace with `cachedQty` column (already exists). 35 lines to 0.
-
-`spotSale.controller.js:L31-101`: **delete** auto-heal block. 70-line write-on-read pattern. Run as one-time migration script.
-
-`dailyClose.controller.js:L341-385`: **shrink** N+1 history loop. Single grouped aggregate query. 45 lines to 8.
-
-`analytics.controller.js:L22-224`: **shrink** 200-line in-memory filtering. Replace with DB `groupBy` + `_sum`. 200 lines to ~40.
-
-15× `getTenantPrefix` definitions: **stdlib** (project stdlib). Single shared import. 60 lines to 8.
-
-`customer.controller.js:L232-265` + `vendor.controller.js:L252-268` + 8 other audit log blocks: **yagni** repeated audit log creation pattern. Extract `createAuditLog` helper. ~120 lines to ~15 total across files.
-
-`user.controller.js:L11-16,31-39,58-69,83-94`: **shrink** 4 identical if/else `aquasphere`/`wadaana` branches. Use `prisma[\`${prefix}User\`]` pattern. 50 lines to 12.
-
-`ApiResponse.js`: **yagni** wrapper class with one caller pattern. Half the controllers use `res.json({ success: true, data })`, half use `new ApiResponse(200, data, msg)`. Pick one. 9 lines + inconsistency.
-
-`bottle.controller.js:L129-164`: **shrink** full transaction scan for balance. Replace with aggregate query. 35 lines to 5.
-
-`reports.controller.js:L76`: **shrink** ALL PurchaseItem fetch. Add date filter. 1 line fix.
-
-net: **~-1,800 lines possible** (backend only, not counting frontend splits).
-
----
-
-## 10. Swagger / OpenAPI 3.0 Setup for Interactive API Testing
-
-To enable full interactive testing of all endpoints (including bearer auth & tenant context header switching) directly from your browser, integrate Swagger UI:
-
-### 10.1 Dependencies Installation
-```bash
-cd backend
-pnpm add swagger-ui-express swagger-jsdoc
-```
-
-### 10.2 Swagger Specification Setup (`backend/src/config/swagger.js`)
-
+#### Optimized Blueprint:
+Merge all 5 queries into a single query with an `OR` filter:
 ```javascript
-import swaggerJSDoc from 'swagger-jsdoc';
-
-const options = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'AquaSphere OS & Wadaana ERP API',
-      version: '1.0.0',
-      description: 'Multi-tenant water distribution ERP REST API documentation for AquaSphere and Wadaana Pure Water.'
-    },
-    servers: [
-      {
-        url: '/api/v1',
-        description: 'Current API Server'
-      }
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Provide JWT token obtained from `/auth/login`'
-        },
-        tenantHeader: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'x-tenant',
-          description: 'Tenant identifier: `aquasphere` or `wadaana`'
-        }
-      }
-    },
-    security: [
-      {
-        bearerAuth: [],
-        tenantHeader: []
-      }
+const customers = await prisma[`${prefix}Customer`].findMany({
+  where: {
+    archivedAt: null,
+    OR: [
+      { currentBalance: { gt: 0 } },
+      { cachedBottleBalance: { gt: 0 } },
+      { remarks: { not: '' } }
     ]
   },
-  apis: ['./src/routes/*.js', './src/controllers/*.js']
-};
-
-export const swaggerSpec = swaggerJSDoc(options);
-```
-
-### 10.3 Mounting Swagger UI in `backend/src/index.js`
-
-```javascript
-import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './config/swagger.js';
-
-// Mount Swagger interactive docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'AquaSphere API Docs & Testing Console',
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    docExpansion: 'none',
-    filter: true
+  select: {
+    id: true,
+    name: true,
+    phone: true,
+    currentBalance: true,
+    creditLimit: true,
+    creditDuration: true,
+    lastDeliveryAt: true,
+    remarks: true,
+    cachedBottleBalance: true,
+    deposit: true
   }
-}));
+});
+// Classify in a single O(N) pass in memory
 ```
 
 ---
 
-## 11. Morgan Logger (HTTP Request Observability)
+### 3.7 Vendor Ledger Pagination Memory Leak (`vendor.controller.js:124-135`)
 
-Add `morgan` to log all incoming HTTP requests, response statuses, response times, and tenant context to identify slowdowns and track API traffic in console and server logs.
+#### Current Problem:
+In `getVendorById`, when a user navigates to page 50 of the vendor ledger (`skip: 5000`), the code executes `findMany` with `take: skip` to load all 5,000 previous ledger records into Node.js RAM just to calculate the opening balance via `.reduce()`.
 
-### 11.1 Installation
-```bash
-cd backend
-pnpm add morgan
-```
-
-### 11.2 Morgan Configuration Middleware (`backend/src/middlewares/logger.middleware.js`)
-
+#### Optimized Blueprint:
+Compute opening balance directly in PostgreSQL using `groupBy` / `_sum` for records created before the first record on the current page:
 ```javascript
-import morgan from 'morgan';
-
-// Custom token for multi-tenant context
-morgan.token('tenant', (req) => {
-  return req.headers['x-tenant'] || req.headers['x-company-context'] || req.tenant || 'aquasphere';
-});
-
-// Custom token for logged-in user
-morgan.token('user', (req) => {
-  return req.user ? `${req.user.role}:${req.user.name || req.user.id.substring(0, 6)}` : 'anon';
-});
-
-// Development logger format (colorized, human readable)
-export const devLogger = morgan(
-  ':method :url :status :response-time ms - [:tenant] [:user] :res[content-length]B'
-);
-
-// Production logger format (Structured JSON for log aggregators)
-export const prodLogger = morgan((tokens, req, res) => {
-  return JSON.stringify({
-    timestamp: new Date().toISOString(),
-    method: tokens.method(req, res),
-    url: tokens.url(req, res),
-    status: Number(tokens.status(req, res)),
-    responseTimeMs: Number(tokens['response-time'](req, res)),
-    contentLength: tokens.res(req, res, 'content-length') || '0',
-    tenant: tokens.tenant(req, res),
-    user: tokens.user(req, res),
-    ip: tokens['remote-addr'](req, res)
+if (skip > 0) {
+  const [firstEntry] = await prisma[`${prefix}VendorLedgerEntry`].findMany({
+    where: { vendorId: id },
+    orderBy: { createdAt: 'asc' },
+    skip,
+    take: 1,
+    select: { createdAt: true }
   });
-});
-```
 
-### 11.3 Mounting Morgan in `backend/src/index.js`
-
-```javascript
-import { devLogger, prodLogger } from './middlewares/logger.middleware.js';
-
-if (process.env.NODE_ENV === 'production') {
-  app.use(prodLogger);
-} else {
-  app.use(devLogger);
+  if (firstEntry) {
+    const priorSums = await prisma[`${prefix}VendorLedgerEntry`].groupBy({
+      by: ['type'],
+      where: {
+        vendorId: id,
+        createdAt: { lt: firstEntry.createdAt }
+      },
+      _sum: { amount: true }
+    });
+    const pPurchases = Number(priorSums.find(s => s.type === 'PURCHASE')?._sum.amount || 0);
+    const pPayments = Number(priorSums.find(s => s.type === 'PAYMENT')?._sum.amount || 0);
+    openingBalance = pPurchases - pPayments;
+  }
 }
 ```
 
 ---
 
-## 12. Comprehensive API Testing Matrix (Positive & Negative Test Cases)
+### 3.8 Unbounded Reports Queries (`reports.controller.js`)
 
-Use this test matrix for manual verification in Swagger UI or automated test scripts (e.g. Postman / Vitest).
+#### Current Problem:
+- `sales` report fetches all matching orders with nested items, deliveries, and customer objects without pagination.
+- `profitability` report loads all `PurchaseItem` records from day 0 to calculate weighted COGS in JavaScript.
+- `vendor` report loads all vendors with their full `ledgerEntries` arrays.
 
-### 12.1 Authentication & Multi-Tenancy (`/api/v1/auth`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /auth/login` | **Positive** | `{ email: "owner@aquasphere.pk", password: "validPassword", tenant: "aquasphere" }` | `200 OK` | Returns user profile, sets `token` HTTP-only cookie, returns JWT string. |
-| `POST /auth/login` | **Negative** | `{ email: "owner@aquasphere.pk", password: "wrongPassword" }` | `401 Unauthorized` | `{ success: false, message: "Invalid credentials" }` |
-| `POST /auth/login` | **Negative** | `{ email: "inactive@aquasphere.pk", password: "validPassword" }` | `401 Unauthorized` | `{ success: false, message: "Invalid credentials" }` |
-| `GET /auth/me` | **Positive** | Header: `Authorization: Bearer <valid_jwt>` | `200 OK` | Returns decoded user session profile. |
-| `GET /auth/me` | **Negative** | No header, no cookie | `401 Unauthorized` | `{ success: false, message: "Unauthorized request" }` |
-| `GET /auth/me` | **Negative** | Expired / Tampered JWT | `401 Unauthorized` | `{ success: false, message: "Invalid or expired token" }` |
-
-### 12.2 Customer Management (`/api/v1/customers`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `GET /customers` | **Positive** | Header: `x-tenant: aquasphere`, Query: `?status=all` | `200 OK` | Returns array of max 50 customers. |
-| `POST /customers` | **Positive** | `{ name: "Alpha Corp", phone: "03001234567", type: "Commercial", creditLimit: 50000, securityDeposit: 10000 }` | `201 Created` | Creates customer and generates `CUSTOMER_CREATED` audit log entry. |
-| `POST /customers` | **Negative** | Missing `name` or `phone` | `400 Bad Request` | `{ success: false, message: "Name, phone, and type required" }` |
-| `POST /customers` | **Negative** | Duplicate active phone: `{ phone: "03001234567" }` | `400 Bad Request` | `A customer with phone number "03001234567" already exists.` |
-| `POST /customers` | **Negative** | Invalid Google Map Link: `{ mapLink: "https://badurl.com" }` | `400 Bad Request` | `Invalid Google Maps URL. Must contain maps.google.com...` |
-| `DELETE /customers/:id` | **Negative** | Role: `OPERATOR` | `403 Forbidden` | `Only Owner or Marketing Manager can delete customer records` |
-
-### 12.3 Inventory & Items (`/api/v1/items`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `GET /items` | **Positive** | Query: `?type=RAW_MATERIAL` | `200 OK` | Returns raw materials with computed `cachedQty`. |
-| `POST /items/transfer` | **Positive** | `{ itemId: "<id>", fromLocation: "WAREHOUSE", toLocation: "FACTORY", quantity: 50 }` | `200 OK` | Shifts 50 units from Warehouse to Factory stock atomically; logs transfer transaction. |
-| `POST /items/transfer` | **Negative** | `fromLocation: "FACTORY", toLocation: "FACTORY"` | `400 Bad Request` | `From and To locations must be different` |
-| `POST /items/transfer` | **Negative** | Requested transfer quantity exceeds source stock | `400 Bad Request` | `Insufficient stock at WAREHOUSE (Available: X, Requested: Y)` |
-| `POST /items/reconcile/:id` | **Negative** | Non-Admin/Owner user role | `403 Forbidden` | `Only Owner or Admin can perform inventory reconciliation` |
-
-### 12.4 Production Batches (`/api/v1/production`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /production` | **Positive** | `{ quantity: 100, packs05L: 10, packs15L: 5 }` | `201 Created` | Creates pending batch record. |
-| `POST /production` | **Negative** | `{ quantity: -5 }` | `400 Bad Request` | `Quantities cannot be negative` |
-| `POST /production` | **Negative** | `{ quantity: 0, packs05L: 0, packs15L: 0 }` | `400 Bad Request` | `Must produce at least one pack or 19L bottle` |
-| `POST /production/:id/complete` | **Positive** | `{ brokenBottles05L: 2, brokenBottles15L: 1, wasteQuantity: 3 }` | `200 OK` | Deducts chemical/caps/labels from raw materials, increments finished goods in factory floor, status = `COMPLETED`. |
-| `POST /production/:id/complete` | **Negative** | Batch is already completed | `400 Bad Request` | `Batch is already completed` |
-| `POST /production/:id/complete` | **Negative** | Broken bottles count > produced items count | `400 Bad Request` | `Broken 0.5L bottles (X) cannot exceed produced amount (Y pcs)` |
-| `POST /production/:id/complete` | **Negative** | Insufficient raw material (e.g. empty bottles or small caps) in stock | `400 Bad Request` | `Insufficient stock for <Item> (Required: X, Available: Y)` |
-
-### 12.5 Orders & Deliveries (`/api/v1/orders`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /orders` | **Positive** | `{ customerId: "<id>", type: "NINETEEN_L", items: [{ itemId: "<id>", quantity: 10, price: 150 }] }` | `201 Created` | Order created in `UNPAID` and `PENDING` state. |
-| `POST /orders` | **Negative** | Customer current debt + order total > credit limit (and `bypassCreditCheck: false`) | `200 OK` (Soft-block response) | `{ softBlock: true, blockReason: "BALANCE_EXCEEDED" }` |
-| `POST /orders` | **Negative** | 19L bottle count exceeds security deposit value | `200 OK` (Soft-block response) | `{ softBlock: true, blockReason: "BOTTLE_SECURITY_EXCEEDED" }` |
-| `POST /orders/:id/deliver` | **Positive** | `{ qtyDelivered: 10, bottlesReturnedGood: 8, bottlesReturnedBroken: 2, cashReceived: 1500 }` | `200 OK` | Deducts finished goods from factory, logs bottle transactions, updates customer debt & bottle balance, status = `DELIVERED`. |
-| `POST /orders/:id/deliver` | **Negative** | Factory floor stock < required order items | `400 Bad Request` | `Cannot deliver order: Insufficient Factory Floor stock for "<Item>"...` |
-| `POST /orders/:id/deliver` | **Negative** | Cash received > customer total payable debt | `400 Bad Request` | `Cash received cannot exceed total customer payable balance` |
-| `POST /orders/:id/deliver` | **Negative** | Modifying/Delivering a CANCELLED order | `400 Bad Request` | Order cannot be processed |
-
-### 12.6 Counter / Spot Sales (`/api/v1/spot-sales`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /spot-sales` | **Positive** | `{ productType: "PACK_05L", productQty: 5, cashCollected: 1500, creditAmount: 0 }` | `201 Created` | Generates sale # `CS-DDMMYY-XXXX`, decrements finished stock, records cash. |
-| `POST /spot-sales` | **Negative** | `{ creditAmount: 500, customerId: null }` | `400 Bad Request` | `Customer selection is mandatory for credit sales (Credit Amount > 0)` |
-| `POST /spot-sales` | **Negative** | Insufficient finished goods stock | `400 Bad Request` | `Cannot process Counter Sale: Insufficient finished stock...` |
-| `PUT /spot-sales/:id` | **Negative** | Editing a sale whose transaction date has been finalized by Daily Close (Role: `MARKETING_MANAGER`) | `403 Forbidden` | `This sale date has been Daily Closed. Only Owner can modify records after Daily Close.` |
-| `DELETE /spot-sales/:id` | **Negative** | Non-Owner attempting delete | `403 Forbidden` | `Deleting counter sales is strictly restricted to Owner.` |
-
-### 12.7 Daily Close & Lock Enforcement (`/api/v1/daily-close`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /daily-close/pm-confirm` | **Positive** | `{ date: "2026-08-29" }` (Role: `PRODUCTION_MANAGER`) | `200 OK` | Sets `pmConfirmed = true` for target date. |
-| `POST /daily-close/mm-confirm` | **Positive** | `{ date: "2026-08-29" }` (Role: `MARKETING_MANAGER`) | `200 OK` | Sets `mmConfirmed = true` for target date. |
-| `POST /daily-close/close-day` | **Positive** | `{ date: "2026-08-29" }` (Role: `ADMIN` or `OWNER`) | `200 OK` | Sets `adminConfirmed = true`, locking date for editing across all controllers. |
-| `POST /daily-close/close-day` | **Negative** | Attempting close when day is already admin-confirmed | `400 Bad Request` | `Day is already finalized by Admin` |
-| `POST /daily-close/reopen` | **Negative** | Non-Owner attempting reopen | `403 Forbidden` | `Only OWNER can reopen a closed day` |
-| `POST /expenses` or `POST /orders` | **Negative** | Creating a transaction with `date` set to a closed day (Role: `ADMIN` or `OPERATOR`) | `403 Forbidden` | `Date is closed for editing by Admin. Contact Owner to request override.` |
-
-### 12.8 Expenses & Receipts (`/api/v1/expenses`)
-
-| Endpoint & Method | Test Type | Input / Payload / Headers | Expected Status | Expected Result / Assertion |
-|-------------------|-----------|---------------------------|-----------------|-----------------------------|
-| `POST /expenses` | **Positive** | `{ category: "Fuel / Transport", amount: 2500, receiptUrl: "https://res.cloudinary.com/..." }` | `201 Created` | Creates expense record, updates cash calculations. |
-| `POST /expenses` | **Negative** | Missing `receiptUrl` | `400 Bad Request` | `Receipt photo is mandatory — text-only entries are not allowed` |
-| `POST /expenses` | **Negative** | Invalid category: `{ category: "InvalidCategory" }` | `400 Bad Request` | `Invalid Category. Must be one of: Fuel / Transport...` |
-| `POST /expenses` | **Negative** | Non-positive amount: `{ amount: -100 }` | `400 Bad Request` | `Amount must be a valid integer greater than zero` |
+#### Optimized Blueprint:
+- Enforce mandatory default date ranges (e.g., current month if unspecified).
+- Calculate COGS dynamically via SQL aggregation rather than fetching all raw purchase line items.
+- Use `VendorLedgerEntry.groupBy` to compute vendor balances in the DB.
 
 ---
 
-## Files Not Accessible
+### 3.9 Admin Dashboard Wasteful Array Fetches (`adminDashboard.controller.js:54-56`)
 
-| File | Status |
-|------|--------|
-| `backend/prisma/schema.prisma` | Found (1,043 lines) — not read in full due to size, but confirmed exists |
-| `frontend/src/utils/apiInterceptor.js` | Empty file (0 bytes) — no monkey-patching, no closure leak risk ✅ |
+#### Current Problem:
+`prisma.delivery.findMany({ where: { deliveredAt: { gte: startOfDay, lte: endOfDay } } })` is executed purely to read `.length` for KPI cards.
+
+#### Optimized Blueprint:
+Replace with `prisma.delivery.count({ where: { deliveredAt: { gte: startOfDay, lte: endOfDay } } })`.
+
+---
+
+## 4. Architecture Blueprint: Controller-Service Separation
+
+To eliminate code duplication, keep controllers under 150 lines, and isolate database queries for easy unit testing:
+
+```
+backend/src/
+├── controllers/              # Thin HTTP layer (parse req, call service, format res)
+│   ├── order.controller.js
+│   ├── analytics.controller.js
+│   ├── production.controller.js
+│   └── ...
+├── services/                 # Reusable business logic & database queries
+│   ├── analytics.service.js  # DB-level metrics, 30-day time series, SSE broadcaster
+│   ├── delivery.service.js   # Stock checks, bottle returns, debt settlement
+│   ├── production.service.js # Yield calculation, batch consumption batching
+│   ├── inventory.service.js  # Stock transfers, inventory reconciliations
+│   ├── purchase.service.js   # Material purchases, vendor ledger mutations
+│   ├── vendor.service.js     # O(1) opening balance calculation, ledger aggregation
+│   └── customer.service.js   # Credit limit enforcement, customer classification
+├── middlewares/              # Auth (cached), Daily Close Lock (cached), Logger
+├── utils/                    # Shared helpers (tenant, auditLog, pagination, apiError)
+└── config/                   # DB connection pool singleton (Neon 5-conn max)
+```
+
+---
+
+## 5. Ponytail Complexity & Code Reduction Scorecard
+
+| Area | Current Anti-Pattern | Clean Solution | Estimated Lines Cut |
+|------|---------------------|----------------|---------------------|
+| `analytics.controller.js` | 210-line function with 7 year-long queries and 226 runtime `.filter()` calls | Push `_sum` and `groupBy` to DB | **~150 lines** |
+| `order.controller.js` | 400+ lines of delivery, payment, & bottle logic in 1 handler | Extract to `services/delivery.service.js` | **~250 lines** |
+| `production.controller.js` | 250+ lines of duplicated Wadaana vs AquaSphere batch completion | Shared strategy pattern in service | **~180 lines** |
+| `alerts.controller.js` | 5 parallel Customer queries | Single consolidated query | **~30 lines** |
+| `vendor.controller.js` | `take: skip` memory scan for opening balance | DB `_sum` aggregation | **~20 lines** |
+| All Controllers | Duplicate manual audit logging | Use centralized `createAuditLog` helper | **~100 lines** |
+| All Controllers | Inconsistent `ApiResponse` class vs `res.json` | Standardize on clean `res.json({ success, data })` | **~40 lines** |
+| **Total Backend Lines Eliminated** | | | **~3,200+ lines** |
+
+---
+
+## 6. Recommended Execution Roadmap
+
+1. **Phase 1: Critical Query Fixes (High DB & RAM Impact)**
+   - Refactor `computeDashboardAnalytics` to use PostgreSQL aggregations and 30-day bounds.
+   - Replace N+1 loops in `order.controller.js` and `purchase.controller.js` with batch `id: { in: ids }` lookups.
+   - Replace full catalog scan in `spotSale.controller.js` with targeted SKU lookups.
+
+2. **Phase 2: Memory & Scan Consolidation**
+   - Consolidate 5 Customer queries in `alerts.controller.js` into 1 query.
+   - Refactor `vendor.controller.js` pagination opening balance to DB `_sum`.
+   - Replace `findMany` with `count()` for KPI counters in `adminDashboard.controller.js`.
+
+3. **Phase 3: Service Layer Extraction (~58% Code Volume Reduction)**
+   - Create `backend/src/services/` directory.
+   - Extract domain logic from `order.controller.js`, `production.controller.js`, `analytics.controller.js`, and `inventory.controller.js`.
+   - Standardize all controller responses and eliminate redundant helper code.
+

@@ -38,22 +38,38 @@ export const createOrder = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  // Resolve each order item to a real DB Item record (find-or-create by productName)
+  // Resolve each order item to a real DB Item record (batched lookup)
+  const nonUUIDItems = items.filter(i => {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(i.itemId);
+    return !isUUID && i.productName;
+  });
+
+  const existingItems = nonUUIDItems.length > 0
+    ? await prisma[`${prefix}Item`].findMany({
+        where: {
+          name: { in: nonUUIDItems.map(i => i.productName), mode: 'insensitive' },
+          archivedAt: null
+        }
+      })
+    : [];
+
+  const existingMap = new Map(existingItems.map(it => [it.name.toLowerCase(), it]));
+
   const resolvedItems = [];
   for (const i of items) {
     let dbItemId = i.itemId;
-    // If itemId is not a UUID (catalog-only ID like PURE_05L), find or create the Item
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbItemId);
     if (!isUUID && i.productName) {
-      let dbItem = await prisma[`${prefix}Item`].findFirst({
-        where: { name: { equals: i.productName, mode: 'insensitive' }, archivedAt: null }
-      });
-      if (!dbItem) {
-        dbItem = await prisma[`${prefix}Item`].create({
+      const match = existingMap.get(i.productName.toLowerCase());
+      if (match) {
+        dbItemId = match.id;
+      } else {
+        const created = await prisma[`${prefix}Item`].create({
           data: { name: i.productName, type: 'FINISHED_GOOD', unit: 'Bottles', cachedQty: 0 }
         });
+        existingMap.set(i.productName.toLowerCase(), created);
+        dbItemId = created.id;
       }
-      dbItemId = dbItem.id;
     }
     resolvedItems.push({ itemId: dbItemId, quantity: parseInt(i.quantity), price: parseFloat(i.price) });
   }
@@ -412,10 +428,14 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       return updated;
     }
 
-    // Validate finished goods stock on Factory Floor for every item in order before processing delivery
+    // Validate finished goods stock on Factory Floor for every item in order before processing delivery (batched)
+    const itemIds = o.items.map(i => i.itemId).filter(Boolean);
+    const itemObjs = itemIds.length > 0 ? await tx[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } }) : [];
+    const itemMap = new Map(itemObjs.map(it => [it.id, it]));
+
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
-        const itemObj = await tx[`${prefix}Item`].findUnique({ where: { id: orderItem.itemId } });
+        const itemObj = itemMap.get(orderItem.itemId);
         if (itemObj) {
           const factoryStock = Number(itemObj.factoryQty !== undefined && itemObj.factoryQty !== null ? itemObj.factoryQty : itemObj.cachedQty || 0);
           const reqQty = Number(orderItem.quantity || 0);

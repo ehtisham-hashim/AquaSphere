@@ -17,7 +17,6 @@ export default function Inventory() {
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [bottleSummary, setBottleSummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -30,10 +29,6 @@ export default function Inventory() {
         fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ];
 
-      if (tenant === 'aquasphere') {
-        promises.push(fetch(`${API}/bottles/summary`, { credentials: 'include' }));
-      }
-
       const results = await Promise.all(promises);
       const itemsJson = await results[0].json();
       const txnsJson = await results[1].json();
@@ -43,12 +38,6 @@ export default function Inventory() {
       }
       if (txnsJson.success || results[1].ok) {
         setTransactions(txnsJson.data || []);
-      }
-      if (tenant === 'aquasphere' && results[2]) {
-        const bottleJson = await results[2].json();
-        if (bottleJson.success) {
-          setBottleSummary(bottleJson.data);
-        }
       }
     } catch (err) {
       console.error('Failed to fetch finished goods inventory:', err);

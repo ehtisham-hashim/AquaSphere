@@ -15,12 +15,29 @@ const getPrefix = getTenantPrefix;
  */
 export const getReportData = asyncHandler(async (req, res) => {
   const { reportType } = req.params;
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, period } = req.query;
 
   const prefix = getPrefix(req);
+  const now = new Date();
 
-  const start = startDate ? new Date(startDate) : new Date(0);
-  const end = endDate ? new Date(endDate) : new Date();
+  let start = startDate ? new Date(startDate) : null;
+  let end = endDate ? new Date(endDate) : new Date();
+
+  if (!start) {
+    if (period === 'daily') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    } else if (period === 'weekly') {
+      start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'yearly') {
+      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+    } else if (period === 'all') {
+      start = new Date(0);
+    } else {
+      // Default to monthly (start of current month)
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+    }
+  }
   
   if (startDate) start.setUTCHours(0, 0, 0, 0);
   if (endDate) end.setUTCHours(23, 59, 59, 999);
@@ -229,13 +246,27 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'vendor':
     case 'vendor-balances': {
-      const vendors = await prisma[`${prefix}Vendor`].findMany({
-        include: { ledgerEntries: true }
-      });
+      const [vendors, ledgerSums] = await Promise.all([
+        prisma[`${prefix}Vendor`].findMany({
+          where: { archivedAt: null },
+          select: { id: true, name: true, phone: true }
+        }),
+        prisma[`${prefix}VendorLedgerEntry`].groupBy({
+          by: ['vendorId', 'type'],
+          _sum: { amount: true }
+        })
+      ]);
+
+      const balanceMap = {};
+      for (const entry of ledgerSums) {
+        if (!balanceMap[entry.vendorId]) balanceMap[entry.vendorId] = { purchases: 0, payments: 0 };
+        if (entry.type === 'PURCHASE') balanceMap[entry.vendorId].purchases = Number(entry._sum.amount || 0);
+        if (entry.type === 'PAYMENT') balanceMap[entry.vendorId].payments = Number(entry._sum.amount || 0);
+      }
 
       const vendorSummaries = vendors.map(v => {
-        const purchases = v.ledgerEntries.filter(e => e.type === 'PURCHASE').reduce((s, e) => s + Number(e.amount), 0);
-        const payments = v.ledgerEntries.filter(e => e.type === 'PAYMENT').reduce((s, e) => s + Number(e.amount), 0);
+        const purchases = balanceMap[v.id]?.purchases || 0;
+        const payments = balanceMap[v.id]?.payments || 0;
         return {
           name: v.name,
           phone: v.phone || '-',

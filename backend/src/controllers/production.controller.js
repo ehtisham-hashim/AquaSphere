@@ -304,6 +304,8 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       });
 
       // Update Wadaana finished goods stocks (Net Good = Total Produced - Broken)
+      const fgTxRows = [];
+      const fgItemUpdates = [];
       for (const map of wadaanaMapping) {
         const produced = pb[map.key] || 0;
         const brokenQty = pb[map.brokenKey] || 0;
@@ -312,38 +314,46 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
         if (netGood > 0) {
           const item = matchWadaanaItem(allItems, 'FINISHED_GOOD', map.primary, map.volume);
           if (item) {
-            await tx.wadaanaInventoryTransaction.create({
-              data: { itemId: item.id, quantity: netGood, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
-            });
-            await tx.wadaanaItem.update({
+            fgTxRows.push({ itemId: item.id, quantity: netGood, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id });
+            fgItemUpdates.push(tx.wadaanaItem.update({
               where: { id: item.id },
               data: { 
                 cachedQty: { increment: netGood },
                 factoryQty: { increment: netGood }
               }
-            });
+            }));
           }
         }
       }
 
+      if (fgTxRows.length > 0) {
+        await tx.wadaanaInventoryTransaction.createMany({ data: fgTxRows });
+        await Promise.all(fgItemUpdates);
+      }
+
       // Deduct Wadaana Preform Raw Materials
+      const rmConsumptionRows = [];
+      const rmTxRows = [];
+      const rmItemUpdates = [];
       for (const pref of preformDeductions) {
         if (pref.qty > 0) {
           const kgUsed = pref.qty * pref.weight;
           const rmItem = matchWadaanaItem(allItems, 'RAW_MATERIAL', pref.primary, pref.volume);
           if (rmItem) {
-            await tx.wadaanaProductionBatchConsumption.create({
-              data: { batchId: pb.id, itemId: rmItem.id, quantityUsed: kgUsed }
-            });
-            await tx.wadaanaInventoryTransaction.create({
-              data: { itemId: rmItem.id, quantity: kgUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
-            });
-            await tx.wadaanaItem.update({
+            rmConsumptionRows.push({ batchId: pb.id, itemId: rmItem.id, quantityUsed: kgUsed });
+            rmTxRows.push({ itemId: rmItem.id, quantity: kgUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id });
+            rmItemUpdates.push(tx.wadaanaItem.update({
               where: { id: rmItem.id },
               data: { cachedQty: { decrement: kgUsed } }
-            });
+            }));
           }
         }
+      }
+
+      if (rmConsumptionRows.length > 0) {
+        await tx.wadaanaProductionBatchConsumption.createMany({ data: rmConsumptionRows });
+        await tx.wadaanaInventoryTransaction.createMany({ data: rmTxRows });
+        await Promise.all(rmItemUpdates);
       }
 
       await tx.wadaanaAuditLog.create({
@@ -455,15 +465,25 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       }
     }
 
-    for (const d of deductions) {
-      await tx.aquasphereProductionBatchConsumption.create({ data: { batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed } });
-      await tx.aquasphereInventoryTransaction.create({ data: { itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' } });
-      await tx.aquasphereItem.update({ where: { id: d.itemId }, data: { cachedQty: { decrement: d.quantityUsed } } });
+    if (deductions.length > 0) {
+      await tx.aquasphereProductionBatchConsumption.createMany({
+        data: deductions.map(d => ({ batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed }))
+      });
+      await tx.aquasphereInventoryTransaction.createMany({
+        data: deductions.map(d => ({ itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }))
+      });
+      await Promise.all(deductions.map(d => 
+        tx.aquasphereItem.update({ where: { id: d.itemId }, data: { cachedQty: { decrement: d.quantityUsed } } })
+      ));
     }
 
-    for (const fg of finishedGoods) {
-      await tx.aquasphereInventoryTransaction.create({ data: { itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' } });
-      await tx.aquasphereItem.update({ where: { id: fg.itemId }, data: { cachedQty: { increment: fg.quantityAdded }, factoryQty: { increment: fg.quantityAdded } } });
+    if (finishedGoods.length > 0) {
+      await tx.aquasphereInventoryTransaction.createMany({
+        data: finishedGoods.map(fg => ({ itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }))
+      });
+      await Promise.all(finishedGoods.map(fg => 
+        tx.aquasphereItem.update({ where: { id: fg.itemId }, data: { cachedQty: { increment: fg.quantityAdded }, factoryQty: { increment: fg.quantityAdded } } })
+      ));
     }
 
     return pb;

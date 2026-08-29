@@ -119,28 +119,29 @@ export const getVendorById = asyncHandler(async (req, res) => {
   }
   const payableBalance = totalPurchases - totalPaid;
 
-  // 2. Fetch opening balance prior to current window/page if skip > 0
-  let openingBalance = 0;
-  if (skip > 0) {
-    const priorEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
-      where: { vendorId: id },
-      orderBy: { createdAt: 'asc' },
-      take: skip,
-      select: { type: true, amount: true }
-    });
-    openingBalance = priorEntries.reduce((sum, entry) => {
-      const amt = Number(entry.amount);
-      return entry.type === 'PURCHASE' ? sum + amt : sum - amt;
-    }, 0);
-  }
-
-  // 3. Fetch windowed ledger entries
+  // 2. Fetch windowed ledger entries
   const pageEntries = await prisma[`${prefix}VendorLedgerEntry`].findMany({
     where: { vendorId: id },
     orderBy: { createdAt: 'asc' },
     skip,
     take: limit
   });
+
+  // 3. Compute opening balance prior to current window/page via DB aggregation
+  let openingBalance = 0;
+  if (skip > 0 && pageEntries.length > 0) {
+    const priorSums = await prisma[`${prefix}VendorLedgerEntry`].groupBy({
+      by: ['type'],
+      where: {
+        vendorId: id,
+        createdAt: { lt: pageEntries[0].createdAt }
+      },
+      _sum: { amount: true }
+    });
+    const pPurchases = Number(priorSums.find(s => s.type === 'PURCHASE')?._sum?.amount || 0);
+    const pPayments = Number(priorSums.find(s => s.type === 'PAYMENT')?._sum?.amount || 0);
+    openingBalance = pPurchases - pPayments;
+  }
 
   // 4. Compute accurate running balance for displayed entries
   let currentBalance = openingBalance;

@@ -25,7 +25,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     todaysOrders,
     pendingOrders,
     pendingOrdersCount,
-    todaysDeliveries,
+    todaysDeliveriesCount,
     todaysProductionBatches,
     rawMaterials,
     finishedGoods,
@@ -51,7 +51,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } }
     }),
     // Today's completed deliveries count
-    prisma[`${prefix}Delivery`].findMany({
+    prisma[`${prefix}Delivery`].count({
       where: { deliveredAt: { gte: startOfDay, lte: endOfDay } }
     }),
     // Today's production batches
@@ -149,7 +149,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     kpis: {
       todaysOrdersCount: todaysOrders.length,
       pendingOrdersCount: pendingOrdersCount,
-      todaysDeliveriesCount: todaysDeliveries.length,
+      todaysDeliveriesCount,
       totalProductionYield: totalGoodYield,
       packs05LProduced: packs05LToday,
       packs15LProduced: packs15LToday,
