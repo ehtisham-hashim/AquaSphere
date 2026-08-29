@@ -1,103 +1,18 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
-
-const consolidateDuplicateFinishedGoods = async (prefix) => {
-  if (prefix === 'wadaana') return; // Wadaana operates on single bottle items, do not consolidate
-  try {
-    const allFG = await prisma[`${prefix}Item`].findMany({
-      where: { archivedAt: null }
-    });
-
-    const groups = [
-      {
-        canonicalName: '0.5L PET Pack (12 Bottles)',
-        unit: 'packs',
-        keywords: ['0.5', '500']
-      },
-      {
-        canonicalName: '1.5L PET Pack (6 Bottles)',
-        unit: 'packs',
-        keywords: ['1.5', '1500']
-      },
-      {
-        canonicalName: '19L Refill Bottle',
-        unit: 'bottles',
-        keywords: ['19']
-      }
-    ];
-
-    for (const g of groups) {
-      const matchingItems = allFG.filter(i => 
-        (i.type === 'FINISHED_GOOD' || !i.type) && 
-        g.keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase()))
-      );
-
-      if (matchingItems.length === 0) continue;
-
-      let canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
-
-      await prisma[`${prefix}Item`].update({
-        where: { id: canonicalItem.id },
-        data: { name: g.canonicalName, unit: g.unit, type: 'FINISHED_GOOD' }
-      });
-
-      for (const dupe of matchingItems) {
-        if (dupe.id === canonicalItem.id) continue;
-
-        // Re-link ALL foreign key references
-        await prisma[`${prefix}InventoryTransaction`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}OrderItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}PurchaseItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatchConsumption`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { outputItemId: dupe.id },
-          data: { outputItemId: canonicalItem.id }
-        }).catch(() => null);
-
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { inputItemId: dupe.id },
-          data: { inputItemId: canonicalItem.id }
-        }).catch(() => null);
-
-        // Soft-archive duplicate item so it never appears in inventory or transfer dropdowns
-        await prisma[`${prefix}Item`].update({
-          where: { id: dupe.id },
-          data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
-        }).catch(() => null);
-      }
-    }
-  } catch (err) {
-    console.error('Consolidation warning:', err);
-  }
-};
-
+/**
+ * Retrieves catalog items (raw materials / finished goods) with recipe relations.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
-  
-  await consolidateDuplicateFinishedGoods(prefix);
 
   const where = {};
   if (type) where.type = type;
@@ -109,9 +24,6 @@ export const getItems = asyncHandler(async (req, res) => {
     include: {
       recipeFinishedGoods: {
         include: { rawMaterial: true }
-      },
-      inventoryTransactions: {
-        select: { quantity: true, direction: true, refType: true }
       }
     }
   });
@@ -125,37 +37,19 @@ export const getItems = asyncHandler(async (req, res) => {
         item.unit = 'bottles';
       }
     }
-    if (item.inventoryTransactions && item.inventoryTransactions.length > 0) {
-      let netQty = 0;
-      for (const t of item.inventoryTransactions) {
-        if (t.refType === 'TRANSFER') continue;
-        const q = Number(t.quantity || 0);
-        if (t.direction === 'IN') netQty += q;
-        else if (t.direction === 'OUT') netQty -= q;
-      }
-      item.cachedQty = netQty;
-
-      // Check for Factory/Warehouse mismatch but DO NOT auto-fix silently
-      const fQty = Number(item.factoryQty || 0);
-      const wQty = Number(item.warehouseQty || 0);
-      if (fQty + wQty !== netQty) {
-        // Flag discrepancy but don't auto-correct
-        item.stockDiscrepancy = {
-          expected: netQty,
-          actual: fQty + wQty,
-          factory: fQty,
-          warehouse: wQty,
-          difference: (fQty + wQty) - netQty
-        };
-      }
-    }
-    delete item.inventoryTransactions;
     return item;
   });
 
   res.json({ success: true, data: itemsData });
 });
 
+/**
+ * Retrieves a single inventory item by ID.
+ *
+ * @param {import('express').Request} req - Express request object with item id parameter.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getItemById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -166,6 +60,13 @@ export const getItemById = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item });
 });
 
+/**
+ * Creates a new catalog item or reactivates an archived one with initial stock balance.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createItem = asyncHandler(async (req, res) => {
   const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0 } = req.body;
   const prefix = getTenantPrefix(req);
@@ -240,6 +141,13 @@ export const createItem = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: item });
 });
 
+/**
+ * Updates an item's configuration (name, unit, reorder level) and optionally increments stock atomically.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0 } = req.body;
@@ -279,6 +187,13 @@ export const updateItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updated });
 });
 
+/**
+ * Soft archives an item, hiding it from default inventory listings.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const archiveItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -291,6 +206,13 @@ export const archiveItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item, message: 'Item archived successfully' });
 });
 
+/**
+ * Restores a soft-archived item back to active inventory listings.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const restoreItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -303,6 +225,13 @@ export const restoreItem = asyncHandler(async (req, res) => {
   res.json({ success: true, data: item, message: 'Item restored successfully' });
 });
 
+/**
+ * Manually adjusts inventory quantity up or down with transaction tracking.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const adjustInventory = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { quantity, direction, reason } = req.body;
@@ -349,6 +278,13 @@ export const adjustInventory = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updatedItem });
 });
 
+/**
+ * Retrieves inventory ledger transactions with optional item type filtering.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getInventoryTransactions = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { type, limit = 100 } = req.query;
@@ -372,6 +308,13 @@ export const getInventoryTransactions = asyncHandler(async (req, res) => {
   res.json({ success: true, data: txns });
 });
 
+/**
+ * Transfers stock between factory and warehouse locations with batch tracking.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const transferStock = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId, fromLocation, toLocation, quantity, batchNo, notes } = req.body;
@@ -434,6 +377,13 @@ export const transferStock = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
 });
 
+/**
+ * Reconciles an item's cached stock balance from the sum of its historic inventory transactions.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const reconcileInventory = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId } = req.params;

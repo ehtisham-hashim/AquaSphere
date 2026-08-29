@@ -118,7 +118,6 @@ export default function Expenses() {
 
       <ExpensesTable 
         filteredExpenses={filteredExpenses}
-        totalExpensesCount={expenses.length}
         loading={loading}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}

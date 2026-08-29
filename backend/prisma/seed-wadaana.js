@@ -58,7 +58,7 @@ async function seedWadaanaRawMaterials() {
           where: { id: om.id }
         });
         console.log(`🗑️ Deleted: ${om.name}`);
-      } catch (err) {
+      } catch (_err) {
         // If deletion fails due to foreign key constraints, archive and purge quantity
         console.log(`⚠️ Could not delete ${om.name} due to relations, archiving & zeroing out...`);
         await prisma.wadaanaItem.update({

@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Search, ShieldCheck, Mail, Building2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL } from '../utils/api';
 
 export default function Users() {
-  const { user: currentUser } = useAuth();
   const tenant = getCompanyFromCookie();
   const isWadaana = tenant === 'wadaana';
 

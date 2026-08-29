@@ -30,7 +30,7 @@ async function main() {
   const vendor1 = await prisma.aquasphereVendor.create({
     data: { name: 'Plastics Supplier Co.' }
   });
-  const vendor2 = await prisma.aquasphereVendor.create({
+  const _vendor2 = await prisma.aquasphereVendor.create({
     data: { name: 'Label Makers Inc.' }
   });
 
@@ -47,7 +47,7 @@ async function main() {
       creditLimit: 20000, cachedBottleBalance: 15 
     }
   });
-  const customer3 = await prisma.aquasphereCustomer.create({
+  const _customer3 = await prisma.aquasphereCustomer.create({
     data: { 
       name: 'Ali Raza', phone: '03211112222', type: 'Corporate', address: 'Gulberg III, Lahore', 
       creditLimit: 15000, cachedBottleBalance: 10 
@@ -55,17 +55,17 @@ async function main() {
   });
 
   // 4. Create Purchases
-  const purchase1 = await prisma.aquaspherePurchase.create({
+  const _purchase1 = await prisma.aquaspherePurchase.create({
     data: { vendorId: vendor1.id, itemId: rawMaterial.id, quantity: 500, price: 15000, receiptUrl: 'http://example.com/receipt1' }
   });
 
   // 5. Create Production Batch
-  const batch1 = await prisma.aquasphereProductionBatch.create({
+  const _batch1 = await prisma.aquasphereProductionBatch.create({
     data: { outputItemId: finishedGood.id, quantity: 20 }
   });
 
   // 6. Create Expense
-  const expense1 = await prisma.aquasphereExpense.create({
+  const _expense1 = await prisma.aquasphereExpense.create({
     data: { category: 'Fuel for Delivery Van', amount: 3500, receiptUrl: '' }
   });
 

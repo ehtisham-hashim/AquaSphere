@@ -1,11 +1,9 @@
-import { PackageCheck, Search, Flame, Droplets, ArrowLeftRight } from 'lucide-react';
+import { Search, Flame, Droplets, ArrowLeftRight } from 'lucide-react';
 
 export default function InventoryHeader({ 
   search, 
   onSearchChange, 
   tenant = 'aquasphere',
-  totalFinishedGoods = 0,
-  totalUnitsCount = 0,
   onOpenTransferModal
 }) {
   const isWadaana = tenant === 'wadaana';

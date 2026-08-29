@@ -8,7 +8,6 @@ import {
   UserSquare2, 
   Factory, 
   PackageSearch, 
-  RefreshCcw, 
   ShoppingCart, 
   Users as VendorsIcon, 
   Banknote,

@@ -2,9 +2,18 @@ import { prisma } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getTenantPrefix } from '../utils/tenant.js';
+import { invalidateDailyCloseLockCache } from '../middlewares/dailyClose.middleware.js';
 
-const getPrefix = (req) => (req.headers['x-tenant'] || 'aquasphere').toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
+const getPrefix = getTenantPrefix;
 
+/**
+ * Finalizes and locks daily operations for the specified calendar date by Admin or Owner.
+ *
+ * @param {import('express').Request} req - Express request object containing date.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const closeDay = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -70,9 +79,18 @@ export const closeDay = asyncHandler(async (req, res) => {
     }
   });
 
+  invalidateDailyCloseLockCache(prefix, targetDate.toISOString().split('T')[0]);
+
   res.status(200).json(new ApiResponse(200, closedDay, 'Day closed successfully'));
 });
 
+/**
+ * Retrieves multi-role confirmation status and comprehensive daily operational stats for a specific date.
+ *
+ * @param {import('express').Request} req - Express request object containing query date.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -220,6 +238,13 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   }, 'Daily close status retrieved'));
 });
 
+/**
+ * Confirms production operations for the specified date by Production Manager.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -271,6 +296,13 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updatedDay, 'Production confirmed successfully'));
 });
 
+/**
+ * Confirms orders and customer bottle balances for the specified date by Marketing Manager.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -322,6 +354,13 @@ export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, updatedDay, 'MM daily close confirmed successfully'));
 });
 
+/**
+ * Retrieves full historical timeline of closed days enriched with production and order statistics.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getDailyCloseHistory = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
@@ -338,15 +377,21 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     take: 30
   });
 
-  const historyWithStats = await Promise.all(history.map(async (day) => {
-    const nextDate = new Date(day.date);
-    nextDate.setDate(nextDate.getDate() + 1);
+  if (history.length === 0) {
+    return res.status(200).json(new ApiResponse(200, [], 'Daily close history retrieved'));
+  }
 
-    const prodStats = await prodBatchModel.aggregate({
-      where: {
-        batchDate: { gte: day.date, lt: nextDate }
-      },
-      _sum: {
+  // Calculate overall date range for the 30 days
+  const minDate = new Date(history[history.length - 1].date);
+  const maxDate = new Date(history[0].date);
+  maxDate.setDate(maxDate.getDate() + 1);
+
+  // Batch query all production batches and orders in date range (2 queries total instead of 90)
+  const [allBatches, allOrders] = await Promise.all([
+    prodBatchModel.findMany({
+      where: { batchDate: { gte: minDate, lt: maxDate } },
+      select: {
+        batchDate: true,
         quantity: true,
         packs15L: true,
         packs05L: true,
@@ -354,39 +399,74 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
         brokenBottles15L: true,
         brokenBottles05L: true
       }
-    });
+    }),
+    prisma[`${prefix}Order`].findMany({
+      where: { createdAt: { gte: minDate, lt: maxDate } },
+      select: {
+        createdAt: true,
+        items: {
+          select: { quantity: true, price: true }
+        }
+      }
+    })
+  ]);
 
-    const orderItems = await prisma[`${prefix}OrderItem`].findMany({
-      where: { order: { createdAt: { gte: day.date, lt: nextDate } } },
-      select: { quantity: true, price: true }
-    });
+  // Group by YYYY-MM-DD
+  const batchMap = new Map();
+  for (const b of allBatches) {
+    if (!b.batchDate) continue;
+    const dStr = new Date(b.batchDate).toISOString().split('T')[0];
+    if (!batchMap.has(dStr)) {
+      batchMap.set(dStr, { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 });
+    }
+    const acc = batchMap.get(dStr);
+    acc.total19L += Number(b.quantity || 0);
+    acc.packs15L += Number(b.packs15L || 0);
+    acc.packs05L += Number(b.packs05L || 0);
+    acc.waste19L += Number(b.wasteQuantity || 0);
+    acc.broken15L += Number(b.brokenBottles15L || 0);
+    acc.broken05L += Number(b.brokenBottles05L || 0);
+  }
 
-    const ordersCount = await prisma[`${prefix}Order`].count({
-      where: { createdAt: { gte: day.date, lt: nextDate } }
-    });
+  const orderMap = new Map();
+  for (const o of allOrders) {
+    if (!o.createdAt) continue;
+    const dStr = new Date(o.createdAt).toISOString().split('T')[0];
+    if (!orderMap.has(dStr)) {
+      orderMap.set(dStr, { count: 0, totalWorth: 0 });
+    }
+    const acc = orderMap.get(dStr);
+    acc.count += 1;
+    for (const item of o.items || []) {
+      acc.totalWorth += (Number(item.quantity) || 0) * (Number(item.price) || 0);
+    }
+  }
 
-    const ordersTotalWorth = orderItems.reduce((s, item) => s + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
+  const historyWithStats = history.map(day => {
+    const dStr = new Date(day.date).toISOString().split('T')[0];
+    const pTotals = batchMap.get(dStr) || { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 };
+    const oTotals = orderMap.get(dStr) || { count: 0, totalWorth: 0 };
 
     return {
       ...day,
-      productionTotals: {
-        total19L: prodStats._sum.quantity || 0,
-        packs15L: prodStats._sum.packs15L || 0,
-        packs05L: prodStats._sum.packs05L || 0,
-        waste19L: prodStats._sum.wasteQuantity || 0,
-        broken15L: prodStats._sum.brokenBottles15L || 0,
-        broken05L: prodStats._sum.brokenBottles05L || 0,
-      },
+      productionTotals: pTotals,
       marketingTotals: {
-        ordersCount,
-        ordersTotalWorth
+        ordersCount: oTotals.count,
+        ordersTotalWorth: oTotals.totalWorth
       }
     };
-  }));
+  });
 
   res.status(200).json(new ApiResponse(200, historyWithStats, 'Daily close history retrieved'));
 });
 
+/**
+ * Reopens a finalized closed day for administrative corrections (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object containing date and reason.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const reopenDay = asyncHandler(async (req, res) => {
   const { date, reason } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
@@ -414,6 +494,8 @@ export const reopenDay = asyncHandler(async (req, res) => {
   await dailyCloseModel.delete({
     where: { id: existing.id }
   });
+
+  invalidateDailyCloseLockCache(prefix, targetDate.toISOString().split('T')[0]);
 
   await auditLogModel.create({
     data: {

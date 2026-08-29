@@ -2,15 +2,9 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
-
-const getTenantPrefix = (req) => {
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const headerVal = req.headers['x-tenant'];
-  const tenant = (cookieVal || headerVal || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
 
 const generateSaleNumber = () => {
   const now = new Date();
@@ -21,84 +15,18 @@ const generateSaleNumber = () => {
   return `CS-${d}${m}${y}-${rand}`;
 };
 
-// GET /api/v1/spot-sales
+/**
+ * GET /api/v1/spot-sales
+ * Retrieves paginated spot/counter sales with customer and cashier details.
+ *
+ * @param {import('express').Request} req - Express request object with pagination parameters.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getSpotSales = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const skip = (page - 1) * limit;
   const prefix = getTenantPrefix(req);
-
-  // Auto-heal missing inventory transactions for recent spot sales
-  try {
-    const recentSales = await prisma[`${prefix}SpotSale`].findMany({
-      take: 20,
-      orderBy: { createdAt: 'desc' }
-    });
-    const allItems = await prisma[`${prefix}Item`].findMany({ where: { archivedAt: null } });
-
-    for (const sale of recentSales) {
-      const existingTx = await prisma[`${prefix}InventoryTransaction`].findFirst({
-        where: { refType: 'SPOT_SALE', refId: sale.saleNumber }
-      });
-
-      if (!existingTx) {
-        let fgItem = null;
-        let qtyToDeduct = Number(sale.productQty || 1);
-
-        if (sale.productType === 'PACK_05L' || sale.productType === 'SINGLE_05L') {
-          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['500ml', '0.5l', '0.5', '500'].some(kw => i.name.toLowerCase().includes(kw)));
-          if (sale.productType === 'SINGLE_05L') qtyToDeduct = qtyToDeduct / 12;
-        } else if (sale.productType === 'PACK_15L' || sale.productType === 'SINGLE_15L') {
-          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['1.5l', '1500ml', '1.5', '1500'].some(kw => i.name.toLowerCase().includes(kw)));
-          if (sale.productType === 'SINGLE_15L') qtyToDeduct = qtyToDeduct / 6;
-        } else if (sale.productType === 'BOTTLE_19L') {
-          fgItem = allItems.find(i => (i.type === 'FINISHED_GOOD' || !i.type) && ['19l', '19'].some(kw => i.name.toLowerCase().includes(kw)));
-        }
-
-        if (fgItem) {
-          const currentFactory = Number(fgItem.factoryQty || 0);
-          let factoryDeduct = 0;
-          let warehouseDeduct = 0;
-
-          if (currentFactory >= qtyToDeduct) {
-            factoryDeduct = qtyToDeduct;
-          } else if (currentFactory > 0) {
-            factoryDeduct = currentFactory;
-            warehouseDeduct = qtyToDeduct - currentFactory;
-          } else {
-            warehouseDeduct = qtyToDeduct;
-          }
-
-          await prisma[`${prefix}InventoryTransaction`].create({
-            data: {
-              itemId: fgItem.id,
-              quantity: qtyToDeduct,
-              direction: 'OUT',
-              reason: `SPOT_SALE_${sale.productType}`,
-              refType: 'SPOT_SALE',
-              refId: sale.saleNumber,
-              createdAt: sale.createdAt,
-              location: factoryDeduct > 0 ? 'FACTORY' : 'WAREHOUSE'
-            }
-          });
-
-          const updateData = { cachedQty: { decrement: qtyToDeduct } };
-          if (factoryDeduct > 0) {
-            updateData.factoryQty = { decrement: factoryDeduct };
-          }
-          if (warehouseDeduct > 0) {
-            updateData.warehouseQty = { decrement: warehouseDeduct };
-          }
-
-          await prisma[`${prefix}Item`].update({
-            where: { id: fgItem.id },
-            data: updateData
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.error('SpotSale auto-heal warning:', err);
-  }
 
   const [sales, total] = await Promise.all([
     prisma[`${prefix}SpotSale`].findMany({
@@ -129,7 +57,14 @@ export const getSpotSales = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/spot-sales
+/**
+ * POST /api/v1/spot-sales
+ * Records a walk-in / spot sale transaction, updates customer credit balance if on credit, and decrements item stock.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createSpotSale = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { 
@@ -174,9 +109,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Customer selection is mandatory for credit sales (Credit Amount > 0)');
   }
 
-  let customerObj = null;
   if (customerId) {
-    customerObj = await prisma[`${prefix}Customer`].findUnique({
+    const customerObj = await prisma[`${prefix}Customer`].findUnique({
       where: { id: customerId }
     });
     if (!customerObj) {
@@ -352,7 +286,14 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: spotSale });
 });
 
-// PUT /api/v1/spot-sales/:id
+/**
+ * PUT /api/v1/spot-sales/:id
+ * Updates notes or payment method on a spot sale before daily close.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -394,7 +335,14 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, data: updated });
 });
 
-// DELETE /api/v1/spot-sales/:id
+/**
+ * DELETE /api/v1/spot-sales/:id
+ * Deletes a counter sale transaction and reverts credit balances (restricted to OWNER role).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deleteSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);

@@ -1,23 +1,32 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
 import MainLayout from './components/layout/MainLayout';
-import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import AccountantDashboard from './pages/AccountantDashboard';
-import Vendors from './pages/Vendors';
-import Purchases from './pages/Purchases';
-import RawMaterials from './pages/RawMaterials';
-import Production from './pages/Production';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
-import Expenses from './pages/Expenses';
-import CounterSales from './pages/CounterSales';
-import Users from './pages/Users';
-import Reports from './pages/Reports';
-import DailyClose from './pages/DailyClose';
-import Inventory from './pages/Inventory';
+import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
+
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Vendors = lazy(() => import('./pages/Vendors'));
+const Purchases = lazy(() => import('./pages/Purchases'));
+const RawMaterials = lazy(() => import('./pages/RawMaterials'));
+const Production = lazy(() => import('./pages/Production'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const CounterSales = lazy(() => import('./pages/CounterSales'));
+const Users = lazy(() => import('./pages/Users'));
+const Reports = lazy(() => import('./pages/Reports'));
+const DailyClose = lazy(() => import('./pages/DailyClose'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -33,31 +42,38 @@ function PublicRoute({ children }) {
   return children;
 }
 
-function DashboardRoleWrapper() {
-  return <Dashboard />;
-}
-
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index element={<DashboardRoleWrapper />} />
-        <Route path="vendors" element={<Vendors />} />
-        <Route path="purchases" element={<Purchases />} />
-        <Route path="raw-materials" element={<RawMaterials />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="production" element={<Production />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="expenses" element={<Expenses />} />
-        <Route path="counter-sales" element={<CounterSales />} />
-        <Route path="users" element={<Users />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="daily-close" element={<DailyClose />} />
-        <Route path="*" element={<div>Page not found</div>} />
-      </Route>
-    </Routes>
+    <RouteErrorBoundary>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <Login />
+              </Suspense>
+            </PublicRoute>
+          }
+        />
+        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route index element={<Dashboard />} />
+          <Route path="vendors" element={<Vendors />} />
+          <Route path="purchases" element={<Purchases />} />
+          <Route path="raw-materials" element={<RawMaterials />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="production" element={<Production />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="expenses" element={<Expenses />} />
+          <Route path="counter-sales" element={<CounterSales />} />
+          <Route path="users" element={<Users />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="daily-close" element={<DailyClose />} />
+          <Route path="*" element={<div>Page not found</div>} />
+        </Route>
+      </Routes>
+    </RouteErrorBoundary>
   );
 }
 

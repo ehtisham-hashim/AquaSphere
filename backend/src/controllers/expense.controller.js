@@ -3,11 +3,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
-
-const getTenantPrefix = (req) => {
-  const rawTenant = req.tenant || req.headers['x-tenant'] || req.headers['x-company-context'] || req.query?.tenant || req.cookies?.tenant || req.cookies?.company || 'aquasphere';
-  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
+import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
 
 const VALID_CATEGORIES = [
   'Fuel / Transport', 'Fuel',
@@ -21,9 +18,16 @@ const VALID_CATEGORIES = [
   'Miscellaneous'
 ];
 
+/**
+ * Retrieves filtered list of expenses by date range with creator details.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { startDate, endDate } = req.query;
+  const { startDate, endDate, page, limit } = req.query;
 
   const where = {};
   if (startDate || endDate) {
@@ -36,24 +40,51 @@ export const getExpenses = asyncHandler(async (req, res) => {
     }
   }
 
-  const expenses = await prisma[`${prefix}Expense`].findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          role: true
-        }
-      }
-    },
-    take: 5000
-  });
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
+  const skip = (pageNum - 1) * pageSize;
 
-  res.json({ success: true, data: expenses });
+  const [totalCount, expenses] = await Promise.all([
+    prisma[`${prefix}Expense`].count({ where }),
+    prisma[`${prefix}Expense`].findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            role: true
+          }
+        }
+      },
+      skip,
+      take: pageSize
+    })
+  ]);
+
+  const hasMore = skip + expenses.length < totalCount;
+
+  res.json({
+    success: true,
+    data: expenses,
+    pagination: {
+      page: pageNum,
+      limit: pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize) || 1,
+      hasMore
+    }
+  });
 });
 
+/**
+ * Creates a new expense entry with mandatory receipt proof and audit logging.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createExpense = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { category, amount, remarks, receiptUrl, expenseDate } = req.body;
@@ -93,22 +124,25 @@ export const createExpense = asyncHandler(async (req, res) => {
   });
 
   // Audit log
-  try {
-    await prisma[`${prefix}AuditLog`].create({
-      data: {
-        action: 'EXPENSE_CREATED',
-        entityType: 'EXPENSE',
-        entityId: expense.id,
-        details: JSON.stringify({ category, amount: expense.amount }),
-        performedBy: req.user?.id || 'SYSTEM'
-      }
-    });
-  } catch (_) {}
+  await createAuditLog(prefix, {
+    action: 'EXPENSE_CREATED',
+    entityType: 'EXPENSE',
+    entityId: expense.id,
+    details: { category, amount: expense.amount },
+    performedBy: req.user?.id || 'SYSTEM'
+  });
 
   broadcastDashboardUpdate(prefix);
   res.status(201).json({ success: true, data: expense });
 });
 
+/**
+ * Uploads an expense receipt photo to Cloudinary storage.
+ *
+ * @param {import('express').Request} req - Express request object with file.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const prefix = getTenantPrefix(req);

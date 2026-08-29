@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Printer } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getCompanyFromCookie } from '../utils/companyCookie';
@@ -11,7 +11,8 @@ import {
   PurchasesFilters,
   PurchasesTable,
   ViewPurchaseModal,
-  AddEditPurchaseModal
+  AddEditPurchaseModal,
+  PrintPurchaseModal
 } from '../components/purchases';
 
 export default function Purchases() {
@@ -49,7 +50,6 @@ export default function Purchases() {
 
   // Receipt upload state
   const [receiptFile, setReceiptFile] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState('');
   const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -90,7 +90,6 @@ export default function Purchases() {
     setRemarks('');
     setItems([{ itemId: '', quantity: '', unitPrice: '' }]);
     setReceiptFile(null);
-    setReceiptPreview('');
     setUploadedReceiptUrl('');
     setUploadError('');
     setError('');
@@ -113,7 +112,6 @@ export default function Purchases() {
     if (!file) return;
 
     setReceiptFile(file);
-    setReceiptPreview(URL.createObjectURL(file));
     setUploadError('');
     setUploading(true);
 
@@ -361,71 +359,11 @@ export default function Purchases() {
         onPrint={setPrintPurchase}
       />
 
-      {/* Printable Voucher Modal */}
-      {printPurchase && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 p-8 space-y-6">
-            <div className="flex justify-between items-start border-b border-slate-200 pb-4">
-              <div>
-                <h2 className="text-2xl font-black text-indigo-600">PURCHASE INVOICE</h2>
-                <p className="text-xs text-slate-500 mt-1">Official Purchase Voucher</p>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-slate-800">{printPurchase.invoiceNo || printPurchase.id}</div>
-                <div className="text-xs text-slate-500">{new Date(printPurchase.purchaseDate).toLocaleDateString()}</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl">
-              <div>
-                <span className="text-slate-400 font-medium block">Vendor:</span>
-                <span className="font-bold text-slate-800 text-sm">{printPurchase.vendor?.name}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-medium block">Delivered Location:</span>
-                <span className="font-bold text-indigo-700 text-sm">{printPurchase.deliveredTo || 'FACTORY'}</span>
-              </div>
-            </div>
-
-            <div>
-              <table className="w-full text-left text-xs border border-slate-200 rounded-lg overflow-hidden">
-                <thead className="bg-slate-100 font-semibold text-slate-700">
-                  <tr>
-                    <th className="p-2.5">Item</th>
-                    <th className="p-2.5">Qty</th>
-                    <th className="p-2.5">Unit Price</th>
-                    <th className="p-2.5 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {printPurchase.items?.map((it, idx) => (
-                    <tr key={idx}>
-                      <td className="p-2.5 font-medium text-slate-800">{it.item?.name}</td>
-                      <td className="p-2.5 text-slate-600">{Number(it.quantity)} {it.item?.unit}</td>
-                      <td className="p-2.5 text-slate-600">Rs {Number(it.unitPrice).toLocaleString()}</td>
-                      <td className="p-2.5 text-right font-bold text-slate-800">Rs {Number(it.total).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-              <span className="font-bold text-slate-700 text-sm">Total Payable</span>
-              <span className="text-2xl font-black text-indigo-600">Rs {Number(printPurchase.grandTotal).toLocaleString('en-PK')}</span>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <button onClick={() => setPrintPurchase(null)} className="px-4 py-2 text-slate-600 font-semibold text-xs hover:bg-slate-100 rounded-xl">
-                Close
-              </button>
-              <button onClick={() => window.print()} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5">
-                <Printer size={14} /> Print Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Printable Voucher Modal Component */}
+      <PrintPurchaseModal
+        purchase={printPurchase}
+        onClose={() => setPrintPurchase(null)}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

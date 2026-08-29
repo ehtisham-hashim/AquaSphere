@@ -2,14 +2,17 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
-const getTenantPrefix = (req) => {
-  const rawTenant = req.tenant || req.headers['x-company-context'] || req.headers['x-tenant'] || 'aquasphere';
-  return rawTenant.toString().toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
-
+/**
+ * Retrieves latest 50 sales orders with customer, items, payments, and delivery details.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
@@ -20,6 +23,13 @@ export const getOrders = asyncHandler(async (req, res) => {
   res.json({ success: true, data: orders });
 });
 
+/**
+ * Creates a new customer order with product items, credit limit checks, and audit logging.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, items, expectedDelivery, remarks, paymentStatus, bypassCreditCheck } = req.body; 
@@ -154,6 +164,13 @@ export const createOrder = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: order });
 });
 
+/**
+ * Updates an undelivered order's expected delivery, items, or remarks.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const updateOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -194,6 +211,13 @@ export const updateOrder = asyncHandler(async (req, res) => {
   res.json({ success: true, data: updated });
 });
 
+/**
+ * Fulfills and delivers an order, recording delivered quantities, bottle returns, cash collection, and inventory deduction.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deliverOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -224,8 +248,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const qty = parseInt(qtyDelivered || 0); // 19L delivered
     const retGood = parseInt(bottlesReturnedGood || 0);
     const retBroken = parseInt(bottlesReturnedBroken || 0);
-    const q05 = parseInt(qty05LDelivered || 0);
-    const q15 = parseInt(qty15LDelivered || 0);
+    const _q05 = parseInt(qty05LDelivered || 0);
+    const _q15 = parseInt(qty15LDelivered || 0);
     const cash = parseFloat(cashReceived || 0);
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     
@@ -267,7 +291,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
 
       const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
-      const currentDeposit = Number(customerSnapshot.deposit || 0);
+      const _currentDeposit = Number(customerSnapshot.deposit || 0);
 
       // Calculate payment allocation atomically
       let debtReduction = 0;
@@ -629,6 +653,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
   res.json({ success: true, data: order });
 });
 
+/**
+ * Generates and streams a PDF receipt invoice for the specified sales order.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getOrderPDF = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -650,6 +681,13 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   res.send(pdfBuffer);
 });
 
+/**
+ * Soft cancels an undelivered sales order with audit logging.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const deleteOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;

@@ -1,334 +1,425 @@
-# AquaSphere Deployment & VPS Hosting Guide
+# AquaSphere OS — Production Deployment Guide (Dokploy on Contabo VPS)
 
 ## Table of Contents
 
-- [Stack Overview](#stack-overview)
-- [Server Requirements](#server-requirements)
-- [VPS Providers Ranked](#vps-providers-ranked-best-value--premium)
-- [Price Comparison Summary](#price-comparison-summary)
-- [Convenience Trade-offs: DigitalOcean/Vultr vs Contabo](#convenience-trade-offs-digitaloceanvultr-vs-contabo)
-- [Final Recommendation](#final-recommendation)
-- [Deploy Stack on Your VPS](#deploy-stack-on-your-vps)
-- [Day 1 Security Checklist](#day-1-security-checklist)
+- [1. Architecture & Free-Tier Stack Overview](#1-architecture--free-tier-stack-overview)
+- [2. Contabo VPS Provisioning & Dokploy Setup](#2-contabo-vps-provisioning--dokploy-setup)
+- [3. Backend Dockerization & Configuration](#3-backend-dockerization--configuration)
+- [4. Traefik Reverse Proxy & Network Configuration](#4-traefik-reverse-proxy--network-configuration)
+- [5. Database Connection (Neon Free Tier Optimization)](#5-database-connection-neon-free-tier-optimization)
+- [6. Frontend Deployment (Dokploy or Vercel)](#6-frontend-deployment-dokploy-or-vercel)
+- [7. Multi-Tenant Cookies & CORS Configuration](#7-multi-tenant-cookies--cors-configuration)
+- [8. Process Lifecycle & Graceful Shutdown](#8-process-lifecycle--graceful-shutdown)
+- [9. Production Environment Variables Checklist](#9-production-environment-variables-checklist)
+- [10. Maintenance, Backups & Security Checklist](#10-maintenance-backups--security-checklist)
 
 ---
 
-## Stack Overview
+## 1. Architecture & Free-Tier Stack Overview
 
-| Layer            | Technology                                      |
-| :--------------- | :---------------------------------------------- |
-| **Backend**      | Node.js (Express 5)                             |
-| **Database**     | PostgreSQL (via Prisma ORM)                     |
-| **Frontend**     | React 19 + Vite (static build → CDN or VPS)     |
-| **File Storage** | Cloudinary (external — no local disk pressure)  |
-| **Other**        | PDF generation (PDFKit), JWT auth, rate limiting |
-
----
-
-## Server Requirements
-
-| Resource      | Minimum       | Recommended       |
-| :------------ | :------------ | :---------------- |
-| **RAM**       | 2 GB          | 4 GB              |
-| **vCPU**      | 1 core        | 2 cores           |
-| **Storage**   | 20 GB NVMe SSD | 50 GB NVMe SSD   |
-| **Bandwidth** | 1 TB/mo       | 4 TB/mo           |
-| **OS**        | Ubuntu 24.04 LTS | Ubuntu 24.04 LTS |
-
-> **Note:** Since Cloudinary handles file storage and the frontend is a static Vite build, the server's main job is running the Express API + PostgreSQL. This is a relatively lightweight workload — you don't need a beefy server.
-
----
-
-## VPS Providers Ranked (Best Value → Premium)
-
-### 1. 🥇 Contabo — Best Bang for Buck (RECOMMENDED)
-
-| Spec          | Cloud VPS 4                                |
-| :------------ | :----------------------------------------- |
-| **vCPU**      | 4 cores                                   |
-| **RAM**       | 8 GB                                      |
-| **Storage**   | 100 GB NVMe SSD                           |
-| **Bandwidth** | 32 TB/mo                                  |
-| **Price**     | **~€5.24/mo** (~$5.70/mo) on 24-mo plan   |
-
-**Why Contabo for AquaSphere:**
-
-- You get **4 vCPU + 8 GB RAM for ~$6/mo** — absurd value
-- More than enough for Node.js + PostgreSQL + serving React static files
-- 32 TB bandwidth means you'll never worry about overages
-- NVMe SSD ensures fast PostgreSQL query times
-
-**Trade-offs:**
-
-- Unmanaged — you set up everything yourself (Ubuntu, Node, PostgreSQL, Nginx, SSL)
-- Network latency can feel slightly less snappy than Hetzner
-- Support response times are slower (days, not hours)
-- Data centers: EU (Germany), US, Asia, Australia
-
-> **Tip:** For a water distribution business like AquaSphere, where traffic is internal/employee-facing with low concurrent users, Contabo's slight latency trade-off is **completely irrelevant**. You're getting 4× the specs of competitors at the same price.
-
----
-
-### 2. 🥈 Hetzner — Best Performance per Dollar
-
-| Spec          | CX23 (Shared) | CAX11 (ARM64) |
-| :------------ | :------------ | :------------ |
-| **vCPU**      | 2 cores       | 2 cores       |
-| **RAM**       | 4 GB          | 4 GB          |
-| **Storage**   | 40 GB NVMe    | 40 GB NVMe    |
-| **Bandwidth** | 20 TB/mo      | 20 TB/mo      |
-| **Price**     | **€5.49/mo**  | **~€4.49/mo** |
-
-**Why Hetzner:**
-
-- Superior network quality and consistent I/O performance
-- 20 TB free egress (massive)
-- Excellent developer-focused API and CLI
-- ARM64 (CAX) plans are even cheaper — Node.js runs perfectly on ARM
-
-**Trade-offs:**
-
-- After the June 2026 price hikes, the CX/CAX lines cost ~33-38% more than before
-- Dedicated vCPU (CPX) plans got expensive (113-176% increase)
-- EU data centers primarily (Falkenstein, Nuremberg, Helsinki) + Ashburn, US
-- Strict signup verification (some regions face issues)
-
-> **Important:** If you're in Pakistan, Hetzner's signup verification can be tricky — they sometimes flag non-EU signups. Have your ID ready. Contabo has a smoother onboarding process globally.
-
----
-
-### 3. 🥉 Hostinger — Best for Beginners
-
-| Spec          | KVM 1            | KVM 2            |
-| :------------ | :--------------- | :--------------- |
-| **vCPU**      | 1 core           | 2 cores          |
-| **RAM**       | 4 GB             | 8 GB             |
-| **Storage**   | 50 GB NVMe       | 100 GB NVMe      |
-| **Bandwidth** | 4 TB/mo          | 8 TB/mo          |
-| **Price**     | **~$4.99/mo** (promo) | **~$6.49/mo** (promo) |
-
-**Why Hostinger:**
-
-- AI-powered server management panel (easiest to use)
-- Good for those less comfortable with raw Linux terminal
-- Weekly backups included
-- Global data centers
-
-**Trade-offs:**
-
-- ⚠️ **Renewal prices jump 140-232%** after the promo period
-- That $4.99/mo KVM 1 becomes ~$12-16/mo on renewal
-- Less raw performance than Contabo/Hetzner at equal specs
-
-> **Warning:** The promo pricing is deceptive. Calculate the **renewal price** before committing. On a 2-year renewal, Hostinger can end up more expensive than Contabo/Hetzner for the same specs.
-
----
-
-### 4. DigitalOcean — Best Developer Experience (Premium)
-
-| Spec          | Basic Droplet | Regular Droplet |
-| :------------ | :------------ | :-------------- |
-| **vCPU**      | 1 core        | 2 cores         |
-| **RAM**       | 2 GB          | 4 GB            |
-| **Storage**   | 50 GB SSD     | 80 GB SSD       |
-| **Bandwidth** | 2 TB/mo       | 4 TB/mo         |
-| **Price**     | **$18/mo**    | **$24/mo**      |
-
-**Why DigitalOcean:**
-
-- Best documentation in the industry
-- One-click Node.js / PostgreSQL droplets
-- Managed databases option (PostgreSQL)
-- Beautiful, intuitive control panel
-- Massive tutorial library
-
-**Trade-offs:**
-
-- **3-4× more expensive** than Contabo for similar specs
-- Egress overages can add up
-- You're paying for convenience, not raw performance
-
----
-
-### 5. Vultr — Best Global Reach
-
-| Spec          | Cloud Compute |
-| :------------ | :------------ |
-| **vCPU**      | 2 cores       |
-| **RAM**       | 4 GB          |
-| **Storage**   | 100 GB SSD    |
-| **Bandwidth** | 3 TB/mo       |
-| **Price**     | **$24/mo**    |
-
-**Why Vultr:**
-
-- 32+ data center locations worldwide
-- Bare metal and GPU options for future scaling
-- Good API
-
-**Trade-offs:**
-
-- Premium pricing similar to DigitalOcean
-- No significant advantage over DO for AquaSphere's use case
-
----
-
-## Price Comparison Summary
-
-| Provider         | Plan            | vCPU | RAM  | Storage | Monthly Cost       |
-| :--------------- | :-------------- | :--: | :--: | :-----: | :----------------: |
-| **Contabo** 🥇   | Cloud VPS 4     |  4   | 8 GB | 100 GB  | **~$6/mo**         |
-| **Hetzner** 🥈   | CAX11 (ARM)     |  2   | 4 GB |  40 GB  | **~$5/mo**         |
-| **Hetzner**      | CX23 (x86)     |  2   | 4 GB |  40 GB  | **~$6/mo**         |
-| **Hostinger**    | KVM 2           |  2   | 8 GB | 100 GB  | **~$7/mo** (promo) |
-| **DigitalOcean** | Basic Droplet   |  1   | 2 GB |  50 GB  | **$18/mo**         |
-| **Vultr**        | Cloud Compute   |  2   | 4 GB | 100 GB  | **$24/mo**         |
-
----
-
-## Convenience Trade-offs: DigitalOcean/Vultr vs Contabo
-
-### Managed Databases
-
-| Feature              | DigitalOcean / Vultr                                                    | Contabo                                                       |
-| :------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------ |
-| PostgreSQL setup     | One-click managed DB — they handle backups, failover, updates           | You install, configure, secure, and backup PostgreSQL yourself |
-| If DB crashes at 3AM | Auto-heals, you sleep peacefully                                        | Your app is down until you SSH in and fix it                   |
-| Automatic backups    | Daily, with point-in-time recovery                                      | You write a `pg_dump` cron job yourself                       |
-
-### One-Click App Deployments
-
-| Feature       | DigitalOcean / Vultr                                      | Contabo                                        |
-| :------------ | :-------------------------------------------------------- | :--------------------------------------------- |
-| Node.js setup | Pre-built "1-Click App" — Node, Nginx, PM2 pre-configured | Blank Ubuntu. You install everything from scratch |
-| Firewall      | GUI-based cloud firewall                                   | You configure `ufw` via terminal               |
-| SSL/HTTPS     | Managed load balancer handles it                           | You set up Certbot + Nginx yourself             |
-
-### Dashboard & Monitoring
-
-| Feature         | DigitalOcean / Vultr                         | Contabo                                       |
-| :-------------- | :------------------------------------------- | :-------------------------------------------- |
-| Resource graphs | Built-in, real-time, pretty charts           | Nothing. Install Grafana/htop yourself         |
-| Alerts          | "Email me if CPU > 80%" — built in           | Set up your own monitoring (UptimeRobot etc.)  |
-| Console access  | In-browser terminal, VNC console             | Basic VNC, less polished                       |
-
-### Snapshots & Backups
-
-| Feature           | DigitalOcean / Vultr                        | Contabo                         |
-| :---------------- | :------------------------------------------ | :------------------------------ |
-| Server snapshots  | One-click, instant, from the dashboard      | Manual, limited, or paid add-on |
-| Automated backups | Toggle on → weekly backups for ~20% extra    | DIY with scripts                |
-| Restore           | Click "Restore" → done in minutes           | Manual restore process          |
-
-### Networking & Scaling
-
-| Feature          | DigitalOcean / Vultr                       | Contabo                                  |
-| :--------------- | :----------------------------------------- | :--------------------------------------- |
-| Load balancers   | Managed, $12/mo                            | Not available                            |
-| Private network  | Free VPC between your servers              | Basic, less flexible                     |
-| Resize server    | Click "Resize" → 2 minutes, zero downtime | Create new server, migrate manually       |
-| Floating IPs     | Free, instant failover                     | Not available                            |
-
-### Documentation & Community
-
-| Feature       | DigitalOcean                                                              | Contabo         |
-| :------------ | :------------------------------------------------------------------------ | :-------------- |
-| Tutorials     | Thousands of step-by-step guides ("How to install Node.js on Ubuntu")     | Almost nothing  |
-| Community Q&A | Active forum                                                              | Minimal         |
-| Support       | Ticket response in hours                                                  | Ticket response in **days** |
-
-### Does AquaSphere Need These Conveniences?
-
-**No.** Here's why:
-
-| Convenience Feature    | Why AquaSphere Doesn't Need It                                                                            |
-| :--------------------- | :-------------------------------------------------------------------------------------------------------- |
-| Managed Database       | Small user base (employees). A `pg_dump` cron job running nightly is perfectly fine                       |
-| One-click deploy       | You set it up **once**. After that first 2-3 hours of setup, you never touch it again                      |
-| Monitoring dashboard   | `htop` + a free UptimeRobot account gives you the same thing                                              |
-| Auto-scaling           | A water distribution business isn't getting traffic spikes. Your traffic is predictable                    |
-| Snapshots              | A weekly backup script takes 5 lines of bash                                                              |
-
-### The Math
+AquaSphere OS is architected to run with high stability and near-zero infrastructure cost by pairing **Contabo VPS + Dokploy** with managed free-tier cloud services:
 
 ```
-DigitalOcean (2 vCPU, 4 GB RAM):   $24/mo × 12 = $288/year
-Contabo     (4 vCPU, 8 GB RAM):     $6/mo × 12 =  $72/year
-                                                   ─────────
-                            You save:               $216/year
-                            And get:                 2× the specs
+                  ┌───────────────────────────────────────────────────────────┐
+                  │                      CONTABO VPS                          │
+                  │                                                           │
+                  │   ┌───────────────────────────────────────────────────┐   │
+                  │   │           Traefik Reverse Proxy (Dokploy)         │   │
+                  │   │       (Auto Let's Encrypt SSL, Port 80/443)       │   │
+                  │   └───────────────┬───────────────────────────┬───────┘   │
+                  │                   │                           │           │
+                  │      ┌────────────▼─────────────┐   ┌─────────▼────────┐  │
+                  │      │  Backend API Container   │   │  Frontend React  │  │
+                  │      │    (Node 20 Express)     │   │   (Vite Static)  │  │
+                  │      └────────────┬─────────────┘   └──────────────────┘  │
+                  └───────────────────┼───────────────────────────────────────┘
+                                      │
+              ┌───────────────────────┴───────────────────────┐
+              │                                               │
+    ┌─────────▼───────────────┐                     ┌─────────▼─────────────┐
+    │    Neon PostgreSQL      │                     │  Cloudinary Storage   │
+    │  (Serverless Free Tier) │                     │      (Free Tier)      │
+    │  • Max 5 Pool Conn      │                     │  • Direct Memory-to-  │
+    │  • pgBouncer Pooling    │                     │    Cloud Streaming    │
+    └─────────────────────────┘                     └───────────────────────┘
 ```
 
-You'd be paying **$216/year extra** for a pretty dashboard and one afternoon of saved setup time. That's not value — that's a luxury tax.
+| Layer | Provider / Host | Plan / Tier | Cost |
+| :--- | :--- | :--- | :--- |
+| **Server (Host)** | **Contabo Cloud VPS 4** | 4 vCPU, 8 GB RAM, 100 GB NVMe | ~$6/month |
+| **PaaS / Orchestration** | **Dokploy (Self-Hosted)** | Open-Source Docker Manager | $0/month |
+| **Backend API** | Dokploy Docker Container | Node.js 20 LTS (Express 5) | $0 (runs on VPS) |
+| **Frontend UI** | Dokploy Static / Vercel | React 19 + Vite | $0 (free tier) |
+| **Database** | **Neon PostgreSQL** | Serverless Free Tier (0.25 Compute) | $0 (free tier) |
+| **File Storage** | **Cloudinary** | Free Tier (25 GB credits/mo) | $0 (free tier) |
+| **Total Monthly Cost** | | | **~$6 / month** |
 
 ---
 
-## Final Recommendation
+## 2. Contabo VPS Provisioning & Dokploy Setup
 
-### Go with Contabo Cloud VPS 4
+### 2.1 Initial Server Setup (Ubuntu 24.04 LTS)
 
+SSH into your freshly provisioned Contabo VPS:
+
+```bash
+ssh root@<YOUR_CONTABO_IP>
 ```
-   Contabo Cloud VPS 4
-   ┌──────────────────────────────────────────────────┐
-   │  4 vCPU  │  8 GB RAM  │  100 GB NVMe  │  ~$6/mo │
-   └──────────────────────────────────────────────────┘
-               │
-               ├── Node.js (Express 5 API)      ✅ Plenty of headroom
-               ├── PostgreSQL (Prisma)           ✅ 8GB RAM = fast queries
-               ├── Nginx (reverse proxy + SSL)   ✅ Serves React build
-               ├── PM2 (process manager)         ✅ Auto-restart on crash
-               └── Certbot (free SSL)            ✅ HTTPS for free
+
+Update system packages and configure basic firewall:
+
+```bash
+apt update && apt upgrade -y
+apt install -y curl ufw git htop fail2ban
+
+# Configure UFW firewall (Keep port 3000 closed to public traffic)
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp    # SSH
+ufw allow 80/tcp    # HTTP (Traefik reverse proxy)
+ufw allow 443/tcp   # HTTPS (Traefik reverse proxy)
+ufw --force enable
 ```
 
-**For ~$6/month you get:**
+### 2.2 Install Dokploy & Secure Initial Admin Setup
 
-- ✅ **4 vCPU** — overkill for your workload, which is great (room to grow)
-- ✅ **8 GB RAM** — PostgreSQL loves RAM for caching; Node.js will use ~200-400MB
-- ✅ **100 GB NVMe** — your DB won't exceed 5-10 GB for years
-- ✅ **32 TB bandwidth** — practically unlimited for an internal business app
+Run the official one-line Dokploy installation script on the VPS:
 
-**Your annual cost:** ~$72/year for the entire backend infrastructure.
+```bash
+curl -sSL https://dokploy.com/install.sh | sh
+```
 
-### Recommended Architecture
-
-| Component    | Where                    | Cost        |
-| :----------- | :----------------------- | :---------- |
-| **Backend**  | Contabo VPS              | ~$6/mo      |
-| **Frontend** | Vercel (free tier)       | $0/mo       |
-| **Files**    | Cloudinary (free tier)   | $0/mo       |
-| **Total**    |                          | **~$6/mo**  |
-
----
-
-## Deploy Stack on Your VPS
-
-Once you provision the Contabo VPS, install these components:
-
-| Component            | Purpose                                            |
-| :------------------- | :------------------------------------------------- |
-| **Ubuntu 24.04 LTS** | Operating system                                   |
-| **Node.js 22 LTS**   | Runtime for Express backend                        |
-| **PostgreSQL 17**    | Database                                            |
-| **Nginx**            | Reverse proxy, SSL termination, serve static files |
-| **PM2**              | Keep Node.js running, auto-restart on crash        |
-| **Certbot**          | Free Let's Encrypt SSL certificates                |
-| **UFW**              | Firewall (allow only ports 80, 443, 22)            |
+> [!IMPORTANT]
+> **Security Notice**: Do **NOT** expose port 3000 publicly over unencrypted HTTP.
+> Connect securely using an **encrypted SSH Tunnel** from your local machine:
+>
+> ```bash
+> ssh -L 3000:localhost:3000 root@<YOUR_CONTABO_IP>
+> ```
+>
+> Once connected, open your local browser to:
+> `http://localhost:3000`
+>
+> Complete the initial administrator account creation and configure your production management domain with automatic SSL (e.g., `https://dokploy.yourdomain.com`). All subsequent management must be performed through HTTPS or the private SSH tunnel.
 
 ---
 
-## Day 1 Security Checklist
+## 3. Backend Dockerization & Configuration
 
-> **Caution:** Regardless of which VPS you choose, always complete these steps immediately after provisioning:
+### 3.1 Production Multi-Stage Dockerfile
 
-1. **Disable root SSH login** — Create a non-root user with sudo privileges
-2. **Use SSH key authentication** — Disable password-based SSH entirely
-3. **Enable UFW firewall** — Allow only ports 22 (SSH), 80 (HTTP), 443 (HTTPS)
-4. **Set up automated PostgreSQL backups** — `pg_dump` cron job (daily at minimum)
-5. **Enable automatic security updates** — `unattended-upgrades` package
-6. **Configure fail2ban** — Block brute-force SSH attempts
-7. **Set up monitoring** — Free UptimeRobot account for uptime alerts
+Create `backend/Dockerfile` in your repository:
+
+```dockerfile
+# Step 1: Dependencies & Prisma Generation
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY package*.json pnpm-lock.yaml* ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+COPY prisma ./prisma/
+RUN pnpm prisma generate
+COPY . .
+
+# Step 2: Minimal Production Image
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN apk add --no-cache openssl
+ENV NODE_ENV=production
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/package.json ./package.json
+
+# Non-root user for security
+USER node
+EXPOSE 3000
+
+# Run migrations automatically then start Express server
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+```
+
+### 3.2 Deploying in Dokploy Dashboard
+
+1. Open Dokploy $\rightarrow$ **Projects** $\rightarrow$ Create Project `AquaSphere`.
+2. Click **Add Service** $\rightarrow$ **Application** $\rightarrow$ select your GitHub Repository.
+3. Set **Build Type**: `Dockerfile`.
+4. Set **Dockerfile Path**: `backend/Dockerfile`.
+5. Set **Context Path**: `backend`.
+6. Add **Domain**: `api.aquasphere.yourdomain.com` with **Certificate**: `Let's Encrypt`.
+7. Set **Container Port**: `3000`.
 
 ---
 
-**Last Updated:** August 27, 2026
-**Document Version:** 1.0.0
+## 4. Traefik Reverse Proxy & Network Configuration
+
+Dokploy uses **Traefik** to route external HTTPS traffic to your containers. To prevent reverse-proxy errors:
+
+### 4.1 Express Proxy Trust Setting (`backend/src/index.js`)
+
+Express must trust Traefik's proxy headers. If missing, `express-rate-limit` will identify Traefik's internal IP (`172.18.0.x`) for all users, locking out every employee simultaneously after 300 requests:
+
+```javascript
+// backend/src/index.js
+app.set('trust proxy', 1);
+```
+
+### 4.2 Server-Sent Events (SSE) Buffering Fix (`analytics.controller.js`)
+
+Traefik buffers HTTP responses by default. For the live dashboard SSE stream (`/api/v1/analytics/dashboard/stream`) to stay connected without hanging or dropping:
+
+```javascript
+// backend/src/controllers/analytics.controller.js
+export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Tells Traefik not to buffer stream packets
+
+  cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
+  res.write(`data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`);
+
+  sseClients[prefix].push(res);
+
+  const heartbeat = setInterval(() => res.write(':heartbeat\n\n'), 30000);
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients[prefix] = sseClients[prefix].filter(client => client !== res);
+  });
+});
+```
+
+---
+
+## 5. Database Connection (Neon Free Tier Optimization)
+
+Because we are on the **Neon Serverless Free Tier**, we must obey Neon's connection limits and network behavior:
+
+### 5.1 Neon Connection Pooler URL
+
+Neon provides two connection strings:
+1. **Direct Connection**: `ep-xyz.region.aws.neon.tech/aquasphere` (Bypasses pooler, strictly max 5 connections).
+2. **Pooled Connection (pgBouncer)**: `ep-xyz-pooler.region.aws.neon.tech/aquasphere` (Recommended for production).
+
+Always use the **Pooled URL** in your Dokploy `DATABASE_URL` environment variable:
+
+```env
+DATABASE_URL=postgresql://user:password@ep-xyz-pooler.region.aws.neon.tech/aquasphere?sslmode=require&pgbouncer=true
+```
+
+### 5.2 Neon-Optimized `db.js` Setup
+
+```javascript
+// backend/src/config/db.js
+import 'dotenv/config';
+import pg from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
+
+const { Pool } = pg;
+const connectionString = process.env.DATABASE_URL;
+
+// Neon free tier: keep max connections at 5 to stay strictly within limits
+const pool = new Pool({
+  connectionString,
+  max: parseInt(process.env.DATABASE_POOL_SIZE || '5', 10),
+  idleTimeoutMillis: 10000,        // Close idle connections after 10s
+  connectionTimeoutMillis: 10000,  // Fail fast if connection cannot be acquired
+  allowExitOnIdle: true
+});
+
+pool.on('error', (err) => {
+  console.error('PostgreSQL pool error:', err.message);
+});
+
+const adapter = new PrismaPg(pool);
+
+export const prisma = new PrismaClient({
+  adapter,
+  log: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn']
+});
+
+export async function closeDatabaseConnections() {
+  await prisma.$disconnect();
+  await pool.end();
+}
+```
+
+---
+
+## 6. Frontend Deployment (Dokploy or Vercel)
+
+### Option A: Deploy on Dokploy (Self-Hosted on Same VPS)
+
+1. In Dokploy, click **Add Service** $\rightarrow$ **Application**.
+2. Select GitHub repo, set **Root Directory**: `frontend`.
+3. Set **Build Type**: `Nixpacks` or `Static Vite`.
+4. Build Command: `pnpm run build`.
+5. Publish Directory: `dist`.
+6. Set Domain: `app.aquasphere.yourdomain.com`.
+7. Add Environment Variable:
+   ```env
+   VITE_API_URL=https://api.aquasphere.yourdomain.com/api/v1
+   ```
+
+### Option B: Deploy on Vercel (Free Tier)
+
+1. Connect GitHub repository to Vercel.
+2. Root Directory: `frontend`.
+3. Framework Preset: `Vite`.
+4. Environment Variables:
+   ```env
+   VITE_API_URL=https://api.aquasphere.yourdomain.com/api/v1
+   ```
+5. Custom Domain: `app.aquasphere.yourdomain.com`.
+
+---
+
+## 7. Multi-Tenant Cookies & CORS Configuration
+
+### 7.1 Cross-Subdomain Cookie Configuration (`backend/src/controllers/auth.controller.js`)
+
+When frontend (`app.yourdomain.com`) and backend (`api.yourdomain.com`) are on different subdomains:
+
+```javascript
+const isProduction = process.env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction, // Requires HTTPS (Traefik SSL)
+  sameSite: isProduction ? 'none' : 'lax', // 'none' is mandatory for cross-subdomain fetch
+  maxAge: 24 * 60 * 60 * 1000 // 1 day
+};
+```
+
+### 7.2 Backend CORS Setup (`backend/src/index.js`)
+
+```javascript
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://app.aquasphere.yourdomain.com',
+  'http://localhost:5173'
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true
+}));
+```
+
+---
+
+## 8. Process Lifecycle & Graceful Shutdown
+
+Dokploy sends a `SIGTERM` signal before killing containers during redeployments. Without graceful shutdown, active transactions are abruptly severed, leaving locked rows or dirty states.
+
+Add this handler in `backend/src/index.js`:
+
+```javascript
+// backend/src/index.js
+import { closeDatabaseConnections } from './config/db.js';
+
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+const shutdown = async (signal) => {
+  console.log(`Received ${signal}. Gracefully closing connections...`);
+  server.close(async () => {
+    await closeDatabaseConnections();
+    console.log('HTTP server and Database connection pool closed.');
+    process.exit(0);
+  });
+
+  // Force close if lingering queries exceed 10s
+  setTimeout(() => {
+    console.error('Shutdown timeout exceeded. Forcing exit.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+```
+
+---
+
+## 9. Production Environment Variables Checklist
+
+Set these environment variables inside Dokploy for the **Backend Service**:
+
+| Variable | Example Value | Description |
+| :--- | :--- | :--- |
+| `NODE_ENV` | `production` | Enables production optimizations & logs |
+| `PORT` | `3000` | Internal container port exposed to Traefik |
+| `DATABASE_URL` | `postgresql://user:pass@ep-xyz-pooler.region.aws.neon.tech/aquasphere?sslmode=require&pgbouncer=true` | Pooled Neon PostgreSQL connection string |
+| `DATABASE_POOL_SIZE` | `5` | Set to 5 for Neon free tier |
+| `JWT_SECRET` | `super_secure_random_64_char_secret_key` | Secret for signing auth tokens |
+| `FRONTEND_URL` | `https://app.aquasphere.yourdomain.com` | Allowed CORS frontend origin |
+| `CLOUDINARY_CLOUD_NAME`| `aquasphere-cdn` | Cloudinary tenant account |
+| `CLOUDINARY_API_KEY` | `123456789012345` | Cloudinary API Key |
+| `CLOUDINARY_API_SECRET`| `abcdefghijklmnopqrstuvwxyz` | Cloudinary API Secret |
+
+---
+
+## 10. Maintenance, Backups & Security Checklist
+
+### 10.1 Automated Neon Database Backup Script (Contabo Cron)
+
+Even on Neon free tier, keep daily off-site backups saved directly to your Contabo VPS disk storage (100 GB NVMe available):
+
+Create `/root/backup-db.sh`:
+
+```bash
+#!/bin/bash
+set -eo pipefail
+
+BACKUP_DIR="/root/db_backups"
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TEMP_FILENAME="$BACKUP_DIR/aquasphere_${TIMESTAMP}.sql.gz.tmp"
+FINAL_FILENAME="$BACKUP_DIR/aquasphere_${TIMESTAMP}.sql.gz"
+
+echo "[$(date)] Starting database backup..."
+
+# Dump using direct Neon connection with pipefail set to detect errors
+if pg_dump "postgresql://user:pass@ep-xyz.region.aws.neon.tech/aquasphere?sslmode=require" | gzip > "$TEMP_FILENAME"; then
+  # Verify that the dumped archive is non-empty before committing
+  if [ -s "$TEMP_FILENAME" ]; then
+    mv "$TEMP_FILENAME" "$FINAL_FILENAME"
+    echo "[$(date)] Backup created successfully: $FINAL_FILENAME"
+  else
+    echo "[$(date)] ERROR: Backup file is empty." >&2
+    rm -f "$TEMP_FILENAME"
+    exit 1
+  fi
+else
+  echo "[$(date)] ERROR: pg_dump or gzip pipeline failed." >&2
+  rm -f "$TEMP_FILENAME"
+  exit 1
+fi
+
+# Keep only last 14 days of backups
+find "$BACKUP_DIR" -name "aquasphere_*.sql.gz" -mtime +14 -exec rm {} \;
+```
+
+Make executable and add to crontab:
+
+```bash
+chmod +x /root/backup-db.sh
+(crontab -l 2>/dev/null; echo "0 2 * * * /root/backup-db.sh >> /var/log/cron-backup.log 2>&1") | crontab -
+```
+
+### 10.2 Day 1 Production Verification
+
+Once deployed:
+1. **Health Check**: Visit `https://api.aquasphere.yourdomain.com/` $\rightarrow$ should return `{ status: "ok" }`.
+2. **Swagger Console**: Visit `https://api.aquasphere.yourdomain.com/api-docs` $\rightarrow$ verify all endpoints respond properly.
+3. **Live Dashboard SSE**: Open browser DevTools $\rightarrow$ Network $\rightarrow$ inspect `/api/v1/analytics/dashboard/stream` $\rightarrow$ verify packets stream continuously with status `200` without connection drops.
+4. **Log Inspection**: In Dokploy dashboard $\rightarrow$ **Logs** $\rightarrow$ verify Morgan production logs output cleanly formatted JSON entries.

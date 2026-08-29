@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, RotateCcw } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
@@ -31,6 +31,7 @@ export default function Customers() {
 
   useEffect(() => {
     fetchCustomers(search, activeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleRestoreCustomer = async (c) => {

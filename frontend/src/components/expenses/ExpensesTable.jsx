@@ -3,7 +3,6 @@ import { EXPENSE_CATEGORIES, getExpenseCategoryColor } from '../../constants/exp
 
 export default function ExpensesTable({
   filteredExpenses = [],
-  totalExpensesCount = 0,
   loading = false,
   selectedCategory = 'ALL',
   setSelectedCategory,

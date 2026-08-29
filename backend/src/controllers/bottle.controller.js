@@ -1,70 +1,86 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getTenantPrefix = (req) => {
-  const tenant = (req.headers['x-tenant'] || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
-
-// GET /api/v1/bottles/summary
-// Fleet reconciliation equation: Total Owned = At Factory + With Customers + Broken + Lost
-export const getBottleSummary = asyncHandler(async (req, res) => {
-  const prefix = getTenantPrefix(req);
-
-  const [transactions, customers] = await Promise.all([
-    prisma[`${prefix}BottleTransaction`].findMany(),
-    prisma[`${prefix}Customer`].findMany({
+/**
+ * Computes bottle fleet reconciliation statistics across factory, warehouse, and customers.
+ *
+ * @param {object} client - Prisma client or transaction instance.
+ * @param {string} prefix - Tenant prefix ('aquasphere' | 'wadaana').
+ * @returns {Promise<{
+ *   totalPurchased: number,
+ *   totalOwned: number,
+ *   atFactory: number,
+ *   atWarehouse: number,
+ *   withCustomers: number,
+ *   broken: number,
+ *   lost: number,
+ *   equationReconciled: boolean
+ * }>}
+ */
+async function computeBottleStats(client, prefix) {
+  const [txnSums, customerSum] = await Promise.all([
+    client[`${prefix}BottleTransaction`].groupBy({
+      by: ['type'],
+      _sum: { quantity: true }
+    }),
+    client[`${prefix}Customer`].aggregate({
       where: { archivedAt: null },
-      select: { cachedBottleBalance: true }
+      _sum: { cachedBottleBalance: true }
     })
   ]);
 
-  let totalPurchased = 0;
-  let factoryAdjustments = 0;
-  let warehouseAdjustments = 0;
-  let brokenCount = 0;
-  let lostCount = 0;
-  let movedToWarehouse = 0;
-  let movedToFactory = 0;
+  const map = {};
+  for (const s of txnSums) map[s.type] = s._sum.quantity || 0;
 
-  for (const txn of transactions) {
-    if (txn.type === 'NEW_PURCHASE') totalPurchased += txn.quantity;
-    if (txn.type === 'AT_FACTORY_ADJUSTMENT') factoryAdjustments += txn.quantity;
-    if (txn.type === 'AT_WAREHOUSE_ADJUSTMENT') warehouseAdjustments += txn.quantity;
-    if (txn.type === 'RETURNED_BROKEN') brokenCount += txn.quantity;
-    if (txn.type === 'MARKED_LOST') lostCount += txn.quantity;
-    if (txn.type === 'MOVED_TO_WAREHOUSE') movedToWarehouse += txn.quantity;
-    if (txn.type === 'MOVED_TO_FACTORY') movedToFactory += txn.quantity;
-  }
+  const totalPurchased = map.NEW_PURCHASE || 0;
+  const factoryAdjustments = map.AT_FACTORY_ADJUSTMENT || 0;
+  const warehouseAdjustments = map.AT_WAREHOUSE_ADJUSTMENT || 0;
+  const brokenCount = map.RETURNED_BROKEN || 0;
+  const lostCount = map.MARKED_LOST || 0;
+  const movedToWarehouse = map.MOVED_TO_WAREHOUSE || 0;
+  const movedToFactory = map.MOVED_TO_FACTORY || 0;
 
-  const withCustomers = customers.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
-  
-  // Total Owned is total purchased + factory additions - lost - broken
+  const withCustomers = Math.max(0, customerSum._sum.cachedBottleBalance || 0);
   const totalOwned = Math.max(0, totalPurchased + factoryAdjustments - lostCount - brokenCount);
-  
-  // Warehouse balance
   const atWarehouse = Math.max(0, movedToWarehouse - movedToFactory + warehouseAdjustments);
-  
-  // Factory balance (Total Owned - With Customers - atWarehouse)
   const atFactory = Math.max(0, totalOwned - withCustomers - atWarehouse);
 
-  res.status(200).json({
-    success: true,
-    data: {
-      totalPurchased,
-      totalOwned,
-      atFactory,
-      atWarehouse,
-      withCustomers,
-      broken: brokenCount,
-      lost: lostCount,
-      equationReconciled: (atFactory + atWarehouse + withCustomers + brokenCount) === totalOwned
-    }
-  });
+  return {
+    totalPurchased,
+    totalOwned,
+    atFactory,
+    atWarehouse,
+    withCustomers,
+    broken: brokenCount,
+    lost: lostCount,
+    equationReconciled: (atFactory + atWarehouse + withCustomers) === totalOwned
+  };
+}
+
+/**
+ * GET /api/v1/bottles/summary
+ * Fleet reconciliation equation: Total Owned = At Factory + With Customers + At Warehouse
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
+export const getBottleSummary = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const data = await computeBottleStats(prisma, prefix);
+  res.status(200).json({ success: true, data });
 });
 
-// GET /api/v1/bottles/transactions
+/**
+ * GET /api/v1/bottles/transactions
+ * Paginated bottle fleet transaction history.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getBottleTransactions = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50, customerId } = req.query;
   const skip = (page - 1) * limit;
@@ -98,7 +114,14 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
   });
 });
 
-// POST /api/v1/bottles/transactions
+/**
+ * POST /api/v1/bottles/transactions
+ * Records bottle movements, issuances, returns, or breakages with fleet balance adjustments.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const createBottleTransaction = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, quantity, reason } = req.body;
@@ -126,41 +149,14 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
 
   const txn = await prisma.$transaction(async (tx) => {
     if (type === 'MOVED_TO_WAREHOUSE' || type === 'MOVED_TO_FACTORY') {
-      const allTxns = await tx[`${prefix}BottleTransaction`].findMany();
-      const allCusts = await tx[`${prefix}Customer`].findMany({
-        where: { archivedAt: null },
-        select: { cachedBottleBalance: true }
-      });
+      const stats = await computeBottleStats(tx, prefix);
 
-      let totalPurchased = 0;
-      let factoryAdjustments = 0;
-      let warehouseAdjustments = 0;
-      let brokenCount = 0;
-      let lostCount = 0;
-      let movedToWarehouse = 0;
-      let movedToFactory = 0;
-
-      for (const t of allTxns) {
-        if (t.type === 'NEW_PURCHASE') totalPurchased += t.quantity;
-        if (t.type === 'AT_FACTORY_ADJUSTMENT') factoryAdjustments += t.quantity;
-        if (t.type === 'AT_WAREHOUSE_ADJUSTMENT') warehouseAdjustments += t.quantity;
-        if (t.type === 'RETURNED_BROKEN') brokenCount += t.quantity;
-        if (t.type === 'MARKED_LOST') lostCount += t.quantity;
-        if (t.type === 'MOVED_TO_WAREHOUSE') movedToWarehouse += t.quantity;
-        if (t.type === 'MOVED_TO_FACTORY') movedToFactory += t.quantity;
+      if (type === 'MOVED_TO_WAREHOUSE' && qty > stats.atFactory) {
+        throw new ApiError(400, `Cannot move ${qty} bottles to warehouse. Only ${stats.atFactory} bottles available at factory.`);
       }
 
-      const withCustomers = allCusts.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
-      const totalOwned = Math.max(0, totalPurchased + factoryAdjustments - lostCount);
-      const atWarehouse = Math.max(0, movedToWarehouse - movedToFactory + warehouseAdjustments);
-      const atFactory = Math.max(0, totalOwned - withCustomers - brokenCount - atWarehouse);
-
-      if (type === 'MOVED_TO_WAREHOUSE' && qty > atFactory) {
-        throw new ApiError(400, `Cannot move ${qty} bottles to warehouse. Only ${atFactory} bottles available at factory.`);
-      }
-
-      if (type === 'MOVED_TO_FACTORY' && qty > atWarehouse) {
-        throw new ApiError(400, `Cannot move ${qty} bottles to factory. Only ${atWarehouse} bottles available at warehouse.`);
+      if (type === 'MOVED_TO_FACTORY' && qty > stats.atWarehouse) {
+        throw new ApiError(400, `Cannot move ${qty} bottles to factory. Only ${stats.atWarehouse} bottles available at warehouse.`);
       }
     }
 

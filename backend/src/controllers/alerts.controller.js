@@ -1,14 +1,14 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getTenantPrefix } from '../utils/tenant.js';
 
-const getTenantPrefix = (req) => {
-  const queryVal = req.query?.tenant || req.query?.company;
-  const headerVal = req.headers['x-tenant'] || req.headers['x-company-context'];
-  const cookieVal = req.cookies?.tenant || req.cookies?.company;
-  const tenant = (queryVal || headerVal || cookieVal || req.tenant || 'aquasphere').toLowerCase();
-  return tenant === 'wadaana' ? 'wadaana' : 'aquasphere';
-};
-
+/**
+ * Retrieves operational Marketing Manager alerts (credit breaches, duration expirations, bottle warnings, deliveries).
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
 export const getMMAlerts = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
@@ -39,7 +39,7 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
     }),
     // 3. Customer Reminders
     prisma[`${prefix}Customer`].findMany({
-      where: { archivedAt: null, remarks: { not: null, not: '' } },
+      where: { archivedAt: null, remarks: { not: '' } },
       select: { id: true, name: true, phone: true, remarks: true }
     }),
     // 4. Pending Deliveries
