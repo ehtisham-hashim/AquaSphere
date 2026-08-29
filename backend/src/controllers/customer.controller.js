@@ -231,8 +231,18 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   }
 
   const updateData = {};
-  if (name !== undefined) updateData.name = name.trim();
-  if (phone !== undefined) updateData.phone = phone.trim();
+  if (name !== undefined) {
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new ApiError(400, 'Customer name must be a non-empty string');
+    }
+    updateData.name = name.trim();
+  }
+  if (phone !== undefined) {
+    if (typeof phone !== 'string' || !phone.trim()) {
+      throw new ApiError(400, 'Customer phone must be a non-empty string');
+    }
+    updateData.phone = phone.trim();
+  }
   if (type !== undefined) updateData.type = type;
   if (address !== undefined) updateData.address = address;
   if (mapLink !== undefined) updateData.mapLink = mapLink;

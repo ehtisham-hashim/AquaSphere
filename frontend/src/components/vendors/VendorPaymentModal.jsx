@@ -227,23 +227,30 @@ export default function VendorPaymentModal({
             <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={paymentSubmitting || uploadingProof || Number(selectedVendor?.payableBalance || 0) <= 0 || !paymentData.amount || Number(paymentData.amount) <= 0}
-              className={`px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2 text-white transition-all ${
-                paymentSubmitting || uploadingProof || Number(selectedVendor?.payableBalance || 0) <= 0 || !paymentData.amount || Number(paymentData.amount) <= 0
-                  ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                  : 'bg-emerald-600 hover:bg-emerald-500'
-              }`}
-            >
-              {paymentSubmitting ? (
-                <><Loader2 size={16} className="animate-spin" /> Recording...</>
-              ) : uploadingProof ? (
-                <><Loader2 size={16} className="animate-spin" /> Uploading Slip...</>
-              ) : (
-                'Record Payment'
-              )}
-            </button>
+            {(() => {
+              const requiresProof = paymentData.paymentMethod === 'BANK_TRANSFER' || paymentData.paymentMethod === 'CHEQUE' || paymentData.paymentMethod === 'ONLINE_TRANSFER';
+              const isSubmitDisabled = paymentSubmitting || uploadingProof || (requiresProof && !paymentData.proofUrl) || Number(selectedVendor?.payableBalance || 0) <= 0 || !paymentData.amount || Number(paymentData.amount) <= 0;
+
+              return (
+                <button
+                  type="submit"
+                  disabled={isSubmitDisabled}
+                  className={`px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2 text-white transition-all ${
+                    isSubmitDisabled
+                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                      : 'bg-emerald-600 hover:bg-emerald-500'
+                  }`}
+                >
+                  {paymentSubmitting ? (
+                    <><Loader2 size={16} className="animate-spin" /> Recording...</>
+                  ) : uploadingProof ? (
+                    <><Loader2 size={16} className="animate-spin" /> Uploading Slip...</>
+                  ) : (
+                    'Record Payment'
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </form>
       </div>

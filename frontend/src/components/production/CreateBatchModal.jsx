@@ -28,7 +28,9 @@ export default function CreateBatchModal({
   // Reset internal form state whenever modal opens or closes
   useEffect(() => {
     if (isOpen) {
-      setBatchDate(new Date().toISOString().split('T')[0]);
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      setBatchDate(localDate);
       setNotes('');
       setPacks05L('');
       setPacks15L('');
@@ -45,10 +47,10 @@ export default function CreateBatchModal({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isWadaana) {
-      const p05 = parseInt(qtyPure05L || 0);
-      const p15 = parseInt(qtyPure15L || 0);
-      const m05 = parseInt(qtyMix05L || 0);
-      const m15 = parseInt(qtyMix15L || 0);
+      const p05 = parseInt(qtyPure05L || 0, 10);
+      const p15 = parseInt(qtyPure15L || 0, 10);
+      const m05 = parseInt(qtyMix05L || 0, 10);
+      const m15 = parseInt(qtyMix15L || 0, 10);
 
       if (p05 === 0 && p15 === 0 && m05 === 0 && m15 === 0) {
         toast.error('Please enter at least one bottle quantity to produce');
@@ -56,9 +58,9 @@ export default function CreateBatchModal({
       }
       onSubmit({ batchDate, notes, qtyPure05L: p05, qtyPure15L: p15, qtyMix05L: m05, qtyMix15L: m15 });
     } else {
-      const p05 = parseInt(packs05L || 0);
-      const p15 = parseInt(packs15L || 0);
-      const qty = parseInt(quantity || 0);
+      const p05 = parseInt(packs05L || 0, 10);
+      const p15 = parseInt(packs15L || 0, 10);
+      const qty = parseInt(quantity || 0, 10);
 
       if (p05 === 0 && p15 === 0 && qty === 0) {
         toast.error('Please enter at least one pack or 19L bottle quantity');
@@ -74,10 +76,10 @@ export default function CreateBatchModal({
   };
 
   // Wadaana preform calculations
-  const wP05 = parseInt(qtyPure05L || 0);
-  const wP15 = parseInt(qtyPure15L || 0);
-  const wM05 = parseInt(qtyMix05L || 0);
-  const wM15 = parseInt(qtyMix15L || 0);
+  const wP05 = parseInt(qtyPure05L || 0, 10);
+  const wP15 = parseInt(qtyPure15L || 0, 10);
+  const wM05 = parseInt(qtyMix05L || 0, 10);
+  const wM15 = parseInt(qtyMix15L || 0, 10);
   const totalWadaanaBottles = wP05 + wP15 + wM05 + wM15;
   const totalPureKg = (wP05 * 0.015) + (wP15 * 0.030);
   const totalMixKg = (wM05 * 0.013) + (wM15 * 0.027);

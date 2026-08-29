@@ -66,105 +66,108 @@ export const consolidateDuplicateFinishedGoods = async (prefix = 'aquasphere') =
       for (const dupe of matchingItems) {
         if (dupe.id === canonicalItem.id) continue;
 
-        // 1. Migrate Inventory Transactions
-        await prisma[`${prefix}InventoryTransaction`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
+        await prisma.$transaction(async (tx) => {
+          // 1. Migrate Inventory Transactions
+          await tx[`${prefix}InventoryTransaction`].updateMany({
+            where: { itemId: dupe.id },
+            data: { itemId: canonicalItem.id }
+          });
 
-        // 2. Migrate Order Items
-        await prisma[`${prefix}OrderItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
+          // 2. Migrate Order Items
+          await tx[`${prefix}OrderItem`].updateMany({
+            where: { itemId: dupe.id },
+            data: { itemId: canonicalItem.id }
+          });
 
-        // 3. Migrate Purchase Items
-        await prisma[`${prefix}PurchaseItem`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
+          // 3. Migrate Purchase Items
+          await tx[`${prefix}PurchaseItem`].updateMany({
+            where: { itemId: dupe.id },
+            data: { itemId: canonicalItem.id }
+          });
 
-        // 4. Migrate Batch Consumptions
-        await prisma[`${prefix}ProductionBatchConsumption`].updateMany({
-          where: { itemId: dupe.id },
-          data: { itemId: canonicalItem.id }
-        }).catch(() => null);
+          // 4. Migrate Batch Consumptions
+          await tx[`${prefix}ProductionBatchConsumption`].updateMany({
+            where: { itemId: dupe.id },
+            data: { itemId: canonicalItem.id }
+          });
 
-        // 5. Migrate Produced & Consumed Batches
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { outputItemId: dupe.id },
-          data: { outputItemId: canonicalItem.id }
-        }).catch(() => null);
+          // 5. Migrate Produced & Consumed Batches
+          await tx[`${prefix}ProductionBatch`].updateMany({
+            where: { outputItemId: dupe.id },
+            data: { outputItemId: canonicalItem.id }
+          });
 
-        await prisma[`${prefix}ProductionBatch`].updateMany({
-          where: { inputItemId: dupe.id },
-          data: { inputItemId: canonicalItem.id }
-        }).catch(() => null);
+          await tx[`${prefix}ProductionBatch`].updateMany({
+            where: { inputItemId: dupe.id },
+            data: { inputItemId: canonicalItem.id }
+          });
 
-        // 6. Migrate Recipe Finished Goods (handling unique compound key)
-        const dupeRecipeFGs = await prisma[`${prefix}RecipeItem`].findMany({
-          where: { finishedGoodId: dupe.id }
-        }).catch(() => []);
+          // 6. Migrate Recipe Finished Goods (handling unique compound key)
+          const dupeRecipeFGs = await tx[`${prefix}RecipeItem`].findMany({
+            where: { finishedGoodId: dupe.id }
+          });
 
-        for (const rfg of dupeRecipeFGs) {
-          const existing = await prisma[`${prefix}RecipeItem`].findUnique({
-            where: {
-              finishedGoodId_rawMaterialId: {
-                finishedGoodId: canonicalItem.id,
-                rawMaterialId: rfg.rawMaterialId
+          for (const rfg of dupeRecipeFGs) {
+            const existing = await tx[`${prefix}RecipeItem`].findUnique({
+              where: {
+                finishedGoodId_rawMaterialId: {
+                  finishedGoodId: canonicalItem.id,
+                  rawMaterialId: rfg.rawMaterialId
+                }
               }
+            });
+
+            if (existing) {
+              await tx[`${prefix}RecipeItem`].delete({
+                where: { id: rfg.id }
+              });
+            } else {
+              await tx[`${prefix}RecipeItem`].update({
+                where: { id: rfg.id },
+                data: { finishedGoodId: canonicalItem.id }
+              });
             }
-          }).catch(() => null);
-
-          if (existing) {
-            await prisma[`${prefix}RecipeItem`].delete({
-              where: { id: rfg.id }
-            }).catch(() => null);
-          } else {
-            await prisma[`${prefix}RecipeItem`].update({
-              where: { id: rfg.id },
-              data: { finishedGoodId: canonicalItem.id }
-            }).catch(() => null);
           }
-        }
 
-        // 7. Migrate Recipe Raw Materials (handling unique compound key)
-        const dupeRecipeRMs = await prisma[`${prefix}RecipeItem`].findMany({
-          where: { rawMaterialId: dupe.id }
-        }).catch(() => []);
+          // 7. Migrate Recipe Raw Materials (handling unique compound key)
+          const dupeRecipeRMs = await tx[`${prefix}RecipeItem`].findMany({
+            where: { rawMaterialId: dupe.id }
+          });
 
-        for (const rrm of dupeRecipeRMs) {
-          const existing = await prisma[`${prefix}RecipeItem`].findUnique({
-            where: {
-              finishedGoodId_rawMaterialId: {
-                finishedGoodId: rrm.finishedGoodId,
-                rawMaterialId: canonicalItem.id
+          for (const rrm of dupeRecipeRMs) {
+            const existing = await tx[`${prefix}RecipeItem`].findUnique({
+              where: {
+                finishedGoodId_rawMaterialId: {
+                  finishedGoodId: rrm.finishedGoodId,
+                  rawMaterialId: canonicalItem.id
+                }
               }
+            });
+
+            if (existing) {
+              await tx[`${prefix}RecipeItem`].delete({
+                where: { id: rrm.id }
+              });
+            } else {
+              await tx[`${prefix}RecipeItem`].update({
+                where: { id: rrm.id },
+                data: { rawMaterialId: canonicalItem.id }
+              });
             }
-          }).catch(() => null);
-
-          if (existing) {
-            await prisma[`${prefix}RecipeItem`].delete({
-              where: { id: rrm.id }
-            }).catch(() => null);
-          } else {
-            await prisma[`${prefix}RecipeItem`].update({
-              where: { id: rrm.id },
-              data: { rawMaterialId: canonicalItem.id }
-            }).catch(() => null);
           }
-        }
 
-        // 8. Safely archive duplicate item now that all FKs are migrated
-        await prisma[`${prefix}Item`].update({
-          where: { id: dupe.id },
-          data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
-        }).catch(() => null);
+          // 8. Safely archive duplicate item now that all FKs are migrated
+          await tx[`${prefix}Item`].update({
+            where: { id: dupe.id },
+            data: { archivedAt: new Date(), name: `${dupe.name} [ARCHIVED_DUPLICATE]` }
+          });
+        });
       }
     }
     console.log(`[Migration] Finished goods consolidation complete for ${prefix}.`);
   } catch (err) {
     console.error('Consolidation error:', err);
+    throw err;
   }
 };
 

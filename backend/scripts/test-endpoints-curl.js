@@ -26,16 +26,24 @@ async function runCurlTests() {
     process.exit(1);
   }
 
-  const loginCmd = `curl -s -X POST "${BASE_URL}/api/v1/auth/login" -H "Content-Type: application/json" -d '{"email":"${testEmail}","password":"${testPassword}","company":"${testCompany}"}'`;
-  const loginResRaw = execSync(loginCmd, { encoding: 'utf-8' });
-  const loginJson = JSON.parse(loginResRaw);
-
-  if (!loginJson.data?.token) {
-    console.error('❌ Could not obtain login token:', loginJson);
+  let token = null;
+  try {
+    const loginRes = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: testEmail, password: testPassword, company: testCompany })
+    });
+    const loginJson = await loginRes.json();
+    if (!loginJson.data?.token) {
+      console.error('❌ Could not obtain login token:', loginJson);
+      process.exit(1);
+    }
+    token = loginJson.data.token;
+  } catch (err) {
+    console.error('❌ Login request failed:', err.message);
     process.exit(1);
   }
 
-  const token = loginJson.data.token;
   console.log('🔑 Authenticated successfully as AquaSphere Owner (Full Access Token)\n');
 
   // Get sample data IDs for testing
@@ -87,7 +95,7 @@ async function runCurlTests() {
       name: 'POST /api/v1/auth/login (Positive)',
       type: 'positive',
       expectedStatus: 200,
-      curlCmd: `curl -s -w "%{http_code}" -X POST "${BASE_URL}/api/v1/auth/login" -H "Content-Type: application/json" -d '{"email":"owner@aquasphere.com","password":"Admin@123","company":"aquasphere"}'`
+      curlCmd: `curl -s -w "%{http_code}" -X POST "${BASE_URL}/api/v1/auth/login" -H "Content-Type: application/json" -d '${JSON.stringify({ email: testEmail, password: testPassword, company: testCompany }).replace(/'/g, "'\\''")}'`
     },
     {
       name: 'POST /api/v1/auth/login (Negative: Invalid Credentials)',

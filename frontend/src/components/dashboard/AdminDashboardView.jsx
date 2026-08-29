@@ -101,9 +101,7 @@ export default function AdminDashboardView() {
             <h3 className="text-2xl font-black text-slate-900">{kpis.todaysOrdersCount || 0}</h3>
             <p className="text-xs text-amber-600 font-bold mt-0.5">{kpis.pendingOrdersCount || 0} Pending Delivery</p>
           </div>
-        </div>
-
-        {/* Today's Production Yield */}
+        </div>        {/* Today's Production Yield */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <Factory className="w-6 h-6" />
@@ -114,15 +112,15 @@ export default function AdminDashboardView() {
             </p>
             {tenant === 'wadaana' ? (
               <>
-                <h3 className="text-2xl font-black text-slate-900">{kpis.totalGoodYield || 0} units</h3>
-                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.totalWaste || 0} units waste</p>
+                <h3 className="text-2xl font-black text-slate-900">{kpis.totalProductionYield || 0} units</h3>
+                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.productionWaste || 0} units waste</p>
               </>
             ) : (
               <>
                 <h3 className="text-sm font-black text-slate-900">
-                  0.5L: {kpis.packs05LToday || 0} / 1.5L: {kpis.packs15LToday || 0}
+                  0.5L: {kpis.packs05LProduced || 0} / 1.5L: {kpis.packs15LProduced || 0}
                 </h3>
-                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.totalWaste || 0} units waste</p>
+                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.productionWaste || 0} units waste</p>
               </>
             )}
           </div>
@@ -130,13 +128,13 @@ export default function AdminDashboardView() {
 
         {/* Stock Health */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${kpis.lowStockAlerts > 0 ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
+          <div className={`p-3 rounded-xl ${(data?.alerts?.lowStockCount || 0) > 0 ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
             <Package className="w-6 h-6" />
           </div>
           <div>
             <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Stock Health</p>
-            <h3 className={`text-xl font-black ${kpis.lowStockAlerts > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
-              {kpis.lowStockAlerts > 0 ? `${kpis.lowStockAlerts} Low` : 'All Healthy'}
+            <h3 className={`text-xl font-black ${(data?.alerts?.lowStockCount || 0) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {(data?.alerts?.lowStockCount || 0) > 0 ? `${data.alerts.lowStockCount} Low` : 'All Healthy'}
             </h3>
             <p className="text-xs text-slate-500 font-bold mt-0.5">Raw Material Status</p>
           </div>
@@ -149,7 +147,7 @@ export default function AdminDashboardView() {
           </div>
           <div>
             <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Cash Collected</p>
-            <h3 className="text-xl font-black text-slate-900 font-mono">Rs. {(kpis.cashCollected || 0).toLocaleString()}</h3>
+            <h3 className="text-xl font-black text-slate-900 font-mono">Rs. {(kpis.totalCashCollected || 0).toLocaleString()}</h3>
             <p className="text-xs text-indigo-600 font-bold mt-0.5">Orders + Counter Sales</p>
           </div>
         </div>
@@ -201,27 +199,30 @@ export default function AdminDashboardView() {
               Raw Materials & Stock Levels
             </h3>
             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {data?.inventory?.rawMaterials?.length === 0 ? (
+              {data?.rawMaterials?.length === 0 ? (
                 <p className="text-xs text-slate-400 py-4">No raw materials configured.</p>
               ) : (
-                data?.inventory?.rawMaterials?.map(item => (
-                  <div key={item.id} className="py-3 flex items-center justify-between text-xs md:text-sm">
-                    <div>
-                      <span className="font-bold text-slate-800">{item.name}</span>
-                      <span className="text-xs text-slate-400 ml-2">Reorder: {item.reorderLevel} {item.unit}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-mono font-bold ${item.isLow ? 'text-rose-600' : 'text-slate-900'}`}>
-                        {item.cachedQty} {item.unit}
-                      </span>
-                      {item.isLow && (
-                        <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-black rounded-md uppercase">
-                          LOW STOCK
+                data?.rawMaterials?.map(item => {
+                  const isLow = Number(item.cachedQty || 0) < Number(item.reorderLevel || 0);
+                  return (
+                    <div key={item.id} className="py-3 flex items-center justify-between text-xs md:text-sm">
+                      <div>
+                        <span className="font-bold text-slate-800">{item.name}</span>
+                        <span className="text-xs text-slate-400 ml-2">Reorder: {item.reorderLevel} {item.unit}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono font-bold ${isLow ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {item.cachedQty} {item.unit}
                         </span>
-                      )}
+                        {isLow && (
+                          <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-black rounded-md uppercase">
+                            LOW STOCK
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -240,11 +241,11 @@ export default function AdminDashboardView() {
                   <div key={b.id} className="py-3 flex items-center justify-between text-xs md:text-sm">
                     <div>
                       <span className="font-bold text-slate-800">{b.outputItem}</span>
-                      <span className="text-xs text-slate-400 block font-mono">{b.shortId}</span>
+                      <span className="text-xs text-slate-400 block font-mono">#{b.id?.substring(0, 8).toUpperCase()}</span>
                     </div>
                     <div className="text-right">
-                      <span className="font-bold text-emerald-600 block">{b.goodYield} Good</span>
-                      {b.waste > 0 && <span className="text-xs text-rose-500 font-bold">{b.waste} Waste</span>}
+                      <span className="font-bold text-emerald-600 block">{b.quantity} Good</span>
+                      {b.wasteQuantity > 0 && <span className="text-xs text-rose-500 font-bold">{b.wasteQuantity} Waste</span>}
                     </div>
                   </div>
                 ))
@@ -268,27 +269,25 @@ export default function AdminDashboardView() {
                   <th className="p-3">Order ID</th>
                   <th className="p-3">Customer</th>
                   <th className="p-3">Type</th>
-                  <th className="p-3">Item</th>
-                  <th className="p-3">Qty</th>
+                  <th className="p-3">Item Summary</th>
                   <th className="p-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {data?.ordersTable?.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-6 text-center text-slate-400">No orders recorded today.</td>
+                    <td colSpan="5" className="p-6 text-center text-slate-400">No orders recorded today.</td>
                   </tr>
                 ) : (
                   data?.ordersTable?.map(o => (
                     <tr key={o.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-mono font-bold text-purple-700">{o.shortId}</td>
+                      <td className="p-3 font-mono font-bold text-purple-700">#{o.id?.substring(0, 8).toUpperCase()}</td>
                       <td className="p-3">
-                        <span className="font-bold text-slate-800">{o.customer}</span>
-                        <span className="text-xs text-slate-400 block">{o.phone}</span>
+                        <span className="font-bold text-slate-800">{o.customerName || 'Walk-in / Unknown'}</span>
+                        <span className="text-xs text-slate-400 block">{o.customerPhone || '—'}</span>
                       </td>
                       <td className="p-3 font-medium text-slate-600">{o.type}</td>
-                      <td className="p-3 text-slate-700">{o.itemName}</td>
-                      <td className="p-3 font-black text-slate-900">{o.quantity}</td>
+                      <td className="p-3 text-slate-700">{o.itemSummary || 'No items'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
                           o.deliveryStatus === 'DELIVERED'

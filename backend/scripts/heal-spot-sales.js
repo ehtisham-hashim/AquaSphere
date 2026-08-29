@@ -49,9 +49,19 @@ export const healSpotSalesInventory = async (prefix = 'aquasphere') => {
 
       if (!fgItem) continue;
 
-      let qtyToDeduct = Number(sale.productQty || 1);
-      if (sale.productType === 'SINGLE_05L') qtyToDeduct = qtyToDeduct / 12;
-      if (sale.productType === 'SINGLE_15L') qtyToDeduct = qtyToDeduct / 6;
+      const rawQty = sale.productQty !== undefined && sale.productQty !== null ? Number(sale.productQty) : 1;
+      if (isNaN(rawQty) || rawQty <= 0) {
+        console.warn(`[Migration] Skipping spot sale with non-positive quantity (${sale.productQty}):`, sale.id);
+        continue;
+      }
+
+      let qtyToDeduct = rawQty;
+      const normalizedType = String(sale.productType || '').toUpperCase();
+      if (normalizedType.includes('SINGLE_05L') || (normalizedType.includes('05L') && normalizedType.includes('SINGLE'))) {
+        qtyToDeduct = qtyToDeduct / 12;
+      } else if (normalizedType.includes('SINGLE_15L') || (normalizedType.includes('15L') && normalizedType.includes('SINGLE'))) {
+        qtyToDeduct = qtyToDeduct / 6;
+      }
 
       // Atomic execution: check existence, create transaction record, decrement item stock
       await prisma.$transaction(async (tx) => {
@@ -108,6 +118,7 @@ export const healSpotSalesInventory = async (prefix = 'aquasphere') => {
     console.log(`[Migration] Healed ${healedCount} spot sales for ${prefix}.`);
   } catch (err) {
     console.error('Spot sale heal error:', err);
+    throw err;
   }
 };
 

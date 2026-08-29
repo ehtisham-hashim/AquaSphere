@@ -41,7 +41,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const pageSize = limit ? Math.max(1, parseInt(limit, 10) || 200) : 200;
+  const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
   const skip = (pageNum - 1) * pageSize;
 
   const [totalCount, expenses] = await Promise.all([
