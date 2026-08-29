@@ -1,8 +1,8 @@
+import bcrypt from 'bcrypt';
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
-import { hashPassword } from '../utils/passwordUtils.js';
 
 /**
  * Validates and normalizes company parameter into a valid tenant prefix.
@@ -47,7 +47,7 @@ export const createUser = asyncHandler(async (req, res) => {
 
   const userName = name || email.split('@')[0];
   const user = await prisma[`${prefix}User`].create({
-    data: { name: userName, email, passwordHash: await hashPassword(password), role: role || 'ADMIN' }
+    data: { name: userName, email, passwordHash: await bcrypt.hash(password, 10), role: role || 'ADMIN' }
   });
 
   res.status(201).json(new ApiResponse(201, { id: user.id, email: user.email, company: prefix, name: user.name, role: user.role }, 'User created'));
@@ -70,7 +70,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   if (name) updateData.name = name;
   if (email) updateData.email = email;
   if (role) updateData.role = role;
-  if (password) updateData.passwordHash = await hashPassword(password);
+  if (password) updateData.passwordHash = await bcrypt.hash(password, 10);
 
   const updatedUser = await prisma[`${prefix}User`].update({
     where: { id },

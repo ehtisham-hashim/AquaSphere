@@ -1,7 +1,7 @@
+import bcrypt from 'bcrypt';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { comparePassword } from '../utils/passwordUtils.js';
 import { generateToken } from '../utils/jwtUtils.js';
 import { prisma } from '../config/db.js';
 
@@ -28,7 +28,7 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  const isPasswordValid = await comparePassword(password, user.passwordHash);
+  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
   if (!isPasswordValid) {
     throw new ApiError(401, 'Invalid credentials');

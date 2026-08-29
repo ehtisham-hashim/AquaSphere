@@ -1,12 +1,12 @@
+import bcrypt from 'bcrypt';
 import { prisma } from './src/config/db.js';
-import { hashPassword } from './src/utils/passwordUtils.js';
 
 async function seedAdminUsers() {
-  const adminPassword = await hashPassword('admin123');
-  const ownerPassword = await hashPassword('owner123');
-  const pmPassword = await hashPassword('pm123');
-  const mmPassword = await hashPassword('mm123');
-  const accountantPassword = await hashPassword('acc123');
+  const adminPassword = await bcrypt.hash('admin123', 10);
+  const ownerPassword = await bcrypt.hash('owner123', 10);
+  const pmPassword = await bcrypt.hash('pm123', 10);
+  const mmPassword = await bcrypt.hash('mm123', 10);
+  const accountantPassword = await bcrypt.hash('acc123', 10);
 
   // AquaSphere Users
   const aqAdmin = await prisma.aquasphereUser.upsert({
