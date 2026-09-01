@@ -1,57 +1,42 @@
 import { prisma } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
-import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 import { invalidateDailyCloseLockCache } from '../middlewares/dailyClose.middleware.js';
 
-const getPrefix = getTenantPrefix;
+const parseDateRange = (dateStr) => {
+  const start = new Date(dateStr);
+  start.setUTCHours(0, 0, 0, 0);
+  const next = new Date(start);
+  next.setDate(next.getDate() + 1);
+  return { start, next, dateKey: start.toISOString().split('T')[0] };
+};
 
-/**
- * Finalizes and locks daily operations for the specified calendar date by Admin or Owner.
- *
- * @param {import('express').Request} req - Express request object containing date.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Finalizes and locks daily operations by Admin or Owner */
 export const closeDay = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
-  
   if (req.user.role !== 'ADMIN' && req.user.role !== 'OWNER') {
     throw new ApiError(403, 'Unauthorized to perform daily close');
   }
 
-  const prefix = getPrefix(req);
-  const targetDate = new Date(date);
-  targetDate.setUTCHours(0, 0, 0, 0); // Midnight UTC
-
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const auditLogModel = prisma[`${prefix}AuditLog`];
 
-  const existing = await dailyCloseModel.findFirst({
-    where: { date: targetDate }
-  });
+  const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
+  if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
 
-  if (existing?.adminConfirmed) {
-    throw new ApiError(400, 'Day is already finalized by Admin');
-  }
-
+  const now = new Date();
   const updateFields = {
     adminConfirmed: true,
-    closedAt: new Date(),
-    closedById: req.user.id
+    closedAt: now,
+    closedById: req.user.id,
+    ...(!existing?.pmConfirmed ? { pmConfirmed: true, pmConfirmedAt: now, pmConfirmedById: req.user.id } : {}),
+    ...(!existing?.mmConfirmed ? { mmConfirmed: true, mmConfirmedAt: now, mmConfirmedById: req.user.id } : {})
   };
-  if (!existing?.pmConfirmed) {
-    updateFields.pmConfirmed = true;
-    updateFields.pmConfirmedAt = new Date();
-    updateFields.pmConfirmedById = req.user.id;
-  }
-  if (!existing?.mmConfirmed) {
-    updateFields.mmConfirmed = true;
-    updateFields.mmConfirmedAt = new Date();
-    updateFields.mmConfirmedById = req.user.id;
-  }
 
   const closedDay = await dailyCloseModel.upsert({
     where: { date: targetDate },
@@ -59,166 +44,92 @@ export const closeDay = asyncHandler(async (req, res) => {
     create: {
       date: targetDate,
       pmConfirmed: true,
-      pmConfirmedAt: new Date(),
+      pmConfirmedAt: now,
       pmConfirmedById: req.user.id,
       mmConfirmed: true,
-      mmConfirmedAt: new Date(),
+      mmConfirmedAt: now,
       mmConfirmedById: req.user.id,
       adminConfirmed: true,
       closedById: req.user.id
     }
   });
 
-  await auditLogModel.create({
-    data: {
-      action: 'DAILY_CLOSE',
-      entityType: 'DailyClose',
-      entityId: closedDay.id,
-      performedBy: req.user.id,
-      details: `Day ${targetDate.toISOString().split('T')[0]} closed`
-    }
+  await createAuditLog(prefix, {
+    action: 'DAILY_CLOSE',
+    entityType: 'DailyClose',
+    entityId: closedDay.id,
+    performedBy: req.user.id,
+    details: `Day ${dateKey} closed`
   });
 
-  invalidateDailyCloseLockCache(prefix, targetDate.toISOString().split('T')[0]);
-
-  res.status(200).json(new ApiResponse(200, closedDay, 'Day closed successfully'));
+  invalidateDailyCloseLockCache(prefix, dateKey);
+  return sendSuccess(res, closedDay, 200, { message: 'Day closed successfully' });
 });
 
-/**
- * Retrieves multi-role confirmation status and comprehensive daily operational stats for a specific date.
- *
- * @param {import('express').Request} req - Express request object containing query date.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves multi-role confirmation status and daily stats for a specific date */
 export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) throw new ApiError(400, 'Date is required');
 
-  const prefix = getPrefix(req);
-  const targetDate = new Date(date);
-  targetDate.setUTCHours(0, 0, 0, 0);
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, next: nextDate } = parseDateRange(date);
 
-  const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const existing = await dailyCloseModel.findFirst({
-    where: { date: targetDate },
-    include: { 
-      closedBy: { select: { id: true, name: true } },
-      pmConfirmedBy: { select: { id: true, name: true } },
-      mmConfirmedBy: { select: { id: true, name: true } }
-    }
-  });
-
-  const nextDate = new Date(targetDate);
-  nextDate.setDate(nextDate.getDate() + 1);
-
-  const prodBatchModel = prisma[`${prefix}ProductionBatch`];
-  const orderModel = prisma[`${prefix}Order`];
-  const customerModel = prisma[`${prefix}Customer`];
-
-  const itemModel = prisma[`${prefix}Item`];
-
-  const [prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount] = await Promise.all([
-    prodBatchModel.aggregate({
-      where: {
-        batchDate: {
-          gte: targetDate,
-          lt: nextDate
-        }
-      },
-      _sum: {
-        quantity: true,
-        packs05L: true,
-        packs15L: true,
-        brokenBottles05L: true,
-        brokenBottles15L: true,
-        wasteQuantity: true
-      },
-      _count: {
-        id: true
+  const [existing, prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount, consumptions] = await Promise.all([
+    prisma[`${prefix}DailyClose`].findFirst({
+      where: { date: targetDate },
+      include: {
+        closedBy: { select: { id: true, name: true } },
+        pmConfirmedBy: { select: { id: true, name: true } },
+        mmConfirmedBy: { select: { id: true, name: true } }
       }
     }),
-    orderModel.findMany({
-      where: {
-        createdAt: {
-          gte: targetDate,
-          lt: nextDate
-        }
-      },
-      select: {
-        items: {
-          select: {
-            quantity: true,
-            price: true
-          }
-        }
-      }
+    prisma[`${prefix}ProductionBatch`].aggregate({
+      where: { batchDate: { gte: targetDate, lt: nextDate } },
+      _sum: { quantity: true, packs05L: true, packs15L: true, brokenBottles05L: true, brokenBottles15L: true, wasteQuantity: true },
+      _count: { id: true }
     }),
-    customerModel.aggregate({
-      where: {
-        archivedAt: null
-      },
-      _sum: prefix === 'wadaana' 
-        ? { cachedBottleBalance: true } 
-        : { cachedBottleBalance: true, qty19L: true }
+    prisma[`${prefix}Order`].findMany({
+      where: { createdAt: { gte: targetDate, lt: nextDate } },
+      select: { items: { select: { quantity: true, price: true } } }
     }),
-    prodBatchModel.count({
-      where: {
-        batchDate: { gte: targetDate, lt: nextDate },
-        status: 'PENDING'
-      }
+    prisma[`${prefix}Customer`].aggregate({
+      where: { archivedAt: null },
+      _sum: prefix === 'wadaana' ? { cachedBottleBalance: true } : { cachedBottleBalance: true, qty19L: true }
     }),
-    itemModel.count({
-      where: {
-        archivedAt: null,
-        cachedQty: { lt: 0 }
-      }
+    prisma[`${prefix}ProductionBatch`].count({
+      where: { batchDate: { gte: targetDate, lt: nextDate }, status: 'PENDING' }
+    }),
+    prisma[`${prefix}Item`].count({
+      where: { archivedAt: null, cachedQty: { lt: 0 } }
+    }),
+    prisma[`${prefix}ProductionBatchConsumption`].findMany({
+      where: { batch: { batchDate: { gte: targetDate, lt: nextDate } } },
+      select: { quantityUsed: true, item: { select: { name: true, unit: true } } }
     })
   ]);
 
-  const batchConsumptionModel = prisma[`${prefix}ProductionBatchConsumption`];
-  const consumptions = await batchConsumptionModel.findMany({
-    where: {
-      batch: {
-        batchDate: { gte: targetDate, lt: nextDate }
-      }
-    },
-    select: {
-      quantityUsed: true,
-      item: { select: { name: true, unit: true } }
-    }
-  });
-
-  const materialConsumptionMap = {};
+  const matMap = Object.create(null);
   for (const c of consumptions) {
-    const itemName = c.item?.name || 'Raw Material';
+    const name = c.item?.name || 'Raw Material';
     const unit = c.item?.unit || 'units';
-    if (!materialConsumptionMap[itemName]) {
-      materialConsumptionMap[itemName] = { name: itemName, quantity: 0, unit };
-    }
-    materialConsumptionMap[itemName].quantity += Number(c.quantityUsed || c.quantity) || 0;
+    matMap[name] ||= { name, quantity: 0, unit };
+    matMap[name].quantity += Number(c.quantityUsed || 0);
   }
-  const materialConsumption = Object.values(materialConsumptionMap);
 
   let ordersTotalWorth = 0;
   for (const ord of orderStats) {
     for (const item of ord.items || []) {
-      const q = Number(item.quantity) || 0;
-      const p = Number(item.price || item.unitPrice) || 0;
-      ordersTotalWorth += q * p;
+      ordersTotalWorth += (Number(item.quantity) || 0) * (Number(item.price) || 0);
     }
   }
 
-  const totalCustomerBottles = (customerBottleStats._sum.cachedBottleBalance || 0) || (customerBottleStats._sum.qty19L || 0);
-
+  const totalCustomerBottles = customerBottleStats._sum.cachedBottleBalance || customerBottleStats._sum.qty19L || 0;
   const adminConfirmed = existing?.adminConfirmed || false;
-  const pmConfirmed = adminConfirmed || existing?.pmConfirmed || false;
-  const mmConfirmed = adminConfirmed || existing?.mmConfirmed || false;
 
-  res.status(200).json(new ApiResponse(200, {
+  return sendSuccess(res, {
     isClosed: adminConfirmed,
-    pmConfirmed,
-    mmConfirmed,
+    pmConfirmed: adminConfirmed || existing?.pmConfirmed || false,
+    mmConfirmed: adminConfirmed || existing?.mmConfirmed || false,
     adminConfirmed,
     closedAt: existing?.closedAt || null,
     pmConfirmedAt: existing?.pmConfirmedAt || null,
@@ -228,7 +139,7 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     mmConfirmedBy: existing?.mmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
     pendingBatchesCount,
     negativeStockCount,
-    materialConsumption,
+    materialConsumption: Object.values(matMap),
     productionTotals: {
       batchesCount: prodStats._count.id || 0,
       total19L: prodStats._sum.quantity || 0,
@@ -243,141 +154,80 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
       ordersTotalWorth,
       customerBottlesCount: totalCustomerBottles
     }
-  }, 'Daily close status retrieved'));
+  }, 200, { message: 'Daily close status retrieved' });
 });
 
-/**
- * Confirms production operations for the specified date by Production Manager.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Confirms production operations by Production Manager */
 export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
-
-  if (req.user.role !== 'PRODUCTION_MANAGER' && req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
+  if (!['PRODUCTION_MANAGER', 'OWNER', 'ADMIN'].includes(req.user.role)) {
     throw new ApiError(403, 'Unauthorized to perform PM confirmation');
   }
 
-  const prefix = getPrefix(req);
-  const targetDate = new Date(date);
-  targetDate.setUTCHours(0, 0, 0, 0);
-
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const auditLogModel = prisma[`${prefix}AuditLog`];
 
-  const existing = await dailyCloseModel.findFirst({
-    where: { date: targetDate }
-  });
-
-  if (existing?.adminConfirmed) {
-    throw new ApiError(400, 'Day is already finalized by Admin');
-  }
+  const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
+  if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
 
   const updatedDay = await dailyCloseModel.upsert({
     where: { date: targetDate },
-    update: {
-      pmConfirmed: true,
-      pmConfirmedAt: new Date(),
-      pmConfirmedById: req.user.id
-    },
-    create: {
-      date: targetDate,
-      pmConfirmed: true,
-      pmConfirmedAt: new Date(),
-      pmConfirmedById: req.user.id
-    }
+    update: { pmConfirmed: true, pmConfirmedAt: new Date(), pmConfirmedById: req.user.id },
+    create: { date: targetDate, pmConfirmed: true, pmConfirmedAt: new Date(), pmConfirmedById: req.user.id }
   });
 
-  await auditLogModel.create({
-    data: {
-      action: 'PM_DAILY_CONFIRM',
-      entityType: 'DailyClose',
-      entityId: updatedDay.id,
-      performedBy: req.user.id,
-      details: `PM confirmed production for Day ${targetDate.toISOString().split('T')[0]}`
-    }
+  await createAuditLog(prefix, {
+    action: 'PM_DAILY_CONFIRM',
+    entityType: 'DailyClose',
+    entityId: updatedDay.id,
+    performedBy: req.user.id,
+    details: `PM confirmed production for Day ${dateKey}`
   });
 
-  res.status(200).json(new ApiResponse(200, updatedDay, 'Production confirmed successfully'));
+  return sendSuccess(res, updatedDay, 200, { message: 'Production confirmed successfully' });
 });
 
-/**
- * Confirms orders and customer bottle balances for the specified date by Marketing Manager.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Confirms orders and customer bottles by Marketing Manager */
 export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
-
-  if (req.user.role !== 'MARKETING_MANAGER' && req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
+  if (!['MARKETING_MANAGER', 'OWNER', 'ADMIN'].includes(req.user.role)) {
     throw new ApiError(403, 'Unauthorized to perform MM confirmation');
   }
 
-  const prefix = getPrefix(req);
-  const targetDate = new Date(date);
-  targetDate.setUTCHours(0, 0, 0, 0);
-
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const auditLogModel = prisma[`${prefix}AuditLog`];
 
-  const existing = await dailyCloseModel.findFirst({
-    where: { date: targetDate }
-  });
-
-  if (existing?.adminConfirmed) {
-    throw new ApiError(400, 'Day is already finalized by Admin');
-  }
+  const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
+  if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
 
   const updatedDay = await dailyCloseModel.upsert({
     where: { date: targetDate },
-    update: {
-      mmConfirmed: true,
-      mmConfirmedAt: new Date(),
-      mmConfirmedById: req.user.id
-    },
-    create: {
-      date: targetDate,
-      mmConfirmed: true,
-      mmConfirmedAt: new Date(),
-      mmConfirmedById: req.user.id
-    }
+    update: { mmConfirmed: true, mmConfirmedAt: new Date(), mmConfirmedById: req.user.id },
+    create: { date: targetDate, mmConfirmed: true, mmConfirmedAt: new Date(), mmConfirmedById: req.user.id }
   });
 
-  await auditLogModel.create({
-    data: {
-      action: 'MM_DAILY_CONFIRM',
-      entityType: 'DailyClose',
-      entityId: updatedDay.id,
-      performedBy: req.user.id,
-      details: `MM confirmed orders and customer bottle holdings for Day ${targetDate.toISOString().split('T')[0]}`
-    }
+  await createAuditLog(prefix, {
+    action: 'MM_DAILY_CONFIRM',
+    entityType: 'DailyClose',
+    entityId: updatedDay.id,
+    performedBy: req.user.id,
+    details: `MM confirmed orders and customer bottle holdings for Day ${dateKey}`
   });
 
-  res.status(200).json(new ApiResponse(200, updatedDay, 'MM daily close confirmed successfully'));
+  return sendSuccess(res, updatedDay, 200, { message: 'MM daily close confirmed successfully' });
 });
 
-/**
- * Retrieves full historical timeline of closed days enriched with production and order statistics.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves 30-day historical timeline of closed days */
 export const getDailyCloseHistory = asyncHandler(async (req, res) => {
-  const prefix = getPrefix(req);
-  const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const prodBatchModel = prisma[`${prefix}ProductionBatch`];
-  
-  const history = await dailyCloseModel.findMany({
+  const prefix = getTenantPrefix(req);
+  const history = await prisma[`${prefix}DailyClose`].findMany({
     where: { adminConfirmed: true },
     orderBy: { date: 'desc' },
-    include: { 
+    include: {
       closedBy: { select: { id: true, name: true } },
       pmConfirmedBy: { select: { id: true, name: true } },
       mmConfirmedBy: { select: { id: true, name: true } }
@@ -385,18 +235,14 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     take: 30
   });
 
-  if (history.length === 0) {
-    return res.status(200).json(new ApiResponse(200, [], 'Daily close history retrieved'));
-  }
+  if (history.length === 0) return sendSuccess(res, [], 200, { message: 'Daily close history retrieved' });
 
-  // Calculate overall date range for the 30 days
   const minDate = new Date(history[history.length - 1].date);
   const maxDate = new Date(history[0].date);
   maxDate.setDate(maxDate.getDate() + 1);
 
-  // Batch query all production batches and orders in date range (2 queries total instead of 90)
   const [allBatches, allOrders] = await Promise.all([
-    prodBatchModel.findMany({
+    prisma[`${prefix}ProductionBatch`].findMany({
       where: { batchDate: { gte: minDate, lt: maxDate } },
       select: {
         batchDate: true,
@@ -410,110 +256,76 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     }),
     prisma[`${prefix}Order`].findMany({
       where: { createdAt: { gte: minDate, lt: maxDate } },
-      select: {
-        createdAt: true,
-        items: {
-          select: { quantity: true, price: true }
-        }
-      }
+      select: { createdAt: true, items: { select: { quantity: true, price: true } } }
     })
   ]);
 
-  // Group by YYYY-MM-DD
   const batchMap = new Map();
   for (const b of allBatches) {
     if (!b.batchDate) continue;
     const dStr = new Date(b.batchDate).toISOString().split('T')[0];
-    if (!batchMap.has(dStr)) {
-      batchMap.set(dStr, { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 });
-    }
-    const acc = batchMap.get(dStr);
+    const acc = batchMap.get(dStr) || { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 };
     acc.total19L += Number(b.quantity || 0);
     acc.packs15L += Number(b.packs15L || 0);
     acc.packs05L += Number(b.packs05L || 0);
     acc.waste19L += Number(b.wasteQuantity || 0);
     acc.broken15L += Number(b.brokenBottles15L || 0);
     acc.broken05L += Number(b.brokenBottles05L || 0);
+    batchMap.set(dStr, acc);
   }
 
   const orderMap = new Map();
   for (const o of allOrders) {
     if (!o.createdAt) continue;
     const dStr = new Date(o.createdAt).toISOString().split('T')[0];
-    if (!orderMap.has(dStr)) {
-      orderMap.set(dStr, { count: 0, totalWorth: 0 });
-    }
-    const acc = orderMap.get(dStr);
+    const acc = orderMap.get(dStr) || { count: 0, totalWorth: 0 };
     acc.count += 1;
     for (const item of o.items || []) {
       acc.totalWorth += (Number(item.quantity) || 0) * (Number(item.price) || 0);
     }
+    orderMap.set(dStr, acc);
   }
 
   const historyWithStats = history.map(day => {
     const dStr = new Date(day.date).toISOString().split('T')[0];
-    const pTotals = batchMap.get(dStr) || { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 };
-    const oTotals = orderMap.get(dStr) || { count: 0, totalWorth: 0 };
-
     return {
       ...day,
-      productionTotals: pTotals,
+      productionTotals: batchMap.get(dStr) || { total19L: 0, packs15L: 0, packs05L: 0, waste19L: 0, broken15L: 0, broken05L: 0 },
       marketingTotals: {
-        ordersCount: oTotals.count,
-        ordersTotalWorth: oTotals.totalWorth
+        ordersCount: orderMap.get(dStr)?.count || 0,
+        ordersTotalWorth: orderMap.get(dStr)?.totalWorth || 0
       }
     };
   });
 
-  res.status(200).json(new ApiResponse(200, historyWithStats, 'Daily close history retrieved'));
+  return sendSuccess(res, historyWithStats, 200, { message: 'Daily close history retrieved' });
 });
 
-/**
- * Reopens a finalized closed day for administrative corrections (restricted to OWNER role).
- *
- * @param {import('express').Request} req - Express request object containing date and reason.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Reopens a finalized closed day (OWNER only) */
 export const reopenDay = asyncHandler(async (req, res) => {
   const { date, reason } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
   if (!reason) throw new ApiError(400, 'Reason is required');
+  if (req.user.role !== 'OWNER') throw new ApiError(403, 'Only OWNER can reopen a closed day');
 
-  if (req.user.role !== 'OWNER') {
-    throw new ApiError(403, 'Only OWNER can reopen a closed day');
-  }
-
-  const prefix = getPrefix(req);
-  const targetDate = new Date(date);
-  targetDate.setUTCHours(0, 0, 0, 0);
-
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
-  const auditLogModel = prisma[`${prefix}AuditLog`];
 
-  const existing = await dailyCloseModel.findFirst({
-    where: { date: targetDate }
+  const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
+  if (!existing) throw new ApiError(404, 'Day is not closed');
+
+  await dailyCloseModel.delete({ where: { id: existing.id } });
+  invalidateDailyCloseLockCache(prefix, dateKey);
+
+  await createAuditLog(prefix, {
+    action: 'DAILY_REOPEN',
+    entityType: 'DailyClose',
+    entityId: existing.id,
+    performedBy: req.user.id,
+    details: `Day ${dateKey} reopened. Reason: ${reason}`
   });
 
-  if (!existing) {
-    throw new ApiError(404, 'Day is not closed');
-  }
-
-  await dailyCloseModel.delete({
-    where: { id: existing.id }
-  });
-
-  invalidateDailyCloseLockCache(prefix, targetDate.toISOString().split('T')[0]);
-
-  await auditLogModel.create({
-    data: {
-      action: 'DAILY_REOPEN',
-      entityType: 'DailyClose',
-      entityId: existing.id,
-      performedBy: req.user.id,
-      details: `Day ${targetDate.toISOString().split('T')[0]} reopened. Reason: ${reason}`
-    }
-  });
-
-  res.status(200).json(new ApiResponse(200, null, 'Day reopened successfully'));
+  return sendSuccess(res, null, 200, { message: 'Day reopened successfully' });
 });
+

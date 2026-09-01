@@ -1,6 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { sendSuccess } from '../utils/response.js';
 
 let cachedDashboardData = { aquasphere: null, wadaana: null };
 let sseClients = { aquasphere: [], wadaana: [] };
@@ -14,15 +15,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
   const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
-  const [
-    orders,
-    payments,
-    expenses,
-    purchases,
-    spotSales,
-    pendingPayables,
-    rawMaterials
-  ] = await Promise.all([
+  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: { createdAt: true, items: { select: { price: true, quantity: true } } }
@@ -52,7 +45,6 @@ const computeDashboardAnalytics = async (prefix) => {
     })
   ]);
 
-  // ponytail: single O(N) bucketing pass replaces 226 filter sweeps
   const dayMap = Object.create(null);
   const monthMap = Object.create(null);
 
@@ -63,30 +55,17 @@ const computeDashboardAnalytics = async (prefix) => {
   const getDKey = (d) => d.toISOString().split('T')[0];
   const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-  const ensureDay = (key) => {
-    if (!dayMap[key]) {
-      dayMap[key] = { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 };
-    }
-    return dayMap[key];
-  };
-
-  const ensureMonth = (key) => {
-    if (!monthMap[key]) {
-      monthMap[key] = { sales: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 };
-    }
-    return monthMap[key];
-  };
+  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 });
+  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 });
 
   for (const o of orders) {
     const d = new Date(o.createdAt);
     const total = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
-
     day.sales += total;
     day.ordersCount += 1;
     month.sales += total;
-
     if (d >= startOfDay) { daily.sales += total; daily.bottlesSold += 1; }
     if (d >= startOfMonth) { monthly.sales += total; monthly.bottlesSold += 1; }
     if (d >= startOfYear) { yearly.sales += total; yearly.bottlesSold += 1; }
@@ -97,12 +76,10 @@ const computeDashboardAnalytics = async (prefix) => {
     const amt = parseFloat(p.amount || 0);
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
-
     day.orderCash += amt;
     day.cashCollected += amt;
     month.orderCash += amt;
     month.cash += amt;
-
     if (d >= startOfDay) daily.cash += amt;
     if (d >= startOfMonth) monthly.cash += amt;
     if (d >= startOfYear) yearly.cash += amt;
@@ -114,13 +91,11 @@ const computeDashboardAnalytics = async (prefix) => {
     const creditAmt = parseFloat(st.creditAmount || 0);
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
-
     day.spotSalesCash += cashAmt;
     day.cashCollected += cashAmt;
     day.creditBilled += creditAmt;
     month.spotSalesCash += cashAmt;
     month.cash += cashAmt;
-
     if (d >= startOfDay) { daily.cash += cashAmt; daily.credit += creditAmt; }
     if (d >= startOfMonth) { monthly.cash += cashAmt; monthly.credit += creditAmt; }
     if (d >= startOfYear) { yearly.cash += cashAmt; yearly.credit += creditAmt; }
@@ -131,10 +106,8 @@ const computeDashboardAnalytics = async (prefix) => {
     const amt = parseFloat(e.amount || 0);
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
-
     day.expenses += amt;
     month.expenses += amt;
-
     if (d >= startOfDay) daily.expenses += amt;
     if (d >= startOfMonth) monthly.expenses += amt;
     if (d >= startOfYear) yearly.expenses += amt;
@@ -145,10 +118,8 @@ const computeDashboardAnalytics = async (prefix) => {
     const total = parseFloat(pu.grandTotal || 0);
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
-
     day.purchases += total;
     month.purchases += total;
-
     if (d >= startOfDay) { daily.purchases += total; daily.purchasesCount += 1; }
     if (d >= startOfMonth) { monthly.purchases += total; monthly.purchasesCount += 1; }
     if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; }
@@ -158,44 +129,28 @@ const computeDashboardAnalytics = async (prefix) => {
   monthly.netCash = monthly.cash - monthly.expenses;
   yearly.netCash = yearly.cash - yearly.expenses;
 
-  // 30-day daily history in O(30)
   const dailySalesHistory = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
     const dateKey = getDKey(d);
     const bucket = dayMap[dateKey] || { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 };
-
     dailySalesHistory.push({
       date: dateKey,
       day: d.toLocaleDateString('en-US', { weekday: 'short' }),
-      ordersCount: bucket.ordersCount,
-      sales: bucket.sales,
-      cashCollected: bucket.cashCollected,
-      orderCash: bucket.orderCash,
-      spotSalesCash: bucket.spotSalesCash,
-      creditBilled: bucket.creditBilled,
-      expenses: bucket.expenses,
-      purchases: bucket.purchases,
+      ...bucket,
       netCash: bucket.cashCollected - bucket.expenses
     });
   }
 
-  // 12-month trend in O(12)
   const monthlyTrend = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0);
     const mKey = getMKey(d);
     const bucket = monthMap[mKey] || { sales: 0, cash: 0, expenses: 0, purchases: 0, spotSalesCash: 0, orderCash: 0 };
-
     monthlyTrend.push({
       month: d.toLocaleDateString('en-US', { month: 'short' }),
-      sales: bucket.sales,
-      cash: bucket.cash,
-      expenses: bucket.expenses,
-      purchases: bucket.purchases,
-      spotSalesCash: bucket.spotSalesCash,
-      orderCash: bucket.orderCash,
+      ...bucket,
       netCash: bucket.cash - bucket.expenses
     });
   }
@@ -203,10 +158,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const purchaseTotal = pendingPayables.find(e => e.type === 'PURCHASE')?._sum?.amount || 0;
   const paymentTotal = pendingPayables.find(e => e.type === 'PAYMENT')?._sum?.amount || 0;
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
-
-  const lowStockMaterials = rawMaterials.filter(
-    item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0)
-  );
+  const lowStockMaterials = rawMaterials.filter(item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0));
 
   return {
     ...daily,
@@ -227,12 +179,7 @@ const computeDashboardAnalytics = async (prefix) => {
   };
 };
 
-/**
- * Broadcasts updated live dashboard analytics data to connected Server-Sent Events (SSE) clients.
- *
- * @param {'aquasphere' | 'wadaana'} [prefix='aquasphere'] - Target tenant prefix.
- * @returns {Promise<void>}
- */
+/** Broadcasts SSE update */
 export const broadcastDashboardUpdate = async (prefix = 'aquasphere') => {
   try {
     cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
@@ -243,26 +190,14 @@ export const broadcastDashboardUpdate = async (prefix = 'aquasphere') => {
   }
 };
 
-/**
- * Retrieves cached or computed high-level dashboard analytics (revenue, orders, expenses, cash).
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** High-level dashboard analytics */
 export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-  res.json({ success: true, data: cachedDashboardData[prefix] });
+  return sendSuccess(res, cachedDashboardData[prefix]);
 });
 
-/**
- * Retrieves monthly purchasing summary, vendor balances, and top raw materials purchased.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Monthly purchasing summary and vendor balances */
 export const getPurchasingSummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
@@ -270,7 +205,6 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   const [recentPurchases, vendors, ledgerSums, topMaterials] = await Promise.all([
-    // Recent purchases (last 7)
     prisma[`${prefix}Purchase`].findMany({
       take: 7,
       orderBy: { purchaseDate: 'desc' },
@@ -279,20 +213,14 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
         items: { include: { item: { select: { name: true, unit: true } } } }
       }
     }),
-
-    // All active vendors
     prisma[`${prefix}Vendor`].findMany({
       where: { archivedAt: null },
       select: { id: true, name: true, phone: true }
     }),
-
-    // Ledger sums grouped by vendor + type
     prisma[`${prefix}VendorLedgerEntry`].groupBy({
       by: ['vendorId', 'type'],
       _sum: { amount: true }
     }),
-
-    // Top purchased materials this month
     prisma[`${prefix}PurchaseItem`].groupBy({
       by: ['itemId'],
       _sum: { total: true, quantity: true },
@@ -302,15 +230,13 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
     })
   ]);
 
-  // Build vendor balance map
   const balanceMap = {};
   for (const entry of ledgerSums) {
-    if (!balanceMap[entry.vendorId]) balanceMap[entry.vendorId] = { purchases: 0, payments: 0 };
+    balanceMap[entry.vendorId] ||= { purchases: 0, payments: 0 };
     if (entry.type === 'PURCHASE') balanceMap[entry.vendorId].purchases = Number(entry._sum.amount);
     if (entry.type === 'PAYMENT') balanceMap[entry.vendorId].payments = Number(entry._sum.amount);
   }
 
-  // Format top vendors (sorted by outstanding balance)
   const topVendors = vendors
     .map(v => ({
       id: v.id,
@@ -323,7 +249,6 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
     .sort((a, b) => b.totalPurchases - a.totalPurchases)
     .slice(0, 5);
 
-  // Resolve material names for top materials
   const materialIds = topMaterials.map(m => m.itemId);
   const materialDetails = materialIds.length > 0
     ? await prisma[`${prefix}Item`].findMany({
@@ -341,36 +266,27 @@ export const getPurchasingSummary = asyncHandler(async (req, res) => {
     totalQty: Number(m._sum.quantity)
   }));
 
-  res.json({
-    success: true,
-    data: {
-      recentPurchases: recentPurchases.map(p => ({
-        id: p.id,
-        invoiceNo: p.invoiceNo,
-        vendorName: p.vendor?.name || 'N/A',
-        grandTotal: Number(p.grandTotal),
-        purchaseDate: p.purchaseDate,
-        itemCount: p.items.length,
-        items: p.items.map(i => ({
-          name: i.item?.name || 'N/A',
-          qty: Number(i.quantity),
-          unit: i.item?.unit || '',
-          total: Number(i.total)
-        }))
-      })),
-      topVendors,
-      topMaterials: formattedMaterials
-    }
+  return sendSuccess(res, {
+    recentPurchases: recentPurchases.map(p => ({
+      id: p.id,
+      invoiceNo: p.invoiceNo,
+      vendorName: p.vendor?.name || 'N/A',
+      grandTotal: Number(p.grandTotal),
+      purchaseDate: p.purchaseDate,
+      itemCount: p.items.length,
+      items: p.items.map(i => ({
+        name: i.item?.name || 'N/A',
+        qty: Number(i.quantity),
+        unit: i.item?.unit || '',
+        total: Number(i.total)
+      }))
+    })),
+    topVendors,
+    topMaterials: formattedMaterials
   });
 });
 
-/**
- * Streams real-time dashboard analytics over a Server-Sent Events (SSE) connection with Traefik anti-buffering.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Streams real-time dashboard analytics via SSE */
 export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   res.setHeader('Content-Type', 'text/event-stream');
@@ -382,7 +298,6 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   res.write(`data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`);
 
   sseClients[prefix].push(res);
-
   const heartbeat = setInterval(() => res.write(':heartbeat\n\n'), 30000);
   req.on('close', () => {
     clearInterval(heartbeat);
@@ -390,13 +305,7 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * Retrieves daily cash inflows, credit sales, and expenses summary for the specified date.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Daily financial summary for a target date */
 export const getDailySummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { date } = req.query;
@@ -408,22 +317,18 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   nextDate.setDate(nextDate.getDate() + 1);
 
   const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg] = await Promise.all([
-    // Cash from order deliveries on this date
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
-    // Counter sales cash + credit on this date
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { cashCollected: true, creditAmount: true, litresSold: true },
       where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
-    // Expenses on this date
     prisma[`${prefix}Expense`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
-    // Credit from spot sales
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { creditAmount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate }, creditAmount: { gt: 0 } }
@@ -437,27 +342,18 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const totalLitres = parseFloat(spotSalesAgg._sum.litresSold || 0);
   const netCash = totalDeliveryAmount + totalSpotSales - totalExpenses;
 
-  res.json({
-    success: true,
-    data: {
-      totalDeliveryAmount,
-      totalSpotSales,
-      totalCreditSales,
-      totalExpenses,
-      totalLitres,
-      netCash,
-      date: targetDate.toISOString().split('T')[0]
-    }
+  return sendSuccess(res, {
+    totalDeliveryAmount,
+    totalSpotSales,
+    totalCreditSales,
+    totalExpenses,
+    totalLitres,
+    netCash,
+    date: targetDate.toISOString().split('T')[0]
   });
 });
 
-/**
- * Retrieves production performance dashboard data including batch breakdown, wastage, and raw material health.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Production performance dashboard data */
 export const getProductionDashboard = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
@@ -488,36 +384,17 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     prodBatchModel.aggregate({
       where: { batchDate: { gte: startOfDay, lte: endOfDay } },
       _sum: isWadaana ? {
-        qtyPure05L: true,
-        qtyPure15L: true,
-        qtyMix05L: true,
-        qtyMix15L: true,
-        brokenPure05L: true,
-        brokenPure15L: true,
-        brokenMix05L: true,
-        brokenMix15L: true
+        qtyPure05L: true, qtyPure15L: true, qtyMix05L: true, qtyMix15L: true,
+        brokenPure05L: true, brokenPure15L: true, brokenMix05L: true, brokenMix15L: true
       } : {
-        quantity: true,
-        packs05L: true,
-        packs15L: true,
-        brokenBottles05L: true,
-        brokenBottles15L: true,
-        wasteQuantity: true
+        quantity: true, packs05L: true, packs15L: true,
+        brokenBottles05L: true, brokenBottles15L: true, wasteQuantity: true
       },
       _count: { id: true }
     }),
-    prodBatchModel.findMany({
-      take: 6,
-      orderBy: { createdAt: 'desc' }
-    }),
-    itemModel.findMany({
-      where: { type: 'FINISHED_GOOD', archivedAt: null },
-      orderBy: { name: 'asc' }
-    }),
-    itemModel.findMany({
-      where: { type: 'RAW_MATERIAL', archivedAt: null },
-      orderBy: { name: 'asc' }
-    }),
+    prodBatchModel.findMany({ take: 6, orderBy: { createdAt: 'desc' } }),
+    itemModel.findMany({ where: { type: 'FINISHED_GOOD', archivedAt: null }, orderBy: { name: 'asc' } }),
+    itemModel.findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null }, orderBy: { name: 'asc' } }),
     purchaseModel.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
@@ -526,67 +403,37 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         items: { include: { item: { select: { name: true, unit: true } } } }
       }
     }),
-    dailyCloseModel.findFirst({
-      where: { date: startOfDay }
-    }),
-    prodBatchModel.count({
-      where: { batchDate: { gte: startOfDay, lte: endOfDay }, status: 'PENDING' }
-    }),
-    prodBatchModel.findMany({
-      where: { batchDate: { gte: startDate } },
-      orderBy: { batchDate: 'asc' }
-    })
+    dailyCloseModel.findFirst({ where: { date: startOfDay } }),
+    prodBatchModel.count({ where: { batchDate: { gte: startOfDay, lte: endOfDay }, status: 'PENDING' } }),
+    prodBatchModel.findMany({ where: { batchDate: { gte: startDate } }, orderBy: { batchDate: 'asc' } })
   ]);
 
   const dailyHistory = [];
   for (let i = daysNum - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    const dayStr = daysNum > 14 
-      ? `${d.getMonth() + 1}/${d.getDate()}` 
-      : d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayStr = daysNum > 14 ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString('en-US', { weekday: 'short' });
     const dateKey = d.toISOString().split('T')[0];
-
-    const dayBatches = pastWeekBatches.filter(b => {
-      if (!b.batchDate) return false;
-      const bKey = new Date(b.batchDate).toISOString().split('T')[0];
-      return bKey === dateKey;
-    });
+    const dayBatches = pastWeekBatches.filter(b => b.batchDate && new Date(b.batchDate).toISOString().split('T')[0] === dateKey);
 
     if (isWadaana) {
-      const qtyPure05L = dayBatches.reduce((s, b) => s + Number(b.qtyPure05L || 0), 0);
-      const qtyPure15L = dayBatches.reduce((s, b) => s + Number(b.qtyPure15L || 0), 0);
-      const qtyMix05L = dayBatches.reduce((s, b) => s + Number(b.qtyMix05L || 0), 0);
-      const qtyMix15L = dayBatches.reduce((s, b) => s + Number(b.qtyMix15L || 0), 0);
-      const totalWaste = dayBatches.reduce((s, b) => s + (
-        Number(b.brokenPure05L || 0) + 
-        Number(b.brokenPure15L || 0) + 
-        Number(b.brokenMix05L || 0) + 
-        Number(b.brokenMix15L || 0)
-      ), 0);
-
       dailyHistory.push({
         day: dayStr,
         date: dateKey,
-        qtyPure05L,
-        qtyPure15L,
-        qtyMix05L,
-        qtyMix15L,
-        totalWaste
+        qtyPure05L: dayBatches.reduce((s, b) => s + Number(b.qtyPure05L || 0), 0),
+        qtyPure15L: dayBatches.reduce((s, b) => s + Number(b.qtyPure15L || 0), 0),
+        qtyMix05L: dayBatches.reduce((s, b) => s + Number(b.qtyMix05L || 0), 0),
+        qtyMix15L: dayBatches.reduce((s, b) => s + Number(b.qtyMix15L || 0), 0),
+        totalWaste: dayBatches.reduce((s, b) => s + (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0)), 0)
       });
     } else {
-      const total19L = dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0);
-      const packs15L = dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0);
-      const packs05L = dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0);
-      const totalWaste = dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0);
-
       dailyHistory.push({
         day: dayStr,
         date: dateKey,
-        total19L,
-        packs15L,
-        packs05L,
-        totalWaste
+        total19L: dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0),
+        packs15L: dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0),
+        packs05L: dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0),
+        totalWaste: dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0)
       });
     }
   }
@@ -594,8 +441,8 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   const rawMaterialHealth = rawMaterials.map(mat => {
     const qty = Number(mat.cachedQty || 0);
     const reorder = Number(mat.reorderLevel || 0);
-    const isLow = reorder > 0 && qty <= reorder;
     const isCritical = qty <= 0;
+    const isLow = reorder > 0 && qty <= reorder;
 
     return {
       id: mat.id,
@@ -608,8 +455,6 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
       status: isCritical ? 'OUT_OF_STOCK' : isLow ? 'LOW_STOCK' : 'IN_STOCK'
     };
   });
-
-  const lowStockCount = rawMaterialHealth.filter(m => m.status !== 'IN_STOCK').length;
 
   const todaysProduction = isWadaana ? {
     batchesCount: todaysBatchesAgg._count.id || 0,
@@ -637,82 +482,64 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   const formatLoggedBy = (producedBy) => {
     if (!producedBy) return 'Production Manager';
     const u = userMap[producedBy];
-    if (u) {
-      if (u.name) return u.name;
-      if (u.role) return u.role.replace(/_/g, ' ');
-    }
-    // If producedBy is a UUID string that doesn't match a user row, don't show raw UUID
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(producedBy);
-    if (isUUID) return 'Production Manager';
-    return producedBy;
+    if (u?.name) return u.name;
+    if (u?.role) return u.role.replace(/_/g, ' ');
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(producedBy) ? 'Production Manager' : producedBy;
   };
 
-  res.json({
-    success: true,
-    data: {
-      todaysProduction,
-      dailyProductionHistory: dailyHistory,
-      finishedGoods: finishedGoods.map(fg => ({
-        id: fg.id,
-        name: fg.name,
-        unit: fg.unit,
-        factoryQty: Number(fg.factoryQty || 0),
-        warehouseQty: Number(fg.warehouseQty || 0),
-        cachedQty: Number(fg.cachedQty || 0)
-      })),
-      rawMaterialHealth,
-      lowStockCount,
-      pendingBatchesCount,
-      recentBatches: recentBatches.map(b => {
-        const creatorName = formatLoggedBy(b.producedBy);
-        if (isWadaana) {
-          const waste = (b.brokenPure05L || 0) + (b.brokenPure15L || 0) + (b.brokenMix05L || 0) + (b.brokenMix15L || 0);
-          return {
-            id: b.id,
-            shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
-            batchDate: b.batchDate,
-            status: b.status,
-            qtyPure05L: b.qtyPure05L || 0,
-            qtyPure15L: b.qtyPure15L || 0,
-            qtyMix05L: b.qtyMix05L || 0,
-            qtyMix15L: b.qtyMix15L || 0,
-            wasteQuantity: waste,
-            createdBy: creatorName
-          };
-        } else {
-          return {
-            id: b.id,
-            shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
-            batchDate: b.batchDate,
-            status: b.status,
-            quantity: b.quantity || 0,
-            packs15L: b.packs15L || 0,
-            packs05L: b.packs05L || 0,
-            wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0),
-            createdBy: creatorName
-          };
-        }
-      }),
-      recentPurchases: recentPurchases.map(p => ({
-        id: p.id,
-        invoiceNo: p.invoiceNo || `INV-${p.id.substring(0, 6).toUpperCase()}`,
-        vendorName: p.vendor?.name || 'Supplier',
-        purchaseDate: p.purchaseDate,
-        deliveredTo: p.deliveredTo,
-        status: p.status,
-        grandTotal: Number(p.grandTotal || 0),
-        itemCount: p.items.length,
-        items: p.items.map(i => ({
-          name: i.item?.name || 'Material',
-          qty: Number(i.quantity),
-          unit: i.item?.unit || ''
-        }))
-      })),
-      dailyClose: {
-        isClosed: dailyCloseStatus?.adminConfirmed || false,
-        pmConfirmed: dailyCloseStatus?.pmConfirmed || false,
-        pmConfirmedAt: dailyCloseStatus?.pmConfirmedAt || null
-      }
+  return sendSuccess(res, {
+    todaysProduction,
+    dailyProductionHistory: dailyHistory,
+    finishedGoods: finishedGoods.map(fg => ({
+      id: fg.id,
+      name: fg.name,
+      unit: fg.unit,
+      factoryQty: Number(fg.factoryQty || 0),
+      warehouseQty: Number(fg.warehouseQty || 0),
+      cachedQty: Number(fg.cachedQty || 0)
+    })),
+    rawMaterialHealth,
+    lowStockCount: rawMaterialHealth.filter(m => m.status !== 'IN_STOCK').length,
+    pendingBatchesCount,
+    recentBatches: recentBatches.map(b => ({
+      id: b.id,
+      shortId: `#${b.id.substring(0, 8).toUpperCase()}`,
+      batchDate: b.batchDate,
+      status: b.status,
+      createdBy: formatLoggedBy(b.producedBy),
+      ...(isWadaana ? {
+        qtyPure05L: b.qtyPure05L || 0,
+        qtyPure15L: b.qtyPure15L || 0,
+        qtyMix05L: b.qtyMix05L || 0,
+        qtyMix15L: b.qtyMix15L || 0,
+        wasteQuantity: (b.brokenPure05L || 0) + (b.brokenPure15L || 0) + (b.brokenMix05L || 0) + (b.brokenMix15L || 0)
+      } : {
+        quantity: b.quantity || 0,
+        packs15L: b.packs15L || 0,
+        packs05L: b.packs05L || 0,
+        wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0)
+      })
+    })),
+    recentPurchases: recentPurchases.map(p => ({
+      id: p.id,
+      invoiceNo: p.invoiceNo || `INV-${p.id.substring(0, 6).toUpperCase()}`,
+      vendorName: p.vendor?.name || 'Supplier',
+      purchaseDate: p.purchaseDate,
+      deliveredTo: p.deliveredTo,
+      status: p.status,
+      grandTotal: Number(p.grandTotal || 0),
+      itemCount: p.items.length,
+      items: p.items.map(i => ({
+        name: i.item?.name || 'Material',
+        qty: Number(i.quantity),
+        unit: i.item?.unit || ''
+      }))
+    })),
+    dailyClose: {
+      isClosed: dailyCloseStatus?.adminConfirmed || false,
+      pmConfirmed: dailyCloseStatus?.pmConfirmed || false,
+      pmConfirmedAt: dailyCloseStatus?.pmConfirmedAt || null
     }
   });
 });
+

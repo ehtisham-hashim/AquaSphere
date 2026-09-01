@@ -3,16 +3,52 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
-/**
- * Retrieves latest 50 sales orders with customer, items, payments, and delivery details.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+const QTY_THRESHOLDS = {
+  Home: 5,
+  Office: 20,
+  Shop: 30,
+  Restaurant: 50,
+  Commercial: 100,
+  Distributor: 500
+};
+
+/** Resolves and standardizes items in an order payload */
+async function resolveOrderItems(prefix, items) {
+  const nonUUIDs = items.filter(i => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(i.itemId) && i.productName);
+  const existingItems = nonUUIDs.length > 0
+    ? await prisma[`${prefix}Item`].findMany({
+        where: { name: { in: nonUUIDs.map(i => i.productName), mode: 'insensitive' }, archivedAt: null }
+      })
+    : [];
+
+  const map = new Map(existingItems.map(it => [it.name.toLowerCase(), it]));
+  const resolved = [];
+
+  for (const i of items) {
+    let dbItemId = i.itemId;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbItemId) && i.productName) {
+      const match = map.get(i.productName.toLowerCase());
+      if (match) {
+        dbItemId = match.id;
+      } else {
+        const created = await prisma[`${prefix}Item`].create({
+          data: { name: i.productName, type: 'FINISHED_GOOD', unit: 'Bottles', cachedQty: 0 }
+        });
+        map.set(i.productName.toLowerCase(), created);
+        dbItemId = created.id;
+      }
+    }
+    resolved.push({ itemId: dbItemId, quantity: parseInt(i.quantity, 10), price: parseFloat(i.price) });
+  }
+  return resolved;
+}
+
+/** Retrieves latest 50 sales orders */
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
@@ -25,16 +61,10 @@ export const getOrders = asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 50
   });
-  res.json({ success: true, data: orders });
+  return sendSuccess(res, orders);
 });
 
-/**
- * Creates a new customer order with product items, credit limit checks, and audit logging.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Creates a new customer order with credit checks and audit log */
 export const createOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, items, expectedDelivery, remarks, paymentStatus, bypassCreditCheck } = req.body; 
@@ -43,57 +73,12 @@ export const createOrder = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  // Resolve each order item to a real DB Item record (batched lookup)
-  const nonUUIDItems = items.filter(i => {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(i.itemId);
-    return !isUUID && i.productName;
-  });
-
-  const existingItems = nonUUIDItems.length > 0
-    ? await prisma[`${prefix}Item`].findMany({
-        where: {
-          name: { in: nonUUIDItems.map(i => i.productName), mode: 'insensitive' },
-          archivedAt: null
-        }
-      })
-    : [];
-
-  const existingMap = new Map(existingItems.map(it => [it.name.toLowerCase(), it]));
-
-  const resolvedItems = [];
-  for (const i of items) {
-    let dbItemId = i.itemId;
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dbItemId);
-    if (!isUUID && i.productName) {
-      const match = existingMap.get(i.productName.toLowerCase());
-      if (match) {
-        dbItemId = match.id;
-      } else {
-        const created = await prisma[`${prefix}Item`].create({
-          data: { name: i.productName, type: 'FINISHED_GOOD', unit: 'Bottles', cachedQty: 0 }
-        });
-        existingMap.set(i.productName.toLowerCase(), created);
-        dbItemId = created.id;
-      }
-    }
-    resolvedItems.push({ itemId: dbItemId, quantity: parseInt(i.quantity), price: parseFloat(i.price) });
-  }
-
+  const resolvedItems = await resolveOrderItems(prefix, items);
   const orderTotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
   const totalQty = resolvedItems.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Quantity soft-block check based on customer type
-  const qtyThresholds = {
-    Home: 5,
-    Office: 20,
-    Shop: 30,
-    Restaurant: 50,
-    Commercial: 100,
-    Distributor: 500
-  };
-  
-  const maxQty = qtyThresholds[customer.type] || 20;
-
+  // Soft-block check for unusual quantity
+  const maxQty = QTY_THRESHOLDS[customer.type] || 20;
   if (totalQty > maxQty && !bypassCreditCheck) {
     return res.status(200).json({
       success: false,
@@ -103,10 +88,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // 1. Check Credit Limit Soft-Block (only if limit > 0)
+  // Credit limit soft-block check
   const currentBalance = parseFloat(customer.currentBalance || 0);
   const creditLimit = parseFloat(customer.creditLimit || 0);
-  
   if (creditLimit > 0 && (currentBalance + orderTotal) > creditLimit && !bypassCreditCheck) {
     return res.status(200).json({
       success: false,
@@ -116,24 +100,17 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // 2. Check Bottle Security Deposit Soft-Block (for 19L orders)
-  const BOTTLE_SECURITY_RATE = 1000;
-  
-  const resolvedItemIds = resolvedItems.map(i => i.itemId);
-  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItemIds } } });
-  
+  // Bottle security deposit check (for 19L orders)
+  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItems.map(i => i.itemId) } } });
   const qty19LOrdered = resolvedItems.reduce((sum, i) => {
     const dbItem = dbItems.find(di => di.id === i.itemId);
-    if (dbItem && dbItem.name.toLowerCase().includes('19l')) {
-      return sum + i.quantity;
-    }
-    return sum;
+    return dbItem?.name.toLowerCase().includes('19l') ? sum + i.quantity : sum;
   }, 0);
 
   if (qty19LOrdered > 0 && !bypassCreditCheck) {
-    const currentBottles = parseInt(customer.cachedBottleBalance || 0);
+    const currentBottles = parseInt(customer.cachedBottleBalance || 0, 10);
     const newBottleBalance = currentBottles + qty19LOrdered;
-    const coveredBottles = Math.floor(parseInt(customer.deposit || 0) / BOTTLE_SECURITY_RATE);
+    const coveredBottles = Math.floor(parseInt(customer.deposit || 0, 10) / 1000);
 
     if (newBottleBalance > coveredBottles) {
       return res.status(200).json({
@@ -154,44 +131,28 @@ export const createOrder = asyncHandler(async (req, res) => {
         remarks,
         paymentStatus: paymentStatus || 'UNPAID',
         items: {
-          create: resolvedItems.map(i => ({
-            itemId: i.itemId,
-            quantity: i.quantity,
-            price: i.price
-          }))
+          create: resolvedItems.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price }))
         }
       },
       include: { items: { include: { item: true } } }
     });
 
     const customerObj = await tx[`${prefix}Customer`].findUnique({ where: { id: customerId }, select: { name: true } });
-    const totalQty = resolvedItems.reduce((s, i) => s + (i.quantity || 0), 0);
-    const totalAmount = resolvedItems.reduce((s, i) => s + (i.quantity * i.price), 0);
-    const orderShortId = o.id.slice(0, 6).toUpperCase();
-
-    await tx[`${prefix}AuditLog`].create({
-      data: {
-        action: 'ORDER_CREATED',
-        entityType: 'Order',
-        entityId: o.id,
-        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
-        details: `Order #${orderShortId} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${totalAmount.toLocaleString()})`
-      }
+    await createAuditLog(prefix, {
+      action: 'ORDER_CREATED',
+      entityType: 'Order',
+      entityId: o.id,
+      performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+      details: `Order #${o.id.slice(0, 6).toUpperCase()} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${orderTotal.toLocaleString()})`
     });
 
     return o;
   }, { maxWait: 10000, timeout: 30000 });
 
-  res.status(201).json({ success: true, data: order });
+  return sendSuccess(res, order, 201);
 });
 
-/**
- * Updates an undelivered order's expected delivery, items, or remarks.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Updates an undelivered order's expected delivery, items, or remarks */
 export const updateOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -199,20 +160,16 @@ export const updateOrder = asyncHandler(async (req, res) => {
 
   const order = await prisma[`${prefix}Order`].findUnique({ where: { id }, include: { items: true } });
   if (!order) throw new ApiError(404, 'Order not found');
-  
-  if (order.deliveryStatus === 'DELIVERED') {
-    throw new ApiError(400, 'Cannot edit a delivered order');
-  }
+  if (order.deliveryStatus === 'DELIVERED') throw new ApiError(400, 'Cannot edit a delivered order');
 
   const updated = await prisma.$transaction(async (tx) => {
-    // If items are provided, delete old and recreate
-    if (items && items.length > 0) {
+    if (items?.length) {
       await tx[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
       await tx[`${prefix}OrderItem`].createMany({
         data: items.map(i => ({
           orderId: id,
           itemId: i.itemId,
-          quantity: parseInt(i.quantity),
+          quantity: parseInt(i.quantity, 10),
           price: parseFloat(i.price)
         }))
       });
@@ -229,27 +186,19 @@ export const updateOrder = asyncHandler(async (req, res) => {
     });
   }, { maxWait: 10000, timeout: 30000 });
 
-  res.json({ success: true, data: updated });
+  return sendSuccess(res, updated);
 });
 
-/**
- * Fulfills and delivers an order, recording delivered quantities, bottle returns, cash collection, and inventory deduction.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Fulfills and delivers an order, recording returns, cash, and inventory deduction */
 export const deliverOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
   const { 
-    qtyDelivered, 
-    bottlesReturnedGood, 
-    bottlesReturnedBroken, 
-    qty05LDelivered,
-    qty15LDelivered,
-    cashReceived, 
-    paymentMethod, 
+    qtyDelivered = 0, 
+    bottlesReturnedGood = 0, 
+    bottlesReturnedBroken = 0, 
+    cashReceived = 0, 
+    paymentMethod = 'CASH', 
     remarks,
     bypassBottleCheck
   } = req.body;
@@ -266,18 +215,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     });
     if (!o) throw new ApiError(404, 'Order not found');
 
-    const qty = parseInt(qtyDelivered || 0); // 19L delivered
-    const retGood = parseInt(bottlesReturnedGood || 0);
-    const retBroken = parseInt(bottlesReturnedBroken || 0);
-    const _q05 = parseInt(qty05LDelivered || 0);
-    const _q15 = parseInt(qty15LDelivered || 0);
-    const cash = parseFloat(cashReceived || 0);
+    const qty = parseInt(qtyDelivered, 10) || 0;
+    const retGood = parseInt(bottlesReturnedGood, 10) || 0;
+    const retBroken = parseInt(bottlesReturnedBroken, 10) || 0;
+    const cash = parseFloat(cashReceived) || 0;
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-    
-    // Calculate total already paid on this order across all payment entries
     const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
     const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
-
     const currentDebt = Math.max(0, parseFloat(o.customer.currentBalance || 0));
     const maxPayable = remainingOrderBalance + currentDebt;
 
@@ -285,113 +229,59 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       throw new ApiError(400, `Cash received (Rs. ${cash}) cannot exceed total customer payable balance (Rs. ${maxPayable}).`);
     }
 
-    // CASE 1: Order is ALREADY DELIVERED — Process Payment Settlement Run
+    // CASE 1: Order is ALREADY DELIVERED — Settle payment
     if (o.deliveryStatus === 'DELIVERED') {
       if (cash <= 0 && retGood <= 0 && retBroken <= 0) {
         throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
       }
 
-      // 19L Bottle return check on settlement
       const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
-      const prevReturnedOnOrder = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0), 0) || 0;
-      const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturnedOnOrder);
+      const prevReturned = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0), 0) || 0;
+      const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturned);
 
       if (qty19LOnOrder > 0 && (retGood + retBroken > remainingBottlesAllowed)) {
         throw new ApiError(400, `Returned bottles (${retGood + retBroken}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
       }
 
-      // ===== ATOMIC PAYMENT SETTLEMENT =====
-      // Read current customer state ONCE inside transaction for consistency
       const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
         where: { id: o.customerId },
-        select: { 
-          currentBalance: true, 
-          deposit: true,
-          cachedBottleBalance: true 
-        }
+        select: { currentBalance: true, deposit: true, cachedBottleBalance: true }
       });
-
       const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
-      const _currentDeposit = Number(customerSnapshot.deposit || 0);
 
-      // Calculate payment allocation atomically
       let debtReduction = 0;
       let depositRestored = 0;
-
       if (cash > 0) {
-        // Priority 1: Reduce debt first
-        if (currentCustomerDebt > 0) {
-          debtReduction = Math.min(currentCustomerDebt, cash);
-        }
-
-        // Priority 2: Restore security deposit with remaining cash
-        const remainingCashAfterDebt = cash - debtReduction;
-        if (remainingCashAfterDebt > 0) {
-          depositRestored = remainingCashAfterDebt;
-        }
-
-        // Record payment transaction
+        debtReduction = Math.min(currentCustomerDebt, cash);
+        depositRestored = Math.max(0, cash - debtReduction);
         await tx[`${prefix}Payment`].create({
-          data: {
-            orderId: o.id,
-            customerId: o.customerId,
-            amount: cash,
-            type: paymentMethod || 'CASH'
-          }
+          data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
         });
       }
 
-      // Build atomic customer update
       const customerUpdateData = {};
-      if (debtReduction > 0) {
-        customerUpdateData.currentBalance = { decrement: debtReduction };
-      }
-      if (depositRestored > 0) {
-        customerUpdateData.deposit = { increment: depositRestored };
-      }
-      if (retGood + retBroken > 0) {
-        customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
-      }
+      if (debtReduction > 0) customerUpdateData.currentBalance = { decrement: debtReduction };
+      if (depositRestored > 0) customerUpdateData.deposit = { increment: depositRestored };
+      if (retGood + retBroken > 0) customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
 
-      // Execute single atomic customer update
       if (Object.keys(customerUpdateData).length > 0) {
-        await tx[`${prefix}Customer`].update({
-          where: { id: o.customerId },
-          data: customerUpdateData
-        });
+        await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
       }
 
-      // Record bottle returns
       if (retGood > 0 || retBroken > 0) {
         await tx[`${prefix}Delivery`].create({
-          data: {
-            orderId: o.id,
-            qtyDelivered: 0,
-            bottlesReturnedGood: retGood,
-            bottlesReturnedBroken: retBroken,
-            cashReceived: cash,
-            paymentMethod,
-            remarks
-          }
+          data: { orderId: o.id, qtyDelivered: 0, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
         });
 
         if (retGood > 0) {
           await tx[`${prefix}BottleTransaction`].create({
             data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id} (Payment Settlement)` }
           });
-          const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
-            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
-          });
-          if (emptyBottleItem) {
-            await tx[`${prefix}Item`].update({
-              where: { id: emptyBottleItem.id },
-              data: { 
-                cachedQty: { increment: retGood },
-                factoryQty: { increment: retGood }
-              }
-            });
+          const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
+          if (emptyBottle) {
+            await tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } });
             await tx[`${prefix}InventoryTransaction`].create({
-              data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+              data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
             });
           }
         }
@@ -402,7 +292,6 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
       }
 
-      // Update order payment status
       const newTotalPaid = alreadyPaid + cash;
       const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
@@ -412,28 +301,19 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
       });
 
-      await tx[`${prefix}AuditLog`].create({
-        data: {
-          action: 'ORDER_PAYMENT_SETTLED',
-          entityType: 'Order',
-          entityId: updated.id,
-          performedBy: req.user?.id || 'Unknown',
-          details: JSON.stringify({ 
-            cashReceived: cash, 
-            newTotalPaid, 
-            newPaymentStatus, 
-            debtReduction,
-            depositRestored,
-            bottlesReturnedGood: retGood, 
-            bottlesReturnedBroken: retBroken 
-          })
-        }
+      await createAuditLog(prefix, {
+        action: 'ORDER_PAYMENT_SETTLED',
+        entityType: 'Order',
+        entityId: updated.id,
+        performedBy: req.user?.id || 'Unknown',
+        details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, debtReduction, depositRestored, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
       });
 
       return updated;
     }
 
-    // Validate finished goods stock on Factory Floor for every item in order before processing delivery (batched)
+    // CASE 2: Order is being delivered for the first time
+    // Stock validation
     const itemIds = o.items.map(i => i.itemId).filter(Boolean);
     const itemObjs = itemIds.length > 0 ? await tx[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } }) : [];
     const itemMap = new Map(itemObjs.map(it => [it.id, it]));
@@ -447,48 +327,32 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           if (factoryStock < reqQty) {
             throw new ApiError(
               400,
-              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty}, Available on Factory Floor: ${factoryStock}. Stock in Warehouse cannot be automatically delivered — please run a Production batch or Transfer Stock from Warehouse to Factory Floor first.`
+              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty}, Available on Factory Floor: ${factoryStock}.`
             );
           }
         }
       }
     }
 
-    // 19L Calculations
     const has19L = o.items.some(i => i.item?.name?.toLowerCase().includes('19l'));
     const qty19L = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
 
-    // Soft-block check for bottle returns
     const currentBottles = o.customer.cachedBottleBalance || 0;
     if ((retGood + retBroken > currentBottles + qty19L) && !bypassBottleCheck) {
       throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning ${retGood + retBroken}. Proceed anyway?`);
     }
 
     await tx[`${prefix}Delivery`].create({
-      data: {
-        orderId: o.id,
-        qtyDelivered: qty,
-        bottlesReturnedGood: retGood,
-        bottlesReturnedBroken: retBroken,
-        cashReceived: cash,
-        paymentMethod,
-        remarks
-      }
+      data: { orderId: o.id, qtyDelivered: qty, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
     });
 
     if (cash > 0) {
       await tx[`${prefix}Payment`].create({
-        data: {
-          orderId: o.id,
-          customerId: o.customerId,
-          amount: cash,
-          type: paymentMethod || 'CASH'
-        }
+        data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
       });
     }
 
     if (has19L && qty19L > 0) {
-      // Deduct 1 Large/Big 19L Cap per bottle
       const largeCap = await tx[`${prefix}Item`].findFirst({
         where: {
           type: 'RAW_MATERIAL',
@@ -507,12 +371,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         });
       }
 
-      // Deduct Mineral Fraction (24L treated water per bottle / 15,141L per mineral set per owner specs)
-      const WATER_PER_BOTTLE = 24;
-      const WATER_PER_MINERAL_SET = 15141;
-      const mineralSetFraction = new Prisma.Decimal(qty19L * WATER_PER_BOTTLE).dividedBy(WATER_PER_MINERAL_SET);
-
-      const items = await tx[`${prefix}Item`].findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null } });
+      // Mineral deduction: 24L treated water per bottle / 15,141L per mineral set
+      const mineralSetFraction = new Prisma.Decimal(qty19L * 24).dividedBy(15141);
+      const rawItems = await tx[`${prefix}Item`].findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null } });
       const minerals = [
         { search: 'calcium', factor: 2 },
         { search: 'magnesium', factor: 1 },
@@ -520,7 +381,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       ];
 
       for (const m of minerals) {
-        const minItem = items.find(i => i.name.toLowerCase().includes(m.search));
+        const minItem = rawItems.find(i => i.name.toLowerCase().includes(m.search));
         if (minItem && mineralSetFraction.greaterThan(0)) {
           const qtyUsed = mineralSetFraction.mul(m.factor);
           await tx[`${prefix}Item`].update({ where: { id: minItem.id }, data: { cachedQty: { decrement: qtyUsed } } });
@@ -530,7 +391,6 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
       }
 
-      // Bottle Ledger Transactions
       await tx[`${prefix}BottleTransaction`].create({
         data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
       });
@@ -540,19 +400,11 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       await tx[`${prefix}BottleTransaction`].create({
         data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
       });
-      const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
-        where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
-      });
-      if (emptyBottleItem) {
-        await tx[`${prefix}Item`].update({
-          where: { id: emptyBottleItem.id },
-          data: { 
-            cachedQty: { increment: retGood },
-            factoryQty: { increment: retGood }
-          }
-        });
+      const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
+      if (emptyBottle) {
+        await tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } });
         await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: emptyBottleItem.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+          data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
         });
       }
     }
@@ -562,18 +414,15 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Finished Goods Deductions (deduct exclusively from Factory Floor stock)
-    await Promise.all(o.items.map(async (orderItem) => {
+    // Deduct finished goods exclusively from Factory Floor
+    for (const orderItem of o.items) {
       if (orderItem.itemId) {
-        const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
+        const is19L = orderItem.item?.name?.toLowerCase().includes('19l');
         const qtyToDeduct = Number(orderItem.quantity || 0);
 
         await tx[`${prefix}Item`].update({
           where: { id: orderItem.itemId },
-          data: { 
-            cachedQty: { decrement: qtyToDeduct },
-            factoryQty: { decrement: qtyToDeduct }
-          }
+          data: { cachedQty: { decrement: qtyToDeduct }, factoryQty: { decrement: qtyToDeduct } }
         });
 
         await tx[`${prefix}InventoryTransaction`].create({
@@ -581,28 +430,22 @@ export const deliverOrder = asyncHandler(async (req, res) => {
             itemId: orderItem.itemId, 
             quantity: orderItem.quantity, 
             direction: 'OUT', 
-            reason: is19LItem ? '19L_DELIVERY' : 'PET_DELIVERY', 
+            reason: is19L ? '19L_DELIVERY' : 'PET_DELIVERY', 
             refType: 'ORDER', 
             refId: o.id,
             location: 'FACTORY'
           }
         });
       }
-    }));
+    }
 
-    // Update Customer Deposit, Financial Balance (Debt), and Tenant-specific Bottle Holdings
-    // ATOMIC OPERATION: Read customer state once and perform single update
+    // Customer financial & balance updates
     const unpaidAmount = Math.max(0, orderTotal - cash);
-    
-    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
-      where: { id: o.customerId },
-      select: { deposit: true }
-    });
+    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({ where: { id: o.customerId }, select: { deposit: true } });
     const existingDeposit = parseFloat(customerSnapshot.deposit || 0);
 
     let depositDeduction = 0;
     let debtAddition = 0;
-
     if (unpaidAmount > 0) {
       if (existingDeposit > 0) {
         depositDeduction = Math.min(existingDeposit, unpaidAmount);
@@ -612,24 +455,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       }
     }
 
-    const isWadaana = prefix === 'wadaana';
-    const customerUpdateData = {
-      lastDeliveryAt: new Date()
-    };
+    const customerUpdateData = { lastDeliveryAt: new Date() };
+    if (depositDeduction > 0) customerUpdateData.deposit = { decrement: depositDeduction };
+    if (debtAddition > 0) customerUpdateData.currentBalance = { increment: debtAddition };
 
-    // Financial updates
-    if (depositDeduction > 0) {
-      customerUpdateData.deposit = { decrement: depositDeduction };
-    }
-    if (debtAddition > 0) {
-      customerUpdateData.currentBalance = { increment: debtAddition };
-    }
-
-    // Bottle balance updates
-    if (!isWadaana) {
+    if (prefix !== 'wadaana') {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
     } else {
-      // Wadaana PET bottle customer tracking
       for (const orderItem of o.items) {
         const iName = orderItem.item?.name?.toLowerCase() || '';
         const qtyItem = orderItem.quantity || 0;
@@ -649,42 +481,29 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       }
     }
 
-    // Execute single atomic customer update
-    await tx[`${prefix}Customer`].update({
-      where: { id: o.customerId },
-      data: customerUpdateData
-    });
+    await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
 
-    // Update Order Status
     const updated = await tx[`${prefix}Order`].update({
       where: { id },
       data: { deliveryStatus: 'DELIVERED', paymentStatus: cash >= orderTotal ? 'PAID' : (cash > 0 ? 'PARTIAL' : 'UNPAID') }
     });
 
-    await tx[`${prefix}AuditLog`].create({
-      data: {
-        action: 'ORDER_DELIVERED',
-        entityType: 'Order',
-        entityId: updated.id,
-        performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
-        details: `Order #${updated.id.slice(0, 6).toUpperCase()} delivered to ${o.customer?.name || 'Customer'} • Cash Received: Rs. ${cash.toLocaleString()}${retGood > 0 ? ` (${retGood} bottles returned)` : ''}`
-      }
+    await createAuditLog(prefix, {
+      action: 'ORDER_DELIVERED',
+      entityType: 'Order',
+      entityId: updated.id,
+      performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
+      details: `Order #${updated.id.slice(0, 6).toUpperCase()} delivered to ${o.customer?.name || 'Customer'} • Cash Received: Rs. ${cash.toLocaleString()}${retGood > 0 ? ` (${retGood} bottles returned)` : ''}`
     });
 
     return updated;
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate();
-  res.json({ success: true, data: order });
+  return sendSuccess(res, order);
 });
 
-/**
- * Generates and streams a PDF receipt invoice for the specified sales order.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Generates and streams PDF invoice */
 export const getOrderPDF = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -693,10 +512,7 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
     where: { id },
     include: { customer: true, items: { include: { item: true } } }
   });
-
-  if (!order) {
-    throw new ApiError(404, 'Order not found');
-  }
+  if (!order) throw new ApiError(404, 'Order not found');
 
   const { generateInvoicePDF } = await import('../utils/pdfGenerator.js');
   const pdfBuffer = await generateInvoicePDF(order, prefix);
@@ -706,13 +522,7 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   res.send(pdfBuffer);
 });
 
-/**
- * Soft cancels an undelivered sales order with audit logging.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Soft cancels an undelivered sales order */
 export const deleteOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
@@ -723,30 +533,23 @@ export const deleteOrder = asyncHandler(async (req, res) => {
 
   const order = await prisma[`${prefix}Order`].findUnique({ where: { id } });
   if (!order) throw new ApiError(404, 'Order not found');
-
   if (order.deliveryStatus === 'DELIVERED') {
     throw new ApiError(400, 'Cannot cancel/delete an order that has already been delivered.');
   }
 
-  // Soft delete / mark order as CANCELLED
   await prisma[`${prefix}Order`].update({
     where: { id },
-    data: { 
-      deliveryStatus: 'CANCELLED',
-      paymentStatus: 'UNPAID'
-    }
+    data: { deliveryStatus: 'CANCELLED', paymentStatus: 'UNPAID' }
   });
 
-  await prisma[`${prefix}AuditLog`].create({
-    data: {
-      action: 'ORDER_CANCELLED',
-      entityType: 'Order',
-      entityId: id,
-      performedBy: req.user?.id || 'Unknown',
-      details: `Order ${id} soft-deleted and marked as CANCELLED`
-    }
+  await createAuditLog(prefix, {
+    action: 'ORDER_CANCELLED',
+    entityType: 'Order',
+    entityId: id,
+    performedBy: req.user?.id || 'Unknown',
+    details: `Order ${id} soft-deleted and marked as CANCELLED`
   });
 
   broadcastDashboardUpdate();
-  res.json({ success: true, message: 'Order marked as cancelled' });
+  return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
 });

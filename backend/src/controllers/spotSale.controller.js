@@ -3,8 +3,19 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
+
+const LITRES_MAP = {
+  'PACK_05L': 9.0,
+  'SINGLE_05L': 0.75,
+  'PACK_15L': 12.0,
+  'SINGLE_15L': 2.0,
+  'BOTTLE_19L': 24.0,
+  'CUSTOM': 1.0
+};
 
 const generateSaleNumber = () => {
   const now = new Date();
@@ -15,14 +26,7 @@ const generateSaleNumber = () => {
   return `CS-${d}${m}${y}-${rand}`;
 };
 
-/**
- * GET /api/v1/spot-sales
- * Retrieves paginated spot/counter sales with customer and cashier details.
- *
- * @param {import('express').Request} req - Express request object with pagination parameters.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves paginated spot/counter sales */
 export const getSpotSales = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const skip = (page - 1) * limit;
@@ -34,134 +38,64 @@ export const getSpotSales = asyncHandler(async (req, res) => {
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
       include: {
-        customer: {
-          select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true }
-        },
-        createdBy: {
-          select: { id: true, name: true, role: true }
-        }
+        customer: { select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true } },
+        createdBy: { select: { id: true, name: true, role: true } }
       }
     }),
     prisma[`${prefix}SpotSale`].count()
   ]);
 
-  res.status(200).json({
-    success: true,
-    data: sales,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      pages: Math.ceil(total / limit)
-    }
+  return sendSuccess(res, sales, 200, {
+    pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) }
   });
 });
 
-/**
- * POST /api/v1/spot-sales
- * Records a walk-in / spot sale transaction, updates customer credit balance if on credit, and decrements item stock.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Records a walk-in / spot sale transaction */
 export const createSpotSale = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { 
-    productType = 'CUSTOM',
-    productQty = 1,
-    items: inputItems,
-    litresSold, 
-    capsIssued = 0, 
-    cashCollected = 0, 
-    creditAmount = 0, 
-    paymentMethod = 'CASH', 
-    customerId, 
-    remarks 
+  const {
+    productType = 'CUSTOM', productQty = 1, items: inputItems,
+    litresSold, capsIssued = 0, cashCollected = 0, creditAmount = 0,
+    paymentMethod = 'CASH', customerId, remarks
   } = req.body;
 
-  const itemsList = (Array.isArray(inputItems) && inputItems.length > 0) 
-    ? inputItems 
+  const itemsList = (Array.isArray(inputItems) && inputItems.length > 0)
+    ? inputItems
     : [{ productType, productQty: parseFloat(productQty || 1) }];
 
   const cash = parseFloat(cashCollected || 0);
   const credit = parseFloat(creditAmount || 0);
   const caps = parseInt(capsIssued || 0, 10);
 
-  const litresMap = {
-    'PACK_05L': 9.0,
-    'SINGLE_05L': 0.75,
-    'PACK_15L': 12.0,
-    'SINGLE_15L': 2.0,
-    'BOTTLE_19L': 24.0,
-    'CUSTOM': 1.0
-  };
-
-  if (isNaN(cash) || cash < 0) {
-    throw new ApiError(400, 'Cash collected must be a non-negative number');
-  }
-  if (isNaN(credit) || credit < 0) {
-    throw new ApiError(400, 'Credit amount must be a non-negative number');
-  }
-
-  // Credit Rule: Customer selection is MANDATORY for credit sales
+  if (isNaN(cash) || cash < 0) throw new ApiError(400, 'Cash collected must be a non-negative number');
+  if (isNaN(credit) || credit < 0) throw new ApiError(400, 'Credit amount must be a non-negative number');
   if (credit > 0 && (!customerId || !customerId.trim())) {
     throw new ApiError(400, 'Customer selection is mandatory for credit sales (Credit Amount > 0)');
   }
 
   if (customerId) {
-    const customerObj = await prisma[`${prefix}Customer`].findUnique({
-      where: { id: customerId }
-    });
-    if (!customerObj) {
-      throw new ApiError(404, 'Selected customer not found');
-    }
-    
-    if (credit > 0 && customerObj.creditLimit > 0) {
-      const currentBalance = Number(customerObj.currentBalance || 0);
-      const creditLimit = Number(customerObj.creditLimit || 0);
-      const projectedBalance = currentBalance + credit;
-      
-      if (projectedBalance > creditLimit) {
-        console.warn(`CREDIT_LIMIT_EXCEEDED: Customer ${customerObj.name} balance will reach Rs ${projectedBalance} (Limit: Rs ${creditLimit})`);
-      }
-    }
+    const customerObj = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
+    if (!customerObj) throw new ApiError(404, 'Selected customer not found');
   }
 
   const saleNumber = generateSaleNumber();
 
   const spotSale = await prisma.$transaction(async (tx) => {
-    // ponytail: query only active finished goods instead of scanning entire items table
     const finishedGoods = await tx[`${prefix}Item`].findMany({
       where: { type: 'FINISHED_GOOD', archivedAt: null }
     });
 
-    const findFG = (keywords) => {
-      return finishedGoods.find(i => keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
-    };
+    const findFG = (keywords) => finishedGoods.find(i => keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
 
-    // Helper for location-based stock deduction
     const deductStock = async (fgItem, qtyDeduct, reason) => {
       const avail = Number(fgItem.cachedQty || 0);
       if (avail < qtyDeduct) {
-        throw new ApiError(
-          400,
-          `❌ Cannot process Counter Sale: Insufficient finished stock for "${fgItem.name}". Required: ${qtyDeduct}, Available: ${avail}. Please produce or add finished goods in Inventory first.`
-        );
+        throw new ApiError(400, `❌ Cannot process Counter Sale: Insufficient stock for "${fgItem.name}". Required: ${qtyDeduct}, Available: ${avail}.`);
       }
 
       const currentFactory = Number(fgItem.factoryQty || 0);
-      let factoryDeduct = 0;
-      let warehouseDeduct = 0;
-
-      if (currentFactory >= qtyDeduct) {
-        factoryDeduct = qtyDeduct;
-      } else if (currentFactory > 0) {
-        factoryDeduct = currentFactory;
-        warehouseDeduct = qtyDeduct - currentFactory;
-      } else {
-        warehouseDeduct = qtyDeduct;
-      }
+      const factoryDeduct = currentFactory >= qtyDeduct ? qtyDeduct : (currentFactory > 0 ? currentFactory : 0);
+      const warehouseDeduct = qtyDeduct - factoryDeduct;
 
       await tx[`${prefix}InventoryTransaction`].create({
         data: {
@@ -193,8 +127,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     for (const item of itemsList) {
       const pType = item.productType;
       const pQty = parseFloat(item.productQty || 1);
-      const itemLitres = (litresMap[pType] || 1.0) * pQty;
-      totalLitresCalculated += itemLitres;
+      totalLitresCalculated += (LITRES_MAP[pType] || 1.0) * pQty;
 
       if (pType === 'PACK_05L' || pType === 'SINGLE_05L') {
         const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
@@ -222,9 +155,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         }
       } else if (pType === 'BOTTLE_19L') {
         const fg19L = findFG(['19l', '19']);
-        if (fg19L) {
-          await deductStock(fg19L, pQty, 'SPOT_SALE_19L');
-        }
+        if (fg19L) await deductStock(fg19L, pQty, 'SPOT_SALE_19L');
         await tx[`${prefix}BottleTransaction`].create({
           data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(pQty), reason: `Counter Sale 19L Refill (${saleNumber})` }
         });
@@ -233,7 +164,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     const finalLitres = parseFloat(litresSold) || totalLitresCalculated;
 
-    // 2. Create Spot Sale record
     const sale = await tx[`${prefix}SpotSale`].create({
       data: {
         saleNumber,
@@ -250,51 +180,34 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         createdById: req.user?.id || null
       },
       include: {
-        customer: {
-          select: { id: true, name: true, phone: true }
-        },
-        createdBy: {
-          select: { id: true, name: true, role: true }
-        }
+        customer: { select: { id: true, name: true, phone: true } },
+        createdBy: { select: { id: true, name: true, role: true } }
       }
     });
 
-    // 3. Update Customer outstanding balance for credit sales
     if (credit > 0 && customerId) {
       await tx[`${prefix}Customer`].update({
         where: { id: customerId },
-        data: {
-          currentBalance: { increment: credit }
-        }
+        data: { currentBalance: { increment: credit } }
       });
     }
 
-    // 6. Create Audit Log entry
-    await tx[`${prefix}AuditLog`].create({
-      data: {
-        action: 'COUNTER_SALE_CREATED',
-        entityType: 'SPOT_SALE',
-        entityId: sale.id,
-        details: `Counter Sale ${saleNumber} created. Product: ${summaryProductType}, Total Qty: ${totalQty}, Litres: ${finalLitres}L, Caps: ${caps}, Amount: Rs. ${cash + credit}, Recorded By: ${req.user?.name || 'User'} (${req.user?.role || 'MM'})`,
-        performedBy: req.user?.name || req.user?.id || 'System'
-      }
+    await createAuditLog(prefix, {
+      action: 'COUNTER_SALE_CREATED',
+      entityType: 'SPOT_SALE',
+      entityId: sale.id,
+      details: `Counter Sale ${saleNumber} created. Product: ${summaryProductType}, Total Qty: ${totalQty}, Litres: ${finalLitres}L, Caps: ${caps}, Amount: Rs. ${cash + credit}`,
+      performedBy: req.user?.name || req.user?.id || 'System'
     });
 
     return sale;
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
-  res.status(201).json({ success: true, data: spotSale });
+  return sendSuccess(res, spotSale, 201);
 });
 
-/**
- * PUT /api/v1/spot-sales/:id
- * Updates notes or payment method on a spot sale before daily close.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Updates notes or payment method on a spot sale before daily close */
 export const updateSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -323,27 +236,18 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
     }
   });
 
-  await prisma[`${prefix}AuditLog`].create({
-    data: {
-      action: 'COUNTER_SALE_UPDATED',
-      entityType: 'SPOT_SALE',
-      entityId: id,
-      details: `Counter Sale ${existing.saleNumber || id} updated by ${req.user?.name} (${userRole})`,
-      performedBy: req.user?.name || req.user?.id || 'System'
-    }
+  await createAuditLog(prefix, {
+    action: 'COUNTER_SALE_UPDATED',
+    entityType: 'SPOT_SALE',
+    entityId: id,
+    details: `Counter Sale ${existing.saleNumber || id} updated by ${req.user?.name} (${userRole})`,
+    performedBy: req.user?.name || req.user?.id || 'System'
   });
 
-  res.status(200).json({ success: true, data: updated });
+  return sendSuccess(res, updated);
 });
 
-/**
- * DELETE /api/v1/spot-sales/:id
- * Deletes a counter sale transaction and reverts credit balances (restricted to OWNER role).
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Deletes a counter sale and reverts credit (OWNER only) */
 export const deleteSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
@@ -352,9 +256,7 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
   const existing = await prisma[`${prefix}SpotSale`].findUnique({ where: { id } });
   if (!existing) throw new ApiError(404, 'Counter sale record not found');
 
-  if (userRole !== 'OWNER') {
-    throw new ApiError(403, 'Deleting counter sales is strictly restricted to Owner.');
-  }
+  if (userRole !== 'OWNER') throw new ApiError(403, 'Deleting counter sales is strictly restricted to Owner.');
 
   await prisma.$transaction(async (tx) => {
     if (existing.customerId && Number(existing.creditAmount) > 0) {
@@ -366,17 +268,16 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
 
     await tx[`${prefix}SpotSale`].delete({ where: { id } });
 
-    await tx[`${prefix}AuditLog`].create({
-      data: {
-        action: 'COUNTER_SALE_DELETED',
-        entityType: 'SPOT_SALE',
-        entityId: id,
-        details: `Counter Sale ${existing.saleNumber || id} deleted by ${req.user?.name} (${userRole})`,
-        performedBy: req.user?.name || req.user?.id || 'System'
-      }
+    await createAuditLog(prefix, {
+      action: 'COUNTER_SALE_DELETED',
+      entityType: 'SPOT_SALE',
+      entityId: id,
+      details: `Counter Sale ${existing.saleNumber || id} deleted by ${req.user?.name} (${userRole})`,
+      performedBy: req.user?.name || req.user?.id || 'System'
     });
-  });
+  }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
-  res.status(200).json({ success: true, message: 'Counter sale deleted successfully' });
+  return sendSuccess(res, null, 200, { message: 'Counter sale deleted successfully' });
 });
+

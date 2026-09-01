@@ -4,38 +4,44 @@ import { ApiError } from '../utils/ApiError.js';
 import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 
-const getPrefix = getTenantPrefix;
-
-/**
- * Validates whether a provided URL belongs to a recognized Google Maps domain.
- *
- * @param {string} url - Map link URL to validate.
- * @returns {boolean} True if valid or empty, false otherwise.
- */
 export const isValidGoogleMapsUrl = (url) => {
   if (!url) return true;
-  const validDomains = ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'];
-  return validDomains.some(d => url.includes(d));
+  return ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'].some(d => url.includes(d));
 };
 
-/**
- * Retrieves customers with optional search filtering by name or phone.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+const extractTenantProductFields = (prefix, body) => {
+  if (prefix === 'aquasphere') {
+    const res = {};
+    if (body.buys19L !== undefined) res.buys19L = Boolean(body.buys19L);
+    if (body.qty19L !== undefined) res.qty19L = parseInt(body.qty19L, 10) || 0;
+    if (body.buys05LPet !== undefined) res.buys05LPet = Boolean(body.buys05LPet);
+    if (body.qty05LPet !== undefined) res.qty05LPet = parseInt(body.qty05LPet, 10) || 0;
+    if (body.buys15LPet !== undefined) res.buys15LPet = Boolean(body.buys15LPet);
+    if (body.qty15LPet !== undefined) res.qty15LPet = parseInt(body.qty15LPet, 10) || 0;
+    return res;
+  }
+  const res = {};
+  if (body.buysPure05L !== undefined) res.buysPure05L = Boolean(body.buysPure05L);
+  if (body.qtyPure05L !== undefined) res.qtyPure05L = parseInt(body.qtyPure05L, 10) || 0;
+  if (body.buysPure15L !== undefined) res.buysPure15L = Boolean(body.buysPure15L);
+  if (body.qtyPure15L !== undefined) res.qtyPure15L = parseInt(body.qtyPure15L, 10) || 0;
+  if (body.buysMix05L !== undefined) res.buysMix05L = Boolean(body.buysMix05L);
+  if (body.qtyMix05L !== undefined) res.qtyMix05L = parseInt(body.qtyMix05L, 10) || 0;
+  if (body.buysMix15L !== undefined) res.buysMix15L = Boolean(body.buysMix15L);
+  if (body.qtyMix15L !== undefined) res.qtyMix15L = parseInt(body.qtyMix15L, 10) || 0;
+  return res;
+};
+
+/** Retrieves customers with optional search filtering */
 export const getCustomers = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
-  const prefix = getPrefix(req);
-  
+  const prefix = getTenantPrefix(req);
+
   let archivedFilter = { archivedAt: null };
-  if (status === 'archived') {
-    archivedFilter = { archivedAt: { not: null } };
-  } else if (status === 'all') {
-    archivedFilter = {};
-  }
+  if (status === 'archived') archivedFilter = { archivedAt: { not: null } };
+  else if (status === 'all') archivedFilter = {};
 
   const where = search ? {
     ...archivedFilter,
@@ -51,272 +57,129 @@ export const getCustomers = asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json({ success: true, data: customers });
+  return sendSuccess(res, customers);
 });
 
-/**
- * Retrieves detailed customer history including orders, bottle transactions, and payments.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves detailed customer history */
 export const getCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const prefix = getPrefix(req);
+  const prefix = getTenantPrefix(req);
 
-  const customer = await prisma[`${prefix}Customer`].findUnique({
-    where: { id },
-    include: {
-      orders: {
-        select: {
-          id: true,
-          type: true,
-          deliveryStatus: true,
-          paymentStatus: true,
-          expectedDelivery: true,
-          remarks: true,
-          createdAt: true,
-          items: {
-            select: {
-              id: true,
-              quantity: true,
-              price: true,
-              item: { select: { id: true, name: true, type: true } }
-            }
+  const [customer, auditLogs] = await Promise.all([
+    prisma[`${prefix}Customer`].findUnique({
+      where: { id },
+      include: {
+        orders: {
+          select: {
+            id: true, type: true, deliveryStatus: true, paymentStatus: true, expectedDelivery: true, remarks: true, createdAt: true,
+            items: { select: { id: true, quantity: true, price: true, item: { select: { id: true, name: true, type: true } } } },
+            deliveries: { select: { id: true, qtyDelivered: true, bottlesReturnedGood: true, bottlesReturnedBroken: true, cashReceived: true, paymentMethod: true, deliveredAt: true, remarks: true } },
+            payments: { select: { id: true, amount: true, type: true, createdAt: true } }
           },
-          deliveries: {
-            select: {
-              id: true,
-              qtyDelivered: true,
-              bottlesReturnedGood: true,
-              bottlesReturnedBroken: true,
-              cashReceived: true,
-              paymentMethod: true,
-              deliveredAt: true,
-              remarks: true
-            }
-          },
-          payments: {
-            select: { id: true, amount: true, type: true, createdAt: true }
-          }
+          orderBy: { createdAt: 'desc' },
+          take: 50
         },
-        orderBy: { createdAt: 'desc' },
-        take: 50
-      },
-      bottleTransactions: {
-        select: {
-          id: true,
-          type: true,
-          quantity: true,
-          reason: true,
-          runningBalance: true,
-          createdAt: true
+        bottleTransactions: {
+          select: { id: true, type: true, quantity: true, reason: true, runningBalance: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50
         },
-        orderBy: { createdAt: 'desc' },
-        take: 50
-      },
-      payments: {
-        select: {
-          id: true,
-          amount: true,
-          type: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 50
+        payments: {
+          select: { id: true, amount: true, type: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        }
       }
-    }
-  });
+    }),
+    prisma[`${prefix}AuditLog`].findMany({
+      where: { entityType: 'Customer', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+  ]);
 
   if (!customer) throw new ApiError(404, 'Customer not found');
-
-  // Fetch audit logs separately (not directly related in schema)
-  const auditLogs = await prisma[`${prefix}AuditLog`].findMany({
-    where: {
-      entityType: 'Customer',
-      entityId: id
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 50
-  });
-
-  res.json({
-    success: true,
-    data: {
-      ...customer,
-      auditLogs
-    }
-  });
+  return sendSuccess(res, { ...customer, auditLogs });
 });
 
-/**
- * Handles creation of a customer with tenant-specific product configuration.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
-  const { 
-    name, phone, type, address, mapLink, securityDeposit, currentBalance,
-    creditLimit, creditDuration, remarks, homePictureUrl,
-    buys19L, qty19L, buys05LPet, qty05LPet, buys15LPet, qty15LPet,
-    buysPure05L, qtyPure05L, buysPure15L, qtyPure15L, 
-    buysMix05L, qtyMix05L, buysMix15L, qtyMix15L
-  } = req.body;
-  const prefix = getPrefix(req);
-  
-  if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
+  const prefix = getTenantPrefix(req);
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
 
+  if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
-    throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
+    throw new ApiError(400, 'Invalid Google Maps URL');
   }
 
-  const customerData = { 
-    name, 
-    phone, 
-    type, 
-    address,
-    mapLink,
-    deposit: securityDeposit ? parseInt(securityDeposit) : 0,
+  const customerData = {
+    name: name.trim(),
+    phone: phone.trim(),
+    type,
+    address: address || null,
+    mapLink: mapLink || null,
+    deposit: securityDeposit ? parseInt(securityDeposit, 10) : 0,
     currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
     creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
-    creditDuration: creditDuration ? parseInt(creditDuration) : 1,
-    remarks,
-    homePictureUrl,
-    archivedAt: null
+    creditDuration: creditDuration ? parseInt(creditDuration, 10) : 1,
+    remarks: remarks || null,
+    homePictureUrl: homePictureUrl || null,
+    archivedAt: null,
+    ...extractTenantProductFields(prefix, req.body)
   };
 
-  if (prefix === 'aquasphere') {
-    customerData.buys19L = Boolean(buys19L);
-    customerData.qty19L = qty19L ? parseInt(qty19L) : 0;
-    customerData.buys05LPet = Boolean(buys05LPet);
-    customerData.qty05LPet = qty05LPet ? parseInt(qty05LPet) : 0;
-    customerData.buys15LPet = Boolean(buys15LPet);
-    customerData.qty15LPet = qty15LPet ? parseInt(qty15LPet) : 0;
-  } else {
-    customerData.buysPure05L = Boolean(buysPure05L);
-    customerData.qtyPure05L = qtyPure05L ? parseInt(qtyPure05L) : 0;
-    customerData.buysPure15L = Boolean(buysPure15L);
-    customerData.qtyPure15L = qtyPure15L ? parseInt(qtyPure15L) : 0;
-    customerData.buysMix05L = Boolean(buysMix05L);
-    customerData.qtyMix05L = qtyMix05L ? parseInt(qtyMix05L) : 0;
-    customerData.buysMix15L = Boolean(buysMix15L);
-    customerData.qtyMix15L = qtyMix15L ? parseInt(qtyMix15L) : 0;
-  }
+  const [archivedCustomer, activeCustomer] = await Promise.all([
+    prisma[`${prefix}Customer`].findFirst({ where: { phone: customerData.phone, archivedAt: { not: null } } }),
+    prisma[`${prefix}Customer`].findFirst({ where: { phone: customerData.phone, archivedAt: null } })
+  ]);
 
-  // Check if an archived record with the same phone exists
-  const archivedCustomer = await prisma[`${prefix}Customer`].findFirst({
-    where: { phone, archivedAt: { not: null } }
-  });
+  if (activeCustomer) throw new ApiError(400, `A customer with phone number "${phone}" already exists.`);
 
-  // Check if an ACTIVE record with the same phone already exists
-  const activeCustomer = await prisma[`${prefix}Customer`].findFirst({
-    where: { phone, archivedAt: null }
-  });
-
-  if (activeCustomer) {
-    throw new ApiError(400, `A customer with phone number "${phone}" already exists. Each customer must have a unique phone number.`);
-  }
-
-  let customer;
-  if (archivedCustomer) {
-    // Unarchive and overwrite customer record
-    customer = await prisma[`${prefix}Customer`].update({
-      where: { id: archivedCustomer.id },
-      data: customerData
-    });
-  } else {
-    customer = await prisma[`${prefix}Customer`].create({
-      data: customerData
-    });
-  }
-
-  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
+  const customer = archivedCustomer
+    ? await prisma[`${prefix}Customer`].update({ where: { id: archivedCustomer.id }, data: customerData })
+    : await prisma[`${prefix}Customer`].create({ data: customerData });
 
   await createAuditLog(prefix, {
     action: 'CUSTOMER_CREATED',
     entityType: 'Customer',
     entityId: customer.id,
-    performedBy,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
     details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
   });
 
-  res.status(201).json({ success: true, data: customer });
+  return sendSuccess(res, customer, 201);
 });
 
-/**
- * Updates an existing customer profile with audit trail logging for sensitive changes.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Updates customer profile */
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { 
-    name, phone, type, address, mapLink, securityDeposit,
-    creditLimit, creditDuration, remarks, homePictureUrl,
-    buys19L, qty19L, buys05LPet, qty05LPet, buys15LPet, qty15LPet,
-    buysPure05L, qtyPure05L, buysPure15L, qtyPure15L,
-    buysMix05L, qtyMix05L, buysMix15L, qtyMix15L
-  } = req.body;
-  const prefix = getPrefix(req);
+  const prefix = getTenantPrefix(req);
+  const { name, phone, type, address, mapLink, securityDeposit, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
 
   const existing = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!existing) throw new ApiError(404, 'Customer not found');
+  if (mapLink && !isValidGoogleMapsUrl(mapLink)) throw new ApiError(400, 'Invalid Google Maps URL');
 
-  if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
-    throw new ApiError(400, 'Invalid Google Maps URL. Must contain maps.google.com, google.com/maps, or goo.gl');
-  }
-
-  const updateData = {};
+  const updateData = { ...extractTenantProductFields(prefix, req.body) };
   if (name !== undefined) {
-    if (typeof name !== 'string' || !name.trim()) {
-      throw new ApiError(400, 'Customer name must be a non-empty string');
-    }
+    if (!name.trim()) throw new ApiError(400, 'Customer name must be non-empty');
     updateData.name = name.trim();
   }
   if (phone !== undefined) {
-    if (typeof phone !== 'string' || !phone.trim()) {
-      throw new ApiError(400, 'Customer phone must be a non-empty string');
-    }
+    if (!phone.trim()) throw new ApiError(400, 'Customer phone must be non-empty');
     updateData.phone = phone.trim();
   }
   if (type !== undefined) updateData.type = type;
   if (address !== undefined) updateData.address = address;
   if (mapLink !== undefined) updateData.mapLink = mapLink;
-  if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit || 0);
-  if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit || 0);
-  if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration || 1);
+  if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit, 10) || 0;
+  if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit) || 0;
+  if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration, 10) || 1;
   if (remarks !== undefined) updateData.remarks = remarks;
   if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
 
-  if (prefix === 'aquasphere') {
-    if (buys19L !== undefined) updateData.buys19L = Boolean(buys19L);
-    if (qty19L !== undefined) updateData.qty19L = parseInt(qty19L || 0);
-    if (buys05LPet !== undefined) updateData.buys05LPet = Boolean(buys05LPet);
-    if (qty05LPet !== undefined) updateData.qty05LPet = parseInt(qty05LPet || 0);
-    if (buys15LPet !== undefined) updateData.buys15LPet = Boolean(buys15LPet);
-    if (qty15LPet !== undefined) updateData.qty15LPet = parseInt(qty15LPet || 0);
-  } else {
-    if (buysPure05L !== undefined) updateData.buysPure05L = Boolean(buysPure05L);
-    if (qtyPure05L !== undefined) updateData.qtyPure05L = parseInt(qtyPure05L || 0);
-    if (buysPure15L !== undefined) updateData.buysPure15L = Boolean(buysPure15L);
-    if (qtyPure15L !== undefined) updateData.qtyPure15L = parseInt(qtyPure15L || 0);
-    if (buysMix05L !== undefined) updateData.buysMix05L = Boolean(buysMix05L);
-    if (qtyMix05L !== undefined) updateData.qtyMix05L = parseInt(qtyMix05L || 0);
-    if (buysMix15L !== undefined) updateData.buysMix15L = Boolean(buysMix15L);
-    if (qtyMix15L !== undefined) updateData.qtyMix15L = parseInt(qtyMix15L || 0);
-  }
-
-  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
-
-  const customer = await prisma[`${prefix}Customer`].update({
-    where: { id },
-    data: updateData
-  });
+  const customer = await prisma[`${prefix}Customer`].update({ where: { id }, data: updateData });
+  const performedBy = req.user?.name || req.user?.id || 'Admin';
 
   if (phone !== undefined && phone.trim() !== existing.phone) {
     await createAuditLog(prefix, {
@@ -346,19 +209,13 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     details: `Customer details updated for ${existing.name}`
   });
 
-  res.json({ success: true, data: customer });
+  return sendSuccess(res, customer);
 });
 
-/**
- * Soft deletes a customer and archives their associated phone identifier.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Soft deletes a customer */
 export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const prefix = getPrefix(req);
+  const prefix = getTenantPrefix(req);
 
   if (!['OWNER', 'MARKETING_MANAGER'].includes(req.user?.role)) {
     throw new ApiError(403, 'Only Owner or Marketing Manager can delete customer records');
@@ -367,79 +224,52 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
-
   await prisma[`${prefix}Customer`].update({
     where: { id },
-    data: { 
-      archivedAt: new Date(),
-      phone: `${customer.phone}_archived_${Date.now()}`
-    }
+    data: { archivedAt: new Date(), phone: `${customer.phone}_archived_${Date.now()}` }
   });
 
   await createAuditLog(prefix, {
     action: 'CUSTOMER_DELETED',
     entityType: 'Customer',
     entityId: id,
-    performedBy,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
     details: `Customer ${customer.name} (${customer.phone}) soft deleted`
   });
 
-  res.json({ success: true, message: 'Customer deleted successfully' });
+  return sendSuccess(res, null, 200, { message: 'Customer deleted successfully' });
 });
 
-/**
- * Restores an archived customer and restores their clean phone number.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Restores an archived customer */
 export const restoreCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const prefix = getPrefix(req);
+  const prefix = getTenantPrefix(req);
 
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  const cleanPhone = customer.phone.includes('_archived_') 
-    ? customer.phone.split('_archived_')[0] 
-    : customer.phone;
+  const cleanPhone = customer.phone.includes('_archived_') ? customer.phone.split('_archived_')[0] : customer.phone;
 
   const updated = await prisma[`${prefix}Customer`].update({
     where: { id },
-    data: { 
-      archivedAt: null,
-      phone: cleanPhone
-    }
+    data: { archivedAt: null, phone: cleanPhone }
   });
-
-  const performedBy = req.user ? `${req.user.name || req.user.role || 'User'} (${req.user.id.substring(0, 6)})` : 'Admin';
 
   await createAuditLog(prefix, {
     action: 'CUSTOMER_RESTORED',
     entityType: 'Customer',
     entityId: id,
-    performedBy,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
     details: `Customer ${updated.name} restored from archive`
   });
 
-  res.json({ success: true, data: updated, message: 'Customer unarchived successfully' });
+  return sendSuccess(res, updated, 200, { message: 'Customer unarchived successfully' });
 });
 
-/**
- * Uploads a customer premises or home picture to Cloudinary storage.
- *
- * @param {import('express').Request} req - Express request object with file.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Uploads customer premises picture */
 export const uploadCustomerPicture = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Image file is required');
   const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);
-  res.status(200).json({ 
-    success: true, 
-    homePictureUrl: secure_url,
-    publicId: public_id
-  });
+  return sendSuccess(res, { homePictureUrl: secure_url, publicId: public_id });
 });
+

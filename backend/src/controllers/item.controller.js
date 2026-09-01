@@ -2,14 +2,10 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 
-/**
- * Retrieves catalog items (raw materials / finished goods) with recipe relations.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves catalog items with recipe relations */
 export const getItems = asyncHandler(async (req, res) => {
   const { type, includeArchived } = req.query;
   const prefix = getTenantPrefix(req);
@@ -33,9 +29,7 @@ export const getItems = asyncHandler(async (req, res) => {
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
-      recipeFinishedGoods: {
-        include: { rawMaterial: true }
-      }
+      recipeFinishedGoods: { include: { rawMaterial: true } }
     }
   });
 
@@ -51,33 +45,18 @@ export const getItems = asyncHandler(async (req, res) => {
     return item;
   });
 
-  res.json({ success: true, data: itemsData });
+  return sendSuccess(res, itemsData);
 });
 
-/**
- * Retrieves a single inventory item by ID.
- *
- * @param {import('express').Request} req - Express request object with item id parameter.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves a single inventory item by ID */
 export const getItemById = asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const prefix = getTenantPrefix(req);
-
-  const item = await prisma[`${prefix}Item`].findUnique({ where: { id } });
+  const item = await prisma[`${prefix}Item`].findUnique({ where: { id: req.params.id } });
   if (!item) throw new ApiError(404, 'Item not found');
-  
-  res.json({ success: true, data: item });
+  return sendSuccess(res, item);
 });
 
-/**
- * Creates a new catalog item or reactivates an archived one with initial stock balance.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
   const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0 } = req.body;
   const prefix = getTenantPrefix(req);
@@ -86,30 +65,19 @@ export const createItem = asyncHandler(async (req, res) => {
   const cleanName = name.trim();
   const addQty = parseFloat(initialStock || quantityToAdd || 0);
 
-  // Check if active item with same name exists to avoid duplicate rows
   const existingItem = await prisma[`${prefix}Item`].findFirst({
-    where: {
-      name: { equals: cleanName, mode: 'insensitive' },
-      archivedAt: null
-    }
+    where: { name: { equals: cleanName, mode: 'insensitive' }, archivedAt: null }
   });
 
   if (existingItem) {
     const updated = await prisma.$transaction(async (tx) => {
       if (addQty > 0) {
         await tx[`${prefix}InventoryTransaction`].create({
-          data: {
-            itemId: existingItem.id,
-            quantity: addQty,
-            direction: 'IN',
-            reason: 'STOCK_ADDED',
-            refType: 'MANUAL',
-            refId: 'SYSTEM'
-          }
+          data: { itemId: existingItem.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: 'SYSTEM' }
         });
       }
 
-      return await tx[`${prefix}Item`].update({
+      return tx[`${prefix}Item`].update({
         where: { id: existingItem.id },
         data: {
           cachedQty: { increment: addQty > 0 ? addQty : 0 },
@@ -119,46 +87,27 @@ export const createItem = asyncHandler(async (req, res) => {
       });
     });
 
-    return res.status(200).json({ success: true, data: updated, message: 'Stock appended to existing item' });
+    return sendSuccess(res, updated, 200, { message: 'Stock appended to existing item' });
   }
 
   const item = await prisma.$transaction(async (tx) => {
     const newItem = await tx[`${prefix}Item`].create({
-      data: {
-        name: cleanName,
-        type,
-        unit,
-        reorderLevel: parseFloat(reorderLevel) || 0,
-        cachedQty: addQty > 0 ? addQty : 0
-      }
+      data: { name: cleanName, type, unit, reorderLevel: parseFloat(reorderLevel) || 0, cachedQty: addQty > 0 ? addQty : 0 }
     });
 
     if (addQty > 0) {
       await tx[`${prefix}InventoryTransaction`].create({
-        data: {
-          itemId: newItem.id,
-          quantity: addQty,
-          direction: 'IN',
-          reason: 'INITIAL_STOCK',
-          refType: 'MANUAL',
-          refId: 'SYSTEM'
-        }
+        data: { itemId: newItem.id, quantity: addQty, direction: 'IN', reason: 'INITIAL_STOCK', refType: 'MANUAL', refId: 'SYSTEM' }
       });
     }
 
     return newItem;
   });
 
-  res.status(201).json({ success: true, data: item });
+  return sendSuccess(res, item, 201);
 });
 
-/**
- * Updates an item's configuration (name, unit, reorder level) and optionally increments stock atomically.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0 } = req.body;
@@ -173,18 +122,11 @@ export const updateItem = asyncHandler(async (req, res) => {
 
     if (addQty > 0) {
       await tx[`${prefix}InventoryTransaction`].create({
-        data: {
-          itemId: item.id,
-          quantity: addQty,
-          direction: 'IN',
-          reason: 'STOCK_ADDED',
-          refType: 'MANUAL',
-          refId: 'SYSTEM'
-        }
+        data: { itemId: item.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: 'SYSTEM' }
       });
     }
 
-    return await tx[`${prefix}Item`].update({
+    return tx[`${prefix}Item`].update({
       where: { id },
       data: {
         name: name.trim(),
@@ -195,137 +137,78 @@ export const updateItem = asyncHandler(async (req, res) => {
     });
   });
 
-  res.json({ success: true, data: updated });
+  return sendSuccess(res, updated);
 });
 
-/**
- * Soft archives an item, hiding it from default inventory listings.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Soft archives an item */
 export const archiveItem = asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const prefix = getTenantPrefix(req);
-
   const item = await prisma[`${prefix}Item`].update({
-    where: { id },
+    where: { id: req.params.id },
     data: { archivedAt: new Date() }
   });
-  
-  res.json({ success: true, data: item, message: 'Item archived successfully' });
+  return sendSuccess(res, item, 200, { message: 'Item archived successfully' });
 });
 
-/**
- * Restores a soft-archived item back to active inventory listings.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Restores a soft-archived item */
 export const restoreItem = asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const prefix = getTenantPrefix(req);
-
   const item = await prisma[`${prefix}Item`].update({
-    where: { id },
+    where: { id: req.params.id },
     data: { archivedAt: null }
   });
-  
-  res.json({ success: true, data: item, message: 'Item restored successfully' });
+  return sendSuccess(res, item, 200, { message: 'Item restored successfully' });
 });
 
-/**
- * Manually adjusts inventory quantity up or down with transaction tracking.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Manually adjusts inventory quantity */
 export const adjustInventory = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { quantity, direction, reason } = req.body;
   const prefix = getTenantPrefix(req);
 
   const qty = parseFloat(quantity);
-  if (isNaN(qty) || qty <= 0) {
-    throw new ApiError(400, 'Quantity must be a positive number');
-  }
-
-  if (!['IN', 'OUT'].includes(direction)) {
-    throw new ApiError(400, 'Direction must be IN or OUT');
-  }
-
-  if (!reason) {
-    throw new ApiError(400, 'Reason for manual adjustment is required');
-  }
+  if (isNaN(qty) || qty <= 0) throw new ApiError(400, 'Quantity must be a positive number');
+  if (!['IN', 'OUT'].includes(direction)) throw new ApiError(400, 'Direction must be IN or OUT');
+  if (!reason) throw new ApiError(400, 'Reason for manual adjustment is required');
 
   const updatedItem = await prisma.$transaction(async (tx) => {
     const item = await tx[`${prefix}Item`].findUnique({ where: { id } });
     if (!item) throw new ApiError(404, 'Item not found');
 
-    const newQty = direction === 'IN' 
-      ? parseFloat(item.cachedQty) + qty 
-      : parseFloat(item.cachedQty) - qty;
+    const newQty = direction === 'IN' ? parseFloat(item.cachedQty) + qty : parseFloat(item.cachedQty) - qty;
 
     await tx[`${prefix}InventoryTransaction`].create({
-      data: {
-        itemId: item.id,
-        quantity: qty,
-        direction,
-        reason: `MANUAL_ADJUSTMENT: ${reason}`,
-        refType: 'MANUAL',
-        refId: 'SYSTEM'
-      }
+      data: { itemId: item.id, quantity: qty, direction, reason: `MANUAL_ADJUSTMENT: ${reason}`, refType: 'MANUAL', refId: 'SYSTEM' }
     });
 
-    return await tx[`${prefix}Item`].update({
+    return tx[`${prefix}Item`].update({
       where: { id },
       data: { cachedQty: newQty }
     });
   });
 
-  res.json({ success: true, data: updatedItem });
+  return sendSuccess(res, updatedItem);
 });
 
-/**
- * Retrieves inventory ledger transactions with optional item type filtering.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves inventory ledger transactions */
 export const getInventoryTransactions = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { type, limit = 100 } = req.query;
 
-  const whereClause = {};
-  if (type) {
-    whereClause.item = { type };
-  }
-
+  const whereClause = type ? { item: { type } } : {};
   const txns = await prisma[`${prefix}InventoryTransaction`].findMany({
     where: whereClause,
     include: {
-      item: {
-        select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true }
-      }
+      item: { select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true } }
     },
     orderBy: { createdAt: 'desc' },
-    take: parseInt(limit) || 100
+    take: parseInt(limit, 10) || 100
   });
 
-  res.json({ success: true, data: txns });
+  return sendSuccess(res, txns);
 });
 
-/**
- * Transfers stock between factory and warehouse locations with batch tracking.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Transfers stock between factory and warehouse */
 export const transferStock = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId, fromLocation, toLocation, quantity, batchNo, notes } = req.body;
@@ -345,8 +228,8 @@ export const transferStock = asyncHandler(async (req, res) => {
 
   const effectiveFac = (fac === 0 && wh === 0) ? cached : fac;
   const effectiveWh = (fac === 0 && wh === 0) ? 0 : wh;
-
   const srcQty = fromLocation === 'FACTORY' ? effectiveFac : effectiveWh;
+
   if (srcQty < qty) {
     throw new ApiError(400, `Insufficient stock at ${fromLocation} (Available: ${srcQty}, Requested: ${qty})`);
   }
@@ -357,10 +240,7 @@ export const transferStock = asyncHandler(async (req, res) => {
 
     const updated = await tx[`${prefix}Item`].update({
       where: { id: itemId },
-      data: {
-        factoryQty: Math.max(0, newFactoryQty),
-        warehouseQty: Math.max(0, newWarehouseQty)
-      }
+      data: { factoryQty: Math.max(0, newFactoryQty), warehouseQty: Math.max(0, newWarehouseQty) }
     });
 
     const now = new Date();
@@ -376,7 +256,7 @@ export const transferStock = asyncHandler(async (req, res) => {
         refType: 'TRANSFER',
         refId: 'TRANSFER',
         location: `${fromLocation} -> ${toLocation}`,
-        batchNo: batchNo || `AQ-BATCH-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`,
+        batchNo: batchNo || `AQ-BATCH-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`,
         productionDate: now,
         expiryDate: expiry
       }
@@ -385,16 +265,10 @@ export const transferStock = asyncHandler(async (req, res) => {
     return updated;
   });
 
-  res.json({ success: true, data: updatedItem, message: 'Stock transferred successfully' });
+  return sendSuccess(res, updatedItem, 200, { message: 'Stock transferred successfully' });
 });
 
-/**
- * Reconciles an item's cached stock balance from the sum of its historic inventory transactions.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Reconciles an item's cached stock balance from transactions */
 export const reconcileInventory = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { itemId } = req.params;
@@ -403,44 +277,33 @@ export const reconcileInventory = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Only Owner or Admin can perform inventory reconciliation');
   }
 
-  const item = await prisma[`${prefix}Item`].findUnique({ 
-    where: { id: itemId }
-  });
-
+  const item = await prisma[`${prefix}Item`].findUnique({ where: { id: itemId } });
   if (!item) throw new ApiError(404, 'Item not found');
 
-  // Calculate net quantity from transactions
-  const inTx = await prisma[`${prefix}InventoryTransaction`].aggregate({
-    _sum: { quantity: true },
-    where: { itemId, direction: 'IN', refType: { not: 'TRANSFER' } }
-  });
-  
-  const outTx = await prisma[`${prefix}InventoryTransaction`].aggregate({
-    _sum: { quantity: true },
-    where: { itemId, direction: 'OUT', refType: { not: 'TRANSFER' } }
-  });
+  const [inTx, outTx] = await Promise.all([
+    prisma[`${prefix}InventoryTransaction`].aggregate({
+      _sum: { quantity: true },
+      where: { itemId, direction: 'IN', refType: { not: 'TRANSFER' } }
+    }),
+    prisma[`${prefix}InventoryTransaction`].aggregate({
+      _sum: { quantity: true },
+      where: { itemId, direction: 'OUT', refType: { not: 'TRANSFER' } }
+    })
+  ]);
 
   const netQty = Number(inTx._sum.quantity || 0) - Number(outTx._sum.quantity || 0);
-
   const fQty = Number(item.factoryQty || 0);
   const wQty = Number(item.warehouseQty || 0);
   const cachedQty = Number(item.cachedQty || 0);
   const diff = (fQty + wQty) - netQty;
 
   if (diff === 0 && cachedQty === netQty) {
-    return res.json({ 
-      success: true, 
-      message: 'Inventory is already reconciled',
-      data: { item, reconciled: false }
-    });
+    return sendSuccess(res, { item, reconciled: false }, 200, { message: 'Inventory is already reconciled' });
   }
 
-  // Perform reconciliation
   let newF = fQty;
   let newW = wQty;
-
   if (diff > 0) {
-    // Excess stock: deduct from Factory first, then Warehouse
     if (newF >= diff) {
       newF -= diff;
     } else {
@@ -449,50 +312,39 @@ export const reconcileInventory = asyncHandler(async (req, res) => {
       newW = Math.max(0, newW - remainder);
     }
   } else {
-    // Deficit: add to Factory
     newF += Math.abs(diff);
   }
 
   const updated = await prisma.$transaction(async (tx) => {
     const reconciled = await tx[`${prefix}Item`].update({
       where: { id: itemId },
-      data: { 
-        factoryQty: newF, 
-        warehouseQty: newW, 
-        cachedQty: netQty 
-      }
+      data: { factoryQty: newF, warehouseQty: newW, cachedQty: netQty }
     });
 
-    // Create audit log entry
-    await tx[`${prefix}AuditLog`].create({
-      data: {
-        action: 'INVENTORY_RECONCILED',
-        entityType: 'Item',
-        entityId: itemId,
-        performedBy: req.user?.name || req.user?.id || 'Admin',
-        details: JSON.stringify({
-          itemName: item.name,
-          before: { factory: fQty, warehouse: wQty, cached: cachedQty },
-          after: { factory: newF, warehouse: newW, cached: netQty },
-          discrepancy: diff
-        })
-      }
+    await createAuditLog(prefix, {
+      action: 'INVENTORY_RECONCILED',
+      entityType: 'Item',
+      entityId: itemId,
+      performedBy: req.user?.name || req.user?.id || 'Admin',
+      details: JSON.stringify({
+        itemName: item.name,
+        before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+        after: { factory: newF, warehouse: newW, cached: netQty },
+        discrepancy: diff
+      })
     });
 
     return reconciled;
   });
 
-  res.json({ 
-    success: true, 
-    message: 'Inventory reconciled successfully',
-    data: { 
-      item: updated,
-      reconciled: true,
-      changes: {
-        before: { factory: fQty, warehouse: wQty, cached: cachedQty },
-        after: { factory: newF, warehouse: newW, cached: netQty },
-        discrepancy: diff
-      }
+  return sendSuccess(res, {
+    item: updated,
+    reconciled: true,
+    changes: {
+      before: { factory: fQty, warehouse: wQty, cached: cachedQty },
+      after: { factory: newF, warehouse: newW, cached: netQty },
+      discrepancy: diff
     }
-  });
+  }, 200, { message: 'Inventory reconciled successfully' });
 });
+
