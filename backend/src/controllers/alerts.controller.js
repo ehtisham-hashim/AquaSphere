@@ -1,14 +1,9 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { sendSuccess } from '../utils/response.js';
 
-/**
- * Retrieves operational Marketing Manager alerts (credit breaches, duration expirations, bottle warnings, deliveries).
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves operational Marketing Manager alerts (credit breaches, duration expirations, bottle warnings, deliveries) */
 export const getMMAlerts = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const now = new Date();
@@ -23,7 +18,6 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
     pendingPayments,
     todaysDeliveriesAgg
   ] = await Promise.all([
-    // ponytail: 1 consolidated Customer query replaces 5 parallel queries
     prisma[`${prefix}Customer`].findMany({
       where: {
         archivedAt: null,
@@ -137,17 +131,14 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
     todaysDeliverySummary[agg.deliveryStatus] = agg._count.id;
   });
 
-  res.json({
-    success: true,
-    data: {
-      creditLimitBreaches,
-      creditDurationExpired,
-      customerReminders,
-      pendingDeliveriesCount,
-      pendingPayments,
-      outstandingBottles,
-      securityDepositWarnings,
-      todaysDeliverySummary
-    }
+  return sendSuccess(res, {
+    creditLimitBreaches,
+    creditDurationExpired,
+    customerReminders,
+    pendingDeliveriesCount,
+    pendingPayments,
+    outstandingBottles,
+    securityDepositWarnings,
+    todaysDeliverySummary
   });
 });

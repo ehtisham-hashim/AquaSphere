@@ -2,23 +2,9 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
+import { sendSuccess } from '../utils/response.js';
 
-/**
- * Computes bottle fleet reconciliation statistics across factory, warehouse, and customers.
- *
- * @param {object} client - Prisma client or transaction instance.
- * @param {string} prefix - Tenant prefix ('aquasphere' | 'wadaana').
- * @returns {Promise<{
- *   totalPurchased: number,
- *   totalOwned: number,
- *   atFactory: number,
- *   atWarehouse: number,
- *   withCustomers: number,
- *   broken: number,
- *   lost: number,
- *   equationReconciled: boolean
- * }>}
- */
+/** Computes bottle fleet reconciliation statistics across factory, warehouse, and customers */
 async function computeBottleStats(client, prefix) {
   const [txnSums, customerSum] = await Promise.all([
     client[`${prefix}BottleTransaction`].groupBy({
@@ -59,28 +45,14 @@ async function computeBottleStats(client, prefix) {
   };
 }
 
-/**
- * GET /api/v1/bottles/summary
- * Fleet reconciliation equation: Total Owned = At Factory + With Customers + At Warehouse
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Fleet reconciliation equation: Total Owned = At Factory + With Customers + At Warehouse */
 export const getBottleSummary = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const data = await computeBottleStats(prisma, prefix);
-  res.status(200).json({ success: true, data });
+  return sendSuccess(res, data);
 });
 
-/**
- * GET /api/v1/bottles/transactions
- * Paginated bottle fleet transaction history.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Paginated bottle fleet transaction history */
 export const getBottleTransactions = asyncHandler(async (req, res) => {
   const { page = 1, limit = 50, customerId } = req.query;
   const skip = (page - 1) * limit;
@@ -102,9 +74,7 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
     prisma[`${prefix}BottleTransaction`].count({ where })
   ]);
 
-  res.status(200).json({
-    success: true,
-    data: transactions,
+  return sendSuccess(res, transactions, 200, {
     pagination: {
       total,
       page: Number(page),
@@ -114,14 +84,7 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * POST /api/v1/bottles/transactions
- * Records bottle movements, issuances, returns, or breakages with fleet balance adjustments.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Records bottle movements, issuances, returns, or breakages with fleet balance adjustments */
 export const createBottleTransaction = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, quantity, reason } = req.body;
@@ -216,5 +179,5 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
     return createdTxn;
   });
 
-  res.status(201).json({ success: true, data: txn });
+  return sendSuccess(res, txn, 201);
 });

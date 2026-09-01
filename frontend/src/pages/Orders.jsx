@@ -5,6 +5,7 @@ import { API_URL } from '../utils/api';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
+import { TableSkeleton } from '../components/common/Skeleton';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
 import EditOrderModal from '../components/orders/EditOrderModal';
@@ -203,36 +204,30 @@ export default function Orders() {
       {/* Full-width Search Bar directly above Order Table (Matching Customers.jsx layout) */}
       <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-      <div className="surface-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Order ID</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Customer</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Order Details</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Target Date</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
+      {isLoading && orders.length === 0 ? (
+        <TableSkeleton rows={6} cols={6} />
+      ) : (
+        <div className="surface-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left whitespace-nowrap">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <td colSpan="6" className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="w-8 h-8 border-4 border-[#0ea5e9] border-t-transparent rounded-full animate-spin"></div>
-                      <p>Loading orders...</p>
-                    </div>
-                  </td>
+                  <th className="p-4 font-semibold text-slate-600 text-sm">Order ID</th>
+                  <th className="p-4 font-semibold text-slate-600 text-sm">Customer</th>
+                  <th className="p-4 font-semibold text-slate-600 text-sm">Order Details</th>
+                  <th className="p-4 font-semibold text-slate-600 text-sm">Target Date</th>
+                  <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
+                  <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
                 </tr>
-              ) : filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="p-12 text-center text-slate-500">
-                    No orders found.
-                  </td>
-                </tr>
-              ) : (
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="p-12 text-center text-slate-500">
+                      No orders found.
+                    </td>
+                  </tr>
+                ) : (
                 filteredOrders.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
@@ -329,6 +324,7 @@ export default function Orders() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Add Order Modal Component */}
       {isAddModalOpen && (

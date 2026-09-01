@@ -48,6 +48,7 @@ model AquasphereCustomer {
   spotSales          AquasphereSpotSale[]
 
   @@index([name])
+  @@index([archivedAt])
   @@index([createdAt(sort: Desc)])
   @@map("customers")
   @@schema("aquasphere")
@@ -77,6 +78,7 @@ model AquasphereItem {
 
   @@index([name])
   @@index([type])
+  @@index([archivedAt])
   @@map("items")
   @@schema("aquasphere")
 }
@@ -180,6 +182,8 @@ model AquasphereOrderItem {
   quantity Int
   price    Decimal
 
+  @@index([orderId])
+  @@index([itemId])
   @@map("order_items")
   @@schema("aquasphere")
 }
@@ -274,6 +278,7 @@ model AquasphereVendor {
   ledgerEntries AquasphereVendorLedgerEntry[]
 
   @@index([name])
+  @@index([archivedAt])
   @@map("vendors")
   @@schema("aquasphere")
 }
@@ -315,6 +320,8 @@ model AquaspherePurchaseItem {
   total      Decimal
   createdAt  DateTime           @default(now()) @map("created_at")
 
+  @@index([purchaseId])
+  @@index([itemId])
   @@map("purchase_items")
   @@schema("aquasphere")
 }
@@ -566,6 +573,7 @@ model WadaanaCustomer {
   spotSales          WadaanaSpotSale[]
 
   @@index([name])
+  @@index([archivedAt])
   @@index([createdAt(sort: Desc)])
   @@map("customers")
   @@schema("wadaana")
@@ -595,6 +603,7 @@ model WadaanaItem {
 
   @@index([name])
   @@index([type])
+  @@index([archivedAt])
   @@map("items")
   @@schema("wadaana")
 }
@@ -698,6 +707,8 @@ model WadaanaOrderItem {
   quantity Int
   price    Decimal
 
+  @@index([orderId])
+  @@index([itemId])
   @@map("order_items")
   @@schema("wadaana")
 }
@@ -800,6 +811,7 @@ model WadaanaVendor {
   ledgerEntries WadaanaVendorLedgerEntry[]
 
   @@index([name])
+  @@index([archivedAt])
   @@map("vendors")
   @@schema("wadaana")
 }
@@ -841,6 +853,8 @@ model WadaanaPurchaseItem {
   total      Decimal
   createdAt  DateTime        @default(now()) @map("created_at")
 
+  @@index([purchaseId])
+  @@index([itemId])
   @@map("purchase_items")
   @@schema("wadaana")
 }
@@ -954,6 +968,8 @@ model WadaanaUser {
   expenses             WadaanaExpense[]
   spotSales            WadaanaSpotSale[]
 
+  @@index([role])
+  @@index([isActive])
   @@map("users")
   @@schema("wadaana")
 }

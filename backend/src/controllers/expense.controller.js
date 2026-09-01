@@ -5,6 +5,7 @@ import { broadcastDashboardUpdate } from './analytics.controller.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
+import { sendSuccess } from '../utils/response.js';
 
 const VALID_CATEGORIES = [
   'Fuel / Transport', 'Fuel',
@@ -18,13 +19,7 @@ const VALID_CATEGORIES = [
   'Miscellaneous'
 ];
 
-/**
- * Retrieves filtered list of expenses by date range with creator details.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Retrieves filtered list of expenses by date range with creator details */
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { startDate, endDate, page, limit } = req.query;
@@ -49,42 +44,24 @@ export const getExpenses = asyncHandler(async (req, res) => {
     prisma[`${prefix}Expense`].findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            role: true
-          }
-        }
-      },
+      include: { createdBy: { select: { id: true, name: true, role: true } } },
       skip,
       take: pageSize
     })
   ]);
 
-  const hasMore = skip + expenses.length < totalCount;
-
-  res.json({
-    success: true,
-    data: expenses,
+  return sendSuccess(res, expenses, 200, {
     pagination: {
       page: pageNum,
       limit: pageSize,
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize) || 1,
-      hasMore
+      hasMore: skip + expenses.length < totalCount
     }
   });
 });
 
-/**
- * Creates a new expense entry with mandatory receipt proof and audit logging.
- *
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Creates a new expense entry with mandatory receipt proof and audit logging */
 export const createExpense = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { category, amount, remarks, receiptUrl, expenseDate } = req.body;
@@ -112,18 +89,9 @@ export const createExpense = asyncHandler(async (req, res) => {
       createdById: req.user?.id || null,
       createdAt: expenseDate ? new Date(expenseDate) : new Date()
     },
-    include: {
-      createdBy: {
-        select: {
-          id: true,
-          name: true,
-          role: true
-        }
-      }
-    }
+    include: { createdBy: { select: { id: true, name: true, role: true } } }
   });
 
-  // Audit log
   await createAuditLog(prefix, {
     action: 'EXPENSE_CREATED',
     entityType: 'EXPENSE',
@@ -133,19 +101,13 @@ export const createExpense = asyncHandler(async (req, res) => {
   });
 
   broadcastDashboardUpdate(prefix);
-  res.status(201).json({ success: true, data: expense });
+  return sendSuccess(res, expense, 201);
 });
 
-/**
- * Uploads an expense receipt photo to Cloudinary storage.
- *
- * @param {import('express').Request} req - Express request object with file.
- * @param {import('express').Response} res - Express response object.
- * @returns {Promise<void>}
- */
+/** Uploads an expense receipt photo to Cloudinary storage */
 export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const prefix = getTenantPrefix(req);
   const { secure_url } = await uploadImage(req.file, `${prefix}/expenses`);
-  res.status(200).json({ success: true, receiptUrl: secure_url });
+  return sendSuccess(res, { receiptUrl: secure_url });
 });

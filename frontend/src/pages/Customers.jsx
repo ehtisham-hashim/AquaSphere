@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
+import { TableSkeleton } from '../components/common/Skeleton';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -14,12 +15,13 @@ export default function Customers() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const debounceTimerRef = useRef(null);
 
   const fetchCustomers = async (q = search, tab = activeTab) => {
     setIsLoading(true);
     try {
       const statusParam = tab === 'Archived' ? 'archived' : 'active';
-      const res = await fetch(`${API_URL}/customers?search=${q}&status=${statusParam}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(q)}&status=${statusParam}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) setCustomers(json.data);
     } catch {
@@ -33,6 +35,15 @@ export default function Customers() {
     fetchCustomers(search, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearch(val);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      fetchCustomers(val, activeTab);
+    }, 300);
+  };
 
   const handleRestoreCustomer = async (c) => {
     if (!window.confirm(`Are you sure you want to restore ${c.name}?`)) return;
@@ -106,7 +117,8 @@ export default function Customers() {
                 >
                   <Plus size={18} /> Add Customer
                 </button>
-              )}            </div>
+              )}
+            </div>
           </div>
           
           <div className="mb-6 relative">
@@ -116,15 +128,19 @@ export default function Customers() {
               placeholder="Search by phone or name..." 
               className="input-field pl-10"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); fetchCustomers(e.target.value, activeTab); }}
+              onChange={handleSearchChange}
             />
           </div>
 
-          <CustomersTable
-            customers={customers}
-            isLoading={isLoading}
-            onRowClick={handleRowClick}
-          />
+          {isLoading && customers.length === 0 ? (
+            <TableSkeleton rows={6} cols={6} />
+          ) : (
+            <CustomersTable
+              customers={customers}
+              isLoading={isLoading}
+              onRowClick={handleRowClick}
+            />
+          )}
         </>
       )}
 
