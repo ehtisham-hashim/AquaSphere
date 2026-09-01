@@ -54,7 +54,7 @@ export const getPurchases = asyncHandler(async (req, res) => {
           unitPrice: true,
           total: true,
           item: {
-            select: { id: true, name: true }
+            select: { id: true, name: true, unit: true }
           }
         }
       }
@@ -89,7 +89,7 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
           unitPrice: true,
           total: true,
           item: {
-            select: { id: true, name: true }
+            select: { id: true, name: true, unit: true }
           }
         }
       },

@@ -57,13 +57,26 @@ function calculateProductionBatch(params, items) {
   const finishedGoods = [];
   const broken = [];
 
-  // Helper to find raw material item in database
+  const is05L = (name = '') => {
+    const n = name.toLowerCase();
+    return (n.includes('500') && !n.includes('1500')) || n.includes('0.5');
+  };
+
+  const is15L = (name = '') => {
+    const n = name.toLowerCase();
+    return n.includes('1.5') || n.includes('1500');
+  };
+
+  // Helper to find best raw material item in database (preferring item with highest stock if duplicates exist)
+  const findBestRawItem = (filterFn) => {
+    const matches = items.filter(i => i.type === 'RAW_MATERIAL' && !i.archivedAt && filterFn(i));
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+    return matches.sort((a, b) => Number(b.cachedQty || 0) - Number(a.cachedQty || 0))[0];
+  };
+
   const findRawItem = (terms) => {
-    return items.find(i => 
-      i.type === 'RAW_MATERIAL' && 
-      !i.archivedAt &&
-      terms.some(t => i.name.toLowerCase().includes(t.toLowerCase()))
-    );
+    return findBestRawItem(i => terms.some(t => i.name.toLowerCase().includes(t.toLowerCase())));
   };
 
   // Helper to add or accumulate deductions
@@ -95,44 +108,24 @@ function calculateProductionBatch(params, items) {
   }
 
   // 2. Caps (Small PET caps — explicitly avoid 19L / large / big caps)
-  const capItem = items.find(i => 
-    i.type === 'RAW_MATERIAL' && 
-    !i.archivedAt &&
-    (
-      i.name.toLowerCase().includes('small cap') ||
-      (i.name.toLowerCase().includes('cap') && 
-       !i.name.toLowerCase().includes('19l') && 
-       !i.name.toLowerCase().includes('large') && 
-       !i.name.toLowerCase().includes('big'))
-    )
+  const capItem = findBestRawItem(i => 
+    i.name.toLowerCase().includes('small cap') ||
+    (i.name.toLowerCase().includes('cap') && 
+     !i.name.toLowerCase().includes('19l') && 
+     !i.name.toLowerCase().includes('large') && 
+     !i.name.toLowerCase().includes('big'))
   );
 
   // 3. Labels & Shrink Wrap
   const shrinkWrapItem = findRawItem(['shrink', 'wrap']);
 
-  const label05LItem = items.find(i => 
-    i.type === 'RAW_MATERIAL' && 
-    !i.archivedAt && 
-    i.name.toLowerCase().includes('label') && 
-    (i.name.toLowerCase().includes('500') || i.name.toLowerCase().includes('0.5'))
-  ) || findRawItem(['label']);
-
-  const label15LItem = items.find(i => 
-    i.type === 'RAW_MATERIAL' && 
-    !i.archivedAt && 
-    i.name.toLowerCase().includes('label') && 
-    (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500'))
-  ) || findRawItem(['label']);
+  const label05LItem = findBestRawItem(i => i.name.toLowerCase().includes('label') && is05L(i.name)) || findRawItem(['label']);
+  const label15LItem = findBestRawItem(i => i.name.toLowerCase().includes('label') && is15L(i.name)) || findRawItem(['label']);
 
   // --- 0.5L Pack Deductions ---
   if (packs05L > 0) {
     // 12 Empty Bottles per pack
-    const empty05L = items.find(i => 
-      i.type === 'RAW_MATERIAL' && 
-      !i.archivedAt && 
-      (i.name.toLowerCase().includes('500') || i.name.toLowerCase().includes('0.5')) &&
-      (i.name.toLowerCase().includes('bottle') || i.name.toLowerCase().includes('pet'))
-    ) || findRawItem(['500ml', '0.5l']);
+    const empty05L = findBestRawItem(i => is05L(i.name) && (i.name.toLowerCase().includes('bottle') || i.name.toLowerCase().includes('pet')));
     
     if (empty05L) addDeduction(empty05L, decPacks05L.mul(12), 'pcs');
 
@@ -149,12 +142,7 @@ function calculateProductionBatch(params, items) {
   // --- 1.5L Pack Deductions ---
   if (packs15L > 0) {
     // 6 Empty Bottles per pack
-    const empty15L = items.find(i => 
-      i.type === 'RAW_MATERIAL' && 
-      !i.archivedAt && 
-      (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')) &&
-      (i.name.toLowerCase().includes('bottle') || i.name.toLowerCase().includes('pet'))
-    ) || findRawItem(['1.5l', '1500ml']);
+    const empty15L = findBestRawItem(i => is15L(i.name) && (i.name.toLowerCase().includes('bottle') || i.name.toLowerCase().includes('pet')));
 
     if (empty15L) addDeduction(empty15L, decPacks15L.mul(6), 'pcs');
 

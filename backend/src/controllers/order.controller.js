@@ -17,10 +17,10 @@ export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
     include: {
-      customer: { select: { id: true, name: true, type: true, currentBalance: true } },
-      items: { select: { id: true, itemId: true, quantity: true, price: true, item: { select: { id: true, name: true } } } },
-      payments: { select: { id: true, amount: true, type: true, createdAt: true } },
-      deliveries: { select: { id: true, qtyDelivered: true, cashReceived: true, createdAt: true } }
+      customer: true,
+      items: { include: { item: true } },
+      payments: true,
+      deliveries: true
     },
     orderBy: { createdAt: 'desc' },
     take: 50

@@ -27,7 +27,12 @@ export const getItems = asyncHandler(async (req, res) => {
       type: true,
       unit: true,
       cachedQty: true,
+      factoryQty: true,
+      warehouseQty: true,
       reorderLevel: true,
+      archivedAt: true,
+      createdAt: true,
+      updatedAt: true,
       recipeFinishedGoods: {
         include: { rawMaterial: true }
       }
