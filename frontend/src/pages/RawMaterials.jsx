@@ -126,6 +126,7 @@ export default function RawMaterials() {
           fetchMaterials();
         }}
         editingItem={editingItem}
+        existingMaterials={materials}
         tenant={tenant}
       />
     </div>

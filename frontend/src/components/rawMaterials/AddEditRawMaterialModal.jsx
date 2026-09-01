@@ -6,12 +6,15 @@ const AQUASPHERE_PRESETS = [
   { id: '19l_bottles', name: 'Empty 19L Bottles', unit: 'pcs', defaultReorder: 50 },
   { id: 'pet_500ml', name: 'PET Bottles (500ml)', unit: 'pcs', defaultReorder: 2000 },
   { id: 'pet_1500ml', name: 'PET Bottles (1500ml)', unit: 'pcs', defaultReorder: 1500 },
+  { id: 'small_caps', name: 'Small Caps', unit: 'pcs', defaultReorder: 2000 },
+  { id: 'large_caps', name: 'Large Caps', unit: 'pcs', defaultReorder: 100 },
   { id: 'calcium', name: 'Calcium', unit: 'kg', defaultReorder: 120 },
   { id: 'magnesium', name: 'Magnesium', unit: 'kg', defaultReorder: 100 },
   { id: 'sodium', name: 'Sodium', unit: 'kg', defaultReorder: 100 },
   { id: 'labels_500ml', name: 'Labels (500ml)', unit: 'pcs', defaultReorder: 3000 },
   { id: 'labels_1500ml', name: 'Labels (1500ml)', unit: 'pcs', defaultReorder: 2500 },
-  { id: 'shrink_wrap', name: 'Shrink Wrap Rolls', unit: 'rolls', defaultReorder: 20 }
+  { id: 'shrink_wrap', name: 'Shrink Wrap', unit: 'kg', defaultReorder: 50 },
+  { id: 'shrink_wrap_rolls', name: 'Shrink Wrap Rolls', unit: 'rolls', defaultReorder: 20 }
 ];
 
 const WADAANA_PRESETS = [
@@ -26,16 +29,37 @@ export default function AddEditRawMaterialModal({
   onClose, 
   onSaved, 
   editingItem = null, 
+  existingMaterials = [],
   tenant = 'aquasphere' 
 }) {
   const isWadaana = tenant === 'wadaana';
-  const presetsList = isWadaana ? WADAANA_PRESETS : AQUASPHERE_PRESETS;
+  const basePresets = isWadaana ? WADAANA_PRESETS : AQUASPHERE_PRESETS;
+
+  // Merge presets with existing database materials to ensure everything in DB is available
+  const presetsList = [...basePresets];
+  existingMaterials.forEach(m => {
+    if (m.type === 'RAW_MATERIAL' && !m.archivedAt) {
+      const alreadyInList = presetsList.some(p => p.name.toLowerCase() === m.name.toLowerCase());
+      if (!alreadyInList) {
+        presetsList.push({
+          id: m.id,
+          name: m.name,
+          unit: m.unit || 'pcs',
+          defaultReorder: parseFloat(m.reorderLevel || 100)
+        });
+      }
+    }
+  });
 
   // Search filter inside modal
   const [filterSearch, setFilterSearch] = useState('');
 
   // Selected preset items map: { presetId: { checked: boolean, qty: number|string, reorderLevel: number|string } }
   const [selectedItems, setSelectedItems] = useState({});
+
+  // Custom new material state
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customItem, setCustomItem] = useState({ name: '', unit: 'pcs', qty: '', reorderLevel: 100 });
 
   // Single Item Edit Form State (when editing existing item from table)
   const [editFormData, setEditFormData] = useState({
@@ -70,9 +94,11 @@ export default function AddEditRawMaterialModal({
       });
       setSelectedItems(initialMap);
       setFilterSearch('');
+      setShowCustomForm(false);
+      setCustomItem({ name: '', unit: isWadaana ? 'kg' : 'pcs', qty: '', reorderLevel: 100 });
     }
     setError('');
-  }, [isOpen, editingItem, isWadaana, presetsList]);
+  }, [isOpen, editingItem, isWadaana]);
 
   if (!isOpen) return null;
 
@@ -172,8 +198,19 @@ export default function AddEditRawMaterialModal({
             type: 'RAW_MATERIAL'
           }));
 
+        // Include custom material if entered
+        if (customItem.name.trim()) {
+          itemsToSave.push({
+            name: customItem.name.trim(),
+            unit: customItem.unit || 'pcs',
+            reorderLevel: parseFloat(customItem.reorderLevel || 0),
+            initialStock: parseFloat(customItem.qty || 0),
+            type: 'RAW_MATERIAL'
+          });
+        }
+
         if (itemsToSave.length === 0) {
-          setError('Please check at least one raw material to add.');
+          setError('Please check at least one raw material or enter a custom material to add.');
           setSaving(false);
           return;
         }
@@ -226,7 +263,7 @@ export default function AddEditRawMaterialModal({
                 {editingItem ? 'Edit Raw Material' : (isWadaana ? 'Add Preforms (Select & Set Quantity)' : 'Add Raw Materials (Select & Set Quantity)')}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                {editingItem ? 'Update reorder level and add stock.' : 'Select raw materials via checkboxes and enter stock quantity based on value type.'}
+                {editingItem ? 'Update reorder level and add stock.' : 'Select raw materials via checkboxes or add custom materials with stock quantity.'}
               </p>
             </div>
           </div>
@@ -315,6 +352,15 @@ export default function AddEditRawMaterialModal({
                 <div className="flex items-center gap-2 shrink-0 text-xs font-bold">
                   <button
                     type="button"
+                    onClick={() => setShowCustomForm(!showCustomForm)}
+                    className={`px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 border ${
+                      showCustomForm ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <Plus size={13} /> {showCustomForm ? 'Close Custom' : '+ Custom Item'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleSelectAll(true)}
                     className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition flex items-center gap-1"
                   >
@@ -329,6 +375,44 @@ export default function AddEditRawMaterialModal({
                   </button>
                 </div>
               </div>
+
+              {/* Collapsible Custom Raw Material Creator */}
+              {showCustomForm && (
+                <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-3 shrink-0 animate-in fade-in duration-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-950 uppercase tracking-wide">New Custom Raw Material</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                    <input
+                      type="text"
+                      placeholder="Material Name (e.g. Mineral Salt)"
+                      value={customItem.name}
+                      onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
+                      className="sm:col-span-2 p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    />
+                    <select
+                      value={customItem.unit}
+                      onChange={(e) => setCustomItem({ ...customItem, unit: e.target.value })}
+                      className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 outline-none focus:border-emerald-500"
+                    >
+                      <option value="pcs">pcs</option>
+                      <option value="kg">kg</option>
+                      <option value="rolls">rolls</option>
+                      <option value="bottles">bottles</option>
+                      <option value="packs">packs</option>
+                      <option value="bags">bags</option>
+                      <option value="litres">litres</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Initial Stock Qty"
+                      value={customItem.qty}
+                      onChange={(e) => setCustomItem({ ...customItem, qty: e.target.value })}
+                      className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Checkbox Presets List */}
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
