@@ -4,11 +4,11 @@ async function main() {
   // 1. Ensure Raw Materials Exist
   const rawMaterials = [
     { name: 'PET Bottles (500ml)', unit: 'pcs' },
-    { name: 'PET Bottles (1.5L)', unit: 'pcs' },
+    { name: 'PET Bottles (1500ml)', unit: 'pcs' },
     { name: 'Small Caps', unit: 'pcs' },
     { name: 'Large Caps', unit: 'pcs' },
     { name: 'Labels (500ml)', unit: 'pcs' },
-    { name: 'Labels (1.5L)', unit: 'pcs' },
+    { name: 'Labels (1500ml)', unit: 'pcs' },
     { name: 'Shrink Wrap', unit: 'kg' },
     { name: 'Sodium', unit: 'kg' },
     { name: 'Calcium', unit: 'kg' },
@@ -76,9 +76,9 @@ async function main() {
 
   // Recipe: 1.5L PET Pack (6 bottles)
   const fg1500 = '1.5L PET Pack (6 Bottles)';
-  await createRecipe(fg1500, 'PET Bottles (1.5L)', 6);
-  await createRecipe(fg1500, 'Large Caps', 6);
-  await createRecipe(fg1500, 'Labels (1.5L)', 6);
+  await createRecipe(fg1500, 'PET Bottles (1500ml)', 6);
+  await createRecipe(fg1500, 'Small Caps', 6);
+  await createRecipe(fg1500, 'Labels (1500ml)', 6);
   await createRecipe(fg1500, 'Shrink Wrap', 0.025);    // 1 kg = 40 packs (1.5L / 6 bottles)
   await createRecipe(fg1500, 'Sodium', 0.012);
   await createRecipe(fg1500, 'Calcium', 0.006);

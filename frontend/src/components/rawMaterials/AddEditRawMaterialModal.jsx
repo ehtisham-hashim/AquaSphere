@@ -13,8 +13,7 @@ const AQUASPHERE_PRESETS = [
   { id: 'sodium', name: 'Sodium', unit: 'kg', defaultReorder: 100 },
   { id: 'labels_500ml', name: 'Labels (500ml)', unit: 'pcs', defaultReorder: 3000 },
   { id: 'labels_1500ml', name: 'Labels (1500ml)', unit: 'pcs', defaultReorder: 2500 },
-  { id: 'shrink_wrap', name: 'Shrink Wrap', unit: 'kg', defaultReorder: 50 },
-  { id: 'shrink_wrap_rolls', name: 'Shrink Wrap Rolls', unit: 'rolls', defaultReorder: 20 }
+  { id: 'shrink_wrap', name: 'Shrink Wrap', unit: 'kg', defaultReorder: 50 }
 ];
 
 const WADAANA_PRESETS = [
