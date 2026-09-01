@@ -36,13 +36,19 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     // Today's orders count + list
     prisma[`${prefix}Order`].findMany({
       where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-      include: { customer: { select: { name: true, phone: true } }, items: { include: { item: { select: { name: true } } } } },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
+      },
       orderBy: { createdAt: 'desc' }
     }),
     // Pending orders (table display capped at 50)
     prisma[`${prefix}Order`].findMany({
       where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } },
-      include: { customer: { select: { name: true, phone: true } }, items: { include: { item: { select: { name: true } } } } },
+      include: {
+        customer: { select: { name: true, phone: true } },
+        items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
+      },
       orderBy: { createdAt: 'desc' },
       take: 50
     }),
@@ -63,11 +69,13 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     // All raw materials (inventory view)
     prisma[`${prefix}Item`].findMany({
       where: { type: 'RAW_MATERIAL', archivedAt: null },
+      select: { id: true, name: true, unit: true, cachedQty: true, reorderLevel: true },
       orderBy: { name: 'asc' }
     }),
     // All finished goods (inventory view)
     prisma[`${prefix}Item`].findMany({
       where: { type: 'FINISHED_GOOD', archivedAt: null },
+      select: { id: true, name: true, unit: true, cachedQty: true, reorderLevel: true },
       orderBy: { name: 'asc' }
     }),
     // Cash collected today (from payments only — NO profit calculation)
@@ -212,26 +220,36 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
   const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
   const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
 
-  const [payments, spotSales] = await Promise.all([
-    prisma[`${prefix}Payment`].findMany({
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-      orderBy: { createdAt: 'desc' }
+  const [paymentsSum, spotSalesSum, paymentsByMethodList, paymentsCount, spotSalesCount] = await Promise.all([
+    prisma[`${prefix}Payment`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     }),
-    prisma[`${prefix}SpotSale`].findMany({
+    prisma[`${prefix}SpotSale`].aggregate({
+      _sum: { cashCollected: true },
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    }),
+    prisma[`${prefix}Payment`].groupBy({
+      by: ['type'],
       where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-      orderBy: { createdAt: 'desc' }
+      _sum: { amount: true }
+    }),
+    prisma[`${prefix}Payment`].count({
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    }),
+    prisma[`${prefix}SpotSale`].count({
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     })
   ]);
 
-  const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const totalSpotSales = spotSales.reduce((sum, s) => sum + Number(s.cashCollected), 0);
+  const totalPayments = Number(paymentsSum._sum.amount || 0);
+  const totalSpotSales = Number(spotSalesSum._sum.cashCollected || 0);
 
   // Group payments by method
   const byMethod = {};
-  payments.forEach(p => {
+  paymentsByMethodList.forEach(p => {
     const method = p.type || 'CASH';
-    if (!byMethod[method]) byMethod[method] = 0;
-    byMethod[method] += Number(p.amount);
+    byMethod[method] = Number(p._sum.amount || 0);
   });
 
   res.status(200).json(new ApiResponse(200, {
@@ -239,8 +257,8 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     fromOrders: totalPayments,
     fromSpotSales: totalSpotSales,
     paymentsByMethod: byMethod,
-    paymentsCount: payments.length,
-    spotSalesCount: spotSales.length,
+    paymentsCount,
+    spotSalesCount,
     date: startOfDay.toISOString().split('T')[0]
     // NOTE: No profit, no COGS, no expense data — intentionally excluded per §4 permission matrix
   }, 'Admin cash summary fetched'));

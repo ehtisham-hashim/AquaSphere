@@ -49,7 +49,16 @@ export const getReportData = asyncHandler(async (req, res) => {
     case 'sales': {
       const orders = await prisma[`${prefix}Order`].findMany({
         where: { createdAt: { gte: start, lte: end } },
-        include: { items: { include: { item: true } }, customer: true, deliveries: true },
+        select: {
+          id: true,
+          type: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          createdAt: true,
+          customer: { select: { name: true } },
+          items: { select: { quantity: true, item: { select: { name: true } } } },
+          deliveries: { select: { cashReceived: true } }
+        },
         orderBy: { createdAt: 'desc' }
       });
 
@@ -87,19 +96,24 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'profitability':
     case 'profit': {
-      const deliveries = await prisma[`${prefix}Delivery`].findMany({
-        where: { deliveredAt: { gte: start, lte: end } }
-      });
-      const revenue = deliveries.reduce((sum, d) => sum + Number(d.cashReceived), 0);
-      
-      const expenses = await prisma[`${prefix}Expense`].findMany({
-        where: { createdAt: { gte: start, lte: end } }
-      });
-      const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const [deliveriesSum, expensesSum] = await Promise.all([
+        prisma[`${prefix}Delivery`].aggregate({
+          _sum: { cashReceived: true },
+          where: { deliveredAt: { gte: start, lte: end } }
+        }),
+        prisma[`${prefix}Expense`].aggregate({
+          _sum: { amount: true },
+          where: { createdAt: { gte: start, lte: end } }
+        })
+      ]);
+
+      const revenue = Number(deliveriesSum._sum.cashReceived || 0);
+      const totalExpenses = Number(expensesSum._sum.amount || 0);
 
       // Compute Weighted Average COGS dynamically from PurchaseItem records
       const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany({
-        where: { purchase: { purchaseDate: { lte: end } } }
+        where: { purchase: { purchaseDate: { lte: end } } },
+        select: { itemId: true, quantity: true, unitPrice: true, total: true }
       });
 
       const itemTotalCost = {};
@@ -121,7 +135,8 @@ export const getReportData = asyncHandler(async (req, res) => {
       });
 
       const consumptions = await prisma[`${prefix}ProductionBatchConsumption`].findMany({
-        where: { createdAt: { gte: start, lte: end } }
+        where: { createdAt: { gte: start, lte: end } },
+        select: { itemId: true, quantityUsed: true }
       });
 
       const cogs = consumptions.reduce((sum, c) => {
@@ -152,6 +167,7 @@ export const getReportData = asyncHandler(async (req, res) => {
     case 'expenses': {
       const expenses = await prisma[`${prefix}Expense`].findMany({
         where: { createdAt: { gte: start, lte: end } },
+        select: { id: true, category: true, amount: true, createdAt: true, receiptUrl: true },
         orderBy: { createdAt: 'desc' }
       });
 
@@ -176,6 +192,7 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'inventory': {
       const items = await prisma[`${prefix}Item`].findMany({
+        select: { id: true, name: true, type: true, unit: true, cachedQty: true, reorderLevel: true },
         orderBy: { name: 'asc' }
       });
 
@@ -204,7 +221,17 @@ export const getReportData = asyncHandler(async (req, res) => {
     case 'production': {
       const batches = await prisma[`${prefix}ProductionBatch`].findMany({
         where: { batchDate: { gte: start, lte: end } },
-        include: { outputItem: true },
+        select: {
+          id: true,
+          batchDate: true,
+          createdAt: true,
+          quantity: true,
+          packs05L: true,
+          packs15L: true,
+          wasteQuantity: true,
+          remarks: true,
+          outputItem: { select: { name: true } }
+        },
         orderBy: { batchDate: 'desc' }
       });
 

@@ -145,8 +145,13 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
           lt: nextDate
         }
       },
-      include: {
-        items: true
+      select: {
+        items: {
+          select: {
+            quantity: true,
+            price: true
+          }
+        }
       }
     }),
     customerModel.aggregate({
@@ -178,7 +183,10 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
         batchDate: { gte: targetDate, lt: nextDate }
       }
     },
-    include: { item: true }
+    select: {
+      quantityUsed: true,
+      item: { select: { name: true, unit: true } }
+    }
   });
 
   const materialConsumptionMap = {};
@@ -188,7 +196,7 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     if (!materialConsumptionMap[itemName]) {
       materialConsumptionMap[itemName] = { name: itemName, quantity: 0, unit };
     }
-    materialConsumptionMap[itemName].quantity += Number(c.quantity) || 0;
+    materialConsumptionMap[itemName].quantity += Number(c.quantityUsed || c.quantity) || 0;
   }
   const materialConsumption = Object.values(materialConsumptionMap);
 

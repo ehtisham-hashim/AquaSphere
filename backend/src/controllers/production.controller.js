@@ -522,7 +522,7 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
         where: { refType: 'BATCH', refId: id }
       });
 
-      for (const t of txs) {
+      await Promise.all(txs.map(async (t) => {
         const q = Number(t.quantity || 0);
         if (t.direction === 'IN') {
           // Revert finished goods addition
@@ -537,7 +537,7 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
             data: { cachedQty: { increment: q } }
           }).catch(() => null);
         }
-      }
+      }));
 
       await tx[`${prefix}InventoryTransaction`].deleteMany({
         where: { refType: 'BATCH', refId: id }
