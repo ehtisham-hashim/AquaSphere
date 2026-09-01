@@ -69,19 +69,60 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
     where: { id },
     include: {
       orders: {
-        include: {
-          items: { include: { item: true } },
-          deliveries: true,
-          payments: true
+        select: {
+          id: true,
+          type: true,
+          deliveryStatus: true,
+          paymentStatus: true,
+          expectedDelivery: true,
+          remarks: true,
+          createdAt: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              price: true,
+              item: { select: { id: true, name: true, type: true } }
+            }
+          },
+          deliveries: {
+            select: {
+              id: true,
+              qtyDelivered: true,
+              bottlesReturnedGood: true,
+              bottlesReturnedBroken: true,
+              cashReceived: true,
+              paymentMethod: true,
+              deliveredAt: true,
+              remarks: true
+            }
+          },
+          payments: {
+            select: { id: true, amount: true, type: true, createdAt: true }
+          }
         },
         orderBy: { createdAt: 'desc' },
         take: 50
       },
       bottleTransactions: {
+        select: {
+          id: true,
+          type: true,
+          quantity: true,
+          reason: true,
+          runningBalance: true,
+          createdAt: true
+        },
         orderBy: { createdAt: 'desc' },
         take: 50
       },
       payments: {
+        select: {
+          id: true,
+          amount: true,
+          type: true,
+          createdAt: true
+        },
         orderBy: { createdAt: 'desc' },
         take: 50
       }

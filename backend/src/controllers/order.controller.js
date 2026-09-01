@@ -16,7 +16,12 @@ const { Prisma } = pkg;
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const orders = await prisma[`${prefix}Order`].findMany({
-    include: { customer: true, items: { include: { item: true } }, payments: true, deliveries: true },
+    include: {
+      customer: { select: { id: true, name: true, type: true, currentBalance: true } },
+      items: { select: { id: true, itemId: true, quantity: true, price: true, item: { select: { id: true, name: true } } } },
+      payments: { select: { id: true, amount: true, type: true, createdAt: true } },
+      deliveries: { select: { id: true, qtyDelivered: true, cashReceived: true, createdAt: true } }
+    },
     orderBy: { createdAt: 'desc' },
     take: 50
   });
@@ -558,7 +563,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     // Finished Goods Deductions (deduct exclusively from Factory Floor stock)
-    for (const orderItem of o.items) {
+    await Promise.all(o.items.map(async (orderItem) => {
       if (orderItem.itemId) {
         const is19LItem = orderItem.item?.name?.toLowerCase().includes('19l');
         const qtyToDeduct = Number(orderItem.quantity || 0);
@@ -583,7 +588,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           }
         });
       }
-    }
+    }));
 
     // Update Customer Deposit, Financial Balance (Debt), and Tenant-specific Bottle Holdings
     // ATOMIC OPERATION: Read customer state once and perform single update

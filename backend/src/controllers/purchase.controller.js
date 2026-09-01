@@ -43,10 +43,19 @@ export const getPurchases = asyncHandler(async (req, res) => {
     where,
     ...paginationArgs(req.query),
     include: {
-      vendor: true,
+      vendor: {
+        select: { id: true, name: true }
+      },
       items: {
-        include: {
-          item: true
+        select: {
+          id: true,
+          itemId: true,
+          quantity: true,
+          unitPrice: true,
+          total: true,
+          item: {
+            select: { id: true, name: true }
+          }
         }
       }
     },
@@ -69,10 +78,19 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
   const purchase = await prisma[`${prefix}Purchase`].findUnique({
     where: { id },
     include: {
-      vendor: true,
+      vendor: {
+        select: { id: true, name: true }
+      },
       items: {
-        include: {
-          item: true
+        select: {
+          id: true,
+          itemId: true,
+          quantity: true,
+          unitPrice: true,
+          total: true,
+          item: {
+            select: { id: true, name: true }
+          }
         }
       },
       ledgerEntries: true
@@ -174,7 +192,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
       }
     });
 
-    for (const vItem of validatedItems) {
+    await Promise.all(validatedItems.map(async (vItem) => {
       await tx[`${prefix}PurchaseItem`].create({
         data: {
           purchaseId: newPurchase.id,
@@ -221,7 +239,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
           refId: newPurchase.id
         }
       });
-    }
+    }));
 
     await tx[`${prefix}VendorLedgerEntry`].create({
       data: {
@@ -332,7 +350,7 @@ export const deletePurchase = asyncHandler(async (req, res) => {
 
   await prisma.$transaction(async (tx) => {
     // 1. Reverse inventory cached quantities
-    for (const pItem of purchase.items) {
+    await Promise.all(purchase.items.map(async (pItem) => {
       await tx[`${prefix}Item`].update({
         where: { id: pItem.itemId },
         data: { cachedQty: { decrement: pItem.quantity } }
@@ -348,7 +366,7 @@ export const deletePurchase = asyncHandler(async (req, res) => {
           refId: purchase.id
         }
       });
-    }
+    }));
 
     // 2. Delete Vendor Ledger Entry
     await tx[`${prefix}VendorLedgerEntry`].deleteMany({

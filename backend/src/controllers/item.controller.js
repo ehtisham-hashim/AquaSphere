@@ -21,7 +21,13 @@ export const getItems = asyncHandler(async (req, res) => {
   const items = await prisma[`${prefix}Item`].findMany({
     where,
     orderBy: { name: 'asc' },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      unit: true,
+      cachedQty: true,
+      reorderLevel: true,
       recipeFinishedGoods: {
         include: { rawMaterial: true }
       }
@@ -393,24 +399,23 @@ export const reconcileInventory = asyncHandler(async (req, res) => {
   }
 
   const item = await prisma[`${prefix}Item`].findUnique({ 
-    where: { id: itemId },
-    include: {
-      inventoryTransactions: {
-        select: { quantity: true, direction: true, refType: true }
-      }
-    }
+    where: { id: itemId }
   });
 
   if (!item) throw new ApiError(404, 'Item not found');
 
   // Calculate net quantity from transactions
-  let netQty = 0;
-  for (const t of item.inventoryTransactions) {
-    if (t.refType === 'TRANSFER') continue;
-    const q = Number(t.quantity || 0);
-    if (t.direction === 'IN') netQty += q;
-    else if (t.direction === 'OUT') netQty -= q;
-  }
+  const inTx = await prisma[`${prefix}InventoryTransaction`].aggregate({
+    _sum: { quantity: true },
+    where: { itemId, direction: 'IN', refType: { not: 'TRANSFER' } }
+  });
+  
+  const outTx = await prisma[`${prefix}InventoryTransaction`].aggregate({
+    _sum: { quantity: true },
+    where: { itemId, direction: 'OUT', refType: { not: 'TRANSFER' } }
+  });
+
+  const netQty = Number(inTx._sum.quantity || 0) - Number(outTx._sum.quantity || 0);
 
   const fQty = Number(item.factoryQty || 0);
   const wQty = Number(item.warehouseQty || 0);
