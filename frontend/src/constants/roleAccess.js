@@ -78,7 +78,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.EXPENSES]: false,
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
-      [SIDEBAR_ROUTES.DAILY_CLOSE]: false,
+      [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
     },
     [ROLES.ACCOUNTANT]: {
@@ -151,7 +151,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.EXPENSES]: false,
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
-      [SIDEBAR_ROUTES.DAILY_CLOSE]: false,
+      [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
