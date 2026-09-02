@@ -99,8 +99,10 @@ export default function Orders() {
   };
 
   const isOwner = user?.role === 'OWNER';
+  const isAdmin = user?.role === 'ADMIN';
+  const isMarketingManager = user?.role === 'MARKETING_MANAGER';
   const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
-  const canCreateOrder = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER' || user?.role === 'ADMIN';
+  const canCreateOrder = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
   const canDeleteOrder = ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
 
   // Unpaid/Partial order count for quick alerts
@@ -231,7 +233,11 @@ export default function Orders() {
                 filteredOrders.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
-                  const canProcess = o.deliveryStatus !== 'CANCELLED' && !isFullyGreenlit;
+                  const canProcess = !isAdmin && o.deliveryStatus !== 'CANCELLED' && (
+                    !isMarketingManager 
+                      ? !isFullyGreenlit 
+                      : o.deliveryStatus !== 'DELIVERED'
+                  );
 
                   return (
                     <tr key={o.id} className="hover:bg-slate-50 transition-colors">
@@ -293,7 +299,7 @@ export default function Orders() {
                             <Printer size={13} /> Invoice
                           </button>
 
-                          {(isOwner || o.deliveryStatus !== 'DELIVERED') && o.deliveryStatus !== 'CANCELLED' && (
+                          {(isOwner || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
                               Edit
                             </button>
@@ -310,7 +316,7 @@ export default function Orders() {
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
                             </button>
                           )}
-                          {canDeleteOrder && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
+                          {canDeleteOrder && !isAdmin && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => setOrderToCancel(o)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
                               Cancel Order
                             </button>

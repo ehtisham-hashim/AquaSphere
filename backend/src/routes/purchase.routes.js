@@ -17,9 +17,9 @@ const router = Router();
 
 router.use(verifyJWT);
 
-// GET routes: All roles can view purchases
-router.get('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN', 'MARKETING_MANAGER'), getPurchases);
-router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN', 'MARKETING_MANAGER'), getPurchaseById);
+// GET routes: OWNER, PRODUCTION_MANAGER, ACCOUNTANT, ADMIN
+router.get('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchases);
+router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchaseById);
 
 // POST routes: Only OWNER and PRODUCTION_MANAGER can record purchases and upload receipts
 router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER'), checkDailyCloseLock, createPurchase);

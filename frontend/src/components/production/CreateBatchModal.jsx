@@ -129,7 +129,7 @@ export default function CreateBatchModal({
           {isWadaana ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
-                <label className="block text-xs font-bold text-cyan-700 uppercase mb-1">0.5L Pure Bottles (15g)</label>
+                <label className="block text-xs font-bold text-cyan-700 uppercase mb-1">0.5L Pure / Pure Bite (15g Preform)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -141,7 +141,7 @@ export default function CreateBatchModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-sky-700 uppercase mb-1">1.5L Pure Bottles (30g)</label>
+                <label className="block text-xs font-bold text-sky-700 uppercase mb-1">1.5L Pure / Pure Bite (30g Preform)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -153,7 +153,7 @@ export default function CreateBatchModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">0.5L Mix Bottles (13g)</label>
+                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">0.5L Dasani Mix / Mix Blue (13g Preform)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -165,7 +165,7 @@ export default function CreateBatchModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-orange-700 uppercase mb-1">1.5L Mix Bottles (27g)</label>
+                <label className="block text-xs font-bold text-orange-700 uppercase mb-1">1.5L Dasani Mix / Mix Blue (27g Preform)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -188,7 +188,9 @@ export default function CreateBatchModal({
                   onChange={e => setPacks05L(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-emerald-500 outline-none"
                 />
-                <span className="text-[11px] text-slate-400 mt-1 block">9L total water per pack</span>
+                <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
+                  9L water/pack • <strong>{(parseInt(packs05L || 0, 10) * 12).toLocaleString()} PETs</strong>
+                </span>
               </div>
 
               <div>
@@ -201,7 +203,9 @@ export default function CreateBatchModal({
                   onChange={e => setPacks15L(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-emerald-500 outline-none"
                 />
-                <span className="text-[11px] text-slate-400 mt-1 block">9L total water per pack</span>
+                <span className="text-[11px] text-purple-700 font-semibold mt-1 block">
+                  12L water/pack • <strong>{(parseInt(packs15L || 0, 10) * 6).toLocaleString()} PETs</strong>
+                </span>
               </div>
 
               <div>
@@ -214,7 +218,9 @@ export default function CreateBatchModal({
                   onChange={e => setQuantity(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-emerald-500 outline-none"
                 />
-                <span className="text-[11px] text-slate-400 mt-1 block">19L total water</span>
+                <span className="text-[11px] text-blue-700 font-semibold mt-1 block">
+                  24L water/bottle (19L + 5L wash)
+                </span>
               </div>
             </div>
           )}

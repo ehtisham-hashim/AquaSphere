@@ -30,9 +30,9 @@ export default function ProductionBatchTable({
               <th className="p-3.5">Batch ID & Date</th>
               {!isWadaana ? (
                 <>
-                  <th className="p-3.5">Output (0.5L Packs)</th>
-                  <th className="p-3.5">Output (1.5L Packs)</th>
-                  <th className="p-3.5">Output (19L)</th>
+                  <th className="p-3.5">Output 0.5L (Packs & PETs)</th>
+                  <th className="p-3.5">Output 1.5L (Packs & PETs)</th>
+                  <th className="p-3.5">Output (19L PC)</th>
                   <th className="p-3.5">Total Water Treated</th>
                 </>
               ) : (
@@ -83,12 +83,14 @@ export default function ProductionBatchTable({
                         ) : (
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-1 rounded text-amber-700 bg-amber-50 border border-amber-200 font-medium">Pending</span>
-                            <button
-                              onClick={() => onComplete(b.id)}
-                              className="px-2 py-1 bg-[#0ea5e9] text-white rounded text-xs hover:bg-sky-500 font-medium transition shadow-sm"
-                            >
-                              Confirm & Complete
-                            </button>
+                            {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
+                              <button
+                                onClick={() => onComplete(b.id)}
+                                className="px-2 py-1 bg-[#0ea5e9] text-white rounded text-xs hover:bg-sky-500 font-medium transition shadow-sm"
+                              >
+                                Confirm & Complete
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
@@ -125,9 +127,18 @@ export default function ProductionBatchTable({
                       <span className="font-mono font-bold text-slate-800">#{b.id.substring(0, 8).toUpperCase()}</span>
                       <span className="text-xs text-slate-400 block">{new Date(b.createdAt).toLocaleString()}</span>
                     </td>
-                    <td className="p-3.5 font-bold text-emerald-600">+{p05} packs</td>
-                    <td className="p-3.5 font-bold text-purple-600">+{p15} packs</td>
-                    <td className="p-3.5 font-bold text-blue-600">+{qty} bottles</td>
+                    <td className="p-3.5">
+                      <span className="font-bold text-emerald-600 block">+{p05} packs</span>
+                      <span className="text-[11px] font-semibold text-slate-500">({(p05 * 12).toLocaleString()} PETs)</span>
+                    </td>
+                    <td className="p-3.5">
+                      <span className="font-bold text-purple-600 block">+{p15} packs</span>
+                      <span className="text-[11px] font-semibold text-slate-500">({(p15 * 6).toLocaleString()} PETs)</span>
+                    </td>
+                    <td className="p-3.5">
+                      <span className="font-bold text-blue-600 block">+{qty} bottles</span>
+                      <span className="text-[11px] font-semibold text-slate-400">(19L Refill)</span>
+                    </td>
                     <td className="p-3.5 font-mono font-medium text-slate-700">{litres} Litres</td>
                     <td className="p-3.5">
                       {(b05 > 0 || b15 > 0 || w19 > 0) ? (
@@ -154,12 +165,14 @@ export default function ProductionBatchTable({
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="px-2.5 py-1 rounded-full text-amber-800 bg-amber-50 border border-amber-200 font-bold text-xs">Pending Verification</span>
-                          <button
-                            onClick={() => onComplete(b.id)}
-                            className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm"
-                          >
-                            Confirm & Complete
-                          </button>
+                          {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
+                            <button
+                              onClick={() => onComplete(b.id)}
+                              className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm"
+                            >
+                              Confirm & Complete
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

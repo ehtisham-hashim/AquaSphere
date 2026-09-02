@@ -11,7 +11,7 @@ const API = API_URL;
 export default function RawMaterials() {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const canEditMaterial = ['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role);
+  const canEditMaterial = isOwner;
   const canArchiveMaterial = isOwner;
   const isReadOnly = !canEditMaterial;
 

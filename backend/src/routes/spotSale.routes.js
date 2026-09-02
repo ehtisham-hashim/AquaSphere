@@ -8,8 +8,8 @@ const router = express.Router();
 
 router.use(verifyJWT);
 
-// GET spot sales history & reports: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER, PRODUCTION_MANAGER
-router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER'), getSpotSales);
+// GET spot sales history & reports: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getSpotSales);
 
 // POST new spot/counter sale: OWNER, ACCOUNTANT, MARKETING_MANAGER, ADMIN
 router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), checkDailyCloseLock, createSpotSale);

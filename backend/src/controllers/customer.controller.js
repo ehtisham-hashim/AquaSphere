@@ -39,6 +39,11 @@ export const getCustomers = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
   const prefix = getTenantPrefix(req);
 
+  // Security / Anti-poaching protection: MARKETING_MANAGER can only search customers by name/phone, cannot dump entire customer list
+  if (req.user?.role === 'MARKETING_MANAGER' && (!search || !search.trim())) {
+    return sendSuccess(res, []);
+  }
+
   let archivedFilter = { archivedAt: null };
   if (status === 'archived') archivedFilter = { archivedAt: { not: null } };
   else if (status === 'all') archivedFilter = {};
@@ -217,8 +222,8 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
 
-  if (!['OWNER', 'MARKETING_MANAGER'].includes(req.user?.role)) {
-    throw new ApiError(403, 'Only Owner or Marketing Manager can delete customer records');
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only Owner can delete customer records (Anti-Corruption Feature)');
   }
 
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });

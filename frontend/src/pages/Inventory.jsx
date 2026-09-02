@@ -13,7 +13,7 @@ export default function Inventory() {
   const { user } = useAuth();
   const tenant = getCompanyFromCookie();
 
-  const canTransferStock = user?.role !== 'ACCOUNTANT';
+  const canTransferStock = user?.role === 'OWNER' || user?.role === 'PRODUCTION_MANAGER';
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);

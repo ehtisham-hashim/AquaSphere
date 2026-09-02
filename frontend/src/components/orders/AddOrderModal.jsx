@@ -26,7 +26,35 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const selectedCustomer = customers.find(c => c.id === orderData.customerId);
+  const [asyncCustomers, setAsyncCustomers] = useState(customers);
+
+  useEffect(() => {
+    if (customers && customers.length > 0) {
+      setAsyncCustomers(customers);
+    }
+  }, [customers]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(searchTerm)}`, { credentials: 'include' });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setAsyncCustomers(prev => {
+            const map = new Map(prev.map(c => [c.id, c]));
+            json.data.forEach(c => map.set(c.id, c));
+            return Array.from(map.values());
+          });
+        }
+      } catch (err) {
+        console.error('Error searching customers:', err);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const selectedCustomer = asyncCustomers.find(c => c.id === orderData.customerId) || customers.find(c => c.id === orderData.customerId);
 
   // Merge DB items with tenant catalog using Map for strict deduplication
   const catalog = getTenantCatalog(activeTenant, selectedCustomer);
@@ -54,7 +82,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   // Group items by category label
   const categories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));
 
-  const filteredCustomers = customers.filter(c => 
+  const filteredCustomers = asyncCustomers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (c.phone && c.phone.includes(searchTerm))
   );
