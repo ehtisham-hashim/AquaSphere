@@ -80,8 +80,13 @@ export default function Dashboard() {
     };
   }, [tenant]);
 
-  // Purchasing & Vendor Summary Data
+  // Purchasing & Vendor Summary Data (only for roles that use it)
   useEffect(() => {
+    const role = user?.role;
+    if (role !== 'OWNER' && role !== 'ADMIN' && role !== 'ACCOUNTANT') {
+      setSummaryLoading(false);
+      return;
+    }
     let isMounted = true;
     const fetchSummary = async () => {
       setSummaryLoading(true);
@@ -101,7 +106,7 @@ export default function Dashboard() {
     fetchSummary();
 
     return () => { isMounted = false; };
-  }, [tenant]);
+  }, [tenant, user?.role]);
 
   const role = user?.role;
 
