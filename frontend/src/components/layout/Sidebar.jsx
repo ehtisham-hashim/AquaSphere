@@ -25,7 +25,7 @@ const navItems = [
   { icon: Truck, label: 'Orders', path: '/orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },
-  { icon: Boxes, label: 'Finished Goods', path: '/inventory' },
+  { icon: Boxes, label: 'Inventory', path: '/inventory' },
   { icon: PackageSearch, label: 'Raw Materials', path: '/raw-materials' },
   { icon: ShoppingCart, label: 'Purchases', path: '/purchases' },
   { icon: VendorsIcon, label: 'Vendors', path: '/vendors' },
