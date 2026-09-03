@@ -157,6 +157,13 @@ export default function AddEditRawMaterialModal({
   const activeMaterials = materialList.filter(m => parseFloat(quantities[m.id] || 0) > 0);
   const activeCount = activeMaterials.length;
 
+  // Real-time duplicate check against preset & existing raw materials
+  const trimmedCustomName = custom.name.trim();
+  const isDuplicate = Boolean(
+    trimmedCustomName &&
+    materialList.some(m => m.name.toLowerCase() === trimmedCustomName.toLowerCase())
+  );
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[70] animate-in fade-in duration-150">
       <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
@@ -256,10 +263,22 @@ export default function AddEditRawMaterialModal({
                   type="text"
                   placeholder={isWadaana ? "Name (e.g. Pure Blue Preform)" : "Name (e.g. Mineral Salt)"}
                   value={custom.name}
-                  onChange={e => setCustom(c => ({ ...c, name: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustom(); } }}
-                  className={`sm:col-span-5 p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 outline-none shadow-2xs transition ${
-                    isWadaana ? 'focus:border-[#0ea5e9] focus:ring-1 focus:ring-sky-200' : 'focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200'
+                  onChange={e => {
+                    setError('');
+                    setCustom(c => ({ ...c, name: e.target.value }));
+                  }}
+                  onKeyDown={e => { 
+                    if (e.key === 'Enter') { 
+                      e.preventDefault(); 
+                      if (!isDuplicate) handleAddCustom(); 
+                    } 
+                  }}
+                  className={`sm:col-span-5 p-2.5 bg-white border rounded-xl font-bold text-slate-900 outline-none shadow-2xs transition ${
+                    isDuplicate 
+                      ? 'border-rose-400 bg-rose-50/30 text-rose-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-200'
+                      : isWadaana 
+                        ? 'border-slate-200 focus:border-[#0ea5e9] focus:ring-1 focus:ring-sky-200' 
+                        : 'border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200'
                   }`}
                 />
                 <select
@@ -283,7 +302,12 @@ export default function AddEditRawMaterialModal({
                   placeholder="Stock Qty"
                   value={custom.stock}
                   onChange={e => setCustom(c => ({ ...c, stock: e.target.value }))}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustom(); } }}
+                  onKeyDown={e => { 
+                    if (e.key === 'Enter') { 
+                      e.preventDefault(); 
+                      if (!isDuplicate) handleAddCustom(); 
+                    } 
+                  }}
                   className={`sm:col-span-2 p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 outline-none shadow-2xs text-center transition ${
                     isWadaana ? 'focus:border-[#0ea5e9]' : 'focus:border-emerald-500'
                   }`}
@@ -291,7 +315,7 @@ export default function AddEditRawMaterialModal({
                 <button
                   type="button"
                   onClick={handleAddCustom}
-                  disabled={saving || !custom.name.trim()}
+                  disabled={saving || !trimmedCustomName || isDuplicate}
                   className={`sm:col-span-3 p-2.5 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed ${
                     isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-600' : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
@@ -299,6 +323,12 @@ export default function AddEditRawMaterialModal({
                   <Plus size={15} className="stroke-[2.5]" />
                   <span>Add Custom</span>
                 </button>
+
+                {isDuplicate && (
+                  <div className="sm:col-span-12 text-[11px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                    <span>⚠️ &quot;{trimmedCustomName}&quot; already exists in raw materials. Please use a different name.</span>
+                  </div>
+                )}
               </div>
             </div>
 
