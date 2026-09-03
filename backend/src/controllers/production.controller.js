@@ -1,7 +1,7 @@
 import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
-import { calculateProductionBatch } from '../utils/productionFormulas.js';
+import { calculateProductionBatch, calculateDynamicBatch } from '../utils/productionFormulas.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
@@ -111,8 +111,38 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
 
+  // 1. Generic Dynamic Product Batch
+  const { outputItemId, quantity = 0, batchDate, notes } = req.body;
+  if (outputItemId) {
+    const qty = parseInt(quantity, 10) || 0;
+    if (qty <= 0) throw new ApiError(400, 'Quantity must be greater than 0');
+    const targetItem = await prisma[`${prefix}Item`].findUnique({
+      where: { id: outputItemId },
+      include: { recipeFinishedGoods: true }
+    });
+    if (!targetItem || targetItem.type !== 'FINISHED_GOOD') {
+      throw new ApiError(400, 'Invalid finished good item selected');
+    }
+
+    const batch = await prisma[`${prefix}ProductionBatch`].create({
+      data: {
+        outputItemId,
+        quantity: qty,
+        batchDate: batchDate ? new Date(batchDate) : new Date(),
+        notes: notes || null,
+        producedBy: req.user?.id || 'Unknown',
+        status: 'PENDING'
+      },
+      include: {
+        outputItem: { select: { id: true, name: true, unit: true } },
+        consumptions: { include: { item: true } }
+      }
+    });
+    return sendSuccess(res, batch, 201);
+  }
+
   if (isWadaana) {
-    const { qtyPure05L = 0, qtyPure15L = 0, qtyMix05L = 0, qtyMix15L = 0, batchDate, notes } = req.body;
+    const { qtyPure05L = 0, qtyPure15L = 0, qtyMix05L = 0, qtyMix15L = 0 } = req.body;
     const p05 = parseInt(qtyPure05L, 10) || 0;
     const p15 = parseInt(qtyPure15L, 10) || 0;
     const m05 = parseInt(qtyMix05L, 10) || 0;
@@ -136,7 +166,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
     return sendSuccess(res, batch, 201);
   }
 
-  const { quantity = 0, packs05L = 0, packs15L = 0, batchDate, notes } = req.body;
+  const { packs05L = 0, packs15L = 0 } = req.body;
   const p05 = parseInt(packs05L, 10) || 0;
   const p15 = parseInt(packs15L, 10) || 0;
   const qty = parseInt(quantity, 10) || 0;
@@ -169,6 +199,95 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   if (batch.status === 'COMPLETED') throw new ApiError(400, 'Batch is already completed');
 
   const allItems = await prisma[`${prefix}Item`].findMany({ where: { archivedAt: null } });
+
+  // Dynamic Finished Good batch completion (AquaSphere or Wadaana)
+  if (batch.outputItemId) {
+    const { wasteQuantity = 0, brokenBottles = 0 } = req.body;
+    const waste = parseInt(wasteQuantity || brokenBottles || 0, 10);
+    const qty = batch.quantity || 0;
+    if (waste < 0) throw new ApiError(400, 'Waste quantity cannot be negative');
+    if (waste > qty) throw new ApiError(400, `Waste quantity (${waste}) cannot exceed produced amount (${qty})`);
+
+    const outputItem = await prisma[`${prefix}Item`].findUnique({
+      where: { id: batch.outputItemId },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
+    });
+    if (!outputItem) throw new ApiError(404, 'Finished good item not found');
+
+    const { deductions, finishedGoods } = calculateDynamicBatch(outputItem, qty, waste, allItems);
+
+    // Validate raw material stock
+    for (const d of deductions) {
+      const item = allItems.find(i => i.id === d.itemId);
+      const availableQty = item ? Number(item.cachedQty || 0) : 0;
+      const requiredQty = Number(d.quantityUsed || 0);
+      if (availableQty < requiredQty) {
+        throw new ApiError(400, `❌ Insufficient stock for ${item?.name || 'raw material'} (Required: ${requiredQty} ${item?.unit || ''}, Available: ${availableQty})`);
+      }
+    }
+
+    const updatedBatch = await prisma.$transaction(async (tx) => {
+      const pb = await tx[`${prefix}ProductionBatch`].update({
+        where: { id },
+        data: { status: 'COMPLETED', wasteQuantity: waste },
+        include: {
+          outputItem: { select: { id: true, name: true, unit: true } },
+          consumptions: { include: { item: true } }
+        }
+      });
+
+      if (deductions.length > 0) {
+        await tx[`${prefix}ProductionBatchConsumption`].createMany({
+          data: deductions.map(d => ({ batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed }))
+        });
+        await tx[`${prefix}InventoryTransaction`].createMany({
+          data: deductions.map(d => ({ itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }))
+        });
+        for (const d of deductions) {
+          await tx[`${prefix}Item`].update({ where: { id: d.itemId }, data: { cachedQty: { decrement: d.quantityUsed } } });
+        }
+      }
+
+      if (finishedGoods.length > 0) {
+        await tx[`${prefix}InventoryTransaction`].createMany({
+          data: finishedGoods.map(fg => ({ itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }))
+        });
+        for (const fg of finishedGoods) {
+          await tx[`${prefix}Item`].update({
+            where: { id: fg.itemId },
+            data: { cachedQty: { increment: fg.quantityAdded }, factoryQty: { increment: fg.quantityAdded } }
+          });
+        }
+      }
+
+      // If AquaSphere 19L, record bottle movements
+      if (prefix === 'aquasphere' && outputItem.name.toLowerCase().includes('19l')) {
+        const netGood = Math.max(0, qty - waste);
+        if (netGood > 0) {
+          await tx.aquasphereBottleTransaction.create({
+            data: { type: 'MOVED_TO_FACTORY', quantity: netGood, reason: `Production Batch #${pb.id.substring(0, 8).toUpperCase()}` }
+          });
+        }
+        if (waste > 0) {
+          await tx.aquasphereBottleTransaction.create({
+            data: { type: 'RETURNED_BROKEN', quantity: waste, reason: `Broken in Production Batch #${pb.id.substring(0, 8).toUpperCase()}` }
+          });
+        }
+      }
+
+      await createAuditLog(prefix, {
+        action: 'PRODUCTION_BATCH_COMPLETED',
+        entityType: 'PRODUCTION_BATCH',
+        entityId: pb.id,
+        performedBy: req.user?.id || 'Unknown',
+        details: JSON.stringify({ status: 'COMPLETED', outputItem: outputItem.name, quantity: qty, wasteQuantity: waste })
+      });
+
+      return pb;
+    }, { maxWait: 10000, timeout: 30000 });
+
+    return sendSuccess(res, updatedBatch);
+  }
 
   if (isWadaana) {
     const { brokenPure05L = 0, brokenPure15L = 0, brokenMix05L = 0, brokenMix15L = 0 } = req.body;

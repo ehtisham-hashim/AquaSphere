@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Package, Flame, Check, Minus, Plus, Search, CheckSquare, Square } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 
@@ -35,20 +35,23 @@ export default function AddEditRawMaterialModal({
   const basePresets = isWadaana ? WADAANA_PRESETS : AQUASPHERE_PRESETS;
 
   // Merge presets with existing database materials to ensure everything in DB is available
-  const presetsList = [...basePresets];
-  existingMaterials.forEach(m => {
-    if (m.type === 'RAW_MATERIAL' && !m.archivedAt) {
-      const alreadyInList = presetsList.some(p => p.name.toLowerCase() === m.name.toLowerCase());
-      if (!alreadyInList) {
-        presetsList.push({
-          id: m.id,
-          name: m.name,
-          unit: m.unit || 'pcs',
-          defaultReorder: parseFloat(m.reorderLevel || 100)
-        });
+  const presetsList = useMemo(() => {
+    const list = [...basePresets];
+    existingMaterials.forEach(m => {
+      if (m.type === 'RAW_MATERIAL' && !m.archivedAt) {
+        const alreadyInList = list.some(p => p.name.toLowerCase() === m.name.toLowerCase());
+        if (!alreadyInList) {
+          list.push({
+            id: m.id,
+            name: m.name,
+            unit: m.unit || 'pcs',
+            defaultReorder: parseFloat(m.reorderLevel || 100)
+          });
+        }
       }
-    }
-  });
+    });
+    return list;
+  }, [basePresets, existingMaterials]);
 
   // Search filter inside modal
   const [filterSearch, setFilterSearch] = useState('');
@@ -97,7 +100,7 @@ export default function AddEditRawMaterialModal({
       setCustomItem({ name: '', unit: isWadaana ? 'kg' : 'pcs', qty: '', reorderLevel: 100 });
     }
     setError('');
-  }, [isOpen, editingItem, isWadaana]);
+  }, [isOpen, editingItem, isWadaana, presetsList]);
 
   if (!isOpen) return null;
 

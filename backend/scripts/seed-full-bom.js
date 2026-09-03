@@ -84,6 +84,46 @@ async function main() {
   await createRecipe(fg1500, 'Calcium', 0.006);
   await createRecipe(fg1500, 'Magnesium', 0.003);
 
+  // Recipe: 19L Refill Bottle
+  const fg19 = '19L Refill Bottle';
+  const rm19 = 'Empty 19L Bottles';
+  const exists19 = await prisma.aquasphereItem.findFirst({ where: { name: rm19 } });
+  if (!exists19) {
+    await prisma.aquasphereItem.create({ data: { name: rm19, type: 'RAW_MATERIAL', unit: 'pcs', cachedQty: 1000, reorderLevel: 50 } });
+  }
+  const existsFg19 = await prisma.aquasphereItem.findFirst({ where: { name: fg19 } });
+  if (!existsFg19) {
+    await prisma.aquasphereItem.create({ data: { name: fg19, type: 'FINISHED_GOOD', unit: 'bottles', cachedQty: 0, reorderLevel: 20 } });
+  }
+  await createRecipe(fg19, rm19, 1);
+
+  // Wadaana Preforms BOM
+  const wadaanaMappings = [
+    { fg: '0.5L Pure Preform Bottle (15g)', rm: 'Pure Preform (0.5L - 15g)', qty: 0.015 },
+    { fg: '1.5L Pure Preform Bottle (30g)', rm: 'Pure Preform (1.5L - 30g)', qty: 0.030 },
+    { fg: '0.5L Mix Preform Bottle (13g)', rm: 'Mix Preform (0.5L - 13g)', qty: 0.013 },
+    { fg: '1.5L Mix Preform Bottle (27g)', rm: 'Mix Preform (1.5L - 27g)', qty: 0.027 }
+  ];
+
+  for (const m of wadaanaMappings) {
+    let fgItem = await prisma.wadaanaItem.findFirst({ where: { name: m.fg } });
+    if (!fgItem) {
+      fgItem = await prisma.wadaanaItem.create({ data: { name: m.fg, type: 'FINISHED_GOOD', unit: 'pcs', cachedQty: 0, reorderLevel: 100 } });
+    }
+    let rmItem = await prisma.wadaanaItem.findFirst({ where: { name: m.rm } });
+    if (!rmItem) {
+      rmItem = await prisma.wadaanaItem.create({ data: { name: m.rm, type: 'RAW_MATERIAL', unit: 'kg', cachedQty: 1000, reorderLevel: 100 } });
+    }
+    const existingWadaanaRecipe = await prisma.wadaanaRecipeItem.findFirst({
+      where: { finishedGoodId: fgItem.id, rawMaterialId: rmItem.id }
+    });
+    if (!existingWadaanaRecipe) {
+      await prisma.wadaanaRecipeItem.create({
+        data: { finishedGoodId: fgItem.id, rawMaterialId: rmItem.id, quantityPerUnit: m.qty }
+      });
+    }
+  }
+
   console.log('Full BOM Seeded successfully!');
 }
 

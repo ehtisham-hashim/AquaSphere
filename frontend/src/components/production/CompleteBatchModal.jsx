@@ -39,6 +39,21 @@ export default function CompleteBatchModal({
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (batchToComplete.outputItem || batchToComplete.outputItemId) {
+      const w = parseInt(wasteQuantity || 0, 10);
+      const maxQty = batchToComplete.quantity || 0;
+      if (w < 0) {
+        toast.error('Waste quantity cannot be negative');
+        return;
+      }
+      if (w > maxQty) {
+        toast.error(`Waste quantity (${w}) cannot exceed total produced amount (${maxQty})`);
+        return;
+      }
+      onSubmit({ wasteQuantity: w, confirmed: true });
+      return;
+    }
+
     if (isWadaana) {
       const brP05 = parseInt(brokenPure05L || 0, 10);
       const brP15 = parseInt(brokenPure15L || 0, 10);
@@ -119,7 +134,35 @@ export default function CompleteBatchModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {isWadaana ? (
+          {(batchToComplete?.outputItem || batchToComplete?.outputItemId) ? (
+            <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 space-y-3">
+              <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                Waste / Breakage Verification
+              </h4>
+              <div className="bg-white p-3 rounded-lg border border-rose-100 text-xs text-slate-700 space-y-1">
+                <div>Product: <strong className="text-slate-900">{batchToComplete?.outputItem?.name || 'Finished Good'}</strong></div>
+                <div>Batch Output: <strong className="text-slate-900">{batchToComplete?.quantity || 0} {batchToComplete?.outputItem?.unit || 'units'}</strong></div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Rejected / Broken Units <span className="text-slate-400 font-normal">(Max: {batchToComplete?.quantity || 0})</span>
+                </label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  max={batchToComplete?.quantity || 0}
+                  placeholder="0" 
+                  value={wasteQuantity} 
+                  onChange={e => setWasteQuantity(e.target.value)} 
+                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none" 
+                />
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Net Good Output Added to Stock: <strong>{Math.max(0, (batchToComplete?.quantity || 0) - (parseInt(wasteQuantity || 0, 10)))} {batchToComplete?.outputItem?.unit || 'units'}</strong>
+                </span>
+              </div>
+            </div>
+          ) : isWadaana ? (
             <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 space-y-3">
               <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-rose-600" />

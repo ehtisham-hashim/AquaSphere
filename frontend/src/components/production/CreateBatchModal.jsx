@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,6 +25,12 @@ export default function CreateBatchModal({
   const [qtyMix05L, setQtyMix05L] = useState('');
   const [qtyMix15L, setQtyMix15L] = useState('');
 
+  // Dynamic Finished Good Selection
+  const finishedGoods = useMemo(() => items?.filter(i => i.type === 'FINISHED_GOOD') || [], [items]);
+  const [useProductSelector, setUseProductSelector] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState('');
+  const [batchQty, setBatchQty] = useState('');
+
   // Reset internal form state whenever modal opens or closes
   useEffect(() => {
     if (isOpen) {
@@ -39,13 +45,30 @@ export default function CreateBatchModal({
       setQtyPure15L('');
       setQtyMix05L('');
       setQtyMix15L('');
+      setSelectedItemId(finishedGoods[0]?.id || '');
+      setBatchQty('');
     }
-  }, [isOpen]);
+  }, [isOpen, finishedGoods]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (useProductSelector) {
+      if (!selectedItemId) {
+        toast.error('Please select a product to produce');
+        return;
+      }
+      const q = parseInt(batchQty || 0, 10);
+      if (q <= 0) {
+        toast.error('Please enter a valid quantity greater than 0');
+        return;
+      }
+      onSubmit({ outputItemId: selectedItemId, quantity: q, batchDate, notes });
+      return;
+    }
+
     if (isWadaana) {
       const p05 = parseInt(qtyPure05L || 0, 10);
       const p15 = parseInt(qtyPure15L || 0, 10);
@@ -89,6 +112,24 @@ export default function CreateBatchModal({
   const isMixShort = totalMixKg > 0 && mixPreformStock < totalMixKg;
   const hasWadaanaShortage = isPureShort || isMixShort;
 
+  // Live BOM Requirement calculation for selected finished good
+  const selectedProduct = finishedGoods.find(i => i.id === selectedItemId);
+  const numQty = parseFloat(batchQty) || 0;
+  const bomRequirements = (selectedProduct?.recipeFinishedGoods || []).map(r => {
+    const rawMat = items.find(i => i.id === r.rawMaterialId) || r.rawMaterial;
+    const required = numQty * parseFloat(r.quantityPerUnit);
+    const available = Number(rawMat?.cachedQty || 0);
+    const isShort = required > 0 && available < required;
+    return {
+      name: rawMat?.name || 'Raw Material',
+      unit: rawMat?.unit || 'pcs',
+      required,
+      available,
+      isShort
+    };
+  });
+  const hasBomShortage = bomRequirements.some(b => b.isShort);
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto border border-slate-100">
@@ -126,7 +167,90 @@ export default function CreateBatchModal({
             </div>
           </div>
 
-          {isWadaana ? (
+          <div className="flex items-center justify-between bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setUseProductSelector(false)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${!useProductSelector ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              Default Product Grid
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseProductSelector(true)}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${useProductSelector ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              Select Finished Good (Custom / Specific)
+            </button>
+          </div>
+
+          {useProductSelector ? (
+            <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Select Finished Good
+                  </label>
+                  <select
+                    value={selectedItemId}
+                    onChange={(e) => setSelectedItemId(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl p-3 text-sm font-semibold bg-white focus:border-sky-500 outline-none"
+                    required
+                  >
+                    {finishedGoods.map(fg => (
+                      <option key={fg.id} value={fg.id}>
+                        {fg.name} ({fg.unit || 'units'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Quantity to Produce ({selectedProduct?.unit || 'units'})
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="e.g. 50"
+                    value={batchQty}
+                    onChange={(e) => setBatchQty(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl p-3 font-bold text-slate-800 focus:border-sky-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Live Recipe Consumption Checker */}
+              {numQty > 0 && bomRequirements.length > 0 && (
+                <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-600">
+                    <span>Required Ingredients (BOM)</span>
+                    <span className={hasBomShortage ? 'text-rose-600' : 'text-emerald-600'}>
+                      {hasBomShortage ? '⚠️ Insufficient Stock' : '✅ Stock Available'}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-slate-100 text-xs">
+                    {bomRequirements.map((bom, bIdx) => (
+                      <div key={bIdx} className="py-1.5 flex justify-between items-center">
+                        <span className="text-slate-700 font-medium">{bom.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-900">
+                            {bom.required.toLocaleString()} {bom.unit}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            bom.isShort ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {bom.isShort ? `Short by ${(bom.required - bom.available).toLocaleString()} ${bom.unit}` : `In Stock: ${bom.available.toLocaleString()}`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : isWadaana ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div>
                 <label className="block text-xs font-bold text-cyan-700 uppercase mb-1">0.5L Pure / Pure Bite (15g Preform)</label>
@@ -284,7 +408,7 @@ export default function CreateBatchModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || (isWadaana ? hasWadaanaShortage : false)}
+              disabled={submitting || (useProductSelector ? hasBomShortage : (isWadaana ? hasWadaanaShortage : false))}
               className={`px-6 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {submitting ? 'Recording Batch...' : 'Record Production Batch'}

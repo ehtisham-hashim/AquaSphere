@@ -1,21 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { ShieldCheck, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
 import { useDailyClose } from '../../hooks/useDailyClose';
-import { finalizeDay, fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
+import { fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
-import VerificationChecklist from './VerificationChecklist';
-
-const ADMIN_CHECKLIST = [
-  { key: 'departmentsVerified', label: 'Department production totals and sales orders verified.' },
-  { key: 'financialsVerified', label: 'Cash register collections and financial expenses verified.' },
-];
 
 export default function AdminClose() {
-  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
-  const [submitting, setSubmitting] = useState(false);
+  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -37,21 +29,6 @@ export default function AdminClose() {
       }
     }).catch(() => {});
   }, [date, tenant]);
-
-  const handleFinalize = async () => {
-    setSubmitting(true);
-    try {
-      const json = await finalizeDay(date, tenant);
-      if (json.success) {
-        toast.success('Day finalized, verified, and locked.');
-        refreshStatus(false);
-        fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else {
-        toast.error(json.message || 'Failed to lock day');
-      }
-    } catch { toast.error('Error locking day'); }
-    finally { setSubmitting(false); }
-  };
 
   if (loading) {
     return (

@@ -58,7 +58,7 @@ export const getItemById = asyncHandler(async (req, res) => {
 
 /** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0 } = req.body;
+  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0, recipe = [] } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
@@ -77,13 +77,29 @@ export const createItem = asyncHandler(async (req, res) => {
         });
       }
 
+      if (Array.isArray(recipe) && recipe.length > 0) {
+        await tx[`${prefix}RecipeItem`].deleteMany({ where: { finishedGoodId: existingItem.id } });
+        for (const r of recipe) {
+          if (r.rawMaterialId && parseFloat(r.quantityPerUnit) > 0) {
+            await tx[`${prefix}RecipeItem`].create({
+              data: {
+                finishedGoodId: existingItem.id,
+                rawMaterialId: r.rawMaterialId,
+                quantityPerUnit: parseFloat(r.quantityPerUnit)
+              }
+            });
+          }
+        }
+      }
+
       return tx[`${prefix}Item`].update({
         where: { id: existingItem.id },
         data: {
           cachedQty: { increment: addQty > 0 ? addQty : 0 },
           reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
           unit: unit || existingItem.unit
-        }
+        },
+        include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
       });
     });
 
@@ -101,7 +117,24 @@ export const createItem = asyncHandler(async (req, res) => {
       });
     }
 
-    return newItem;
+    if (Array.isArray(recipe) && recipe.length > 0) {
+      for (const r of recipe) {
+        if (r.rawMaterialId && parseFloat(r.quantityPerUnit) > 0) {
+          await tx[`${prefix}RecipeItem`].create({
+            data: {
+              finishedGoodId: newItem.id,
+              rawMaterialId: r.rawMaterialId,
+              quantityPerUnit: parseFloat(r.quantityPerUnit)
+            }
+          });
+        }
+      }
+    }
+
+    return tx[`${prefix}Item`].findUnique({
+      where: { id: newItem.id },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
+    });
   });
 
   return sendSuccess(res, item, 201);
@@ -110,7 +143,7 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0 } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, recipe } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
@@ -126,6 +159,21 @@ export const updateItem = asyncHandler(async (req, res) => {
       });
     }
 
+    if (Array.isArray(recipe)) {
+      await tx[`${prefix}RecipeItem`].deleteMany({ where: { finishedGoodId: id } });
+      for (const r of recipe) {
+        if (r.rawMaterialId && parseFloat(r.quantityPerUnit) > 0) {
+          await tx[`${prefix}RecipeItem`].create({
+            data: {
+              finishedGoodId: id,
+              rawMaterialId: r.rawMaterialId,
+              quantityPerUnit: parseFloat(r.quantityPerUnit)
+            }
+          });
+        }
+      }
+    }
+
     return tx[`${prefix}Item`].update({
       where: { id },
       data: {
@@ -133,7 +181,8 @@ export const updateItem = asyncHandler(async (req, res) => {
         unit: unit || item.unit,
         reorderLevel: parseFloat(reorderLevel) || item.reorderLevel,
         cachedQty: { increment: addQty > 0 ? addQty : 0 }
-      }
+      },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
     });
   });
 

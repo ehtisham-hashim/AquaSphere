@@ -59,6 +59,69 @@ export default function ProductionBatchTable({
               </tr>
             ) : (
               batches.map(b => {
+                if (b.outputItem || b.outputItemId) {
+                  return (
+                    <tr key={b.id} className="hover:bg-slate-50">
+                      <td className="p-3.5">
+                        <span className="font-mono font-bold text-slate-800">#{b.id.substring(0, 8).toUpperCase()}</span>
+                        <span className="text-xs text-slate-400 block">{new Date(b.createdAt).toLocaleString()}</span>
+                      </td>
+                      <td className="p-3.5" colSpan={isWadaana ? 5 : 4}>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-200">
+                            {b.outputItem?.name || 'Finished Good'}
+                          </span>
+                          <span className="font-black text-slate-900 text-sm">
+                            +{b.quantity} {b.outputItem?.unit || 'units'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3.5">
+                        {b.wasteQuantity > 0 ? (
+                          <span className="text-rose-600 font-semibold text-xs bg-rose-50 px-2 py-1 rounded-md">
+                            {b.wasteQuantity} waste/broken
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Clean</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-xs">
+                        {b.status === 'COMPLETED' ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1">
+                            ✓ Completed
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-full text-amber-800 bg-amber-50 border border-amber-200 font-bold text-xs">Pending Verification</span>
+                            {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
+                              <button
+                                onClick={() => onComplete(b.id)}
+                                className="px-2 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-500 font-medium transition shadow-sm"
+                              >
+                                Confirm & Complete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-xs text-slate-600 font-medium">
+                        {b.createdBy?.name || user?.name || 'System'} ({b.createdBy?.role || 'MM'})
+                      </td>
+                      {isOwner && (
+                        <td className="p-3.5 text-center">
+                          <button
+                            onClick={() => onDelete(b)}
+                            title="Delete Batch (Owner Only)"
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                }
+
                 if (isWadaana) {
                   const p05 = b.qtyPure05L || 0;
                   const p15 = b.qtyPure15L || 0;

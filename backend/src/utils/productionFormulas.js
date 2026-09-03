@@ -212,4 +212,51 @@ function calculateProductionBatch(params, items) {
   return { deductions, finishedGoods, broken, totalLitres };
 }
 
-export { calculateProductionBatch };
+/**
+ * Calculates raw material deductions and finished goods addition for any dynamic recipe-backed batch.
+ */
+function calculateDynamicBatch(outputItem, quantity, wasteQuantity = 0, allItems = []) {
+  const decQty = new Prisma.Decimal(quantity || 0);
+  const decWaste = new Prisma.Decimal(wasteQuantity || 0);
+  const netGoodQty = Prisma.Decimal.max(0, decQty.sub(decWaste));
+
+  const deductions = [];
+  const recipe = outputItem?.recipeFinishedGoods || [];
+
+  for (const r of recipe) {
+    const rawItem = r.rawMaterial || allItems.find(i => i.id === r.rawMaterialId);
+    if (!rawItem) continue;
+    const qtyUsed = decQty.mul(new Prisma.Decimal(r.quantityPerUnit));
+    deductions.push({
+      itemId: rawItem.id,
+      name: rawItem.name,
+      quantityUsed: qtyUsed,
+      unit: rawItem.unit || 'pcs'
+    });
+  }
+
+  const finishedGoods = [];
+  if (netGoodQty.greaterThan(0) && outputItem) {
+    finishedGoods.push({
+      itemId: outputItem.id,
+      name: outputItem.name,
+      quantityAdded: netGoodQty,
+      unit: outputItem.unit || 'packs'
+    });
+  }
+
+  const broken = [];
+  if (decWaste.greaterThan(0) && outputItem) {
+    broken.push({
+      itemId: outputItem.id,
+      name: outputItem.name,
+      quantityBroken: decWaste,
+      unit: outputItem.unit || 'pcs'
+    });
+  }
+
+  return { deductions, finishedGoods, broken, netGoodQty };
+}
+
+export { calculateProductionBatch, calculateDynamicBatch };
+
