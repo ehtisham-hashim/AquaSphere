@@ -43,11 +43,22 @@ export const getProductionBatches = asyncHandler(async (req, res) => {
     where: { id: { in: userIds } },
     select: { id: true, name: true, role: true }
   }) : [];
+
+  const missingUserIds = userIds.filter(id => !users.some(u => u.id === id));
+  if (missingUserIds.length > 0) {
+    const otherPrefix = prefix === 'wadaana' ? 'aquasphere' : 'wadaana';
+    const otherUsers = await prisma[`${otherPrefix}User`].findMany({
+      where: { id: { in: missingUserIds } },
+      select: { id: true, name: true, role: true }
+    });
+    users.push(...otherUsers);
+  }
+
   const userMap = Object.fromEntries(users.map(u => [u.id, u]));
 
   const enrichedBatches = batches.map(b => ({
     ...b,
-    createdBy: userMap[b.producedBy] || { name: b.producedBy || 'System', role: 'OPERATOR' }
+    createdBy: userMap[b.producedBy] || { name: 'Shift Operator', role: 'OPERATOR' }
   }));
 
   return sendSuccess(res, enrichedBatches, 200, {
@@ -111,22 +122,63 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
 
-  // 1. Generic Dynamic Product Batch
-  const { outputItemId, quantity = 0, batchDate, notes } = req.body;
-  if (outputItemId) {
+  // 1. Generic Dynamic Product Batch (Custom or Specific Finished Good)
+  const { outputItemId, customProductName, quantity = 0, rawMaterials = [], batchDate, notes } = req.body;
+  if (outputItemId || (customProductName && customProductName.trim())) {
     const qty = parseInt(quantity, 10) || 0;
     if (qty <= 0) throw new ApiError(400, 'Quantity must be greater than 0');
+
+    let targetItemId = outputItemId;
+
+    // If custom product name provided, find or create finished good
+    if (customProductName && customProductName.trim()) {
+      const cleanName = customProductName.trim();
+      let fgItem = await prisma[`${prefix}Item`].findFirst({
+        where: { name: { equals: cleanName, mode: 'insensitive' }, archivedAt: null }
+      });
+      if (!fgItem) {
+        fgItem = await prisma[`${prefix}Item`].create({
+          data: {
+            name: cleanName,
+            type: 'FINISHED_GOOD',
+            unit: isWadaana ? 'bottles' : 'packs',
+            cachedQty: 0,
+            factoryQty: 0,
+            warehouseQty: 0,
+            reorderLevel: 100
+          }
+        });
+      }
+      targetItemId = fgItem.id;
+    }
+
     const targetItem = await prisma[`${prefix}Item`].findUnique({
-      where: { id: outputItemId },
+      where: { id: targetItemId },
       include: { recipeFinishedGoods: true }
     });
     if (!targetItem || targetItem.type !== 'FINISHED_GOOD') {
       throw new ApiError(400, 'Invalid finished good item selected');
     }
 
+    // If raw materials are provided, update/ensure recipe items for this finished good
+    if (Array.isArray(rawMaterials) && rawMaterials.length > 0) {
+      await prisma[`${prefix}RecipeItem`].deleteMany({ where: { finishedGoodId: targetItemId } });
+      for (const rm of rawMaterials) {
+        if (rm.rawMaterialId && parseFloat(rm.quantityPerUnit || 0) > 0) {
+          await prisma[`${prefix}RecipeItem`].create({
+            data: {
+              finishedGoodId: targetItemId,
+              rawMaterialId: rm.rawMaterialId,
+              quantityPerUnit: parseFloat(rm.quantityPerUnit)
+            }
+          });
+        }
+      }
+    }
+
     const batch = await prisma[`${prefix}ProductionBatch`].create({
       data: {
-        outputItemId,
+        outputItemId: targetItemId,
         quantity: qty,
         batchDate: batchDate ? new Date(batchDate) : new Date(),
         notes: notes || null,

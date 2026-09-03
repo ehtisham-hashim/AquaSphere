@@ -36,9 +36,13 @@ export const getItems = asyncHandler(async (req, res) => {
   const itemsData = items.map(item => {
     if (item.type === 'FINISHED_GOOD' || !item.type) {
       const nameLower = (item.name || '').toLowerCase();
-      if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
-        item.unit = 'packs';
-      } else if (nameLower.includes('19')) {
+      if (prefix === 'aquasphere') {
+        if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
+          item.unit = 'packs';
+        } else if (nameLower.includes('19')) {
+          item.unit = 'bottles';
+        }
+      } else {
         item.unit = 'bottles';
       }
     }

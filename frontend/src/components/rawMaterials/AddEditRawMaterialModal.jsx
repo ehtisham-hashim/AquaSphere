@@ -1,6 +1,58 @@
-import { useState, useEffect, useMemo } from 'react';
-import { X, Package, Flame, Sparkles, Plus, Minus, Check } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Package, Flame, Sparkles, Plus, Minus, Check, ChevronDown } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
+
+const UNITS = ['kg', 'pcs', 'litres', 'rolls', 'bottles', 'packs', 'bags'];
+
+function CustomUnitDropdown({ value, onChange, options, isWadaana }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative sm:col-span-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`w-full px-3.5 py-3 bg-white border rounded-xl font-bold text-slate-800 flex items-center justify-between shadow-2xs transition text-xs ${
+          open 
+            ? (isWadaana ? 'border-[#0ea5e9] ring-1 ring-sky-200' : 'border-emerald-500 ring-1 ring-emerald-200') 
+            : 'border-slate-200 hover:border-slate-300'
+        }`}
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[120px] bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 max-h-56 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full px-4 py-2 text-left text-xs font-bold transition flex items-center justify-between ${
+                value === opt 
+                  ? (isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-700') 
+                  : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <span>{opt}</span>
+              {value === opt && <Check size={13} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PRESETS = {
   aquasphere: [
@@ -166,7 +218,7 @@ export default function AddEditRawMaterialModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[70] animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Colorful Header */}
         <div className={`px-6 py-4 flex justify-between items-center border-b shrink-0 ${
           isWadaana 
@@ -258,7 +310,7 @@ export default function AddEditRawMaterialModal({
                 </span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Direct Add</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 text-xs">
                 <input
                   type="text"
                   placeholder={isWadaana ? "Name (e.g. Pure Blue Preform)" : "Name (e.g. Mineral Salt)"}
@@ -273,7 +325,7 @@ export default function AddEditRawMaterialModal({
                       if (!isDuplicate) handleAddCustom(); 
                     } 
                   }}
-                  className={`sm:col-span-5 p-2.5 bg-white border rounded-xl font-bold text-slate-900 outline-none shadow-2xs transition ${
+                  className={`sm:col-span-4 px-3.5 py-3 bg-white border rounded-xl font-bold text-slate-900 outline-none shadow-2xs transition ${
                     isDuplicate 
                       ? 'border-rose-400 bg-rose-50/30 text-rose-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-200'
                       : isWadaana 
@@ -281,21 +333,12 @@ export default function AddEditRawMaterialModal({
                         : 'border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200'
                   }`}
                 />
-                <select
+                <CustomUnitDropdown
                   value={custom.unit}
-                  onChange={e => setCustom(c => ({ ...c, unit: e.target.value }))}
-                  className={`sm:col-span-2 p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 outline-none shadow-2xs transition ${
-                    isWadaana ? 'focus:border-[#0ea5e9]' : 'focus:border-emerald-500'
-                  }`}
-                >
-                  <option value="kg">kg</option>
-                  <option value="pcs">pcs</option>
-                  <option value="litres">litres</option>
-                  <option value="rolls">rolls</option>
-                  <option value="bottles">bottles</option>
-                  <option value="packs">packs</option>
-                  <option value="bags">bags</option>
-                </select>
+                  onChange={u => setCustom(c => ({ ...c, unit: u }))}
+                  options={UNITS}
+                  isWadaana={isWadaana}
+                />
                 <input
                   type="number"
                   min="0"
@@ -308,7 +351,7 @@ export default function AddEditRawMaterialModal({
                       if (!isDuplicate) handleAddCustom(); 
                     } 
                   }}
-                  className={`sm:col-span-2 p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 outline-none shadow-2xs text-center transition ${
+                  className={`sm:col-span-2 px-3 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 outline-none shadow-2xs text-center transition ${
                     isWadaana ? 'focus:border-[#0ea5e9]' : 'focus:border-emerald-500'
                   }`}
                 />
@@ -316,7 +359,7 @@ export default function AddEditRawMaterialModal({
                   type="button"
                   onClick={handleAddCustom}
                   disabled={saving || !trimmedCustomName || isDuplicate}
-                  className={`sm:col-span-3 p-2.5 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`sm:col-span-3 px-3 py-3 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed ${
                     isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-600' : 'bg-emerald-600 hover:bg-emerald-700'
                   }`}
                 >
