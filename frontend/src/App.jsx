@@ -19,6 +19,8 @@ const Users = lazy(() => import('./pages/Users'));
 const Reports = lazy(() => import('./pages/Reports'));
 const DailyClose = lazy(() => import('./pages/DailyClose'));
 const Inventory = lazy(() => import('./pages/Inventory'));
+const TransportExpenses = lazy(() => import('./pages/TransportExpenses'));
+const Cars = lazy(() => import('./pages/Cars'));
 
 import { getCompanyFromCookie } from './utils/companyCookie';
 import { isPageAllowedForRole } from './constants/roleAccess';
@@ -87,6 +89,8 @@ function AppRoutes() {
           <Route path="users" element={<RoleProtectedRoute path="/users"><Users /></RoleProtectedRoute>} />
           <Route path="reports" element={<RoleProtectedRoute path="/reports"><Reports /></RoleProtectedRoute>} />
           <Route path="daily-close" element={<RoleProtectedRoute path="/daily-close"><DailyClose /></RoleProtectedRoute>} />
+          <Route path="transport-expenses" element={<RoleProtectedRoute path="/transport-expenses"><TransportExpenses /></RoleProtectedRoute>} />
+          <Route path="cars" element={<RoleProtectedRoute path="/cars"><Cars /></RoleProtectedRoute>} />
           <Route path="*" element={<div>Page not found</div>} />
         </Route>
       </Routes>

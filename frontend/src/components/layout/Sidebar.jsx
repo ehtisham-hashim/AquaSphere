@@ -17,7 +17,9 @@ import {
   Building2,
   X,
   ShieldCheck,
-  Boxes
+  Boxes,
+  Car,
+  Fuel
 } from 'lucide-react';
 
 const navItems = [
@@ -33,6 +35,8 @@ const navItems = [
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
   { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
+  { icon: Fuel, label: 'Transport', path: '/transport-expenses' },
+  { icon: Car, label: 'Cars', path: '/cars' },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

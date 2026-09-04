@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, ArrowRight } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -18,6 +19,7 @@ import DashboardKpiCard from './DashboardKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
 
 const COST_COLORS = ['#f43f5e', '#9333ea'];
@@ -45,6 +47,55 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   }, [data, timeframe]);
 
   const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
+
+  const [transportData, setTransportData] = useState({ expenses: [], vehicleCount: 0, monthlySpend: 0 });
+  const [transportLoaded, setTransportLoaded] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchTransport() {
+      try {
+        const [expRes, vehRes] = await Promise.all([
+          fetch(`${API_URL}/transport-expenses?limit=5`, {
+            headers: { 'x-tenant': tenant },
+            credentials: 'include'
+          }),
+          fetch(`${API_URL}/vehicles`, {
+            headers: { 'x-tenant': tenant },
+            credentials: 'include'
+          })
+        ]);
+        const expJson = await expRes.json();
+        const vehJson = await vehRes.json();
+        if (isMounted && expJson.success && vehJson.success) {
+          const exps = expJson.data || [];
+          const vehs = vehJson.data || [];
+          const now = new Date();
+          const curMonth = now.getMonth();
+          const curYear = now.getFullYear();
+          const monthlySpend = exps
+            .filter((e) => {
+              const d = new Date(e.date || e.createdAt);
+              return d.getMonth() === curMonth && d.getFullYear() === curYear;
+            })
+            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+          setTransportData({
+            expenses: exps,
+            vehicleCount: vehs.length,
+            monthlySpend
+          });
+          setTransportLoaded(true);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard transport data', err);
+      }
+    }
+    fetchTransport();
+    return () => {
+      isMounted = false;
+    };
+  }, [tenant]);
 
   const [chartTimeframe, setChartTimeframe] = useState('7'); // '7', '14', '30', '12m'
 
@@ -366,6 +417,89 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
 
       {/* ── 5. Purchasing & Vendor Summary ──────────────────────────────────── */}
       <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
+
+      {/* ── 6. Transport & Logistics Summary ─────────────────────────────────── */}
+      {transportLoaded && (
+        <section className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Fuel size={20} className={tenant === 'wadaana' ? 'text-[#0ea5e9]' : 'text-emerald-600'} />
+              <h2 className="text-lg font-bold text-slate-800 tracking-tight">Transport & Logistics Overview</h2>
+            </div>
+            <Link
+              to="/transport-expenses"
+              className={`text-xs font-bold flex items-center gap-1 hover:underline ${
+                tenant === 'wadaana' ? 'text-[#0ea5e9]' : 'text-emerald-600'
+              }`}
+            >
+              View All <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Active Fleet Size</h4>
+                <p className="text-3xl font-black text-slate-800 font-mono">{transportData.vehicleCount} Vehicles</p>
+                <p className="text-xs text-slate-500 mt-1">Total operational delivery units.</p>
+              </div>
+              <div className={`p-4 rounded-full ${tenant === 'wadaana' ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'}`}>
+                <Car size={32} />
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Recent Transport Spend</h4>
+                <p className={`text-3xl font-black font-mono ${tenant === 'wadaana' ? 'text-[#0ea5e9]' : 'text-emerald-700'}`}>
+                  Rs. {Math.round(transportData.monthlySpend).toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">Vehicle fuel & repair costs this month.</p>
+              </div>
+              <div className={`p-4 rounded-full ${tenant === 'wadaana' ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'}`}>
+                <Fuel size={32} />
+              </div>
+            </div>
+          </div>
+
+          {/* Compact Recent Transport Expenses Table */}
+          {transportData.expenses.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-3.5 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Recent Transport Expenses
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50/50 border-b border-slate-100 text-slate-500 font-bold uppercase">
+                    <tr>
+                      <th className="p-3">Date</th>
+                      <th className="p-3">Vehicle</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Amount</th>
+                      <th className="p-3">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {transportData.expenses.slice(0, 5).map((ex) => (
+                      <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3 text-slate-600">{new Date(ex.date || ex.createdAt).toLocaleDateString()}</td>
+                        <td className="p-3 font-semibold text-slate-800">
+                          {ex.vehicle?.name || '—'} <span className="text-slate-400 font-mono font-normal">({ex.vehicle?.plateNumber})</span>
+                        </td>
+                        <td className="p-3 font-bold text-slate-700">{ex.type}</td>
+                        <td className={`p-3 font-black ${tenant === 'wadaana' ? 'text-[#0ea5e9]' : 'text-emerald-700'}`}>
+                          Rs. {Math.round(Number(ex.amount)).toLocaleString()}
+                        </td>
+                        <td className="p-3 text-slate-600 max-w-[200px] truncate">{ex.note || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
