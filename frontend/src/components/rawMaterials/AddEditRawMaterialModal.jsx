@@ -186,14 +186,18 @@ export default function AddEditRawMaterialModal({
         if (!toSave.length) throw new Error('Enter a quantity greater than zero for at least one material.');
 
         await Promise.all(
-          toSave.map(item =>
-            fetch(`${API}/items`, {
+          toSave.map(async (item) => {
+            const res = await fetch(`${API}/items`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
               credentials: 'include',
               body: JSON.stringify(item)
-            })
-          )
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+              throw new Error(data.message || `Failed to create ${item.name}`);
+            }
+          })
         );
       }
       onSaved();

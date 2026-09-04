@@ -213,7 +213,7 @@ export default function ProductionBatchTable({
 
                     {/* 6. Recorded By */}
                     <td className="p-3.5 text-xs text-slate-600 font-medium">
-                      {b.createdBy?.name || user?.name || 'System'} ({b.createdBy?.role || 'MM'})
+                      {b.createdBy?.name || 'System'} ({b.createdBy?.role || 'MM'})
                     </td>
 
                     {/* 7. Delete (Owner Only) */}

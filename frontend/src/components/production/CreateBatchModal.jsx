@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Plus, Trash2, Sparkles, Package, Flame, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,6 +43,11 @@ export default function CreateBatchModal({
     [items]
   );
 
+  const rawMaterialsRef = useRef(rawMaterials);
+  useEffect(() => {
+    rawMaterialsRef.current = rawMaterials;
+  }, [rawMaterials]);
+
   // Reset internal form state whenever modal opens
   useEffect(() => {
     if (isOpen) {
@@ -59,13 +64,14 @@ export default function CreateBatchModal({
       setQtyMix15L('');
       setCustomProductName('');
       setCustomBatchQty('');
+      const currentRawMaterials = rawMaterialsRef.current || [];
       setConsumedMaterials(
-        rawMaterials.length > 0
-          ? [{ rawMaterialId: rawMaterials[0].id, quantityPerUnit: isWadaana ? '0.015' : '1' }]
+        currentRawMaterials.length > 0
+          ? [{ rawMaterialId: currentRawMaterials[0].id, quantityPerUnit: isWadaana ? '0.015' : '1' }]
           : []
       );
     }
-  }, [isOpen, rawMaterials, isWadaana]);
+  }, [isOpen, isWadaana]);
 
   if (!isOpen) return null;
 
