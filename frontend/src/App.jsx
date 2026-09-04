@@ -20,6 +20,9 @@ const Reports = lazy(() => import('./pages/Reports'));
 const DailyClose = lazy(() => import('./pages/DailyClose'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 
+import { getCompanyFromCookie } from './utils/companyCookie';
+import { isPageAllowedForRole } from './constants/roleAccess';
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -32,6 +35,20 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RoleProtectedRoute({ path, children }) {
+  const { user, loading } = useAuth();
+  const currentTenant = getCompanyFromCookie();
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (!isPageAllowedForRole(user?.role, path, currentTenant)) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 }
 
@@ -58,18 +75,18 @@ function AppRoutes() {
         />
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
-          <Route path="vendors" element={<Vendors />} />
-          <Route path="purchases" element={<Purchases />} />
-          <Route path="raw-materials" element={<RawMaterials />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="production" element={<Production />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="counter-sales" element={<CounterSales />} />
-          <Route path="users" element={<Users />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="daily-close" element={<DailyClose />} />
+          <Route path="vendors" element={<RoleProtectedRoute path="/vendors"><Vendors /></RoleProtectedRoute>} />
+          <Route path="purchases" element={<RoleProtectedRoute path="/purchases"><Purchases /></RoleProtectedRoute>} />
+          <Route path="raw-materials" element={<RoleProtectedRoute path="/raw-materials"><RawMaterials /></RoleProtectedRoute>} />
+          <Route path="inventory" element={<RoleProtectedRoute path="/inventory"><Inventory /></RoleProtectedRoute>} />
+          <Route path="production" element={<RoleProtectedRoute path="/production"><Production /></RoleProtectedRoute>} />
+          <Route path="customers" element={<RoleProtectedRoute path="/customers"><Customers /></RoleProtectedRoute>} />
+          <Route path="orders" element={<RoleProtectedRoute path="/orders"><Orders /></RoleProtectedRoute>} />
+          <Route path="expenses" element={<RoleProtectedRoute path="/expenses"><Expenses /></RoleProtectedRoute>} />
+          <Route path="counter-sales" element={<RoleProtectedRoute path="/counter-sales"><CounterSales /></RoleProtectedRoute>} />
+          <Route path="users" element={<RoleProtectedRoute path="/users"><Users /></RoleProtectedRoute>} />
+          <Route path="reports" element={<RoleProtectedRoute path="/reports"><Reports /></RoleProtectedRoute>} />
+          <Route path="daily-close" element={<RoleProtectedRoute path="/daily-close"><DailyClose /></RoleProtectedRoute>} />
           <Route path="*" element={<div>Page not found</div>} />
         </Route>
       </Routes>

@@ -190,13 +190,15 @@ export default function Production() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className={`px-5 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2`}
-          >
-            <Plus className="w-5 h-5" />
-            Log Production Batch
-          </button>
+          {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className={`px-5 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2`}
+            >
+              <Plus className="w-5 h-5" />
+              Log Production Batch
+            </button>
+          )}
         </div>
       </div>
 

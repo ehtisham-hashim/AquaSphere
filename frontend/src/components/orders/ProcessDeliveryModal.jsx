@@ -3,8 +3,11 @@ import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, Lock, AlertC
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
+  const { user } = useAuth();
+  const isMarketingManager = user?.role === 'MARKETING_MANAGER';
   const company = getCompanyFromCookie();
   const isAquaSphere = company === 'aquasphere';
 
@@ -65,7 +68,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
-    cashReceived: order.paymentStatus === 'PAID' ? 0 : remainingOrderBalance,
+    cashReceived: isMarketingManager ? 0 : (order.paymentStatus === 'PAID' ? 0 : remainingOrderBalance),
     paymentMethod: 'CASH',
     remarks: ''
   });
@@ -323,34 +326,49 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
             </div>
 
             <div className="space-y-4">
-               <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><DollarSign size={16}/> Settlement</h4>
-               
-               <div>
-                 <div className="flex justify-between items-center mb-1">
-                   <label className="block text-sm font-medium text-slate-700">Cash Received (Rs) *</label>
-                   <span className="text-[11px] font-bold text-slate-500">Max Allowed: Rs. {maxPayable}</span>
-                 </div>
-                 <input name="cashReceived" type="number" step="0.01" min="0" max={maxPayable} className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none font-bold text-slate-800" value={deliveryData.cashReceived} onChange={handleChange} required />
-                 {parseFloat(order.customer?.deposit || 0) > 0 && (
-                   <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1 inline-block font-semibold">
-                     Deposit Available: Rs. {parseFloat(order.customer?.deposit || 0)} (Unpaid order balance will auto-deduct from deposit first)
-                   </span>
-                 )}
-               </div>
-               
-               <div>
-                 <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-                 <select name="paymentMethod" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.paymentMethod} onChange={handleChange}>
-                   <option value="CASH">Cash</option>
-                   <option value="BANK_TRANSFER">Bank Transfer / Online</option>
-                   <option value="CHEQUE">Cheque</option>
-                 </select>
-               </div>
-               
-               <div>
-                 <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Remarks</label>
-                 <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={deliveryData.remarks} onChange={handleChange} placeholder="Share route notes or WhatsApp handoff"></textarea>
-               </div>
+              <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><DollarSign size={16}/> Settlement</h4>
+              
+              {isMarketingManager ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs space-y-2">
+                  <span className="font-bold text-amber-900 block text-sm">Payment Confirmation Handled by Accounts</span>
+                  <p className="text-amber-800 leading-relaxed">
+                    Marketing Manager registers delivery fulfillment and bottle returns. Stock will be dispatched. Payment collection and settlement will be confirmed and updated by the Accountant.
+                  </p>
+                  <div className="pt-2 border-t border-amber-200/60 flex justify-between items-center text-amber-950 font-bold">
+                    <span>Order Amount Pending Settlement:</span>
+                    <span className="text-sm font-black font-mono">Rs. {remainingOrderBalance.toLocaleString()}</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-slate-700">Cash Received (Rs) *</label>
+                      <span className="text-[11px] font-bold text-slate-500">Max Allowed: Rs. {maxPayable}</span>
+                    </div>
+                    <input name="cashReceived" type="number" step="0.01" min="0" max={maxPayable} className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none font-bold text-slate-800" value={deliveryData.cashReceived} onChange={handleChange} required />
+                    {parseFloat(order.customer?.deposit || 0) > 0 && (
+                      <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1 inline-block font-semibold">
+                        Deposit Available: Rs. {parseFloat(order.customer?.deposit || 0)} (Unpaid order balance will auto-deduct from deposit first)
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                    <select name="paymentMethod" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.paymentMethod} onChange={handleChange}>
+                      <option value="CASH">Cash</option>
+                      <option value="BANK_TRANSFER">Bank Transfer / Online</option>
+                      <option value="CHEQUE">Cheque</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Remarks</label>
+                <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={deliveryData.remarks} onChange={handleChange} placeholder="Share route notes or WhatsApp handoff"></textarea>
+              </div>
             </div>
 
           </div>

@@ -3,7 +3,8 @@ import {
   InventoryHeader, 
   FinishedGoodsSummaryCards, 
   InventoryTransactionHistoryTable,
-  StockTransferModal
+  StockTransferModal,
+  AddEditFinishedGoodModal
 } from '../components/inventory';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { API_URL as API } from '../utils/api';
@@ -13,13 +14,15 @@ export default function Inventory() {
   const { user } = useAuth();
   const tenant = getCompanyFromCookie();
 
-  const canTransferStock = user?.role !== 'ACCOUNTANT';
+  const canTransferStock = user?.role === 'OWNER' || user?.role === 'PRODUCTION_MANAGER';
+  const canAddFinishedGood = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchInventoryData = useCallback(async () => {
     setIsLoading(true);
@@ -74,6 +77,7 @@ export default function Inventory() {
         onSearchChange={setSearch}
         tenant={tenant}
         onOpenTransferModal={canTransferStock ? () => setIsTransferModalOpen(true) : null}
+        onOpenAddModal={canAddFinishedGood ? () => setIsAddModalOpen(true) : null}
       />
 
       {/* Negative Stock Warning Banner */}
@@ -127,6 +131,16 @@ export default function Inventory() {
           items={items}
           tenant={tenant}
           onSuccess={fetchInventoryData}
+        />
+      )}
+
+      {/* Add Custom Finished Good Modal with Recipe Builder */}
+      {canAddFinishedGood && (
+        <AddEditFinishedGoodModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSaved={fetchInventoryData}
+          tenant={tenant}
         />
       )}
     </div>

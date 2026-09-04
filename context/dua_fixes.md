@@ -40,7 +40,7 @@ Owner have the full access of whole system and but there are some things which O
 And we have adjust the conversion so according to the conversions in the raw material our stock and inventory would be updating 
 
 ![][image5]  
-Can not find where is inventory ?
+
 
 \>
 

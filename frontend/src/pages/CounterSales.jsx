@@ -26,7 +26,14 @@ export default function CounterSales() {
   const [dailyCloses, setDailyCloses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('new-sale');
+  const userRole = user?.role;
+  const isOwner = userRole === 'OWNER';
+  const isAdmin = userRole === 'ADMIN';
+  const isAccountant = userRole === 'ACCOUNTANT';
+  const isMM = userRole === 'MARKETING_MANAGER';
+  const canCreate = (isMM || isAccountant || isOwner) && !isAdmin;
+
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'history' : 'new-sale');
   const [submitting, setSubmitting] = useState(false);
 
   const [liveSaleNumber, setLiveSaleNumber] = useState(generateSaleNumber());
@@ -34,13 +41,6 @@ export default function CounterSales() {
 
   const [receiptSale, setReceiptSale] = useState(null);
   const [lastRecordedSale, setLastRecordedSale] = useState(null);
-
-  const userRole = user?.role;
-  const isOwner = userRole === 'OWNER';
-  const isAdmin = userRole === 'ADMIN';
-  const isAccountant = userRole === 'ACCOUNTANT';
-  const isMM = userRole === 'MARKETING_MANAGER';
-  const canCreate = isMM || isAccountant || isAdmin || isOwner;
 
   useEffect(() => {
     const timer = setInterval(() => setLiveDateTime(new Date()), 1000);

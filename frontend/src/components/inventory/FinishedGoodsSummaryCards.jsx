@@ -3,47 +3,17 @@ import { Warehouse, Factory, ShieldCheck } from 'lucide-react';
 export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere' }) {
   const isWadaana = tenant === 'wadaana';
 
-  // Helper to extract factory & warehouse quantities
-  const getLocQty = (itemList) => {
-    return itemList.reduce(
-      (acc, i) => {
-        const total = Number(i.cachedQty || 0);
-        const f = Number(i.factoryQty || 0);
-        const w = Number(i.warehouseQty || 0);
-        // If factoryQty/warehouseQty not set yet, fallback factory = total
-        const fac = (f === 0 && w === 0) ? total : f;
-        const wh = (f === 0 && w === 0) ? 0 : w;
-        return {
-          total: acc.total + total,
-          factory: acc.factory + fac,
-          warehouse: acc.warehouse + wh
-        };
-      },
-      { total: 0, factory: 0, warehouse: 0 }
-    );
-  };
-
   if (!isWadaana) {
-    const items05 = items.filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
-    const items15 = items.filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
-    const items19 = items.filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('19')));
+    const fgList = items.filter(i => i.type === 'FINISHED_GOOD' || !i.type);
 
-    const data05 = getLocQty(items05);
-    const data15 = getLocQty(items15);
-    const data19 = getLocQty(items19);
-
-    const totalUnits = Math.round(data05.total + data15.total + data19.total);
+    const totalUnits = fgList.reduce((acc, i) => acc + Number(i.cachedQty || 0), 0);
 
     // Status Helper
     const getBadge = (qty, reorder = 20) => {
-      if (qty === 0) return { label: 'Out of Stock', dot: 'bg-rose-500', text: 'text-rose-700' };
+      if (qty <= 0) return { label: 'Out of Stock', dot: 'bg-rose-500', text: 'text-rose-700' };
       if (qty <= reorder) return { label: 'Low Stock', dot: 'bg-amber-500', text: 'text-amber-700' };
       return { label: 'Normal', dot: 'bg-emerald-500', text: 'text-emerald-700' };
     };
-
-    const status05 = getBadge(data05.total);
-    const status15 = getBadge(data15.total);
-    const status19 = getBadge(data19.total);
 
     return (
       <div className="space-y-6">
@@ -55,137 +25,72 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
               Operational Summary
             </h3>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
-              <span className="flex items-center gap-2">
-                0.5L PET: <strong className="text-slate-900 font-bold text-lg">{Math.floor(data05.total).toLocaleString()}</strong>
-              </span>
-              <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block"></span>
-              <span className="flex items-center gap-2">
-                1.5L PET: <strong className="text-slate-900 font-bold text-lg">{Math.floor(data15.total).toLocaleString()}</strong>
-              </span>
-              <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block"></span>
-              <span className="flex items-center gap-2">
-                19L PC: <strong className="text-slate-900 font-bold text-lg">{Math.round(data19.total).toLocaleString()}</strong>
-              </span>
+              {fgList.map((item, idx) => (
+                <span key={item.id || idx} className="flex items-center gap-2">
+                  {item.name}: <strong className="text-slate-900 font-bold text-lg">{Math.round(Number(item.cachedQty || 0)).toLocaleString()}</strong>
+                </span>
+              ))}
             </div>
           </div>
 
           <div className="flex items-center gap-8">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-0.5">Total Finished Stock</span>
-              <span className="text-3xl font-bold text-slate-900">{totalUnits.toLocaleString()} <span className="text-sm font-normal text-slate-500">Units</span></span>
+              <span className="text-3xl font-bold text-slate-900">{Math.round(totalUnits).toLocaleString()} <span className="text-sm font-normal text-slate-500">Units</span></span>
             </div>
           </div>
         </div>
 
-        {/* 3 Finished Goods Cards with Location Breakdown (Factory vs Warehouse) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 0.5L Packs Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">0.5L PET Packs</span>
-                <div className="text-4xl font-black text-slate-800 tracking-tight">
-                  {Math.floor(data05.total).toLocaleString()}
-                </div>
-              </div>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                status05.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                status05.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status05.dot}`}></span>
-                {status05.label}
-              </span>
-            </div>
+        {/* Dynamic Finished Goods Cards with Location Breakdown (Factory vs Warehouse) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {fgList.map((item, idx) => {
+            const total = Number(item.cachedQty || 0);
+            const fac = Number(item.factoryQty || 0);
+            const wh = Number(item.warehouseQty || 0);
+            const effectiveFactory = (fac === 0 && wh === 0) ? total : fac;
+            const effectiveWarehouse = (fac === 0 && wh === 0) ? 0 : wh;
+            const status = getBadge(total, Number(item.reorderLevel || 20));
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                  <Factory size={13} className="text-slate-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Factory</span>
+            return (
+              <div key={item.id || idx} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                      {item.name}
+                    </span>
+                    <div className="text-3xl font-black text-slate-800 tracking-tight">
+                      {Math.round(total).toLocaleString()}{' '}
+                      <span className="text-xs font-normal text-slate-400">{item.unit || 'units'}</span>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                    status.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    status.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
+                    {status.label}
+                  </span>
                 </div>
-                <div className="text-base font-bold text-slate-800">{Math.floor(data05.factory).toLocaleString()}</div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
-                  <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">{Math.floor(data05.warehouse).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
 
-          {/* 1.5L Packs Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">1.5L PET Packs</span>
-                <div className="text-4xl font-black text-slate-800 tracking-tight">
-                  {Math.floor(data15.total).toLocaleString()}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      <Factory size={13} className="text-slate-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Factory</span>
+                    </div>
+                    <div className="text-base font-bold text-slate-800">{Math.round(effectiveFactory).toLocaleString()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
+                      <Warehouse size={13} className="text-[#0ea5e9]" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
+                    </div>
+                    <div className="text-base font-bold text-slate-900">{Math.round(effectiveWarehouse).toLocaleString()}</div>
+                  </div>
                 </div>
               </div>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                status15.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                status15.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status15.dot}`}></span>
-                {status15.label}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                  <Factory size={13} className="text-slate-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Factory</span>
-                </div>
-                <div className="text-base font-bold text-slate-800">{Math.floor(data15.factory).toLocaleString()}</div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
-                  <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">{Math.floor(data15.warehouse).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* 19L PC Bottles Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">19L PC Bottles</span>
-                <div className="text-4xl font-black text-slate-800 tracking-tight">
-                  {Math.round(data19.total).toLocaleString()}
-                </div>
-              </div>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                status19.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                status19.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status19.dot}`}></span>
-                {status19.label}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                  <Factory size={13} className="text-slate-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Factory</span>
-                </div>
-                <div className="text-base font-bold text-slate-800">{Math.round(data19.factory).toLocaleString()}</div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-1.5 text-slate-400 mb-1">
-                  <Warehouse size={13} className="text-[#0ea5e9]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#0ea5e9]">Warehouse</span>
-                </div>
-                <div className="text-base font-bold text-slate-900">{Math.round(data19.warehouse).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
     );

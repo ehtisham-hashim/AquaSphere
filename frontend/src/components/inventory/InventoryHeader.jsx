@@ -1,10 +1,11 @@
-import { Search, Flame, Droplets, ArrowLeftRight } from 'lucide-react';
+import { Search, Flame, Droplets, ArrowLeftRight, Plus } from 'lucide-react';
 
 export default function InventoryHeader({ 
   search, 
   onSearchChange, 
   tenant = 'aquasphere',
-  onOpenTransferModal
+  onOpenTransferModal,
+  onOpenAddModal
 }) {
   const isWadaana = tenant === 'wadaana';
 
@@ -36,19 +37,31 @@ export default function InventoryHeader({
           </div>
         </div>
 
-        {onOpenTransferModal && (
-          <button
-            onClick={onOpenTransferModal}
-            className={`${
-              isWadaana 
-                ? 'bg-[#0ea5e9] hover:bg-[#0284c7] shadow-sky-500/20' 
-                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-            } text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2.5 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] self-start sm:self-auto text-sm`}
-          >
-            <ArrowLeftRight size={18} className="stroke-[2.5]" /> 
-            <span>Transfer Stock</span>
-          </button>
-        )}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {onOpenAddModal && (
+            <button
+              onClick={onOpenAddModal}
+              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-md text-sm active:scale-[0.98]"
+            >
+              <Plus size={18} className="stroke-[2.5]" />
+              <span>Add Finished Good</span>
+            </button>
+          )}
+
+          {onOpenTransferModal && (
+            <button
+              onClick={onOpenTransferModal}
+              className={`${
+                isWadaana 
+                  ? 'bg-[#0ea5e9] hover:bg-[#0284c7] shadow-sky-500/20' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+              } text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2.5 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] text-sm`}
+            >
+              <ArrowLeftRight size={18} className="stroke-[2.5]" /> 
+              <span>Transfer Stock</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search Bar */}

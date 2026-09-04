@@ -3,4 +3,5 @@ export { default as FinishedGoodsSummaryCards } from './FinishedGoodsSummaryCard
 export { default as StockSourceBreakdown } from './StockSourceBreakdown';
 export { default as InventoryTransactionHistoryTable } from './InventoryTransactionHistoryTable';
 export { default as StockTransferModal } from './StockTransferModal';
+export { default as AddEditFinishedGoodModal } from './AddEditFinishedGoodModal';
 

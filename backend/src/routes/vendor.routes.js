@@ -17,13 +17,13 @@ const router = Router();
 
 router.use(verifyJWT);
 
-// View Vendors & Vendor Profiles: OWNER, ACCOUNTANT, PRODUCTION_MANAGER, MARKETING_MANAGER
-router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendors);
-router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendorById);
+// View Vendors & Vendor Profiles: OWNER, ACCOUNTANT, ADMIN
+router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getVendors);
+router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getVendorById);
 
-// Create & Edit Vendors: OWNER, ACCOUNTANT, PRODUCTION_MANAGER
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), createVendor);
-router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'PRODUCTION_MANAGER'), updateVendor);
+// Create & Edit Vendors: OWNER, ACCOUNTANT (Admin is read-only)
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), createVendor);
+router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT'), updateVendor);
 
 // Record Payment & Archive/Restore: OWNER, ACCOUNTANT
 router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT'), upload.single('image'), uploadPaymentProof);

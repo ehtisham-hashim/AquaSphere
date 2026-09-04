@@ -234,7 +234,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                   <span>Edit Customer</span>
                 </button>
               )}
-              {['OWNER', 'MARKETING_MANAGER'].includes(user?.role) && (
+              {user?.role === 'OWNER' && (
                 <button
                   onClick={handleDelete}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-medium text-sm transition-colors shadow-sm"

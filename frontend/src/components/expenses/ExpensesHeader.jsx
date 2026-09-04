@@ -1,5 +1,6 @@
 import { Plus, Download } from 'lucide-react';
 import { TimeframeDropdown } from '../ui';
+import { useAuth } from '../../context/AuthContext';
 
 const EXPENSE_TIMEFRAME_OPTIONS = [
   { value: 'MONTHLY', label: 'Monthly' },
@@ -18,7 +19,9 @@ export default function ExpensesHeader({
   hasExpenses,
   tenant = 'aquasphere'
 }) {
+  const { user } = useAuth();
   const isWadaana = tenant === 'wadaana';
+  const canLogExpense = ['OWNER', 'ACCOUNTANT'].includes(user?.role);
 
   return (
     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -49,14 +52,16 @@ export default function ExpensesHeader({
           <Download size={15} /> Export CSV
         </button>
 
-        <button 
-          onClick={onOpenModal}
-          className={`px-4 py-2.5 ${
-            isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500 shadow-sky-500/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
-          } text-white font-bold text-sm rounded-xl transition shadow-md flex items-center gap-2`}
-        >
-          <Plus size={18}/> Log Expense
-        </button>
+        {canLogExpense && (
+          <button 
+            onClick={onOpenModal}
+            className={`px-4 py-2.5 ${
+              isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500 shadow-sky-500/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+            } text-white font-bold text-sm rounded-xl transition shadow-md flex items-center gap-2`}
+          >
+            <Plus size={18}/> Log Expense
+          </button>
+        )}
       </div>
     </div>
   );

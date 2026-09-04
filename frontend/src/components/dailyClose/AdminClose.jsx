@@ -1,21 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { ShieldCheck, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
 import { useDailyClose } from '../../hooks/useDailyClose';
-import { finalizeDay, fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
+import { fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
-import VerificationChecklist from './VerificationChecklist';
-
-const ADMIN_CHECKLIST = [
-  { key: 'departmentsVerified', label: 'Department production totals and sales orders verified.' },
-  { key: 'financialsVerified', label: 'Cash register collections and financial expenses verified.' },
-];
 
 export default function AdminClose() {
-  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
-  const [submitting, setSubmitting] = useState(false);
+  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -37,21 +29,6 @@ export default function AdminClose() {
       }
     }).catch(() => {});
   }, [date, tenant]);
-
-  const handleFinalize = async () => {
-    setSubmitting(true);
-    try {
-      const json = await finalizeDay(date, tenant);
-      if (json.success) {
-        toast.success('Day finalized, verified, and locked.');
-        refreshStatus(false);
-        fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else {
-        toast.error(json.message || 'Failed to lock day');
-      }
-    } catch { toast.error('Error locking day'); }
-    finally { setSubmitting(false); }
-  };
 
   if (loading) {
     return (
@@ -111,18 +88,39 @@ export default function AdminClose() {
             </div>
           </div>
 
-          {/* Admin Finalize */}
-          <VerificationChecklist
-            key={date}
-            title="Admin Master Lock"
-            subtitle="Finalize & lock day — auto-confirms PM/MM if pending"
-            items={ADMIN_CHECKLIST}
-            onConfirm={handleFinalize}
-            confirmLabel="Finalize & Lock Daily Close"
-            confirmIcon={Lock}
-            confirmed={false}
-            submitting={submitting}
-          />
+          {/* Admin Read-Only Audit Status */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-indigo-600 mb-1">
+                <ShieldCheck size={20} />
+                <h3 className="text-lg font-bold text-slate-800">Daily Close Audit Status</h3>
+              </div>
+              <p className="text-xs text-slate-500">
+                Admin view is read-only. Financial lock and daily close finalization are executed by the Accountant or Owner.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 font-semibold">Production Confirmation:</span>
+                <span className={`font-bold px-2 py-0.5 rounded ${pmConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {pmConfirmed ? 'Confirmed' : 'Pending'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 font-semibold">Marketing Confirmation:</span>
+                <span className={`font-bold px-2 py-0.5 rounded ${mmConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {mmConfirmed ? 'Confirmed' : 'Pending'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
+                <span className="text-slate-700 font-bold">Final Close Status:</span>
+                <span className={`font-bold px-2.5 py-0.5 rounded-full text-xs ${isClosed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {isClosed ? '🔒 Day Finalized' : '⏳ Day Open'}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

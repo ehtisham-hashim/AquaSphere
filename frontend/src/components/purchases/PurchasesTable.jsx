@@ -70,17 +70,23 @@ export default function PurchasesTable({
                   Rs {Number(p.grandTotal).toLocaleString('en-PK')}
                 </td>
                 <td className="p-4">
-                  <select
-                    value={p.status || 'RECEIVED'}
-                    onChange={(e) => onStatusChange(p.id, e.target.value, null)}
-                    disabled={updatingStatusId === p.id}
-                    className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="RECEIVED">🟢 Received</option>
-                    <option value="PARTIALLY_RECEIVED">🔵 Partially Received</option>
-                    <option value="PENDING">🟡 Pending</option>
-                    <option value="CANCELLED">🔴 Cancelled</option>
-                  </select>
+                  {['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role) ? (
+                    <select
+                      value={p.status || 'RECEIVED'}
+                      onChange={(e) => onStatusChange(p.id, e.target.value, null)}
+                      disabled={updatingStatusId === p.id}
+                      className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="RECEIVED">🟢 Received</option>
+                      <option value="PARTIALLY_RECEIVED">🔵 Partially Received</option>
+                      <option value="PENDING">🟡 Pending</option>
+                      <option value="CANCELLED">🔴 Cancelled</option>
+                    </select>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {p.status === 'RECEIVED' ? '🟢 Received' : p.status === 'PARTIALLY_RECEIVED' ? '🔵 Partial' : p.status === 'PENDING' ? '🟡 Pending' : '🔴 Cancelled'}
+                    </span>
+                  )}
                 </td>
                 <td className="p-4">
                   {isOwner || isAccountant ? (

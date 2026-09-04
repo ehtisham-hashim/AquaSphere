@@ -18,7 +18,7 @@ const parseDateRange = (dateStr) => {
 export const closeDay = asyncHandler(async (req, res) => {
   const { date } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
-  if (req.user.role !== 'ADMIN' && req.user.role !== 'OWNER') {
+  if (req.user.role !== 'ACCOUNTANT' && req.user.role !== 'OWNER') {
     throw new ApiError(403, 'Unauthorized to perform daily close');
   }
 

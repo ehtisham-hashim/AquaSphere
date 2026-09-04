@@ -73,7 +73,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.CUSTOMERS]: false,
       [SIDEBAR_ROUTES.PRODUCTION]: true,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
-      [SIDEBAR_ROUTES.PURCHASES]: false,
+      [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: false,
       [SIDEBAR_ROUTES.EXPENSES]: false,
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
@@ -86,14 +86,14 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
-      [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
+      [SIDEBAR_ROUTES.RAW_MATERIALS]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
       [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
-      [SIDEBAR_ROUTES.INVENTORY]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: false,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -104,7 +104,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PURCHASES]: false,
       [SIDEBAR_ROUTES.VENDORS]: false,
       [SIDEBAR_ROUTES.EXPENSES]: false,
-      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: true,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
@@ -121,7 +121,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
-      [SIDEBAR_ROUTES.COUNTER_SALES]: true,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
     },
@@ -135,7 +135,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
-      [SIDEBAR_ROUTES.COUNTER_SALES]: true,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
     },
@@ -158,12 +158,12 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: true,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
-      [SIDEBAR_ROUTES.INVENTORY]: true,
-      [SIDEBAR_ROUTES.RAW_MATERIALS]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: false,
+      [SIDEBAR_ROUTES.RAW_MATERIALS]: false,
       [SIDEBAR_ROUTES.PURCHASES]: true,
       [SIDEBAR_ROUTES.VENDORS]: true,
       [SIDEBAR_ROUTES.EXPENSES]: true,
-      [SIDEBAR_ROUTES.COUNTER_SALES]: true,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
     },
@@ -185,13 +185,14 @@ export const ROLE_ACCESS = {
 };
 
 export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
+  if (!role || !path) return false;
   const tenantKey = String(tenant).toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
   const tenantAccess = ROLE_ACCESS[tenantKey] || ROLE_ACCESS.aquasphere;
-  const roleRules = tenantAccess[role] || ROLE_ACCESS.aquasphere[ROLES.OWNER];
+  const roleRules = tenantAccess[role];
 
   if (roleRules && typeof roleRules[path] === 'boolean') {
     return roleRules[path];
   }
 
-  return true;
+  return false;
 };

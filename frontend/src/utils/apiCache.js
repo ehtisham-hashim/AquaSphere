@@ -1,17 +1,80 @@
-// ponytail: global in-memory client-side cache with in-flight deduplication & auto-invalidation
+import { invalidateQueries } from '../lib/queryClient';
+
+// Global persistent client-side cache with in-flight deduplication & auto-invalidation
 const cache = new Map();
 const inFlight = new Map();
-const DEFAULT_TTL = 60 * 1000; // 60 seconds
+const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes default (matches TanStack Query staleTime)
+const STORAGE_PREFIX = '__aquasphere_api_cache__';
+
+// Helper to load cache entry from sessionStorage
+function loadFromStorage(key) {
+  if (typeof window === 'undefined' || !window.sessionStorage) return null;
+  try {
+    const raw = window.sessionStorage.getItem(`${STORAGE_PREFIX}${key}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// Helper to save cache entry to sessionStorage
+function saveToStorage(key, data) {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  try {
+    window.sessionStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
+  } catch {
+    // sessionStorage full or disabled; fallback to in-memory map
+  }
+}
+
+// Helper to remove entries from sessionStorage
+function removeFromStorage(pattern = null) {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  try {
+    if (!pattern) {
+      const keys = [];
+      for (let i = 0; i < window.sessionStorage.length; i++) {
+        const k = window.sessionStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) keys.push(k);
+      }
+      keys.forEach((k) => window.sessionStorage.removeItem(k));
+      return;
+    }
+
+    const keys = [];
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const k = window.sessionStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX) && k.includes(pattern)) keys.push(k);
+    }
+    keys.forEach((k) => window.sessionStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+}
 
 export function clearCache(pattern = null) {
   if (!pattern) {
     cache.clear();
+    removeFromStorage();
+    try {
+      invalidateQueries();
+    } catch {
+      // ignore
+    }
     return;
   }
+
   for (const key of cache.keys()) {
     if (key.includes(pattern)) {
       cache.delete(key);
     }
+  }
+  removeFromStorage(pattern);
+  try {
+    invalidateQueries(pattern);
+  } catch {
+    // ignore
   }
 }
 
@@ -42,10 +105,20 @@ export function setupApiCache() {
     const tenantHeader = options.headers?.['x-tenant'] || '';
     const cacheKey = `${url}|${tenantHeader}`;
     const now = Date.now();
+    const ttl = options.ttl || DEFAULT_TTL;
 
     // 1. In-memory cache hit
-    const cached = cache.get(cacheKey);
-    if (cached && now - cached.timestamp < (options.ttl || DEFAULT_TTL)) {
+    let cached = cache.get(cacheKey);
+
+    // 2. Storage fallback hit (if tab was discarded or refreshed by Chrome)
+    if (!cached) {
+      cached = loadFromStorage(cacheKey);
+      if (cached) {
+        cache.set(cacheKey, cached);
+      }
+    }
+
+    if (cached && now - cached.timestamp < ttl) {
       return new Response(cached.body, {
         status: cached.status,
         statusText: cached.statusText,
@@ -53,7 +126,7 @@ export function setupApiCache() {
       });
     }
 
-    // 2. In-flight request deduplication
+    // 3. In-flight request deduplication
     if (inFlight.has(cacheKey)) {
       const data = await inFlight.get(cacheKey);
       return new Response(data.body, {
@@ -63,7 +136,7 @@ export function setupApiCache() {
       });
     }
 
-    // 3. Network fetch
+    // 4. Network fetch
     const fetchPromise = (async () => {
       try {
         const response = await originalFetch.apply(this, arguments);
@@ -78,6 +151,7 @@ export function setupApiCache() {
 
         if (response.ok) {
           cache.set(cacheKey, data);
+          saveToStorage(cacheKey, data);
         }
         return data;
       } finally {
