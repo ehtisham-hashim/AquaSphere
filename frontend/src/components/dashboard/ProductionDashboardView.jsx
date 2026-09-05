@@ -9,7 +9,7 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 import ProductionKPICards from './production/ProductionKPICards';
 import ProductionChart from './production/ProductionChart';
 import ProductionRecentRuns from './production/ProductionRecentRuns';
@@ -17,7 +17,7 @@ import FinishedGoodsBreakdown from './production/FinishedGoodsBreakdown';
 import RawMaterialHealthPanel from './production/RawMaterialHealthPanel';
 
 export default function ProductionDashboardView() {
-  const tenant = getCompanyFromCookie();
+  const { tenant, isWadaana } = useTenant();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,7 +60,6 @@ export default function ProductionDashboardView() {
     dailyClose = {}
   } = data || {};
 
-  const isWadaana = tenant === 'wadaana';
 
   // Top 5 raw materials closest to reorder level (ascending by stock ratio)
   const sortedRawMaterials = useMemo(() => {
@@ -122,43 +121,34 @@ export default function ProductionDashboardView() {
   const companyTitle = isWadaana ? 'Wadaana Ind.' : 'AquaSphere';
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto pb-8 text-slate-800">
+    <div className="space-y-6 pb-6 text-slate-800">
       {/* Header Banner */}
-      <div className="bg-white p-5 rounded-2xl shadow-2xs border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="card-surface p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+            <span className="badge-brand">
               {companyTitle} • OPERATIONS
             </span>
             <span className="text-xs text-slate-400 font-medium">Production Control</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-            <Factory className="w-6 h-6 text-slate-700" /> Production & Inventory Dashboard
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+            <Factory className="w-6 h-6 text-brand" /> Production & Inventory Dashboard
           </h1>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Real-time monitoring of factory runs, finished goods stock, and raw material health.
           </p>
         </div>
 
         {/* Action Bar */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/production"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-2xs transition flex items-center gap-1.5"
-          >
+          <Link to="/production" className="btn-primary text-xs">
             <Plus size={15} /> Log Batch
           </Link>
-          <Link
-            to="/inventory"
-            className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
-          >
-            <ArrowRightLeft size={15} className="text-slate-500" /> Transfer Stock
+          <Link to="/inventory" className="btn-secondary text-xs">
+            <ArrowRightLeft size={15} className="text-slate-400" /> Transfer Stock
           </Link>
-          <Link
-            to="/purchases"
-            className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
-          >
-            <ShoppingCart size={15} className="text-slate-500" /> Record Purchase
+          <Link to="/purchases" className="btn-secondary text-xs">
+            <ShoppingCart size={15} className="text-slate-400" /> Record Purchase
           </Link>
         </div>
       </div>

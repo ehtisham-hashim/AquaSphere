@@ -1,7 +1,7 @@
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
-import { getCompanyFromCookie } from '../utils/companyCookie';
 import {
   OwnerDashboardView,
   AccountantDashboardView,
@@ -12,7 +12,7 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [data, setData] = useState({
     sales: 0,
     cash: 0,
