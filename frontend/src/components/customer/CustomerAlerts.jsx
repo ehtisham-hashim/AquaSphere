@@ -149,11 +149,11 @@ export default function CustomerAlerts({ customer, isWadaana, onOpenBottleModal 
 
   if (alerts.length === 0) {
     return (
-      <div className={`p-6 rounded-xl border border-slate-200 text-center ${theme.accentBg}`}>
+      <div className="card-surface p-5 text-center">
         <div className="flex flex-col items-center justify-center">
-          <AlertCircle size={32} className={`${theme.iconColor} mb-2 opacity-50`} />
-          <p className="text-slate-600 font-medium">No Active Alerts</p>
-          <p className="text-slate-500 text-sm mt-1">Customer is in good standing</p>
+          <AlertCircle size={28} className="text-brand-primary mb-1.5 opacity-40" />
+          <p className="text-slate-700 font-bold text-xs">No Active Alerts</p>
+          <p className="text-slate-500 text-[11px] mt-0.5">Customer is in good standing</p>
         </div>
       </div>
     );
@@ -161,8 +161,8 @@ export default function CustomerAlerts({ customer, isWadaana, onOpenBottleModal 
 
   return (
     <div className="space-y-3">
-      <h3 className={`text-base font-bold text-slate-800 flex items-center gap-2`}>
-        <AlertCircle size={18} className={theme.iconColor} />
+      <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
+        <AlertCircle size={15} className="text-brand-primary" />
         Customer Alerts ({alerts.length})
       </h3>
       

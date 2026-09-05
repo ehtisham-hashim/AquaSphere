@@ -2,11 +2,11 @@ import { Package, Flame } from 'lucide-react';
 
 export default function InventoryStatusTab({ rawMaterials = [], productionBatches = [] }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Raw Materials Stock */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Package className="w-5 h-5 text-emerald-600" />
+      <div className="card-surface p-4 sm:p-5 space-y-3">
+        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider">
+          <Package className="w-4 h-4 text-brand-primary" />
           Raw Materials & Stock Levels
         </h3>
         <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto pr-1">
@@ -36,9 +36,9 @@ export default function InventoryStatusTab({ rawMaterials = [], productionBatche
       </div>
 
       {/* Today's Production Batches */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Flame className="w-5 h-5 text-amber-500" />
+      <div className="card-surface p-4 sm:p-5 space-y-3">
+        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider">
+          <Flame className="w-4 h-4 text-amber-500" />
           Today&apos;s Production Batches
         </h3>
         <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto pr-1">

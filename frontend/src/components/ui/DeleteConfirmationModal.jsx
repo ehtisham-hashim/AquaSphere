@@ -43,7 +43,7 @@ export default function DeleteConfirmationModal({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition shadow-xs disabled:opacity-50"
+            className="btn-secondary text-xs py-2 px-4"
           >
             {cancelText}
           </button>
@@ -51,9 +51,9 @@ export default function DeleteConfirmationModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center gap-2 disabled:bg-red-300"
+            className="btn-danger text-xs py-2 px-4 flex items-center gap-1.5"
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+            {loading ? <Loader2 size={14} className="animate-spin" /> : null}
             {confirmText}
           </button>
         </div>

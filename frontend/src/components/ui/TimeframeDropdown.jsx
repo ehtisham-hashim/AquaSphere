@@ -33,9 +33,9 @@ export default function TimeframeDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 active:scale-98"
+        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 active:scale-98"
       >
-        <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+        <Calendar className="w-3.5 h-3.5 text-brand-primary shrink-0" />
         <span>{selectedOption.label}</span>
         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -54,12 +54,12 @@ export default function TimeframeDropdown({
                 }}
                 className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors ${
                   isSelected 
-                    ? 'bg-emerald-50 text-emerald-700 font-bold' 
+                    ? 'bg-brand-muted text-brand-primary font-bold' 
                     : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <span>{opt.label}</span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                {isSelected && <Check className="w-3.5 h-3.5 text-brand-primary" />}
               </button>
             );
           })}

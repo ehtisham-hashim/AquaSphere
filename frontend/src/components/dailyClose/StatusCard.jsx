@@ -8,8 +8,8 @@ export default function StatusCard({ label, confirmed, confirmedBy }) {
         : 'bg-amber-50 border-amber-200 text-amber-900'
     }`}>
       <div>
-        <div className="text-xs font-bold uppercase tracking-wider">{label}</div>
-        <div className="text-sm font-extrabold">
+        <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</div>
+        <div className="text-xs font-black mt-0.5">
           {confirmed ? `Confirmed${confirmedBy ? ` (${confirmedBy})` : ''}` : 'Awaiting Confirmation'}
         </div>
       </div>

@@ -9,13 +9,13 @@ const formatNum = (val) => {
 
 export default function FinishedGoodsBreakdown({ finishedGoods }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
+    <div className="card-surface p-4 space-y-3">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Package size={16} className="text-slate-600" />
-          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Finished Goods Stock Location Breakdown</h3>
+          <Package size={15} className="text-brand-primary" />
+          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Finished Goods Stock Locations</h3>
         </div>
-        <Link to="/inventory" className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5">
+        <Link to="/inventory" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-0.5">
           Manage Stock <ChevronRight size={14} />
         </Link>
       </div>

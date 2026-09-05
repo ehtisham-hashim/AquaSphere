@@ -28,11 +28,11 @@ export default function ImagePreviewModal({ src, alt, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center"
+        className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         <div className="absolute top-2 right-2 flex items-center gap-2 z-10">

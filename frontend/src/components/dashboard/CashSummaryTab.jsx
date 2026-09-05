@@ -50,17 +50,17 @@ export default function CashSummaryTab({
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Cash from Orders', value: `Rs. ${fromOrders.toLocaleString()}`, icon: ShoppingCart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Cash from Counter', value: `Rs. ${fromSpot.toLocaleString()}`, icon: DollarSign, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Total Expenses', value: `Rs. ${Number(summary.totalExpenses).toLocaleString()}`, icon: TrendingDown, color: 'text-rose-600', bg: 'bg-rose-50' },
-          { label: 'Net Cash Balance', value: `Rs. ${(totalIn - (summary.totalExpenses || 0)).toLocaleString()}`, icon: CheckCircle, color: totalIn >= summary.totalExpenses ? 'text-emerald-700' : 'text-rose-700', bg: totalIn >= summary.totalExpenses ? 'bg-emerald-50' : 'bg-rose-50' },
+          { label: 'Cash from Orders', value: `₨ ${fromOrders.toLocaleString()}`, icon: ShoppingCart, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+          { label: 'Cash from Counter', value: `₨ ${fromSpot.toLocaleString()}`, icon: DollarSign, color: 'text-brand-primary', bg: 'bg-brand-muted' },
+          { label: 'Total Expenses', value: `₨ ${Number(summary.totalExpenses).toLocaleString()}`, icon: TrendingDown, color: 'text-rose-600', bg: 'bg-rose-50' },
+          { label: 'Net Cash Balance', value: `₨ ${(totalIn - (summary.totalExpenses || 0)).toLocaleString()}`, icon: CheckCircle, color: totalIn >= summary.totalExpenses ? 'text-emerald-700' : 'text-rose-700', bg: totalIn >= summary.totalExpenses ? 'bg-emerald-50' : 'bg-rose-50' },
         ].map((k) => (
-          <div key={k.label} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all">
-            <div className={`w-10 h-10 ${k.bg} rounded-xl flex items-center justify-center mb-3`}>
-              <k.icon size={20} className={k.color} />
+          <div key={k.label} className="card-surface p-4 sm:p-5">
+            <div className={`w-9 h-9 ${k.bg} rounded-xl flex items-center justify-center mb-2.5`}>
+              <k.icon size={18} className={k.color} />
             </div>
-            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{k.label}</div>
-            <div className={`text-2xl font-black mt-1 ${k.color}`}>{k.value}</div>
+            <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">{k.label}</div>
+            <div className={`text-xl sm:text-2xl font-mono font-black mt-0.5 ${k.color}`}>{k.value}</div>
           </div>
         ))}
       </div>

@@ -446,14 +446,14 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
-            <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-semibold text-sm hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+          <div className="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+            <button type="button" onClick={onClose} className="btn-secondary text-xs py-2 px-4">Cancel</button>
             <button 
               type="submit" 
               disabled={isSubmitting || !orderData.customerId} 
-              className={`${isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-slate-900 hover:bg-slate-800'} text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-md disabled:opacity-40 flex items-center justify-center gap-2`}
+              className="btn-primary text-xs py-2 px-5 flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 size={18}/>
+              <CheckCircle2 size={15}/>
               {isSubmitting ? 'Processing...' : 'Confirm & Place Order'}
             </button>
           </div>

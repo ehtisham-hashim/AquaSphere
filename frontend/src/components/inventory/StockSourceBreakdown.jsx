@@ -31,14 +31,14 @@ export default function StockSourceBreakdown({ transactions = [], tenant = 'aqua
   });
 
   return (
-    <div className="py-8 border-b border-slate-200 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="card-surface p-4 sm:p-5 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-1">
-            <Factory className={`w-5 h-5 ${isWadaana ? 'text-sky-600' : 'text-emerald-600'}`} />
+          <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
+            <Factory className="w-4 h-4 text-brand-primary" />
             Stock Origin & Flow
           </h3>
-          <p className="text-sm text-slate-500">Live breakdown of finished goods stock additions vs dispatches.</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Live breakdown of finished goods stock additions vs dispatches.</p>
         </div>
         <div className="flex items-center gap-4 text-sm font-semibold">
           <span className="flex items-center gap-1.5 text-emerald-700">

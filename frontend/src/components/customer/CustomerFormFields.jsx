@@ -21,7 +21,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               value={formData.name || ''}
               onChange={handleChange}
               placeholder="e.g. John Doe / Alpha Corp"
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="input-base text-xs"
             />
           </div>
 
@@ -37,7 +37,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               value={formData.phone || ''}
               onChange={handleChange}
               placeholder="e.g. 03001234567"
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="input-base text-xs"
             />
           </div>
 
@@ -66,7 +66,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               value={formData.address || ''}
               onChange={handleChange}
               placeholder="House #, Street, Area..."
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="input-base text-xs"
             />
           </div>
 
@@ -79,7 +79,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               value={formData.mapLink || ''}
               onChange={handleChange}
               placeholder="https://maps.google.com/?q=..."
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+              className="input-base text-xs"
             />
           </div>
         </div>

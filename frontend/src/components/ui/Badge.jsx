@@ -2,6 +2,7 @@ import React from 'react';
 
 // ponytail: dictionary map for styling variants without heavy styling libraries
 const styles = {
+  brand: 'bg-brand-muted text-brand-primary border-brand-primary/30',
   emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   sky: 'bg-sky-50 text-sky-700 border-sky-200',
   blue: 'bg-blue-50 text-blue-700 border-blue-200',

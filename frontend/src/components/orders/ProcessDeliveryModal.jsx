@@ -346,17 +346,17 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                       <label className="block text-sm font-medium text-slate-700">Cash Received (Rs) *</label>
                       <span className="text-[11px] font-bold text-slate-500">Max Allowed: Rs. {maxPayable}</span>
                     </div>
-                    <input name="cashReceived" type="number" step="0.01" min="0" max={maxPayable} className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none font-bold text-slate-800" value={deliveryData.cashReceived} onChange={handleChange} required />
+                    <input name="cashReceived" type="number" step="0.01" min="0" max={maxPayable} className="input-base font-mono font-bold text-slate-800 text-sm" value={deliveryData.cashReceived} onChange={handleChange} required />
                     {parseFloat(order.customer?.deposit || 0) > 0 && (
-                      <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded mt-1 inline-block font-semibold">
-                        Deposit Available: Rs. {parseFloat(order.customer?.deposit || 0)} (Unpaid order balance will auto-deduct from deposit first)
+                      <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-1 inline-block font-semibold border border-emerald-200">
+                        Deposit Available: ₨ {parseFloat(order.customer?.deposit || 0)} (Unpaid order balance will auto-deduct from deposit first)
                       </span>
                     )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-                    <select name="paymentMethod" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none" value={deliveryData.paymentMethod} onChange={handleChange}>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+                    <select name="paymentMethod" className="select-base text-xs" value={deliveryData.paymentMethod} onChange={handleChange}>
                       <option value="CASH">Cash</option>
                       <option value="BANK_TRANSFER">Bank Transfer / Online</option>
                       <option value="CHEQUE">Cheque</option>
@@ -366,25 +366,25 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
               )}
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Remarks</label>
-                <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-blue-500 outline-none resize-none" value={deliveryData.remarks} onChange={handleChange} placeholder="Share route notes or WhatsApp handoff"></textarea>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Delivery Remarks</label>
+                <textarea name="remarks" rows="2" className="input-base text-xs resize-none" value={deliveryData.remarks} onChange={handleChange} placeholder="Share route notes or delivery details"></textarea>
               </div>
             </div>
 
           </div>
 
-          <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
-            <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+          <div className="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+            <button type="button" onClick={onClose} className="btn-secondary text-xs py-2 px-4">Cancel</button>
             <button
               type="submit"
               disabled={isSubmitting || hasInsufficientStock}
-              className={`px-8 py-3 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+              className={`text-xs py-2 px-5 flex items-center gap-1.5 font-bold rounded-xl transition-all shadow-xs ${
                 hasInsufficientStock
                   ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
-                  : 'bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50'
+                  : 'btn-primary'
               }`}
             >
-              <CheckCircle size={18}/> {isSubmitting ? 'Processing...' : (hasInsufficientStock ? '❌ Insufficient Stock in Inventory' : 'Mark as Delivered')}
+              <CheckCircle size={14}/> {isSubmitting ? 'Processing...' : (hasInsufficientStock ? 'Insufficient Stock' : 'Mark as Delivered')}
             </button>
           </div>
         </form>

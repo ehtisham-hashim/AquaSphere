@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Droplets, Package, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { API_URL as API } from '../../utils/api';
-const INPUT = 'input-field';
 const today = new Date().toISOString().split('T')[0];
 
 export default function NewOrderModal({ customer, items, onClose, onOrderPlaced }) {
@@ -58,118 +57,145 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
           customerId: customer.id,
           type: orderType,
           items: orderItems,
-          expectedDelivery: delivery || null,
-          remarks,
-          paymentStatus: 'UNPAID',
-          bypassCreditCheck: bypassCredit
+          expectedDelivery: delivery,
+          remarks: remarks || undefined,
+          bypassCredit
         })
       });
-      const json = await res.json();
-      if (json.softBlock) { setSoftBlock(json); return; }
-      if (json.success) {
-        toast.success('Order placed successfully!');
-        onOrderPlaced();
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.softBlock) {
+          setSoftBlock(data);
+          setSubmitting(false);
+          return;
+        }
+        throw new Error(data.message || 'Failed to place order');
       }
-      else toast.error(json.message || 'Failed to place order');
-    } catch { toast.error('Network error'); }
-    finally { setSubmitting(false); }
+      toast.success('Order placed successfully!');
+      onOrderPlaced();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  useEffect(() => {
-    const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitOrder(false);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qty19L, price19L, qty05, price05, qty15, price15, delivery, remarks, orderType]);
-
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden relative">
-        {/* Header */}
-        <div className="bg-white border-b border-slate-200 px-5 py-4 flex justify-between items-center">
-          <div>
-            <div className="text-slate-800 font-bold text-sm">New Order — {customer.name}</div>
-            <div className="text-slate-400 text-xs mt-0.5">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
 
-              {parseFloat(customer.creditLimit) > 0 && <span className="text-slate-500"> / limit Rs. {customer.creditLimit}</span>}
-            </div>
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-black text-slate-800">New Order</h3>
+            <p className="text-[11px] text-slate-500 font-medium">Customer: <span className="font-bold text-slate-700">{customer.name}</span></p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="p-5">
-          {/* Step 1 — Type Selection */}
+        <div className="p-6 space-y-4">
           {step === 1 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Select Order Type</h4>
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Select Order Type</p>
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => { setOrderType('NINETEEN_L'); setStep(2); }}
-                  className="border-2 border-blue-200 hover:border-blue-500 rounded-xl p-5 text-center transition-all group hover:bg-blue-50">
-                  <Droplets size={32} className="mx-auto text-blue-400 group-hover:text-blue-600 mb-2"/>
-                  <div className="font-bold text-slate-800 text-sm">19L Water</div>
-                  <div className="text-xs text-slate-500 mt-0.5">Refillable bottles</div>
+                <button
+                  type="button"
+                  onClick={() => { setOrderType('NINETEEN_L'); setStep(2); }}
+                  className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-slate-200 hover:border-brand-primary rounded-xl transition-all group bg-slate-50/50 hover:bg-brand-muted/30"
+                >
+                  <Droplets size={28} className="text-brand-primary group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-slate-800 text-xs">19L Bottles</span>
                 </button>
-                <button onClick={() => { setOrderType('PET'); setStep(2); }}
-                  className="border-2 border-green-200 hover:border-green-500 rounded-xl p-5 text-center transition-all group hover:bg-green-50">
-                  <Package size={32} className="mx-auto text-green-400 group-hover:text-green-600 mb-2"/>
-                  <div className="font-bold text-slate-800 text-sm">PET Bottles</div>
-                  <div className="text-xs text-slate-500 mt-0.5">0.5L or 1.5L packs</div>
+                <button
+                  type="button"
+                  onClick={() => { setOrderType('PET_BOTTLES'); setStep(2); }}
+                  className="flex flex-col items-center justify-center gap-2 p-5 border-2 border-slate-200 hover:border-brand-primary rounded-xl transition-all group bg-slate-50/50 hover:bg-brand-muted/30"
+                >
+                  <Package size={28} className="text-brand-primary group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-slate-800 text-xs">Small Bottles (PET)</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 2 — Details */}
           {step === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-600 text-xs underline">← Change type</button>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${orderType === 'NINETEEN_L' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-                  {orderType === 'NINETEEN_L' ? '19L Water Order' : 'PET Bottles Order'}
-                </span>
-              </div>
-
+            <div className="space-y-4 text-xs">
               {orderType === 'NINETEEN_L' ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Quantity (bottles) *</label>
-                    <input type="number" min="1" autoFocus className={INPUT} value={qty19L}
-                      onChange={e => setQty19L(e.target.value)} placeholder="e.g. 5"/>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">19L Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 5"
+                      value={qty19L}
+                      onChange={e => setQty19L(e.target.value)}
+                      className="input-base font-mono text-xs"
+                    />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Price / bottle (Rs) *</label>
-                    <input type="number" step="0.01" className={INPUT} value={price19L}
-                      onChange={e => setPrice19L(e.target.value)} placeholder="200"/>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Price per Bottle</label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 150"
+                      value={price19L}
+                      onChange={e => setPrice19L(e.target.value)}
+                      className="input-base font-mono text-xs"
+                    />
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-green-50 rounded-xl border border-green-100">
-                    <div className="col-span-2 text-xs font-semibold text-green-700">0.5L Packs</div>
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     <div>
-                      <label className="block text-xs text-slate-600 mb-1">Qty (packs)</label>
-                      <input type="number" min="0" className={INPUT} value={qty05}
-                        onChange={e => setQty05(e.target.value)} placeholder="0"/>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">500ml Qty</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={qty05}
+                        onChange={e => setQty05(e.target.value)}
+                        className="input-base font-mono text-xs"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-600 mb-1">Price / pack</label>
-                      <input type="number" step="0.01" className={INPUT} value={price05}
-                        onChange={e => setPrice05(e.target.value)} placeholder="0"/>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">500ml Price</label>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0"
+                        value={price05}
+                        onChange={e => setPrice05(e.target.value)}
+                        className="input-base font-mono text-xs"
+                      />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-teal-50 rounded-xl border border-teal-100">
-                    <div className="col-span-2 text-xs font-semibold text-teal-700">1.5L Packs</div>
+
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                     <div>
-                      <label className="block text-xs text-slate-600 mb-1">Qty (packs)</label>
-                      <input type="number" min="0" className={INPUT} value={qty15}
-                        onChange={e => setQty15(e.target.value)} placeholder="0"/>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">1.5L Qty</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={qty15}
+                        onChange={e => setQty15(e.target.value)}
+                        className="input-base font-mono text-xs"
+                      />
                     </div>
                     <div>
-                      <label className="block text-xs text-slate-600 mb-1">Price / pack</label>
-                      <input type="number" step="0.01" className={INPUT} value={price15}
-                        onChange={e => setPrice15(e.target.value)} placeholder="0"/>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">1.5L Price</label>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0"
+                        value={price15}
+                        onChange={e => setPrice15(e.target.value)}
+                        className="input-base font-mono text-xs"
+                      />
                     </div>
                   </div>
                 </div>
@@ -177,61 +203,70 @@ export default function NewOrderModal({ customer, items, onClose, onOrderPlaced 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Expected Delivery</label>
-                  <input type="date" className={INPUT} value={delivery} onChange={e => setDelivery(e.target.value)}/>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Expected Delivery</label>
+                  <input
+                    type="date"
+                    value={delivery}
+                    onChange={e => setDelivery(e.target.value)}
+                    className="input-base font-mono text-xs"
+                  />
                 </div>
-                <div className="flex flex-col justify-end">
-                  <div className="bg-slate-100 text-slate-800 rounded-xl p-3 text-center">
-                    <div className="text-[10px] text-slate-400 uppercase tracking-wide">Total</div>
-                    <div className="text-xl font-bold">Rs. {total.toFixed(0)}</div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Remarks</label>
+                  <input
+                    type="text"
+                    placeholder="Optional notes..."
+                    value={remarks}
+                    onChange={e => setRemarks(e.target.value)}
+                    className="input-base text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Total Calculation Display */}
+              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-mono">
+                <span className="text-slate-600 font-bold uppercase text-[10px]">Estimated Total:</span>
+                <span className="font-mono font-black text-sm text-slate-900">₨ {total.toLocaleString()}</span>
+              </div>
+
+              {softBlock && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl space-y-2 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle size={14} className="text-amber-600" />
+                    <span>Credit Warning</span>
                   </div>
+                  <p className="text-[11px]">{softBlock.message || 'This order exceeds the customer credit threshold.'}</p>
+                  <button
+                    type="button"
+                    onClick={() => submitOrder(true)}
+                    className="btn-danger text-xs py-1 px-3 w-full"
+                  >
+                    Bypass & Place Order
+                  </button>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Remarks / Delivery Notes</label>
-                <input className={INPUT} value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="e.g. call before arriving, share with driver"/>
-              </div>
-
-              <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button type="button" onClick={onClose}
-                  className="flex-1 py-3 text-slate-600 border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
-                  Cancel
+              <div className="flex justify-between gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="btn-secondary text-xs py-2 px-4"
+                >
+                  Back
                 </button>
-                <button onClick={() => submitOrder(false)} disabled={submitting || !buildItems()}
-                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
-                  {submitting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/> Placing...</>
-                    : <><CheckCircle size={16}/> Place Order <span className="text-slate-400 text-xs">Ctrl+↵</span></>}
+                <button
+                  type="button"
+                  disabled={submitting || total <= 0}
+                  onClick={() => submitOrder(false)}
+                  className="btn-primary text-xs py-2 px-5 flex items-center gap-1.5"
+                >
+                  <CheckCircle size={14} />
+                  {submitting ? 'Placing Order...' : 'Confirm Order'}
                 </button>
               </div>
             </div>
           )}
         </div>
-
-        {/* Credit Soft-Block Overlay */}
-        {softBlock && (
-          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-5 rounded-2xl z-20">
-            <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 text-center shadow-2xl border border-amber-200">
-              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
-                <AlertTriangle size={24} className="text-amber-600"/>
-              </div>
-              <div>
-                <h4 className="font-bold text-slate-800">Credit Limit Warning</h4>
-                <p className="text-xs text-slate-600 mt-2 bg-amber-50 border border-amber-100 rounded-lg p-3">{softBlock.message}</p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setSoftBlock(null)}
-                  className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">
-                  Adjust Order
-                </button>
-                <button onClick={() => submitOrder(true)}
-                  className="flex-1 py-2.5 text-sm text-white bg-amber-600 hover:bg-amber-700 rounded-xl font-bold">
-                  Proceed Anyway
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

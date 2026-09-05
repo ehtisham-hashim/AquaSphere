@@ -202,14 +202,14 @@ export default function AlertsSection() {
 
 function AlertStatCard({ icon, title, value, subtitle }) {
   return (
-    <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between h-full">
+    <div className="card-surface p-4 flex flex-col justify-between h-full">
       <div className="flex justify-between items-start mb-3">
         <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
           {icon}
         </div>
       </div>
       <div>
-        <p className="text-2xl font-black text-slate-900">{value}</p>
+        <p className="font-mono text-2xl font-black text-slate-900">{value}</p>
         <h4 className="text-[11px] font-bold text-slate-600 tracking-wider mt-1 uppercase">{title}</h4>
         <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>
       </div>
@@ -219,7 +219,7 @@ function AlertStatCard({ icon, title, value, subtitle }) {
 
 function AlertListCard({ title, icon, count = 0, items = [], emptyMsg, renderItem }) {
   return (
-    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col max-h-[380px]">
+    <div className="card-surface p-4 flex flex-col max-h-[380px]">
       <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
         <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider">
           {icon}

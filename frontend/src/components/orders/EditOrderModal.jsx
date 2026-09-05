@@ -256,29 +256,29 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
               })}
             </div>
             
-            <div className="mt-4 bg-sky-50 border border-sky-200 rounded-xl p-4 flex justify-between items-center">
-              <span className="text-sm text-sky-800 font-extrabold uppercase">Estimated Total</span>
-              <span className="text-2xl font-black text-sky-950">Rs. {Number(orderTotal).toLocaleString()}</span>
+            <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex justify-between items-center font-mono">
+              <span className="text-xs text-slate-700 font-extrabold uppercase">Estimated Total</span>
+              <span className="text-xl font-black text-slate-950">₨ {Number(orderTotal).toLocaleString()}</span>
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-5">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Calendar size={15}/> Logistics</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="border-t border-slate-100 pt-4">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-2"><Calendar size={14}/> Logistics</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Expected Delivery Date (Optional)</label>
-                <input name="expectedDelivery" type="date" className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none font-medium text-sm" value={editData.expectedDelivery} onChange={handleChange} />
+                <label className="block text-xs font-bold text-slate-700 mb-1">Expected Delivery Date</label>
+                <input name="expectedDelivery" type="date" className="input-base text-xs font-mono" value={editData.expectedDelivery} onChange={handleChange} />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Internal Remarks / Driver Notes</label>
-                <textarea name="remarks" rows="2" className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none resize-none font-medium text-sm" value={editData.remarks} onChange={handleChange}></textarea>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Internal Remarks / Driver Notes</label>
+                <textarea name="remarks" rows="2" className="input-base text-xs resize-none" value={editData.remarks} onChange={handleChange}></textarea>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white">
-            <button type="button" onClick={onClose} className="px-6 py-3 text-slate-600 font-semibold text-sm hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-md disabled:opacity-50">
+          <div className="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+            <button type="button" onClick={onClose} className="btn-secondary text-xs py-2 px-4">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="btn-primary text-xs py-2 px-5">
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

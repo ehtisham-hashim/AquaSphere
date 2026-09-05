@@ -3,11 +3,12 @@ import { X, UserPlus, ShoppingBag } from 'lucide-react';
 
 import { API_URL as API } from '../../utils/api';
 
-export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
-  const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
-  const isWadaana = tenant === 'wadaana';
+import { useTenant } from '../../context/TenantContext';
 
-  const INPUT = `w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:${isWadaana ? 'border-[#0ea5e9] focus:ring-[#0ea5e9]' : 'border-emerald-500 focus:ring-emerald-500'} focus:ring-1 outline-none`;
+export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
+  const { tenant, isWadaana } = useTenant();
+
+  const INPUT = 'input-base text-xs';
 
   const [form, setForm] = useState({
     name: '', phone: '', type: 'Home', address: '', mapLink: '',
@@ -167,10 +168,9 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
             <input name="remarks" className={INPUT} value={form.remarks} onChange={handleChange}/>
           </div>
 
-          <div className="flex gap-3 pt-2 border-t border-slate-100">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-slate-600 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={saving}
-              className={`flex-1 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50`}>
+          <div className="flex gap-2 pt-2 border-t border-slate-100">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-xs">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1 py-2 text-xs">
               {saving ? 'Saving...' : 'Add & Select Customer'}
             </button>
           </div>

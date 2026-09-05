@@ -274,10 +274,10 @@ export default function CustomerHistory({ customer, isWadaana }) {
           className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-slate-50 transition-colors border-b border-slate-200"
         >
           <div className="flex items-center gap-2">
-            <FileText size={16} className={theme.iconColor} />
-            <span className="font-semibold text-slate-700">Activity Log ({customer?.auditLogs?.length || 0})</span>
+            <FileText size={15} className={theme.iconColor} />
+            <span className="font-bold text-xs uppercase tracking-wider text-slate-800">Activity Log ({customer?.auditLogs?.length || 0})</span>
           </div>
-          {expandedSections.audit ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          {expandedSections.audit ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
         
         {expandedSections.audit && (

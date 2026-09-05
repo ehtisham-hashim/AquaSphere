@@ -1,16 +1,16 @@
 import React from 'react';
 
-export default function StatCard({ title, value, subtitle, subtitleColor = 'text-slate-500', icon: Icon, iconBg = 'bg-blue-50', iconColor = 'text-blue-600' }) {
+export default function StatCard({ title, value, subtitle, subtitleColor = 'text-slate-500', icon: Icon, iconBg = 'bg-brand-muted', iconColor = 'text-brand-primary' }) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+    <div className="card-surface p-4 sm:p-5 flex items-center gap-3.5">
       {Icon && (
-        <div className={`p-3 rounded-xl ${iconBg} ${iconColor}`}>
-          <Icon className="w-6 h-6" />
+        <div className={`p-3 rounded-xl shrink-0 ${iconBg} ${iconColor}`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
       )}
-      <div>
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-900 mt-1">{value}</h3>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">{title}</p>
+        <h3 className="text-xl sm:text-2xl font-mono font-black text-slate-900 mt-0.5 tracking-tight">{value}</h3>
         {subtitle && <p className={`text-xs font-medium mt-0.5 ${subtitleColor}`}>{subtitle}</p>}
       </div>
     </div>
