@@ -15,7 +15,12 @@ const PAGE_TITLES = {
   '/purchases': { title: 'Vendor Purchases', subtitle: 'Record raw material purchases and vendor invoices' },
   '/vendors': { title: 'Vendors Directory', subtitle: 'Manage vendor accounts and purchase ledgers' },
   '/expenses': { title: 'Factory Expenses', subtitle: 'Track operational expenses and receipts' },
-  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' }
+  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' },
+  '/transport-expenses': { title: 'Transport Expenses', subtitle: 'Track fleet operations, fuel, and vehicle maintenance' },
+  '/cars': { title: 'Vehicle Fleet', subtitle: 'Manage company vehicles, mileage, and service records' },
+  '/users': { title: 'Users & Roles', subtitle: 'Manage system users and access permissions' },
+  '/daily-close': { title: 'Daily Close', subtitle: 'Reconcile cash, sales, and end-of-day operations' },
+  '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }
 };
 
 const ACTION_CONFIG = {

@@ -1,6 +1,6 @@
 import { AlertCircle, Clock, Droplet, DollarSign, Lock, TrendingUp, CalendarClock } from 'lucide-react';
 
-export default function CustomerAlerts({ customer, isWadaana, onOpenBottleModal }) {
+export default function CustomerAlerts({ customer, _isWadaana, onOpenBottleModal }) {
   const generateAlerts = () => {
     const alerts = [];
     const today = new Date();
@@ -129,10 +129,6 @@ export default function CustomerAlerts({ customer, isWadaana, onOpenBottleModal 
   };
 
   const alerts = generateAlerts();
-  const theme = {
-    accentBg: isWadaana ? 'bg-sky-50' : 'bg-emerald-50',
-    iconColor: isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'
-  };
 
   const getSeverityColor = (severity) => {
     switch (severity) {

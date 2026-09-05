@@ -1,6 +1,8 @@
 import { invalidateQueries } from '../lib/queryClient';
 
-// Global persistent client-side cache with in-flight deduplication & auto-invalidation
+/**
+ * Global persistent client-side API cache with in-flight deduplication & auto-invalidation
+ */
 const cache = new Map();
 const inFlight = new Map();
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes default (matches TanStack Query staleTime)

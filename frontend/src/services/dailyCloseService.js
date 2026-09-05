@@ -1,5 +1,8 @@
 import { API_URL } from '../utils/api';
 
+/**
+ * Daily Close API service endpoints and helper functions
+ */
 const opts = (tenant) => ({
   headers: { 'x-tenant': tenant },
   credentials: 'include'

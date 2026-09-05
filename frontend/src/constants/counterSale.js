@@ -1,6 +1,6 @@
 /**
  * Counter Sales Module Constants, Product Definitions & Pricing Rules
- * Centralized configuration for retail counter sales, finished goods products, and permission rules.
+ * Centralized multi-tenant configuration for retail counter sales, finished goods products, and permission rules.
  */
 
 export const COUNTER_SALE_DEFAULTS = {

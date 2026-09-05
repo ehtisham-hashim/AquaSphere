@@ -5,6 +5,9 @@ import { API_URL } from '../utils/api';
 
 const AuthContext = createContext();
 
+/**
+ * Authentication and authorization context provider
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

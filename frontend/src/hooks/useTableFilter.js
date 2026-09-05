@@ -1,7 +1,10 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 
 /**
  * Hook for managing client-side table searching, filtering, sorting, and pagination.
+ * @template T
+ * @param {T[]} items
+ * @param {object} options
  */
 export function useTableFilter(items = [], options = {}) {
   const {

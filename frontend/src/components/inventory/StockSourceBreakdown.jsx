@@ -1,7 +1,6 @@
 import { Factory, ShoppingBag, Sliders, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-export default function StockSourceBreakdown({ transactions = [], tenant = 'aquasphere' }) {
-  const isWadaana = tenant === 'wadaana';
+export default function StockSourceBreakdown({ transactions = [], _tenant = 'aquasphere' }) {
 
   // Compute breakdown metrics from transaction history
   let totalIn = 0;

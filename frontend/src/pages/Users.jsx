@@ -269,6 +269,8 @@ export default function Users() {
                       <option value="ADMIN">Admin (Manager)</option>
                       <option value="PRODUCTION_MANAGER">Production Manager</option>
                       <option value="ACCOUNTANT">Accountant</option>
+                      <option value="MARKETING_MANAGER">Marketing Manager</option>
+                      <option value="TRANSPORT_MANAGER">Transport Manager</option>
                       <option value="DRIVER">Driver (Limited Access)</option>
                     </select>
                   </div>

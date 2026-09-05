@@ -13,5 +13,6 @@ export function setCompanyCookie(companyName) {
     localStorage.setItem('company', valid);
     document.cookie = `tenant=${valid}; path=/; max-age=31536000; SameSite=Lax`;
     document.cookie = `company=${valid}; path=/; max-age=31536000; SameSite=Lax`;
+    document.documentElement.setAttribute('data-tenant', valid);
   }
 }

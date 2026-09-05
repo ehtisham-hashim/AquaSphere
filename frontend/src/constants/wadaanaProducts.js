@@ -1,6 +1,6 @@
 /**
  * Wadaana & AquaSphere Order Items Catalog Constants
- * Centralized catalog hierarchy for order items and customer preferences.
+ * Centralized multi-tenant catalog hierarchy for order items and customer preferences.
  */
 
 export const WADAANA_BOTTLE_CATALOG = [

@@ -60,7 +60,7 @@ export const getDefaultUnitPrice = (material = '') => {
   if (!material) return '';
   const materialName = typeof material === 'string' ? material : (material?.name || '');
   if (!materialName) return '';
-  const lower = materialName.toLowerCase().trim();
+  const lower = String(materialName).toLowerCase().trim();
 
   // Check specific keys first
   for (const [key, price] of Object.entries(DEFAULT_MATERIAL_UNIT_PRICES)) {

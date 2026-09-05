@@ -10,16 +10,16 @@
  * - MARKETING_MANAGER
  */
 
-export const ROLES = {
+export const ROLES = Object.freeze({
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',
   PRODUCTION_MANAGER: 'PRODUCTION_MANAGER',
   ACCOUNTANT: 'ACCOUNTANT',
   MARKETING_MANAGER: 'MARKETING_MANAGER',
   TRANSPORT_MANAGER: 'TRANSPORT_MANAGER',
-};
+});
 
-export const SIDEBAR_ROUTES = {
+export const SIDEBAR_ROUTES = Object.freeze({
   DASHBOARD: '/',
   ORDERS: '/orders',
   CUSTOMERS: '/customers',
@@ -34,7 +34,7 @@ export const SIDEBAR_ROUTES = {
   INVENTORY: '/inventory',
   TRANSPORT_EXPENSES: '/transport-expenses',
   CARS: '/cars',
-};
+});
 
 /**
  * Access Matrix per Role per Tenant

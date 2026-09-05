@@ -4,3 +4,4 @@ export { default as PurchasesTable } from './PurchasesTable';
 export { default as ViewPurchaseModal } from './ViewPurchaseModal';
 export { default as AddEditPurchaseModal } from './AddEditPurchaseModal';
 export { default as PrintPurchaseModal } from './PrintPurchaseModal';
+
