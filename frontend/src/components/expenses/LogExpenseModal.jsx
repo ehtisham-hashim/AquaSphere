@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import { X, Receipt, Upload, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { EXPENSE_CATEGORIES } from '../../constants/expenses';
+import { useTenant } from '../../context/TenantContext';
 
 const API = API_URL;
 
-export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aquasphere' }) {
-  const isWadaana = tenant === 'wadaana';
+export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
+  const { tenant, isWadaana } = useTenant();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -114,16 +115,21 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100">
-        <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-slate-800">Log New Expense</h3>
-          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X size={20}/>
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="card-surface w-full max-w-md shadow-2xl overflow-hidden p-0">
+        <div className="border-b border-slate-100 px-5 py-4 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 className="font-bold text-base text-slate-800">Log New Expense</h3>
+            <span className="badge-brand mt-0.5">
+              {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
+            </span>
+          </div>
+          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg">
+            <X size={18}/>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-sm">
           {error && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs font-semibold">
               <AlertCircle size={15}/> {error}
@@ -134,7 +140,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
             <div>
               <label className="block font-semibold text-slate-700 mb-1 text-xs">Category *</label>
               <select 
-                className="w-full border border-slate-200 rounded-xl p-2.5 bg-white font-medium outline-none focus:border-emerald-500" 
+                className="select-base text-xs py-2" 
                 value={form.category} 
                 onChange={e => setForm({...form, category: e.target.value})} 
                 required
@@ -149,7 +155,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
                 type="number" 
                 step="1" 
                 min="1" 
-                className="w-full border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800 outline-none focus:border-emerald-500" 
+                className="input-base text-xs py-2 font-mono font-bold" 
                 value={form.amount}
                 onChange={e => setForm({...form, amount: e.target.value})} 
                 placeholder="0" 
@@ -162,7 +168,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
             <label className="block font-semibold text-slate-700 mb-1 text-xs">Expense Date *</label>
             <input 
               type="date" 
-              className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-emerald-500 font-medium" 
+              className="input-base text-xs py-2 font-medium" 
               value={form.expenseDate} 
               onChange={e => setForm({...form, expenseDate: e.target.value})} 
               required
@@ -172,7 +178,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
           <div>
             <label className="block font-semibold text-slate-700 mb-1 text-xs">Description / Remarks *</label>
             <input 
-              className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-emerald-500" 
+              className="input-base text-xs py-2" 
               value={form.remarks} 
               onChange={e => setForm({...form, remarks: e.target.value})} 
               placeholder="e.g. 50L Diesel for Delivery Van"
@@ -181,20 +187,14 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
           </div>
 
           {/* Receipt Upload — MANDATORY */}
-          <div className={`border-2 border-dashed rounded-2xl p-4 space-y-3 ${
-            isWadaana ? 'border-sky-200 bg-sky-50/40' : 'border-emerald-200 bg-emerald-50/40'
-          }`}>
+          <div className="border-2 border-dashed border-slate-200 bg-slate-50/50 rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className={`text-xs font-bold uppercase tracking-wide flex items-center gap-1 ${
-                isWadaana ? 'text-sky-800' : 'text-emerald-800'
-              }`}>
-                <Receipt size={14}/> Receipt Photo <span className="text-amber-600">* MANDATORY</span>
+              <label className="text-xs font-bold uppercase tracking-wide flex items-center gap-1 text-slate-700">
+                <Receipt size={14} className="text-brand-primary"/> Receipt Photo <span className="text-amber-600">* MANDATORY</span>
               </label>
               {uploadedUrl && (
-                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
-                  isWadaana ? 'text-sky-700 bg-sky-100' : 'text-emerald-700 bg-emerald-100'
-                }`}>
-                  <CheckCircle size={13}/> Uploaded
+                <span className="badge-brand">
+                  <CheckCircle size={12}/> Uploaded
                 </span>
               )}
             </div>
@@ -205,9 +205,9 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
               <button 
                 type="button" 
                 onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-2 border border-slate-300 bg-white rounded-xl px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors font-bold shadow-xs"
+                className="btn-outline flex items-center gap-1.5 text-xs py-1.5 px-3"
               >
-                <Upload size={14}/> Choose File
+                <Upload size={13}/> Choose File
               </button>
 
               {receiptFile && !uploadedUrl && (
@@ -215,28 +215,24 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
                   type="button" 
                   onClick={handleUpload} 
                   disabled={uploading}
-                  className={`flex items-center gap-2 ${
-                    isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
-                  } text-white rounded-xl px-3.5 py-2 text-xs font-bold disabled:opacity-60 shadow-xs`}
+                  className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3"
                 >
                   {uploading ? <><Loader2 size={13} className="animate-spin"/> Uploading...</> : 'Upload Receipt'}
                 </button>
               )}
             </div>
             
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-400">
               Accepted formats: Images (JPEG, PNG, WEBP) or PDF • Max 5MB
             </p>
 
             {receiptPreview && receiptPreview !== 'pdf' && !uploadedUrl && (
-              <img src={receiptPreview} alt="preview" className="h-20 rounded-xl object-cover border border-slate-200"/>
+              <img src={receiptPreview} alt="preview" className="h-16 rounded-lg object-cover border border-slate-200"/>
             )}
 
             {uploadedUrl && (
-              <div className={`flex items-center gap-2 text-xs border rounded-xl p-2.5 ${
-                isWadaana ? 'bg-sky-100/70 border-sky-200 text-sky-800' : 'bg-emerald-100/70 border-emerald-200 text-emerald-800'
-              }`}>
-                <CheckCircle size={14} className={`shrink-0 ${isWadaana ? 'text-sky-600' : 'text-emerald-600'}`} />
+              <div className="flex items-center gap-2 text-xs border rounded-lg p-2 bg-brand-light border-brand-light text-brand-primary">
+                <CheckCircle size={14} className="shrink-0 text-brand-primary" />
                 <a href={uploadedUrl} target="_blank" rel="noreferrer" className="underline truncate font-semibold">{uploadedUrl}</a>
               </div>
             )}
@@ -248,20 +244,18 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, tenant = 'aq
             )}
           </div>
 
-          <div className="flex gap-3 pt-3 border-t border-slate-100">
+          <div className="flex gap-2.5 pt-3 border-t border-slate-100">
             <button 
               type="button" 
               onClick={handleClose}
-              className="flex-1 py-2.5 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors"
+              className="btn-secondary flex-1 text-xs py-2.5"
             >
               Cancel
             </button>
             <button 
               type="submit" 
               disabled={submitting || !uploadedUrl}
-              className={`flex-1 py-2.5 ${
-                isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
-              } text-white rounded-xl text-xs font-bold disabled:opacity-40 flex items-center justify-center gap-2 shadow-md transition-colors`}
+              className="btn-primary flex-1 text-xs py-2.5 disabled:opacity-50"
             >
               {submitting ? <><Loader2 size={14} className="animate-spin"/> Saving...</> : 'Log Expense'}
             </button>

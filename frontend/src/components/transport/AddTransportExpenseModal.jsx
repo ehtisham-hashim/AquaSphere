@@ -3,16 +3,16 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { API_URL } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 
 export default function AddTransportExpenseModal({
   isOpen,
   onClose,
   onSuccess,
   vehicles = [],
-  preselectedVehicleId = '',
-  isWadaana = false
+  preselectedVehicleId = ''
 }) {
+  const { tenant } = useTenant();
   const [vehicleId, setVehicleId] = useState('');
   const [type, setType] = useState('DAILY');
   const [period, setPeriod] = useState('MONTHLY');
@@ -49,7 +49,6 @@ export default function AddTransportExpenseModal({
     }
 
     setSubmitting(true);
-    const tenant = getCompanyFromCookie();
 
     try {
       const res = await fetch(`${API_URL}/transport-expenses`, {
@@ -86,19 +85,19 @@ export default function AddTransportExpenseModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Transport Expense" maxWidth="max-w-md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Vehicle Selector */}
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {/* Vehicle Selection */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Vehicle <span className="text-rose-500">*</span>
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            Select Vehicle <span className="text-rose-500">*</span>
           </label>
           <select
             value={vehicleId}
             onChange={(e) => setVehicleId(e.target.value)}
             required
-            className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500 bg-white"
+            className="select-base text-xs py-2 w-full"
           >
-            <option value="" disabled>Select vehicle</option>
+            <option value="">-- Choose Vehicle --</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.name} ({v.plateNumber})
@@ -110,14 +109,14 @@ export default function AddTransportExpenseModal({
         {/* Expense Type & Period */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Type <span className="text-rose-500">*</span>
             </label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500 bg-white"
+              className="select-base text-xs py-2 w-full"
             >
               <option value="DAILY">Daily (Fuel/Oil)</option>
               <option value="REPAIRS">Repairs & Maintenance</option>
@@ -126,14 +125,14 @@ export default function AddTransportExpenseModal({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Period <span className="text-rose-500">*</span>
             </label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500 bg-white"
+              className="select-base text-xs py-2 w-full"
             >
               <option value="MONTHLY">Monthly</option>
             </select>
@@ -143,7 +142,7 @@ export default function AddTransportExpenseModal({
         {/* Amount & Date */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Amount (Rs) <span className="text-rose-500">*</span>
             </label>
             <input
@@ -154,12 +153,12 @@ export default function AddTransportExpenseModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500"
+              className="input-base text-xs py-2 w-full font-mono font-bold"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
               Date <span className="text-rose-500">*</span>
             </label>
             <input
@@ -167,14 +166,14 @@ export default function AddTransportExpenseModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500"
+              className="input-base text-xs py-2 w-full font-medium"
             />
           </div>
         </div>
 
         {/* Note / Remarks */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
             Note / Description
           </label>
           <textarea
@@ -182,28 +181,26 @@ export default function AddTransportExpenseModal({
             placeholder="Details about fuel quantity, maintenance work, or parts replaced..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500 resize-none"
+            className="input-base text-xs py-2 w-full resize-none"
           />
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition shadow-xs"
+            className="btn-secondary text-xs py-2 px-3.5"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className={`px-5 py-2.5 ${
-              isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
-            } text-white font-bold text-sm rounded-xl shadow-md transition flex items-center gap-2 disabled:opacity-50`}
+            className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 disabled:opacity-50"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {submitting && <Loader2 size={14} className="animate-spin" />}
             Save Expense
           </button>
         </div>

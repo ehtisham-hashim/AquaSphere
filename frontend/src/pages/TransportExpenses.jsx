@@ -77,16 +77,6 @@ export default function TransportExpenses() {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  // Early loading UI for vehicles
-  if (vehiclesLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] gap-3">
-        <RefreshCw className="w-8 h-8 text-slate-400 animate-spin" />
-        <p className="text-sm font-semibold text-slate-500">Loading vehicles...</p>
-      </div>
-    );
-  }
-
   // Client-side filtering by search query & type
   const filteredExpenses = useMemo(() => {
     return expenses.filter((ex) => {
@@ -103,6 +93,16 @@ export default function TransportExpenses() {
       return true;
     });
   }, [expenses, selectedType, search]);
+
+  // Early loading UI for vehicles
+  if (vehiclesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] gap-3">
+        <RefreshCw className="w-8 h-8 text-slate-400 animate-spin" />
+        <p className="text-sm font-semibold text-slate-500">Loading vehicles...</p>
+      </div>
+    );
+  }
 
   // Delete expense handler
   const handleDeleteExpense = async () => {
@@ -136,12 +136,12 @@ export default function TransportExpenses() {
     const headers = ['Date', 'Vehicle Name', 'Plate Number', 'Type', 'Period', 'Amount (PKR)', 'Note'];
     const rows = filteredExpenses.map((ex) => [
       new Date(ex.date || ex.createdAt).toLocaleDateString(),
-      `"${(ex.vehicle?.name || '').replace(/"/g, '\"') }"`,
-      `"${(ex.vehicle?.plateNumber || '').replace(/"/g, '\"') }"`,
+      `"${(ex.vehicle?.name || '').replace(/"/g, '""')}"`,
+      `"${(ex.vehicle?.plateNumber || '').replace(/"/g, '""')}"`,
       ex.type,
       ex.period || 'MONTHLY',
       ex.amount,
-      `"${(ex.note || '').replace(/"/g, '\"') }"`
+      `"${(ex.note || '').replace(/"/g, '""')}"`
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);

@@ -1,36 +1,37 @@
 import { MapPin, Phone, Package } from 'lucide-react';
+import { useTenant } from '../../context/TenantContext';
 
 export default function CustomersTable({ customers = [], isLoading = false, onRowClick }) {
-  const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
+  const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
 
   return (
-    <div className="surface-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="table-container">
       <div className="overflow-x-auto">
-        <table className="w-full text-left whitespace-nowrap">
-          <thead className="bg-slate-50 border-b border-slate-200">
+        <table className="w-full text-left whitespace-nowrap text-xs">
+          <thead>
             <tr>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Customer</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Contact</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Products Buying</th>
-              <th className="p-4 font-semibold text-slate-600 text-sm">Financials</th>
-              {!isWadaana && <th className="p-4 font-semibold text-slate-600 text-sm">Bottles</th>}
-              <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
+              <th className="table-th">Customer</th>
+              <th className="table-th">Contact</th>
+              <th className="table-th">Products Buying</th>
+              <th className="table-th">Financials</th>
+              {!isWadaana && <th className="table-th">Bottles</th>}
+              <th className="table-th text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 font-medium">
             {isLoading ? (
               <tr>
-                <td colSpan={isWadaana ? "6" : "7"} className="p-12 text-center text-slate-500">
+                <td colSpan={isWadaana ? "5" : "6"} className="p-12 text-center text-slate-500">
                   <div className="flex flex-col items-center justify-center gap-3">
-                    <div className={`w-8 h-8 border-4 ${isWadaana ? 'border-[#0ea5e9]' : 'border-emerald-600'} border-t-transparent rounded-full animate-spin`}></div>
-                    <p>Loading customers...</p>
+                    <div className="w-7 h-7 border-3 border-[var(--brand)] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-xs">Loading customers...</p>
                   </div>
                 </td>
               </tr>
             ) : customers.length === 0 ? (
               <tr>
-                <td colSpan={isWadaana ? "6" : "7"} className="p-12 text-center text-slate-500">
+                <td colSpan={isWadaana ? "5" : "6"} className="p-12 text-center text-slate-500 text-xs">
                   No customers found.
                 </td>
               </tr>
@@ -41,9 +42,9 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                   onClick={() => onRowClick && onRowClick(c)}
                   className="hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full ${isWadaana ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100 text-emerald-600'} flex items-center justify-center font-bold`}>
+                  <td className="table-td">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-full bg-[var(--brand-light)] text-[var(--brand)] flex items-center justify-center font-bold text-xs shrink-0">
                         {c.name ? c.name.charAt(0).toUpperCase() : '?'}
                       </div>
                       <div>
@@ -61,65 +62,66 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                       </div>
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
-                      <Phone size={14} className="text-slate-400" /> {c.phone?.includes('_archived_') ? c.phone.split('_archived_')[0] : c.phone}
+                  <td className="table-td">
+                    <div className="flex items-center gap-1.5 text-slate-700 font-medium mb-0.5">
+                      <Phone size={13} className="text-slate-400" /> {c.phone?.includes('_archived_') ? c.phone.split('_archived_')[0] : c.phone}
                     </div>
                     {c.address && (
-                      <div className="flex items-center gap-2 text-slate-500 text-xs truncate max-w-[200px]">
-                        <MapPin size={14} className="text-slate-400 flex-shrink-0" />
+                      <div className="flex items-center gap-1 text-slate-500 text-[11px] truncate max-w-[200px]">
+                        <MapPin size={12} className="text-slate-400 shrink-0" />
                         <span>{c.address}</span>
                       </div>
                     )}
                   </td>
-                  <td className="p-4">
+                  <td className="table-td">
                     <div className="flex flex-wrap items-center gap-1 max-w-[220px]">
                       {!isWadaana ? (
                         <>
-                          {c.buys19L && <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">19L</span>}
-                          {c.buys05LPet && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">0.5L PET</span>}
-                          {c.buys15LPet && <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">1.5L PET</span>}
+                          {c.buys19L && <span className="badge-brand">19L</span>}
+                          {c.buys05LPet && <span className="badge-success">0.5L PET</span>}
+                          {c.buys15LPet && <span className="badge-neutral">1.5L PET</span>}
                           {!c.buys19L && !c.buys05LPet && !c.buys15LPet && <span className="text-slate-400 text-xs">—</span>}
                         </>
                       ) : (
                         <>
-                          {c.buysPure05L && <span className="bg-cyan-50 text-cyan-700 border border-cyan-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">0.5L Pure</span>}
-                          {c.buysPure15L && <span className="bg-sky-50 text-sky-700 border border-sky-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">1.5L Pure</span>}
-                          {c.buysMix05L && <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">0.5L Mix</span>}
-                          {c.buysMix15L && <span className="bg-orange-50 text-orange-700 border border-orange-200 text-[11px] px-2 py-0.5 rounded-md font-semibold">1.5L Mix</span>}
+                          {c.buysPure05L && <span className="badge-brand">0.5L Pure</span>}
+                          {c.buysPure15L && <span className="badge-brand">1.5L Pure</span>}
+                          {c.buysMix05L && <span className="badge-neutral">0.5L Mix</span>}
+                          {c.buysMix15L && <span className="badge-neutral">1.5L Mix</span>}
                           {!c.buysPure05L && !c.buysPure15L && !c.buysMix05L && !c.buysMix15L && <span className="text-slate-400 text-xs">—</span>}
                         </>
                       )}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1 text-sm">
-                      <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-red-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                  <td className="table-td">
+                    <div className="flex flex-col gap-0.5 font-mono">
+                      <span className={`font-bold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-rose-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
                         Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
                       </span>
-                      <span className="text-xs text-slate-500">Limit: Rs. {c.creditLimit}</span>
+                      <span className="text-[11px] text-slate-400">Limit: Rs. {c.creditLimit}</span>
                     </div>
                   </td>
                   {!isWadaana && (
-                    <td className="p-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Package size={16} className="text-amber-500" />
-                        <strong className="text-slate-700">{c.cachedBottleBalance}</strong> empty
+                    <td className="table-td">
+                      <div className="flex items-center gap-1.5 font-mono">
+                        <Package size={14} className="text-amber-500" />
+                        <strong className="text-slate-800">{c.cachedBottleBalance}</strong>
+                        <span className="text-[11px] text-slate-400">empty</span>
                       </div>
                     </td>
                   )}
-                  <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="table-td text-right" onClick={(e) => e.stopPropagation()}>
                     {c.archivedAt ? (
                       <button 
                         onClick={() => onRowClick && onRowClick(c, 'restore')}
-                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 text-xs rounded-lg font-bold transition-all shadow-2xs"
+                        className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
                       >
                         Restore
                       </button>
                     ) : (
                       <button 
                         onClick={() => onRowClick && onRowClick(c, 'view')}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+                        className="btn-secondary py-1 px-2.5 text-xs"
                       >
                         View Details
                       </button>

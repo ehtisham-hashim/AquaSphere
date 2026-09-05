@@ -1,40 +1,34 @@
 import { Plus, Car } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 
-export default function CarsHeader({
-  onOpenAddModal,
-  tenant = 'aquasphere'
-}) {
+export default function CarsHeader({ onOpenAddModal }) {
   const { user } = useAuth();
-  const isWadaana = tenant === 'wadaana';
+  const { isWadaana } = useTenant();
   const canAddCar = user?.role === 'TRANSPORT_MANAGER';
 
   return (
-    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
       <div>
         <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-            isWadaana ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-          }`}>
+          <span className="badge-brand">
             {isWadaana ? 'WADAANA FLEET' : 'VEHICLE FLEET'}
           </span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-800 mt-1 flex items-center gap-2">
-          <Car className={isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'} size={24} />
+        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight mt-1 flex items-center gap-2">
+          <Car className="text-brand-primary" size={22} />
           Vehicles & Fleet Management
         </h2>
-        <p className="text-slate-500 text-sm">Manage company delivery vehicles, status, and associated maintenance records</p>
+        <p className="text-slate-500 text-xs sm:text-sm">Manage company delivery vehicles, status, and maintenance</p>
       </div>
 
       {canAddCar && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenAddModal}
-            className={`px-4 py-2.5 ${
-              isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500 shadow-sky-500/20' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
-            } text-white font-bold text-sm rounded-xl transition shadow-md flex items-center gap-2`}
+            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5"
           >
-            <Plus size={18} /> Add Vehicle
+            <Plus size={16} /> Add Vehicle
           </button>
         </div>
       )}

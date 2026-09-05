@@ -1,5 +1,6 @@
 import { Loader2, Car, Edit2, PowerOff, Search, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 
 export default function CarsTable({
   vehicles = [],
@@ -8,22 +9,22 @@ export default function CarsTable({
   onEditVehicle,
   onToggleStatus,
   search = '',
-  setSearch,
-  isWadaana = false
+  setSearch
 }) {
   const { user } = useAuth();
+  const { isWadaana } = useTenant();
   const canManage = user?.role === 'TRANSPORT_MANAGER';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Search Input */}
       {setSearch && (
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input
             type="search"
             placeholder="Search by vehicle name, plate number, or model..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 transition-colors shadow-xs"
+            className="input-base pl-9 text-xs py-2 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -31,17 +32,17 @@ export default function CarsTable({
       )}
 
       {/* Vehicles Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="table-container">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <thead>
               <tr>
-                <th className="p-4">Vehicle Name</th>
-                <th className="p-4">Plate Number</th>
-                <th className="p-4">Model / Type</th>
-                <th className="p-4 text-center">Status</th>
-                {canManage && <th className="p-4 text-center">Actions</th>}
-                <th className="p-4 text-right">Details</th>
+                <th className="table-th">Vehicle Name</th>
+                <th className="table-th">Plate Number</th>
+                <th className="table-th">Model / Type</th>
+                <th className="table-th text-center">Status</th>
+                {canManage && <th className="table-th text-center">Actions</th>}
+                <th className="table-th text-right">Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -54,7 +55,7 @@ export default function CarsTable({
                 </tr>
               ) : vehicles.length === 0 ? (
                 <tr>
-                  <td colSpan={canManage ? 6 : 5} className="p-10 text-center text-slate-400">
+                  <td colSpan={canManage ? 6 : 5} className="p-10 text-center text-slate-400 text-sm">
                     No vehicles found.
                   </td>
                 </tr>
@@ -65,53 +66,51 @@ export default function CarsTable({
                     onClick={() => onSelectVehicle && onSelectVehicle(v)}
                     className="hover:bg-slate-50/90 transition-colors cursor-pointer group"
                   >
-                    <td className="p-4 font-bold text-slate-800 text-sm">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${
-                          isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'
-                        }`}>
-                          <Car size={18} />
+                    <td className="table-td font-bold text-slate-800 text-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-brand-light text-brand-primary">
+                          <Car size={16} />
                         </div>
                         <div>
-                          <p>{v.name}</p>
-                          <p className="text-xs text-slate-400 font-normal">
+                          <p className="font-bold text-slate-800">{v.name}</p>
+                          <p className="text-[11px] text-slate-400 font-normal">
                             Added {new Date(v.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
                     </td>
 
-                    <td className="p-4 font-mono font-bold text-xs text-slate-700">
-                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                    <td className="table-td font-mono font-bold text-xs text-slate-700">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
                         {v.plateNumber}
                       </span>
                     </td>
 
-                    <td className="p-4 text-slate-600 text-xs font-medium">
+                    <td className="table-td text-slate-600 text-xs font-medium">
                       {v.model || '—'}
                     </td>
 
-                    <td className="p-4 text-center">
+                    <td className="table-td text-center">
                       {v.isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <CheckCircle2 size={12} /> Active
+                        <span className="badge-success inline-flex items-center gap-1 text-[11px]">
+                          <CheckCircle2 size={11} /> Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                          <XCircle size={12} /> Inactive
+                        <span className="badge-danger inline-flex items-center gap-1 text-[11px]">
+                          <XCircle size={11} /> Inactive
                         </span>
                       )}
                     </td>
 
                     {canManage && (
-                      <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="table-td text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => onEditVehicle && onEditVehicle(v)}
                             title="Edit Vehicle"
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-slate-100 rounded-lg transition"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={15} />
                           </button>
                           <button
                             onClick={() => onToggleStatus && onToggleStatus(v)}
@@ -122,14 +121,14 @@ export default function CarsTable({
                                 : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
                             }`}
                           >
-                            <PowerOff size={16} />
+                            <PowerOff size={15} />
                           </button>
                         </div>
                       </td>
                     )}
 
-                    <td className="p-4 text-right text-slate-400 group-hover:text-slate-700 transition">
-                      <ChevronRight size={18} className="inline-block" />
+                    <td className="table-td text-right text-slate-400 group-hover:text-slate-700 transition">
+                      <ChevronRight size={16} className="inline-block" />
                     </td>
                   </tr>
                 ))

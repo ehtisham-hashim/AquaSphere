@@ -27,28 +27,28 @@ export default function ExpensesSummaryCards({ expenses = [], filteredExpenses =
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="card-surface p-3.5 sm:p-4">
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
           {getTimeRangeLabel()}
         </span>
-        <div className="text-xl font-black text-emerald-700">Rs. {filteredSum.toLocaleString()}</div>
+        <div className="text-lg sm:text-xl font-black font-mono text-brand-primary">Rs. {filteredSum.toLocaleString()}</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">This Month</span>
-        <div className="text-xl font-black text-indigo-700">Rs. {monthTotal.toLocaleString()}</div>
+      <div className="card-surface p-3.5 sm:p-4">
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">This Month</span>
+        <div className="text-lg sm:text-xl font-black font-mono text-slate-800">Rs. {monthTotal.toLocaleString()}</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">This Year</span>
-        <div className="text-xl font-black text-blue-700">Rs. {yearTotal.toLocaleString()}</div>
+      <div className="card-surface p-3.5 sm:p-4">
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">This Year</span>
+        <div className="text-lg sm:text-xl font-black font-mono text-slate-800">Rs. {yearTotal.toLocaleString()}</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Displaying Logs</span>
-        <div className="text-xl font-black text-slate-800">
-          {filteredExpenses.length} <span className="text-xs font-normal text-slate-400">/ {expenses.length} total</span>
+      <div className="card-surface p-3.5 sm:p-4">
+        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Displaying Logs</span>
+        <div className="text-lg sm:text-xl font-black font-mono text-slate-800">
+          {filteredExpenses.length} <span className="text-xs font-normal text-slate-400">/ {expenses.length}</span>
         </div>
       </div>
     </div>

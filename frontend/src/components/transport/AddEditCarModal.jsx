@@ -3,15 +3,15 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { API_URL } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 
 export default function AddEditCarModal({
   isOpen,
   onClose,
   onSuccess,
-  vehicle = null,
-  isWadaana = false
+  vehicle = null
 }) {
+  const { tenant, isWadaana } = useTenant();
   const [name, setName] = useState('');
   const [plateNumber, setPlateNumber] = useState('');
   const [model, setModel] = useState('');
@@ -48,7 +48,6 @@ export default function AddEditCarModal({
     }
 
     setSubmitting(true);
-    const tenant = getCompanyFromCookie();
     const isEdit = Boolean(vehicle?.id);
 
     try {
@@ -94,10 +93,10 @@ export default function AddEditCarModal({
       title={vehicle ? `Edit Vehicle: ${vehicle.name}` : 'Add New Vehicle'}
       maxWidth="max-w-md"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* Vehicle Name */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
             Vehicle Name <span className="text-rose-500">*</span>
           </label>
           <input
@@ -106,13 +105,13 @@ export default function AddEditCarModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500"
+            className="input-base text-xs py-2 w-full"
           />
         </div>
 
         {/* Plate Number */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
             Plate Number <span className="text-rose-500">*</span>
           </label>
           <input
@@ -121,13 +120,13 @@ export default function AddEditCarModal({
             value={plateNumber}
             onChange={(e) => setPlateNumber(e.target.value)}
             required
-            className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium font-mono outline-none focus:border-emerald-500"
+            className="input-base text-xs py-2 w-full font-mono font-bold"
           />
         </div>
 
         {/* Model / Make Details */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
             Model / Description (Optional)
           </label>
           <input
@@ -135,7 +134,7 @@ export default function AddEditCarModal({
             placeholder="e.g. 2022 White Pickup, Euro II"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-emerald-500"
+            className="input-base text-xs py-2 w-full"
           />
         </div>
 
@@ -144,7 +143,7 @@ export default function AddEditCarModal({
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
             <div>
               <p className="text-xs font-bold text-slate-800">Vehicle Active Status</p>
-              <p className="text-xs text-slate-500">Inactive vehicles are hidden from standard operations</p>
+              <p className="text-[11px] text-slate-500">Inactive vehicles are hidden from standard operations</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -153,29 +152,29 @@ export default function AddEditCarModal({
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className={`w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all ${
+                isWadaana ? 'peer-checked:bg-[#0284c7]' : 'peer-checked:bg-emerald-600'
+              }`}></div>
             </label>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition shadow-xs"
+            className="btn-secondary text-xs py-2 px-3.5"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className={`px-5 py-2.5 ${
-              isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
-            } text-white font-bold text-sm rounded-xl shadow-md transition flex items-center gap-2 disabled:opacity-50`}
+            className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 disabled:opacity-50"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {submitting && <Loader2 size={14} className="animate-spin" />}
             {vehicle ? 'Save Changes' : 'Add Vehicle'}
           </button>
         </div>

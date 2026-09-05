@@ -5,9 +5,11 @@ import { TableSkeleton } from '../components/common/Skeleton';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 
 export default function Customers() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -21,7 +23,10 @@ export default function Customers() {
     setIsLoading(true);
     try {
       const statusParam = tab === 'Archived' ? 'archived' : 'active';
-      const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(q)}&status=${statusParam}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(q)}&status=${statusParam}`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
       const json = await res.json();
       if (json.success) setCustomers(json.data);
     } catch {
@@ -34,7 +39,7 @@ export default function Customers() {
   useEffect(() => {
     fetchCustomers(search, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, tenant]);
 
   const handleSearchChange = (e) => {
     const val = e.target.value;
@@ -50,7 +55,7 @@ export default function Customers() {
     try {
       const res = await fetch(`${API_URL}/customers/${c.id}/restore`, {
         method: 'PATCH',
-        headers: { 'x-tenant': localStorage.getItem('tenant') || 'aquasphere' },
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
@@ -76,7 +81,7 @@ export default function Customers() {
   const isMarketingManager = user?.role === 'MARKETING_MANAGER';
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-4">
       {selectedCustomer ? (
         <CustomerDetails
           customer={selectedCustomer}
@@ -92,52 +97,54 @@ export default function Customers() {
         />
       ) : (
         <>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-800">Customers</h2>
-              <p className="text-slate-500 text-sm">
-                {isMarketingManager 
-                  ? 'Search active customers or onboard new clients' 
-                  : 'Manage your customer database and credit limits'}
-              </p>
+          {/* Action Header */}
+          <div className="card-surface p-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="search" 
+                placeholder="Search by customer name or phone..." 
+                className="input-base pl-9"
+                value={search}
+                onChange={handleSearchChange}
+              />
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+
+            <div className="flex items-center gap-2 shrink-0">
               {!isMarketingManager && (
                 <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border border-slate-200">
                   <button
                     onClick={() => setActiveTab('Active')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'Active' ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === 'Active' 
+                        ? 'bg-white text-slate-900 shadow-2xs' 
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
                   >
-                    Active Customers
+                    Active
                   </button>
                   <button
                     onClick={() => setActiveTab('Archived')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'Archived' ? 'bg-white text-red-700 shadow-2xs' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === 'Archived' 
+                        ? 'bg-white text-rose-700 shadow-2xs' 
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
                   >
-                    Archived (Soft Deleted)
+                    Archived
                   </button>
                 </div>
               )}
               {canAddCustomer && (
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="btn-accent inline-flex items-center gap-2 justify-center"
+                  className="btn-primary"
                 >
-                  <Plus size={18} /> Add Customer
+                  <Plus size={16} />
+                  <span>Add Customer</span>
                 </button>
               )}
             </div>
-          </div>
-          
-          <div className="mb-6 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input 
-              type="search" 
-              placeholder="Search by phone or name..." 
-              className="input-field pl-10"
-              value={search}
-              onChange={handleSearchChange}
-            />
           </div>
 
           {isMarketingManager && !search.trim() ? (

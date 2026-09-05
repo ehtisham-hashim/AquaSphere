@@ -1,9 +1,9 @@
 import { Phone, MapPin, Package, Plus, X, Clock, ShoppingBag } from 'lucide-react';
+import { useTenant } from '../../context/TenantContext';
 
 export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }) {
-  const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
+  const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
-
 
   const limitText = parseFloat(c.creditLimit) === 0 ? 'Unlimited' : `Rs. ${c.creditLimit}`;
   const lastDelivery = c.lastDeliveryAt
@@ -14,11 +14,11 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
   const isInactive30Days = c.lastDeliveryAt && (new Date() - new Date(c.lastDeliveryAt)) > (30 * 24 * 60 * 60 * 1000);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="card-surface overflow-hidden">
       {/* Header */}
-      <div className={`bg-gradient-to-r ${isWadaana ? 'from-[#0ea5e9] to-[#0284c7]' : 'from-emerald-600 to-emerald-700'} px-4 py-3 flex items-center justify-between`}>
+      <div className="bg-[var(--brand)] px-4 py-3 flex items-center justify-between text-white">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/20 text-white font-bold flex items-center justify-center text-lg">
+          <div className="w-9 h-9 rounded-full bg-white/20 text-white font-bold flex items-center justify-center text-base shrink-0">
             {c.name ? c.name.charAt(0).toUpperCase() : '?'}
           </div>
           <div>
@@ -96,10 +96,9 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
 
       {/* Action */}
       <div className="p-3 pt-0">
-        <button onClick={onNewOrder}
-          className={`w-full ${isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'} text-white py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm`}>
-          <Plus size={16}/> New Order
-          <span className={`${isWadaana ? 'text-sky-200' : 'text-emerald-200'} text-[10px] font-normal`}>Alt+N</span>
+        <button onClick={onNewOrder} className="btn-primary w-full justify-center">
+          <Plus size={16}/> <span>New Order</span>
+          <span className="opacity-70 text-[10px] font-normal ml-1">Alt+N</span>
         </button>
       </div>
     </div>

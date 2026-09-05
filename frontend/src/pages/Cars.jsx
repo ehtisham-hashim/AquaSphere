@@ -1,27 +1,16 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import {
   CarsHeader,
   CarsTable,
-  AddEditCarModal
+  AddEditCarModal,
+  VehicleDetailPanel
 } from '../components/transport';
 
-// Lazy-load VehicleDetailPanel so it doesn't bloat the initial bundle
-const VehicleDetailPanel = lazy(() => import('../components/transport/VehicleDetailPanel'));
-
-function DetailLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div>
-    </div>
-  );
-}
-
 export default function Cars() {
-  const tenant = getCompanyFromCookie();
-  const isWadaana = tenant === 'wadaana';
+  const { tenant, isWadaana } = useTenant();
 
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,18 +82,16 @@ export default function Cars() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4">
       {selectedVehicle ? (
-        <Suspense fallback={<DetailLoader />}>
-          <VehicleDetailPanel
-            vehicle={selectedVehicle}
-            onClose={() => {
-              setSelectedVehicle(null);
-              fetchVehicles();
-            }}
-            isWadaana={isWadaana}
-          />
-        </Suspense>
+        <VehicleDetailPanel
+          vehicle={selectedVehicle}
+          onClose={() => {
+            setSelectedVehicle(null);
+            fetchVehicles();
+          }}
+          isWadaana={isWadaana}
+        />
       ) : (
         <>
           <CarsHeader
@@ -112,7 +99,6 @@ export default function Cars() {
               setEditingVehicle(null);
               setIsModalOpen(true);
             }}
-            tenant={tenant}
           />
 
           <CarsTable
