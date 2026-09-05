@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
 import { toast } from 'sonner';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
@@ -10,12 +10,11 @@ const API = API_URL;
 
 export default function RawMaterials() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const isOwner = user?.role === 'OWNER';
   const canEditMaterial = isOwner;
   const canArchiveMaterial = isOwner;
   const isReadOnly = !canEditMaterial;
-
-  const tenant = getCompanyFromCookie();
   const [materials, setMaterials] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -97,7 +96,7 @@ export default function RawMaterials() {
   }, [materials, search]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4">
       <RawMaterialsHeader 
         search={search}
         onSearchChange={setSearch}

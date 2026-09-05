@@ -291,19 +291,19 @@ export default function AddEditFinishedGoodModal({
           </div>
 
           {/* Footer Action Buttons */}
-          <div className="pt-4 border-t border-slate-200 flex justify-end gap-3">
+          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="btn-secondary text-xs py-2 px-4"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2"
+              className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}
               {saving ? 'Saving...' : 'Create Finished Good'}

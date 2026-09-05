@@ -244,9 +244,7 @@ export default function CreateBatchModal({
                 type="date"
                 value={batchDate}
                 onChange={e => setBatchDate(e.target.value)}
-                className={`w-full border border-slate-200 rounded-xl p-3 text-sm font-semibold outline-none transition shadow-2xs ${
-                  isWadaana ? 'focus:border-sky-500 focus:ring-1 focus:ring-sky-200' : 'focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200'
-                }`}
+                className="input-base"
                 required
               />
             </div>
@@ -318,7 +316,7 @@ export default function CreateBatchModal({
                     placeholder={isWadaana ? "e.g. Pure Blue 0.5L Bottle" : "e.g. Special 0.5L PET Pack"}
                     value={customProductName}
                     onChange={(e) => setCustomProductName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white shadow-2xs outline-none focus:border-sky-500"
+                    className="input-base"
                   />
                 </div>
 
@@ -333,7 +331,7 @@ export default function CreateBatchModal({
                     placeholder="e.g. 5000"
                     value={customBatchQty}
                     onChange={(e) => setCustomBatchQty(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-900 bg-white shadow-2xs outline-none focus:border-sky-500"
+                    className="input-base font-mono"
                   />
                 </div>
               </div>
@@ -597,25 +595,23 @@ export default function CreateBatchModal({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Optional shift notes, batch remarks..."
-              className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium focus:border-slate-400 outline-none shadow-2xs"
+              className="input-base"
             />
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex justify-end items-center gap-3 pt-4 border-t border-slate-100 shrink-0">
+          <div className="flex justify-end items-center gap-2 pt-4 border-t border-slate-100 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className={`px-6 py-2.5 rounded-xl font-bold text-white text-xs shadow-md transition disabled:opacity-50 ${
-                isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-600' : 'bg-emerald-600 hover:bg-emerald-700'
-              }`}
+              className="btn-primary"
             >
               {submitting ? 'Recording Batch...' : 'Record Production Batch'}
             </button>

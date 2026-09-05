@@ -74,24 +74,24 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
         className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
-        <div className="bg-white border-b border-slate-200 text-slate-800 px-6 py-4 flex justify-between items-center">
+        <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ArrowLeftRight className="w-5 h-5 text-sky-500" />
-            <h3 className="text-lg font-bold">Transfer Finished Goods Stock</h3>
+            <ArrowLeftRight className="text-brand w-5 h-5" />
+            <h3 className="text-base font-bold">Transfer Finished Goods Stock</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors">
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-sm text-slate-700">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-xs text-slate-700">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Product</label>
+            <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Select Product</label>
             <select
               value={itemId}
               onChange={e => setItemId(e.target.value)}
               required
-              className="w-full border border-slate-200 rounded-xl p-3 bg-white font-medium text-slate-800 outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10"
+              className="select-base text-xs font-medium"
             >
               <option value="">-- Choose Item --</option>
               {items.map(item => (
@@ -104,14 +104,14 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">From Location</label>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">From Location</label>
               <select
                 value={fromLocation}
                 onChange={e => {
                   setFromLocation(e.target.value);
                   if (e.target.value === toLocation) setToLocation(e.target.value === 'FACTORY' ? 'WAREHOUSE' : 'FACTORY');
                 }}
-                className="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 font-bold text-slate-800 outline-none"
+                className="select-base text-xs font-semibold"
               >
                 <option value="FACTORY">🏭 Factory Floor</option>
                 <option value="WAREHOUSE">🏢 Warehouse</option>
@@ -119,14 +119,14 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">To Location</label>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">To Location</label>
               <select
                 value={toLocation}
                 onChange={e => {
                   setToLocation(e.target.value);
                   if (e.target.value === fromLocation) setFromLocation(e.target.value === 'FACTORY' ? 'WAREHOUSE' : 'FACTORY');
                 }}
-                className="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 font-bold text-slate-800 outline-none"
+                className="select-base text-xs font-semibold"
               >
                 <option value="WAREHOUSE">🏢 Warehouse</option>
                 <option value="FACTORY">🏭 Factory Floor</option>
@@ -135,9 +135,9 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           </div>
 
           {selectedItem && (
-            <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 flex justify-between items-center text-xs font-semibold text-sky-900">
+            <div className="bg-brand/10 border border-brand/20 rounded-xl p-2.5 flex justify-between items-center text-xs font-semibold text-brand">
               <span>Available Stock at {fromLocation}:</span>
-              <span className="text-sm font-bold text-sky-950">
+              <span className="text-xs font-mono font-bold">
                 {availableAtSource.toLocaleString()} {selectedItem.unit || (tenant === 'wadaana' ? 'bottles' : 'packs')}
               </span>
             </div>
@@ -145,7 +145,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Quantity to Transfer</label>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Quantity to Transfer</label>
               <input
                 type="number"
                 min="1"
@@ -154,28 +154,28 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
                 placeholder="e.g. 40"
                 value={quantity}
                 onChange={e => setQuantity(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-sky-500 font-bold text-slate-900"
+                className="input-base text-xs font-mono font-bold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Batch Reference (Optional)</label>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Batch Reference (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. AQ-20260801-001"
                 value={batchNo}
                 onChange={e => setBatchNo(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-sky-500 font-mono text-slate-800"
+                className="input-base text-xs font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Transfer Reason</label>
+            <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Transfer Reason</label>
             <select
               value={reason}
               onChange={e => setReason(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 bg-slate-50 font-bold text-slate-800 outline-none focus:border-sky-500"
+              className="select-base text-xs font-medium"
             >
               <option value="Daily warehouse transfer">Daily warehouse transfer</option>
               <option value="Factory replenishment">Factory replenishment</option>
@@ -184,30 +184,30 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Transfer Notes / Remarks (Optional)</label>
+            <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Transfer Notes / Remarks (Optional)</label>
             <input
               type="text"
               placeholder="e.g. Moved to main warehouse for dispatch"
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 outline-none focus:border-sky-500 text-slate-800"
+              className="input-base text-xs"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition"
+              className="btn-secondary text-xs py-2 px-4"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 bg-[#0ea5e9] hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 disabled:opacity-50"
+              className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 disabled:opacity-50"
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeftRight size={16} />}
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <ArrowLeftRight size={14} />}
               Confirm Transfer
             </button>
           </div>

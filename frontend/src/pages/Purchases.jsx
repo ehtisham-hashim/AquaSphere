@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { INVOICE_CONFIG, DEFAULT_DELIVERED_LOCATION } from '../constants/purchases';
 import { toast } from 'sonner';
 import { DeleteConfirmationModal } from '../components/ui';
@@ -17,7 +16,7 @@ import {
 
 export default function Purchases() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const isOwner = user?.role === 'OWNER';
   const isAccountant = user?.role === 'ACCOUNTANT';
 
@@ -269,23 +268,7 @@ export default function Purchases() {
   const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Raw Material Purchases</h2>
-          <p className="text-slate-500 text-sm mt-1 font-medium">Record vendor procurement, shipment fulfillment, and payment credit status.</p>
-        </div>
-        {canAddPurchase && (
-          <button
-            onClick={handleOpenModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
-          >
-            <Plus size={18} className="stroke-[2.5]" /> <span>Record New Purchase</span>
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-4">
       {/* Stats Summary */}
       <PurchasesHeaderStats totalCount={totalCount} totalAmount={totalAmount} />
 

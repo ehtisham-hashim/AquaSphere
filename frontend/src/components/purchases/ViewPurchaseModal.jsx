@@ -49,13 +49,13 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
             {onPrint && (
               <button
                 onClick={() => onPrint(purchase)}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all"
+                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1"
               >
                 <Printer size={14} /> Print
               </button>
             )}
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -137,8 +137,8 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
           )}
 
           <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-            <span className="font-bold text-slate-700">Total Purchase Amount</span>
-            <span className="text-2xl font-black text-indigo-600">
+            <span className="font-bold text-slate-700 text-sm">Total Purchase Amount</span>
+            <span className="text-xl font-bold font-mono text-[var(--brand)]">
               Rs {Number(purchase.grandTotal).toLocaleString('en-PK')}
             </span>
           </div>

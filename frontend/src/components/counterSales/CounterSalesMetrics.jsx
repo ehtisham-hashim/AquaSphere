@@ -5,25 +5,25 @@ export default function CounterSalesMetrics({
   todayCredit 
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Today&apos;s Counter Sales</span>
-        <div className="text-xl font-black text-emerald-700">Rs. {todayTotalRevenue.toLocaleString()}</div>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="card-surface p-3.5">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Today's Sales</span>
+        <div className="text-lg sm:text-xl font-mono font-bold text-brand">Rs. {todayTotalRevenue.toLocaleString()}</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Today&apos;s Litres</span>
-        <div className="text-xl font-black text-blue-900">{todayLitres.toLocaleString()} L</div>
+      <div className="card-surface p-3.5">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Today's Volume</span>
+        <div className="text-lg sm:text-xl font-mono font-bold text-slate-800">{todayLitres.toLocaleString()} L</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Cash Collected</span>
-        <div className="text-xl font-black text-emerald-600">Rs. {todayCash.toLocaleString()}</div>
+      <div className="card-surface p-3.5">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Cash Collected</span>
+        <div className="text-lg sm:text-xl font-mono font-bold text-emerald-600">Rs. {todayCash.toLocaleString()}</div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Credit Outstanding</span>
-        <div className="text-xl font-black text-purple-900">Rs. {todayCredit.toLocaleString()}</div>
+      <div className="card-surface p-3.5">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Credit Outstanding</span>
+        <div className="text-lg sm:text-xl font-mono font-bold text-amber-600">Rs. {todayCredit.toLocaleString()}</div>
       </div>
     </div>
   );

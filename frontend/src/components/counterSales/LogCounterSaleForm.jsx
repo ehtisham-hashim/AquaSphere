@@ -154,12 +154,12 @@ export default function LogCounterSaleForm({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm w-full space-y-3">
+    <div className="card-surface p-4 w-full space-y-3">
       {/* Top Banner for Last Recorded Sale */}
       {lastRecordedSale && (
-        <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 animate-in fade-in duration-150">
+        <div className="flex items-center justify-between p-2.5 bg-brand/10 border border-brand/20 rounded-xl text-xs font-bold text-brand animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <CheckCircle2 size={16} className="text-brand shrink-0" />
             <span>
               Sale <strong className="font-mono">{lastRecordedSale.saleNumber}</strong> recorded (Rs. {(Number(lastRecordedSale.cashCollected || 0) + Number(lastRecordedSale.creditAmount || 0)).toLocaleString()}) — Ready for next customer!
             </span>
@@ -167,7 +167,7 @@ export default function LogCounterSaleForm({
           <button
             type="button"
             onClick={() => onPrintReceipt(lastRecordedSale)}
-            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-2xs"
+            className="btn-primary text-xs py-1 px-2.5"
           >
             <Printer size={13} /> Print Receipt
           </button>
@@ -177,11 +177,11 @@ export default function LogCounterSaleForm({
       {/* Compact Header Bar */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
         <div className="flex items-center gap-3">
-          <span className="text-slate-500 font-semibold">Sale ID: <strong className="font-mono text-emerald-800">{liveSaleNumber}</strong></span>
+          <span className="text-slate-500 font-semibold">Sale ID: <strong className="font-mono text-brand">{liveSaleNumber}</strong></span>
           <span className="text-slate-300">•</span>
           <span className="text-slate-500 font-semibold">Cashier: <strong className="text-slate-800">{user?.name || user?.role}</strong></span>
         </div>
-        <div className="text-slate-400 font-medium text-[11px]">
+        <div className="text-slate-400 font-mono font-medium text-[11px]">
           {liveDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function LogCounterSaleForm({
         {/* LEFT COLUMN: Multi-Select Product Cards (7 Cols) */}
         <div className="lg:col-span-7 space-y-2">
           <div className="flex justify-between items-center px-1">
-            <label className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
+            <label className="font-bold text-slate-800 text-xs uppercase tracking-wider">
               1. Select Products (Checkboxes & Quantities) *
             </label>
             <span className="text-[11px] text-slate-400 font-medium">Click card or checkbox to select</span>
@@ -215,7 +215,7 @@ export default function LogCounterSaleForm({
                   key={prod.id}
                   className={`p-2.5 rounded-xl border transition-all ${
                     inCart 
-                      ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs' 
+                      ? 'bg-brand/5 border-brand ring-2 ring-brand/20 shadow-2xs' 
                       : 'bg-white border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -225,17 +225,17 @@ export default function LogCounterSaleForm({
                         type="checkbox" 
                         checked={inCart} 
                         onChange={() => toggleProduct(prod.id)}
-                        className="w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                        className="w-4 h-4 accent-brand rounded cursor-pointer shrink-0"
                       />
                       <div className="truncate">
                         <div className="text-xs font-bold text-slate-900 truncate">{prod.name}</div>
-                        <div className="text-[11px] font-semibold text-emerald-700">Rs. {prod.defaultPrice}</div>
+                        <div className="text-[11px] font-mono font-bold text-brand">Rs. {prod.defaultPrice}</div>
                       </div>
                     </label>
 
                     {stockBadge && (
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                        inCart ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                        inCart ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {stockBadge}
                       </span>
@@ -244,26 +244,26 @@ export default function LogCounterSaleForm({
 
                   {/* Quantity Stepper when selected */}
                   {inCart && (
-                    <div className="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-1">
+                    <div className="mt-2 pt-2 border-t border-brand/20 flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => updateProductQty(prod.id, -1)}
-                          className="w-6 h-6 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 flex items-center justify-center font-bold text-xs"
+                          className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs"
                         >
                           <Minus size={12} />
                         </button>
                         <input
                           type="number"
                           min="1"
-                          className="w-12 text-center font-black text-xs text-slate-900 border border-emerald-300 rounded-lg p-0.5 bg-white outline-none"
+                          className="w-12 text-center font-mono font-bold text-xs text-slate-900 border border-slate-200 rounded-lg p-0.5 bg-white outline-none"
                           value={qty}
                           onChange={(e) => setProductQtyDirect(prod.id, e.target.value)}
                         />
                         <button
                           type="button"
                           onClick={() => updateProductQty(prod.id, 1)}
-                          className="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs"
+                          className="w-6 h-6 rounded-lg bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs"
                         >
                           <Plus size={12} />
                         </button>
@@ -275,10 +275,10 @@ export default function LogCounterSaleForm({
                             type="button"
                             key={q}
                             onClick={() => setProductQtyDirect(prod.id, q)}
-                            className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${
+                            className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border ${
                               qty === q 
-                                ? 'bg-emerald-700 text-white border-emerald-700' 
-                                : 'bg-white hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                                ? 'bg-brand text-white border-brand' 
+                                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                             }`}
                           >
                             {q}
@@ -302,10 +302,10 @@ export default function LogCounterSaleForm({
         {/* RIGHT COLUMN: Live Cart & Instant Checkout Panel (5 Cols) */}
         <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <span className="font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
-              <ShoppingBag size={14} className="text-emerald-600" /> Cart Summary ({cartItems.length})
+            <span className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <ShoppingBag size={14} className="text-brand" /> Cart Summary ({cartItems.length})
             </span>
-            <span className="text-base font-black text-emerald-800">Rs. {cartTotal.toLocaleString()}</span>
+            <span className="text-base font-mono font-bold text-brand">Rs. {cartTotal.toLocaleString()}</span>
           </div>
 
           {/* Itemized Cart List */}
@@ -315,11 +315,11 @@ export default function LogCounterSaleForm({
             ) : cartItems.map(item => (
               <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200">
                 <div>
-                  <span className="font-bold text-slate-800">{item.name}</span>
-                  <span className="text-[11px] text-slate-500 font-semibold block">{item.productQty} x Rs. {item.unitPrice}</span>
+                  <span className="font-semibold text-slate-800">{item.name}</span>
+                  <span className="text-[11px] font-mono text-slate-500 block">{item.productQty} x Rs. {item.unitPrice}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-slate-900">Rs. {item.lineTotal.toLocaleString()}</span>
+                  <span className="font-mono font-bold text-slate-900">Rs. {item.lineTotal.toLocaleString()}</span>
                   <button
                     type="button"
                     onClick={() => updateProductQty(item.id, -item.productQty)}
@@ -336,14 +336,14 @@ export default function LogCounterSaleForm({
           <div className="space-y-2 border-t border-slate-200 pt-2 text-xs">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Cash Collected (Rs)</label>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Cash Collected (Rs)</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600" size={14}/>
+                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand" size={14}/>
                   <input 
                     type="number" 
                     step="1" 
                     min="0"
-                    className="w-full border border-slate-200 rounded-lg py-1.5 pl-7 pr-2 font-black text-slate-900 text-xs outline-none focus:border-emerald-500 bg-white" 
+                    className="input-base pl-7 text-xs font-mono font-bold" 
                     value={cashCollected} 
                     onChange={(e) => {
                       setCashCollected(e.target.value);
@@ -355,14 +355,14 @@ export default function LogCounterSaleForm({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Credit Amount (Rs)</label>
+                <label className="block font-medium text-slate-700 mb-1 text-[11px]">Credit Amount (Rs)</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-600" size={14}/>
+                  <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-600" size={14}/>
                   <input 
                     type="number" 
                     step="1" 
                     min="0"
-                    className="w-full border border-slate-200 rounded-lg py-1.5 pl-7 pr-2 font-black text-purple-900 text-xs outline-none focus:border-purple-500 bg-white" 
+                    className="input-base pl-7 text-xs font-mono font-bold text-amber-700" 
                     value={creditAmount} 
                     onChange={(e) => setCreditAmount(e.target.value)} 
                     placeholder="0"
@@ -373,15 +373,13 @@ export default function LogCounterSaleForm({
 
             {/* Customer Dropdown */}
             <div>
-              <label className="block font-bold text-slate-800 mb-1 text-[11px] flex items-center gap-1">
-                <User size={13} className={isCreditSale ? 'text-purple-700' : 'text-slate-500'} />
-                Customer Profile {isCreditSale ? <span className="text-purple-700 font-extrabold">* MANDATORY</span> : '(Optional)'}
+              <label className="block font-semibold text-slate-800 mb-1 text-[11px] flex items-center gap-1">
+                <User size={13} className={isCreditSale ? 'text-amber-600' : 'text-slate-500'} />
+                Customer Profile {isCreditSale ? <span className="text-amber-600 font-bold">* MANDATORY</span> : '(Optional)'}
               </label>
 
               <select
-                className={`w-full border rounded-lg p-2 bg-white text-xs font-semibold outline-none ${
-                  isCreditSale ? 'border-purple-300 text-purple-950' : 'border-slate-200 text-slate-800'
-                }`}
+                className="select-base text-xs font-medium"
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
                 required={isCreditSale}
@@ -394,7 +392,7 @@ export default function LogCounterSaleForm({
                  ))}
                </select>
               {isCreditLimitExceeded && (
-                <p className="text-[11px] font-bold text-amber-600 mt-1">
+                <p className="text-[11px] font-semibold text-amber-600 mt-1">
                   Credit limit (Rs {customerLimit.toLocaleString()}) will be exceeded (Projected: Rs {projectedBalance.toLocaleString()})
                 </p>
               )}
@@ -402,9 +400,9 @@ export default function LogCounterSaleForm({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block font-semibold text-slate-700 mb-0.5 text-[10px] uppercase">Payment Method</label>
+                <label className="block font-medium text-slate-700 mb-0.5 text-[10px] uppercase">Payment Method</label>
                 <select
-                  className="w-full border border-slate-200 rounded-lg p-1.5 bg-white text-xs font-semibold outline-none"
+                  className="select-base text-xs py-1.5"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
                 >
@@ -415,10 +413,10 @@ export default function LogCounterSaleForm({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-0.5 text-[10px] uppercase">Remarks</label>
+                <label className="block font-medium text-slate-700 mb-0.5 text-[10px] uppercase">Remarks</label>
                 <input 
                   type="text" 
-                  className="w-full border border-slate-200 rounded-lg p-1.5 text-xs outline-none bg-white" 
+                  className="input-base text-xs py-1.5" 
                   value={remarks} 
                   onChange={(e) => setRemarks(e.target.value)} 
                   placeholder="Notes..."
@@ -430,9 +428,9 @@ export default function LogCounterSaleForm({
             <button 
               type="submit" 
               disabled={submitting || cartItems.length === 0 || (isCreditSale && !customerId) || hasStockError}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-98 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition flex items-center justify-center gap-2 mt-2"
+              className="btn-primary w-full py-2.5 text-xs uppercase tracking-wider font-bold mt-2 flex items-center justify-center gap-2"
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} className="fill-white" />}
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} className="fill-white" />}
               Record Counter Sale (Rs. {cartTotal.toLocaleString()})
             </button>
           </div>

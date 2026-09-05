@@ -55,170 +55,169 @@ export default function CounterSalesHistoryTable({
   userName
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
         <input 
           type="search" 
           placeholder="Search by sale ID, product items, customer name, or remarks..." 
-          className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all shadow-2xs"
+          className="input-base pl-10 text-xs"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+      <div className="table-container">
+        <table className="w-full text-left text-xs whitespace-nowrap">
+          <thead>
+            <tr>
+              <th className="table-th">Sale & Date</th>
+              <th className="table-th">Customer</th>
+              <th className="table-th">Items Sold</th>
+              <th className="table-th">Financials (Paid / Credit)</th>
+              <th className="table-th">Payment Status</th>
+              <th className="table-th">Operator</th>
+              <th className="table-th text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
               <tr>
-                <th className="px-4 py-3">Sale & Date</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Items Sold</th>
-                <th className="px-4 py-3">Financials (Paid / Credit)</th>
-                <th className="px-4 py-3">Payment Status</th>
-                <th className="px-4 py-3">Operator</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <td colSpan="7" className="p-10 text-center text-slate-400">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-brand" />
+                  Loading counter sales history...
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="p-10 text-center text-slate-400">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
-                    Loading counter sales history...
+            ) : filteredSales.map(sale => {
+              const cash = Number(sale.cashCollected || 0);
+              const credit = Number(sale.creditAmount || 0);
+              const total = cash + credit;
+              const dailyClosed = isDateClosed(sale.createdAt);
+              const pBadge = getPaymentBadge(cash, credit);
+              const { mainItem, extraCount } = formatItemSummary(sale.productType, sale.productQty);
+
+              return (
+                <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
+                  {/* Sale & Date */}
+                  <td className="table-td">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-brand text-xs bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-md">
+                        #{sale.saleNumber || sale.id.substring(0, 8)}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-medium mt-1 flex items-center gap-1 font-mono">
+                      <Calendar size={12} className="text-slate-400" />
+                      {new Date(sale.createdAt).toLocaleDateString()} {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </td>
-                </tr>
-              ) : filteredSales.map(sale => {
-                const cash = Number(sale.cashCollected || 0);
-                const credit = Number(sale.creditAmount || 0);
-                const total = cash + credit;
-                const dailyClosed = isDateClosed(sale.createdAt);
-                const pBadge = getPaymentBadge(cash, credit);
-                const { mainItem, extraCount } = formatItemSummary(sale.productType, sale.productQty);
 
-                return (
-                  <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
-                    {/* Sale & Date */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-emerald-800 text-xs bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                          #{sale.saleNumber || sale.id.substring(0, 8)}
-                        </span>
+                  {/* Customer */}
+                  <td className="table-td">
+                    {sale.customer ? (
+                      <div>
+                        <div className="font-semibold text-slate-800 text-xs">{sale.customer.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{sale.customer.phone}</div>
                       </div>
-                      <div className="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
-                        <Calendar size={12} className="text-slate-400" />
-                        {new Date(sale.createdAt).toLocaleDateString()} {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    ) : (
+                      <div className="text-slate-400 font-medium flex items-center gap-1">
+                        <User size={13} /> Walk-In Cash Customer
                       </div>
-                    </td>
-
-                    {/* Customer */}
-                    <td className="px-4 py-3">
-                      {sale.customer ? (
-                        <div>
-                          <div className="font-bold text-slate-800 text-xs">{sale.customer.name}</div>
-                          <div className="text-[11px] text-slate-400">{sale.customer.phone}</div>
-                        </div>
-                      ) : (
-                        <div className="text-slate-400 font-medium flex items-center gap-1">
-                          <User size={13} /> Walk-In Cash Customer
-                        </div>
-                      )}
-                    </td>
+                    )}
+                  </td>
 
                     {/* Compact Items Sold (1 item + compact badge for extra) */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg text-xs">
-                          {mainItem}
-                        </span>
-                        {extraCount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => onPrintReceipt(sale)}
-                            title="Click to view all items"
-                            className="text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full transition"
-                          >
-                            +{extraCount} extra
-                          </button>
-                        )}
-                      </div>
-                      {sale.remarks && (
-                        <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[200px]">
-                          Note: {sale.remarks}
+                  <td className="table-td whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg text-xs">
+                        {mainItem}
+                      </span>
+                      {extraCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => onPrintReceipt(sale)}
+                          title="Click to view all items"
+                          className="text-[10px] font-bold text-brand bg-brand/10 hover:bg-brand/20 border border-brand/20 px-1.5 py-0.5 rounded-full transition"
+                        >
+                          +{extraCount} extra
+                        </button>
+                      )}
+                    </div>
+                    {sale.remarks && (
+                      <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[200px]">
+                        Note: {sale.remarks}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Financials (Received vs Credit) */}
+                  <td className="table-td whitespace-nowrap">
+                    <div className="font-mono font-bold text-slate-900 text-xs">Rs. {total.toLocaleString()}</div>
+                    <div className="flex items-center gap-2 text-[11px] mt-0.5 font-mono">
+                      <span className="text-emerald-700 font-semibold">Rec: Rs. {cash.toLocaleString()}</span>
+                      {credit > 0 && (
+                        <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                          Credit: Rs. {credit.toLocaleString()}
                         </span>
                       )}
-                    </td>
+                    </div>
+                  </td>
 
-                    {/* Financials (Received vs Credit) */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-black text-slate-900 text-sm">Rs. {total.toLocaleString()}</div>
-                      <div className="flex items-center gap-2 text-[11px] mt-0.5">
-                        <span className="text-emerald-700 font-bold">Rec: Rs. {cash.toLocaleString()}</span>
-                        {credit > 0 && (
-                          <span className="text-purple-700 font-extrabold bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">
-                            Credit: Rs. {credit.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                  {/* Payment Status Pill */}
+                  <td className="table-td whitespace-nowrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${pBadge.style}`}>
+                      {pBadge.label}
+                    </span>
+                  </td>
 
-                    {/* Payment Status Pill */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`text-[10px] px-2 py-0.5 rounded ${pBadge.style}`}>
-                        {pBadge.label}
-                      </span>
-                    </td>
+                  {/* Operator */}
+                  <td className="table-td text-slate-600 font-medium text-xs">
+                    {sale.createdBy?.name || userName || 'System'}
+                    <span className="text-[10px] text-slate-400 block font-normal">
+                      ({sale.createdBy?.role || 'MM'})
+                    </span>
+                  </td>
 
-                    {/* Operator */}
-                    <td className="px-4 py-3 text-slate-600 font-medium text-xs">
-                      {sale.createdBy?.name || userName || 'System'}
-                      <span className="text-[10px] text-slate-400 block font-normal">
-                        ({sale.createdBy?.role || 'MM'})
-                      </span>
-                    </td>
+                  {/* Actions */}
+                  <td className="table-td text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* View Sale Details Button */}
+                      <button
+                        onClick={() => onPrintReceipt(sale)}
+                        title="View Sale Details"
+                        className="btn-outline text-[11px] py-1 px-2"
+                      >
+                        <Eye size={13} /> View
+                      </button>
 
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* View Sale Details Button */}
+                      <button
+                        onClick={() => onPrintReceipt(sale)}
+                        title="Print Receipt"
+                        className="btn-outline text-indigo-700 hover:text-indigo-800 text-[11px] py-1 px-2"
+                      >
+                        <Printer size={13} />
+                      </button>
+
+                      {isOwner && (
                         <button
-                          onClick={() => onPrintReceipt(sale)}
-                          title="View Sale Details"
-                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200 transition flex items-center gap-1 text-[11px] font-bold px-2"
+                          onClick={() => onDeleteSale(sale)}
+                          title="Delete Record (Owner Only)"
+                          className="btn-danger text-[11px] py-1 px-2"
                         >
-                          <Eye size={13} /> View
+                          <Trash2 size={13} />
                         </button>
+                      )}
 
-                        <button
-                          onClick={() => onPrintReceipt(sale)}
-                          title="Print Receipt"
-                          className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg border border-indigo-200 transition"
-                        >
-                          <Printer size={14} />
-                        </button>
-
-                        {isOwner && (
-                          <button
-                            onClick={() => onDeleteSale(sale)}
-                            title="Delete Record (Owner Only)"
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg border border-rose-200 transition"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-
-                        {dailyClosed && (
-                          <span title="Daily Close Locked" className="text-amber-600 p-1">
-                            <ShieldAlert size={14} />
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      {dailyClosed && (
+                        <span title="Daily Close Locked" className="text-amber-600 p-1">
+                          <ShieldAlert size={14} />
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
 
               {!loading && filteredSales.length === 0 && (
                 <tr>
@@ -232,6 +231,5 @@ export default function CounterSalesHistoryTable({
           </table>
         </div>
       </div>
-    </div>
   );
 }
