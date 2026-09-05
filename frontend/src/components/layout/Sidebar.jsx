@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 import { isPageAllowedForRole } from '../../constants/roleAccess';
 import { 
   BarChart3, 
@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   Boxes,
   Car,
-  Fuel
+  Fuel,
+  LogOut
 } from 'lucide-react';
 
 const navItems = [
@@ -39,76 +40,101 @@ const navItems = [
   { icon: Car, label: 'Cars', path: '/cars' },
 ];
 
-export default function Sidebar({ isOpen, onClose }) {
+export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
   const { user, logout } = useAuth();
-  const currentTenant = getCompanyFromCookie();
-  const isWadaana = currentTenant === 'wadaana';
-
-  // Dynamic colors based on tenant
-  const activeBgColor = isWadaana ? 'bg-purple-600/10' : 'bg-[#059669]/10';
-  const activeTextColor = isWadaana ? 'text-purple-600' : 'text-[#059669]';
+  const { tenant, isWadaana } = useTenant();
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile backdrop overlay */}
       {isOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40" 
+          className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 transition-opacity" 
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
-      <aside className={`fixed md:relative top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-transform duration-300 w-72 flex-shrink-0 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+
+      <aside 
+        className={`fixed md:relative top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-all duration-200 flex-shrink-0 select-none ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        } ${isCollapsed ? 'md:w-20' : 'md:w-72'} w-72`}
+      >
         {/* Brand Header */}
-        <div className="h-20 flex flex-col justify-center px-6 border-b border-slate-200 bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className={`grid place-items-center rounded-2xl p-3 ${isWadaana ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'}`}>
-              {isWadaana ? <Building2 className="w-6 h-6" /> : <Droplets className="w-6 h-6" />}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 bg-white">
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'md:justify-center md:w-full' : ''}`}>
+            <div className="grid place-items-center rounded-xl p-2.5 bg-brand-light text-brand shrink-0">
+              {isWadaana ? <Building2 className="w-5 h-5" /> : <Droplets className="w-5 h-5" />}
             </div>
-            <div>
-              <p className="text-base font-semibold text-slate-900">{isWadaana ? 'Wadaana Ind.' : 'Aqua Sphere OS'}</p>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Management</p>
-            </div>
+            {(!isCollapsed || isOpen) && (
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {isWadaana ? 'Wadaana Ind.' : 'AquaSphere OS'}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  {isWadaana ? 'Blow Molding' : 'Operations'}
+                </p>
+              </div>
+            )}
           </div>
-          <button className="md:hidden absolute top-4 right-4 text-slate-500 hover:text-slate-700" onClick={onClose}>
-            <X size={20} />
+          <button 
+            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition" 
+            onClick={onClose}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
           </button>
         </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-5 px-4 space-y-2">
-        {navItems
-          .filter(item => isPageAllowedForRole(user?.role, item.path, currentTenant))
-          .map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  isActive 
-                    ? `${activeBgColor} ${activeTextColor} font-semibold` 
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground font-medium'
-                }`
-              }
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
-      </nav>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scrollbar-none">
+          {navItems
+            .filter(item => isPageAllowedForRole(user?.role, item.path, tenant))
+            .map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => { if (isOpen) onClose(); }}
+                  title={isCollapsed ? item.label : undefined}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl transition-all duration-150 ${
+                      isCollapsed 
+                        ? 'md:justify-center md:px-0 md:py-3 px-3 py-2.5' 
+                        : 'px-3.5 py-2.5'
+                    } ${
+                      isActive 
+                        ? 'bg-brand/10 text-brand font-semibold shadow-2xs' 
+                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 font-medium'
+                    }`
+                  }
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  {(!isCollapsed || isOpen) && (
+                    <span className="text-sm truncate">{item.label}</span>
+                  )}
+                </NavLink>
+              );
+            })}
+        </nav>
 
-      {/* Footer Company Button */}
-      <div className="p-4 border-t border-slate-200">
-        <button 
-          onClick={logout}
-          className="w-full flex items-center justify-center py-2.5 bg-[#e5e7eb] hover:bg-[#d1d5db] text-[#374151] font-semibold rounded-md transition-colors text-sm"
-        >
-          {isWadaana ? 'Wadaana' : 'AquaSphere'} (Sign Out)
-        </button>
-      </div>
-    </aside>
+        {/* Footer Company / Sign Out */}
+        <div className="p-3 border-t border-slate-100 bg-white">
+          <button 
+            onClick={logout}
+            title={isCollapsed ? 'Sign Out' : undefined}
+            className={`w-full flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors ${
+              isCollapsed ? 'md:px-0 px-3' : 'px-3'
+            }`}
+          >
+            <LogOut size={16} className="shrink-0" />
+            {(!isCollapsed || isOpen) && (
+              <span className="truncate">Sign Out</span>
+            )}
+          </button>
+        </div>
+      </aside>
     </>
   );
 }

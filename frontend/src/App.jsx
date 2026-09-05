@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TenantProvider, useTenant } from './context/TenantContext';
 import MainLayout from './components/layout/MainLayout';
 import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
 
@@ -22,13 +23,12 @@ const Inventory = lazy(() => import('./pages/Inventory'));
 const TransportExpenses = lazy(() => import('./pages/TransportExpenses'));
 const Cars = lazy(() => import('./pages/Cars'));
 
-import { getCompanyFromCookie } from './utils/companyCookie';
 import { isPageAllowedForRole } from './constants/roleAccess';
 
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div>
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin"></div>
     </div>
   );
 }
@@ -42,7 +42,7 @@ function ProtectedRoute({ children }) {
 
 function RoleProtectedRoute({ path, children }) {
   const { user, loading } = useAuth();
-  const currentTenant = getCompanyFromCookie();
+  const { tenant: currentTenant } = useTenant();
 
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
@@ -100,11 +100,13 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Toaster position="top-right" richColors />
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <TenantProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Toaster position="top-right" richColors />
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </TenantProvider>
   );
 }
