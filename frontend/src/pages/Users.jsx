@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 
 export default function Users() {
-  const tenant = getCompanyFromCookie();
-  const isWadaana = tenant === 'wadaana';
+  const { tenant, isWadaana } = useTenant();
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
@@ -66,7 +65,7 @@ export default function Users() {
     e.preventDefault();
     if (isEditing) {
       const payload = { ...formData };
-      if (!payload.password) delete payload.password; // Don't send empty password if not changing
+      if (!payload.password) delete payload.password;
       
       await fetch(`${API_URL}/users/${editingId}`, {
         method: 'PUT',
@@ -102,103 +101,113 @@ export default function Users() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4">
+      {/* Action Header */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold text-slate-800">Users & Roles</h2>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wide border ${
-              isWadaana ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}>
-              {isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}
+            <span className="badge-brand">
+              {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
             </span>
           </div>
-          <p className="text-slate-500 text-sm">Manage system access, roles, and employee accounts for {isWadaana ? 'Wadaana Industries' : 'AquaSphere Water'}</p>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight mt-1">Users & Roles</h2>
+          <p className="text-slate-500 text-xs sm:text-sm">Manage employee accounts and operational system access</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className={`${isWadaana ? 'bg-purple-600 hover:bg-purple-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm`}
-        >
-          <Plus size={20} /> Add User
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button 
+            onClick={openAddModal}
+            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5"
+          >
+            <Plus size={16} /> Add User
+          </button>
+        </div>
       </div>
       
-      <div className="mb-6 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+      {/* Search Input */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
         <input 
           type="search" 
           placeholder="Search by name or email..." 
-          className="w-full border border-slate-200 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] transition-all bg-white"
+          className="input-base pl-9 text-xs py-2 w-full"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      {/* Users Table */}
+      <div className="table-container">
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead>
               <tr>
-                <th className="p-4 font-semibold text-slate-600 text-sm">User</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Contact</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Role</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
+                <th className="table-th">User</th>
+                <th className="table-th">Contact</th>
+                <th className="table-th">Role</th>
+                <th className="table-th">Status</th>
+                <th className="table-th text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="5" className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="w-8 h-8 border-4 border-[#0ea5e9] border-t-transparent rounded-full animate-spin"></div>
-                      <p>Loading users...</p>
+                  <td colSpan="5" className="p-10 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-6 h-6 border-2 border-slate-200 border-t-brand-primary rounded-full animate-spin"></div>
+                      <p className="text-xs">Loading users...</p>
                     </div>
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-12 text-center text-slate-500">No users found.</td>
+                  <td colSpan="5" className="p-10 text-center text-slate-400 text-sm">No users found.</td>
                 </tr>
               ) : (
                 filteredUsers.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="table-td">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-brand-light text-brand-primary flex items-center justify-center font-bold text-xs">
                         {(u.name || u.email).charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-bold text-slate-800">{u.name || 'N/A'}</div>
-                        <div className="text-xs text-slate-500 mt-1">Joined: {new Date(u.createdAt).toLocaleDateString()}</div>
+                        <div className="font-bold text-slate-800 text-sm">{u.name || 'N/A'}</div>
+                        <div className="text-[11px] text-slate-400 font-normal">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2 text-slate-600 text-sm mb-1">
-                      <Mail size={14} className="text-slate-400" /> {u.email}
+                  <td className="table-td text-xs text-slate-600 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <Mail size={13} className="text-slate-400" /> {u.email}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <span className="bg-purple-100 text-purple-700 font-bold px-2.5 py-1 rounded-md text-xs inline-flex items-center gap-1 uppercase">
-                      <ShieldCheck size={14} /> {u.role}
+                  <td className="table-td">
+                    <span className="badge-neutral inline-flex items-center gap-1 text-[11px] font-bold">
+                      <ShieldCheck size={12} className="text-brand-primary" /> {u.role}
                     </span>
                   </td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                      u.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {u.isActive ? 'Active' : 'Archived'}
-                    </span>
+                  <td className="table-td">
+                    {u.isActive ? (
+                      <span className="badge-success text-[11px]">Active</span>
+                    ) : (
+                      <span className="badge-danger text-[11px]">Archived</span>
+                    )}
                   </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => openEditModal(u)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
+                  <td className="table-td text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <button 
+                        onClick={() => openEditModal(u)} 
+                        className="btn-outline text-xs py-1 px-2.5"
+                      >
                         Edit
                       </button>
                       <button 
                         onClick={() => toggleStatus(u.id, u.isActive)} 
-                        className={`${u.isActive ? 'bg-red-100 hover:bg-red-200 text-red-600' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-600'} px-3 py-1.5 text-xs rounded-md font-medium transition-colors`}
+                        className={`text-xs py-1 px-2.5 rounded-xl font-bold transition border ${
+                          u.isActive 
+                            ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100' 
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        }`}
                       >
                         {u.isActive ? 'Archive' : 'Restore'}
                       </button>
@@ -213,44 +222,49 @@ export default function Users() {
 
       {/* Add/Edit User Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
-              <h3 className="text-lg font-bold text-slate-800">{isEditing ? 'Edit User' : 'Add New User'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X size={24} />
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="card-surface w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl p-0">
+            <div className="sticky top-0 bg-slate-50/80 backdrop-blur-xs border-b border-slate-100 px-5 py-4 flex justify-between items-center z-10">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">{isEditing ? 'Edit User' : 'Add New User'}</h3>
+                <span className="badge-brand mt-0.5">
+                  {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
+                </span>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg">
+                <X size={18} />
               </button>
             </div>
             
-            <form onSubmit={submitUser} className="p-6 space-y-6">
+            <form onSubmit={submitUser} className="p-5 space-y-4">
               {/* Basic Info */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Account Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                    <input name="name" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.name} onChange={handleChange} required />
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Name</label>
+                    <input name="name" className="input-base text-xs py-2 w-full" value={formData.name} onChange={handleChange} required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Email Address *</label>
-                    <input name="email" type="email" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.email} onChange={handleChange} required />
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address *</label>
+                    <input name="email" type="email" className="input-base text-xs py-2 w-full" value={formData.email} onChange={handleChange} required />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                       {isEditing ? 'New Password (leave blank to keep current)' : 'Password *'}
                     </label>
-                    <input name="password" type="password" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.password} onChange={handleChange} required={!isEditing} />
+                    <input name="password" type="password" className="input-base text-xs py-2 w-full" value={formData.password} onChange={handleChange} required={!isEditing} />
                   </div>
                 </div>
               </div>
 
               {/* Roles & Access */}
-              <div className="space-y-4 pt-4 border-t border-slate-100">
-                <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Roles & Access</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Roles & Access</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">System Role *</label>
-                    <select name="role" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.role} onChange={handleChange}>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">System Role *</label>
+                    <select name="role" className="select-base text-xs py-2 w-full" value={formData.role} onChange={handleChange}>
                       <option value="OWNER">Owner (Full Access)</option>
                       <option value="ADMIN">Admin (Manager)</option>
                       <option value="PRODUCTION_MANAGER">Production Manager</option>
@@ -259,20 +273,20 @@ export default function Users() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Company *</label>
-                    <select name="company" className="w-full border border-slate-200 rounded-lg p-2.5 focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9] outline-none" value={formData.company} onChange={handleChange}>
-                      <option value="aquasphere">AQUA Sphere (Water Business)</option>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Assigned Company *</label>
+                    <select name="company" className="select-base text-xs py-2 w-full" value={formData.company} onChange={handleChange}>
+                      <option value="aquasphere">AquaSphere (Water Business)</option>
                       <option value="wadaana">Wadaana (Blowing Machine)</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-colors">
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2.5">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs py-2 px-3.5">
                   Cancel
                 </button>
-                <button type="submit" className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-6 py-2.5 rounded-lg font-medium shadow-sm transition-colors">
+                <button type="submit" className="btn-primary text-xs py-2 px-4">
                   {isEditing ? 'Save Changes' : 'Create User'}
                 </button>
               </div>

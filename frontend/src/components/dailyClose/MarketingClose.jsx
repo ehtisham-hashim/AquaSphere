@@ -41,7 +41,7 @@ export default function MarketingClose() {
   const m = status?.marketingTotals || {};
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="space-y-4 max-w-4xl mx-auto">
       <DailyCloseHeader
         label="MARKETING & SALES"
         labelColor="purple"
@@ -57,20 +57,20 @@ export default function MarketingClose() {
       ) : (
         <>
           {/* Marketing Stats */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Sales Summary</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+          <div className="card-surface p-5 space-y-3">
+            <h3 className="text-base font-bold text-slate-800">Sales Summary</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <div>
-                <p className="text-xs text-slate-500 font-semibold">Total Orders</p>
-                <p className="text-xl font-black text-purple-900">{m.ordersCount || 0}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">Total Orders</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{m.ordersCount || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-semibold">Orders Worth</p>
-                <p className="text-xl font-black text-emerald-800">Rs {Number(m.ordersTotalWorth || 0).toLocaleString()}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">Orders Worth</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-brand-primary">Rs. {Number(m.ordersTotalWorth || 0).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-semibold">19L With Customers</p>
-                <p className="text-xl font-black text-blue-900">{m.customerBottlesCount || 0}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">19L With Customers</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{m.customerBottlesCount || 0}</p>
               </div>
             </div>
           </div>

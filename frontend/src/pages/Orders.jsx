@@ -140,61 +140,70 @@ export default function Orders() {
 
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-4 pb-6">
       
-      {/* Top Navigation Tabs Area */}
-      <div className="surface-card p-4 mb-6 flex flex-wrap gap-2 items-center">
-        {canCreateOrder && (
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn-secondary mr-2 flex items-center gap-2 group"
-          >
-            <Plus size={18} /> New Order <span className="text-[10px] bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded ml-1 group-hover:bg-slate-300">Alt+N</span>
-          </button>
-        )}
-        
-        {canAddCustomer && (
-          <button 
-            onClick={() => setIsAddCustomerModalOpen(true)}
-            className="btn-secondary mr-4 flex items-center gap-2 group"
-          >
-            <UserPlus size={18} /> New Customer
-          </button>
-        )}
-        
-        {tabs.map(tab => (
-          <button 
-            key={tab} 
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${activeTab === tab ? 'bg-white shadow-sm text-slate-800 border border-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Top Navigation Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+          {tabs.map(tab => (
+            <button 
+              key={tab} 
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-xl font-semibold text-xs whitespace-nowrap transition-all ${
+                activeTab === tab 
+                  ? 'bg-brand text-white shadow-2xs font-bold' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {canAddCustomer && (
+            <button 
+              onClick={() => setIsAddCustomerModalOpen(true)}
+              className="btn-secondary text-xs py-2"
+            >
+              <UserPlus size={15} /> <span className="hidden sm:inline">New Customer</span>
+            </button>
+          )}
+          {canCreateOrder && (
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn-primary text-xs py-2"
+            >
+              <Plus size={15} /> New Order <span className="text-[10px] opacity-75 hidden md:inline">(Alt+N)</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Top Banner Alert for Unpaid Orders */}
       {unpaidOrdersCount > 0 && activeTab !== 'Unpaid Orders' && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex justify-between items-center text-xs">
+        <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-xl flex justify-between items-center text-xs">
           <div className="flex items-center gap-2 text-amber-900 font-medium">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
             <span>You have <strong>{unpaidOrdersCount}</strong> unpaid or partial order{unpaidOrdersCount > 1 ? 's' : ''} awaiting payment settlement.</span>
           </div>
           <button 
             onClick={() => setActiveTab('Unpaid Orders')} 
-            className="font-bold text-amber-700 hover:text-amber-900 bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200 transition-all"
+            className="font-bold text-amber-700 hover:text-amber-900 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 transition-all text-xs"
           >
-            View Unpaid Orders &rarr;
+            View Unpaid &rarr;
           </button>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-        <h2 className="text-xl font-bold text-slate-800">{activeTab}</h2>
-        
-        <div>
+      {/* Search & Filter Row */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1">
+          <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        </div>
+        <div className="shrink-0">
           <select 
-            className="input-field"
+            className="select-base text-xs py-2.5 px-3"
             value={clientFilter}
             onChange={e => setClientFilter(e.target.value)}
           >
@@ -203,26 +212,22 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Full-width Search Bar directly above Order Table (Matching Customers.jsx layout) */}
-      <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-
       {isLoading && orders.length === 0 ? (
         <TableSkeleton rows={6} cols={6} />
       ) : (
-        <div className="surface-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="p-4 font-semibold text-slate-600 text-sm">Order ID</th>
-                  <th className="p-4 font-semibold text-slate-600 text-sm">Customer</th>
-                  <th className="p-4 font-semibold text-slate-600 text-sm">Order Details</th>
-                  <th className="p-4 font-semibold text-slate-600 text-sm">Target Date</th>
-                  <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
-                  <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+        <div className="table-container">
+          <table className="w-full text-left whitespace-nowrap">
+            <thead>
+              <tr>
+                <th className="table-th">Order ID</th>
+                <th className="table-th">Customer</th>
+                <th className="table-th">Order Details</th>
+                <th className="table-th">Target Date</th>
+                <th className="table-th">Status</th>
+                <th className="table-th text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
                 {filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="p-12 text-center text-slate-500">
@@ -240,88 +245,89 @@ export default function Orders() {
                   );
 
                   return (
-                    <tr key={o.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 text-sm font-medium text-slate-500">
+                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="table-td font-mono font-semibold text-slate-500">
                         #{o.id.substring(0,6).toUpperCase()}
                       </td>
-                      <td className="p-4">
+                      <td className="table-td">
                         <div className="font-bold text-slate-800">{o.customer?.name}</div>
-                        <div className="flex gap-2 items-center text-xs mt-1">
-                          <span className="text-slate-500">{o.customer?.phone}</span>
+                        <div className="flex gap-2 items-center text-xs mt-0.5">
+                          <span className="text-slate-400 font-mono">{o.customer?.phone}</span>
                         </div>
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1">
-                            {o.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0} <span className="text-xs font-medium text-slate-500">Qty</span>
+                      <td className="table-td">
+                        <div className="flex items-center gap-2.5">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 text-xs">
+                            {o.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0} <span className="text-[10px] font-medium text-slate-400">Qty</span>
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-800 text-sm">{formatItemName(o.items[0]?.item?.name)}</span>
+                            <span className="font-semibold text-slate-800 text-xs">{formatItemName(o.items[0]?.item?.name)}</span>
                             {o.items?.length > 1 && (
-                              <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded w-max">
+                              <span className="text-[10px] font-bold text-brand bg-brand-light px-1.5 py-0.5 rounded w-max">
                                 +{o.items.length - 1} more item{o.items.length > 2 ? 's' : ''}
                               </span>
                             )}
-                            {o.remarks && <span className="text-xs text-slate-500 truncate max-w-[150px]">{o.remarks}</span>}
+                            {o.remarks && <span className="text-[11px] text-slate-400 truncate max-w-[150px]">{o.remarks}</span>}
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-slate-700">
+                      <td className="table-td text-xs text-slate-600">
                         {o.expectedDelivery ? (
-                          <div className="flex items-center gap-1 text-slate-600"><Clock size={14}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
+                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
                         ) : <span className="text-slate-400 text-xs">Not set</span>}
                       </td>
-                      <td className="p-4">
-                        <div className="flex flex-col gap-1.5 items-start">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            o.deliveryStatus === 'DELIVERED' ? 'bg-green-100 text-green-700' : 
-                            o.deliveryStatus === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                      <td className="table-td">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            o.deliveryStatus === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                            o.deliveryStatus === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}>
                             {o.deliveryStatus}
                           </span>
                           {o.deliveryStatus !== 'CANCELLED' && (
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                              o.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 
-                              o.paymentStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              o.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
+                              o.paymentStatus === 'PARTIAL' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                             }`}>
                               {o.paymentStatus}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="table-td text-right">
+                        <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => setInvoiceOrder(o)}
-                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 text-xs rounded-md font-bold transition-colors border border-indigo-100 flex items-center gap-1"
+                            className="btn-secondary py-1 px-2.5 text-xs"
                             title="Print Invoice"
                           >
                             <Printer size={13} /> Invoice
                           </button>
 
                           {(isOwner || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                            <button onClick={() => openEditModal(o)} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
+                            <button onClick={() => openEditModal(o)} className="btn-secondary py-1 px-2.5 text-xs">
                               Edit
                             </button>
                           )}
                           {canProcess && (
                             <button 
                               onClick={() => openDeliverModal(o)} 
-                              className={`px-3 py-1.5 text-xs rounded-md font-bold transition-all shadow-xs ${
+                              className={`py-1 px-3 text-xs rounded-xl font-bold transition-all ${
                                 needsPaymentSettlement 
-                                  ? 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600' 
-                                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                                  : 'btn-primary'
                               }`}
                             >
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
                             </button>
                           )}
                           {canDeleteOrder && !isAdmin && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                            <button onClick={() => setOrderToCancel(o)} className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors border border-red-100 shadow-sm">
-                              Cancel Order
+                            <button onClick={() => setOrderToCancel(o)} className="btn-danger py-1 px-2 text-xs">
+                              Cancel
                             </button>
                           )}
-                        </div>                      </td>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -329,7 +335,6 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
-      </div>
       )}
 
       {/* Add Order Modal Component */}
