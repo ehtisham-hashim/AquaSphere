@@ -14,5 +14,16 @@ export function setCompanyCookie(companyName) {
     document.cookie = `tenant=${valid}; path=/; max-age=31536000; SameSite=Lax`;
     document.cookie = `company=${valid}; path=/; max-age=31536000; SameSite=Lax`;
     document.documentElement.setAttribute('data-tenant', valid);
+    window.dispatchEvent(new CustomEvent('tenant-change', { detail: valid }));
+  }
+}
+
+export function clearCompanyCookie() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('tenant');
+    localStorage.removeItem('company');
+    document.cookie = 'tenant=; path=/; max-age=0';
+    document.cookie = 'company=; path=/; max-age=0';
+    window.dispatchEvent(new CustomEvent('tenant-change', { detail: 'aquasphere' }));
   }
 }

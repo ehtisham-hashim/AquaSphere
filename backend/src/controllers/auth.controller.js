@@ -34,7 +34,7 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  const token = generateToken({ id: user.id, role: user.role });
+  const token = generateToken({ id: user.id, role: user.role, tenant: prefix });
 
   const cookieOptions = {
     httpOnly: true,
@@ -48,7 +48,8 @@ export const login = asyncHandler(async (req, res) => {
   res
     .status(200)
     .cookie('token', token, cookieOptions)
-    .json(new ApiResponse(200, { user: userWithoutPassword, token }, 'Login successful'));
+    .cookie('tenant', prefix, { path: '/', maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' })
+    .json(new ApiResponse(200, { user: { ...userWithoutPassword, tenant: prefix }, token }, 'Login successful'));
 });
 
 /**
@@ -68,6 +69,8 @@ export const logout = asyncHandler(async (req, res) => {
   res
     .status(200)
     .clearCookie('token', cookieOptions)
+    .clearCookie('tenant', { path: '/' })
+    .clearCookie('company', { path: '/' })
     .json(new ApiResponse(200, null, 'Logged out successfully'));
 });
 

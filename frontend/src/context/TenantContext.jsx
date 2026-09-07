@@ -21,8 +21,17 @@ export function TenantProvider({ children }) {
         setTenantState(next);
       }
     };
+    const handleTenantEvent = (e) => {
+      if (e.detail) {
+        setTenantState(e.detail);
+      }
+    };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('tenant-change', handleTenantEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('tenant-change', handleTenantEvent);
+    };
   }, []);
 
   const setTenant = (newTenant) => {

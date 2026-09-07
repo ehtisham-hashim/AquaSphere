@@ -93,28 +93,8 @@ const formatAlertDetails = (log) => {
 
 export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapsed = false }) {
   const { user } = useAuth();
-  const { tenant: currentTenant, isWadaana, setTenant } = useTenant();
+  const { tenant: currentTenant, isWadaana } = useTenant();
   const location = useLocation();
-  const [alerts, setAlerts] = useState([]);
-  const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('snoozed_alerts') || '{}'); } catch { return {}; }
-  });
-  const [confirmedAlerts, setConfirmedAlerts] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('confirmed_alerts') || '[]'); } catch { return []; }
-  });
-  const [now] = useState(() => new Date().getTime());
-  const [showAlertsMenu, setShowAlertsMenu] = useState(false);
-
-  const currentPage = PAGE_TITLES[location.pathname] || {
-    title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
-    subtitle: isWadaana ? 'Wadaana Industrial OS' : 'AquaSphere Management OS'
-  };
-
-  const handleTenantSwitch = (newTenant) => {
-    if (newTenant !== currentTenant) {
-      setTenant(newTenant);
-    }
-  };
 
   useEffect(() => {
     if (user?.role !== 'OWNER' && user?.role !== 'ADMIN') return;
@@ -275,23 +255,11 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
           )}
         </div>
 
-        {/* Company Selector */}
+        {/* Company Badge (Read-Only) */}
         <div className="flex items-center gap-1.5">
-          <div className="flex bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
-            <button 
-              onClick={() => handleTenantSwitch('aquasphere')}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              <span className="sm:hidden">AQ</span>
-              <span className="hidden sm:inline">AquaSphere</span>
-            </button>
-            <button 
-              onClick={() => handleTenantSwitch('wadaana')}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              <span className="sm:hidden">WD</span>
-              <span className="hidden sm:inline">Wadaana Ind.</span>
-            </button>
+          <div className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+            <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
+            <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
           </div>
         </div>
 
