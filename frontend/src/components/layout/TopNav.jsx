@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
-import { API_URL } from '../../utils/api';
+import { API_URL, clearCache } from '../../utils/api';
 import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
 
 const PAGE_TITLES = {
@@ -28,10 +28,10 @@ const ACTION_CONFIG = {
   ORDER_CREATED: { title: 'New Order Created', icon: AlertTriangle, color: 'text-amber-600' },
   ORDER_DELIVERED: { title: 'Order Delivered', icon: CheckCircle, color: 'text-emerald-600' },
   ORDER_PAYMENT_SETTLED: { title: 'Payment Settled', icon: CheckCircle, color: 'text-emerald-600' },
-  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-sky-600' },
-  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-sky-600' },
-  CUSTOMER_DELETED: { title: 'Customer Account Removed', icon: Trash2, color: 'text-rose-600' },
-  PRODUCTION_BATCH_CREATED: { title: 'Factory Production Batch', icon: Factory, color: 'text-indigo-600' },
+  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  CUSTOMER_DELETED: { title: 'Customer Record Deleted', icon: Trash2, color: 'text-rose-600' },
+  PRODUCTION_BATCH_CREATED: { title: 'Production Batch Initiated', icon: Factory, color: 'text-sky-600' },
   PRODUCTION_BATCH_COMPLETED: { title: 'Production Batch Completed', icon: Factory, color: 'text-emerald-600' }
 };
 
@@ -92,8 +92,9 @@ const formatAlertDetails = (log) => {
 };
 
 export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapsed = false }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const { tenant: currentTenant, isWadaana } = useTenant();
+  const { tenant: currentTenant, isWadaana, setTenant } = useTenant();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
@@ -104,6 +105,15 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   });
   const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
+
+  const canSwitchTenant = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  const handleTenantSwitch = (newTenant) => {
+    if (!canSwitchTenant || newTenant === currentTenant) return;
+    clearCache();
+    setTenant(newTenant);
+    navigate('/');
+  };
 
   const currentPage = PAGE_TITLES[location.pathname] || {
     title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
@@ -269,13 +279,37 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
           )}
         </div>
 
-        {/* Company Badge (Read-Only) */}
-        <div className="flex items-center gap-1.5">
-          <div className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-            <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
-            <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
+        {/* Company Selector (Role-Guarded: OWNER / ADMIN only) */}
+        {canSwitchTenant ? (
+          <div className="flex items-center gap-1.5">
+            <div className="flex bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
+              <button 
+                type="button"
+                onClick={() => handleTenantSwitch('aquasphere')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span className="sm:hidden">AQ</span>
+                <span className="hidden sm:inline">AquaSphere</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleTenantSwitch('wadaana')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span className="sm:hidden">WD</span>
+                <span className="hidden sm:inline">Wadaana Ind.</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Read-only company badge for non-admin roles (TM, PM, MM, ACCOUNTANT) */
+          <div className="flex items-center gap-1.5">
+            <div className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+              <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
+              <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
+            </div>
+          </div>
+        )}
 
         {/* Role Display */}
         <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 pl-3 md:pl-4">

@@ -82,8 +82,8 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       if (targetUser && targetUser.isActive) {
         user = targetUser;
         resolvedTenant = requestedPrefix;
-      } else if (fallbackUser.role === 'OWNER') {
-        // Global system owner granted access
+      } else if (fallbackUser.role === 'OWNER' || fallbackUser.role === 'ADMIN') {
+        // Global administrative authority granted access
         user = fallbackUser;
         resolvedTenant = requestedPrefix;
       } else {
