@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   Boxes,
   Car,
-  Fuel,
   LogOut
 } from 'lucide-react';
 
@@ -36,8 +35,7 @@ const navItems = [
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
   { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
-  { icon: Fuel, label: 'Transport', path: '/transport-expenses' },
-  { icon: Car, label: 'Cars', path: '/cars' },
+  { icon: Car, label: 'Transport', path: '/transport' },
 ];
 
 export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {

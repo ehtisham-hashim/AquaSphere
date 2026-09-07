@@ -382,14 +382,16 @@ model AquasphereVendorPayment {
 }
 
 model AquasphereExpense {
-  id          String          @id @default(uuid())
+  id          String             @id @default(uuid())
   category    String
   amount      Decimal
   remarks     String?
-  receiptUrl  String          @map("receipt_url")
-  createdById String?         @map("created_by_id")
-  createdBy   AquasphereUser? @relation(fields: [createdById], references: [id])
-  createdAt   DateTime        @default(now()) @map("created_at")
+  receiptUrl  String             @map("receipt_url")
+  vehicleId   String?            @map("vehicle_id")
+  vehicle     AquasphereVehicle? @relation(fields: [vehicleId], references: [id])
+  createdById String?            @map("created_by_id")
+  createdBy   AquasphereUser?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime           @default(now()) @map("created_at")
 
   @@index([createdAt, category])
   @@map("expenses")
@@ -409,6 +411,11 @@ model AquasphereDailyClose {
   mmConfirmedAt   DateTime?       @map("mm_confirmed_at")
   mmConfirmedById String?         @map("mm_confirmed_by_id")
   mmConfirmedBy   AquasphereUser? @relation("MMConfirmer", fields: [mmConfirmedById], references: [id])
+
+  tmConfirmed     Boolean         @default(false) @map("tm_confirmed")
+  tmConfirmedAt   DateTime?       @map("tm_confirmed_at")
+  tmConfirmedById String?         @map("tm_confirmed_by_id")
+  tmConfirmedBy   AquasphereUser? @relation("TMConfirmer", fields: [tmConfirmedById], references: [id])
 
   adminConfirmed Boolean         @default(false) @map("admin_confirmed")
   closedAt       DateTime        @default(now()) @map("closed_at")
@@ -431,6 +438,7 @@ model AquasphereUser {
 
   pmConfirmedCloses    AquasphereDailyClose[] @relation("PMConfirmer")
   mmConfirmedCloses    AquasphereDailyClose[] @relation("MMConfirmer")
+  tmConfirmedCloses    AquasphereDailyClose[] @relation("TMConfirmer")
   adminConfirmedCloses AquasphereDailyClose[] @relation("AdminConfirmer")
   expenses             AquasphereExpense[]
   spotSales            AquasphereSpotSale[]
@@ -560,7 +568,8 @@ model AquasphereVehicle {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  expenses    AquasphereTransportExpense[]
+  expenses        AquasphereTransportExpense[]
+  generalExpenses AquasphereExpense[]
 
   @@index([isActive])
   @@map("vehicles")
@@ -967,14 +976,16 @@ model WadaanaVendorPayment {
 }
 
 model WadaanaExpense {
-  id          String       @id @default(uuid())
+  id          String          @id @default(uuid())
   category    String
   amount      Decimal
   remarks     String?
-  receiptUrl  String       @map("receipt_url")
-  createdById String?      @map("created_by_id")
-  createdBy   WadaanaUser? @relation(fields: [createdById], references: [id])
-  createdAt   DateTime     @default(now()) @map("created_at")
+  receiptUrl  String          @map("receipt_url")
+  vehicleId   String?         @map("vehicle_id")
+  vehicle     WadaanaVehicle? @relation(fields: [vehicleId], references: [id])
+  createdById String?         @map("created_by_id")
+  createdBy   WadaanaUser?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now()) @map("created_at")
 
   @@index([createdAt, category])
   @@map("expenses")
@@ -994,6 +1005,11 @@ model WadaanaDailyClose {
   mmConfirmedAt   DateTime?    @map("mm_confirmed_at")
   mmConfirmedById String?      @map("mm_confirmed_by_id")
   mmConfirmedBy   WadaanaUser? @relation("MMConfirmerW", fields: [mmConfirmedById], references: [id])
+
+  tmConfirmed     Boolean      @default(false) @map("tm_confirmed")
+  tmConfirmedAt   DateTime?    @map("tm_confirmed_at")
+  tmConfirmedById String?      @map("tm_confirmed_by_id")
+  tmConfirmedBy   WadaanaUser? @relation("TMConfirmerW", fields: [tmConfirmedById], references: [id])
 
   adminConfirmed Boolean      @default(false) @map("admin_confirmed")
   closedAt       DateTime     @default(now()) @map("closed_at")
@@ -1016,6 +1032,7 @@ model WadaanaUser {
 
   pmConfirmedCloses    WadaanaDailyClose[] @relation("PMConfirmerW")
   mmConfirmedCloses    WadaanaDailyClose[] @relation("MMConfirmerW")
+  tmConfirmedCloses    WadaanaDailyClose[] @relation("TMConfirmerW")
   adminConfirmedCloses WadaanaDailyClose[] @relation("AdminConfirmerW")
   expenses             WadaanaExpense[]
   spotSales            WadaanaSpotSale[]
@@ -1145,7 +1162,8 @@ model WadaanaVehicle {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  expenses    WadaanaTransportExpense[]
+  expenses        WadaanaTransportExpense[]
+  generalExpenses WadaanaExpense[]
 
   @@index([isActive])
   @@map("vehicles")

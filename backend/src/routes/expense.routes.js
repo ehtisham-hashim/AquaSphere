@@ -8,11 +8,11 @@ import upload from '../middlewares/upload.middleware.js';
 const router = Router();
 router.use(verifyJWT);
 
-// View Expenses: OWNER, ADMIN, ACCOUNTANT
-router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), getExpenses);
+// View Expenses: OWNER, ADMIN, ACCOUNTANT, TRANSPORT_MANAGER
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), getExpenses);
 
-// Write Expenses: OWNER, ACCOUNTANT (Admin is read-only)
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), checkDailyCloseLock, createExpense);
-router.post('/upload-receipt', requireRoles('OWNER', 'ACCOUNTANT'), upload.single('receipt'), uploadExpenseReceipt);
+// Write Expenses: OWNER, ACCOUNTANT, TRANSPORT_MANAGER (Admin is read-only)
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), checkDailyCloseLock, createExpense);
+router.post('/upload-receipt', requireRoles('OWNER', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), upload.single('receipt'), uploadExpenseReceipt);
 
 export default router;

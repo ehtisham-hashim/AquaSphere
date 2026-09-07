@@ -35,7 +35,8 @@ export const closeDay = asyncHandler(async (req, res) => {
     closedAt: now,
     closedById: req.user.id,
     ...(!existing?.pmConfirmed ? { pmConfirmed: true, pmConfirmedAt: now, pmConfirmedById: req.user.id } : {}),
-    ...(!existing?.mmConfirmed ? { mmConfirmed: true, mmConfirmedAt: now, mmConfirmedById: req.user.id } : {})
+    ...(!existing?.mmConfirmed ? { mmConfirmed: true, mmConfirmedAt: now, mmConfirmedById: req.user.id } : {}),
+    ...(!existing?.tmConfirmed ? { tmConfirmed: true, tmConfirmedAt: now, tmConfirmedById: req.user.id } : {})
   };
 
   const closedDay = await dailyCloseModel.upsert({
@@ -49,6 +50,9 @@ export const closeDay = asyncHandler(async (req, res) => {
       mmConfirmed: true,
       mmConfirmedAt: now,
       mmConfirmedById: req.user.id,
+      tmConfirmed: true,
+      tmConfirmedAt: now,
+      tmConfirmedById: req.user.id,
       adminConfirmed: true,
       closedById: req.user.id
     }
@@ -74,13 +78,14 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { start: targetDate, next: nextDate } = parseDateRange(date);
 
-  const [existing, prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount, consumptions] = await Promise.all([
+  const [existing, prodStats, orderStats, customerBottleStats, pendingBatchesCount, negativeStockCount, consumptions, transportExpenses, totalVehicles] = await Promise.all([
     prisma[`${prefix}DailyClose`].findFirst({
       where: { date: targetDate },
       include: {
         closedBy: { select: { id: true, name: true } },
         pmConfirmedBy: { select: { id: true, name: true } },
-        mmConfirmedBy: { select: { id: true, name: true } }
+        mmConfirmedBy: { select: { id: true, name: true } },
+        tmConfirmedBy: { select: { id: true, name: true } }
       }
     }),
     prisma[`${prefix}ProductionBatch`].aggregate({
@@ -105,7 +110,18 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     prisma[`${prefix}ProductionBatchConsumption`].findMany({
       where: { batch: { batchDate: { gte: targetDate, lt: nextDate } } },
       select: { quantityUsed: true, item: { select: { name: true, unit: true } } }
-    })
+    }),
+    prisma[`${prefix}Expense`].findMany({
+      where: {
+        createdAt: { gte: targetDate, lt: nextDate },
+        OR: [
+          { vehicleId: { not: null } },
+          { category: { in: ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'] } }
+        ]
+      },
+      include: { vehicle: { select: { id: true, name: true, plateNumber: true } } }
+    }),
+    prisma[`${prefix}Vehicle`].count({ where: { isActive: true } })
   ]);
 
   const matMap = Object.create(null);
@@ -123,6 +139,17 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     }
   }
 
+  let transportFuelTotal = 0;
+  let transportRepairsTotal = 0;
+  let transportOtherTotal = 0;
+  for (const ex of transportExpenses || []) {
+    const amt = Number(ex.amount) || 0;
+    if (ex.category.includes('Fuel')) transportFuelTotal += amt;
+    else if (ex.category.includes('Repair')) transportRepairsTotal += amt;
+    else transportOtherTotal += amt;
+  }
+  const transportExpensesTotal = transportFuelTotal + transportRepairsTotal + transportOtherTotal;
+
   const totalCustomerBottles = customerBottleStats._sum.cachedBottleBalance || customerBottleStats._sum.qty19L || 0;
   const adminConfirmed = existing?.adminConfirmed || false;
 
@@ -130,13 +157,16 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
     isClosed: adminConfirmed,
     pmConfirmed: adminConfirmed || existing?.pmConfirmed || false,
     mmConfirmed: adminConfirmed || existing?.mmConfirmed || false,
+    tmConfirmed: adminConfirmed || existing?.tmConfirmed || false,
     adminConfirmed,
     closedAt: existing?.closedAt || null,
     pmConfirmedAt: existing?.pmConfirmedAt || null,
     mmConfirmedAt: existing?.mmConfirmedAt || null,
+    tmConfirmedAt: existing?.tmConfirmedAt || null,
     closedBy: existing?.closedBy || null,
     pmConfirmedBy: existing?.pmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
     mmConfirmedBy: existing?.mmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
+    tmConfirmedBy: existing?.tmConfirmedBy || (adminConfirmed ? existing?.closedBy : null),
     pendingBatchesCount,
     negativeStockCount,
     materialConsumption: Object.values(matMap),
@@ -153,6 +183,13 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
       ordersCount: orderStats.length,
       ordersTotalWorth,
       customerBottlesCount: totalCustomerBottles
+    },
+    transportTotals: {
+      totalVehicles: totalVehicles || 0,
+      fuelTotal: transportFuelTotal,
+      repairsTotal: transportRepairsTotal,
+      totalExpenses: transportExpensesTotal,
+      expensesList: transportExpenses || []
     }
   }, 200, { message: 'Daily close status retrieved' });
 });
@@ -221,6 +258,38 @@ export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   return sendSuccess(res, updatedDay, 200, { message: 'MM daily close confirmed successfully' });
 });
 
+/** Confirms vehicle transport and fleet expenses by Transport Manager */
+export const tmConfirmDailyClose = asyncHandler(async (req, res) => {
+  const { date } = req.body;
+  if (!date) throw new ApiError(400, 'Date is required');
+  if (!['TRANSPORT_MANAGER', 'OWNER', 'ADMIN'].includes(req.user.role)) {
+    throw new ApiError(403, 'Unauthorized to perform TM confirmation');
+  }
+
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
+  const dailyCloseModel = prisma[`${prefix}DailyClose`];
+
+  const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
+  if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
+
+  const updatedDay = await dailyCloseModel.upsert({
+    where: { date: targetDate },
+    update: { tmConfirmed: true, tmConfirmedAt: new Date(), tmConfirmedById: req.user.id },
+    create: { date: targetDate, tmConfirmed: true, tmConfirmedAt: new Date(), tmConfirmedById: req.user.id }
+  });
+
+  await createAuditLog(prefix, {
+    action: 'TM_DAILY_CONFIRM',
+    entityType: 'DailyClose',
+    entityId: updatedDay.id,
+    performedBy: req.user.id,
+    details: `TM confirmed vehicle fleet and transport expenses for Day ${dateKey}`
+  });
+
+  return sendSuccess(res, updatedDay, 200, { message: 'Transport daily close confirmed successfully' });
+});
+
 /** Retrieves 30-day historical timeline of closed days */
 export const getDailyCloseHistory = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -230,7 +299,8 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     include: {
       closedBy: { select: { id: true, name: true } },
       pmConfirmedBy: { select: { id: true, name: true } },
-      mmConfirmedBy: { select: { id: true, name: true } }
+      mmConfirmedBy: { select: { id: true, name: true } },
+      tmConfirmedBy: { select: { id: true, name: true } }
     },
     take: 30
   });

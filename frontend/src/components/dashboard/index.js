@@ -8,3 +8,4 @@ export { default as MarketingDashboardView } from './MarketingDashboardView';
 export { default as ProductionDashboardView } from './ProductionDashboardView';
 export { default as AlertsSection } from './AlertsSection';
 export { default as ModernKpiCard } from './ModernKpiCard';
+export { default as TransportDashboardView } from './TransportDashboardView';

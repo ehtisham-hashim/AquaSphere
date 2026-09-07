@@ -1,4 +1,4 @@
-import { Search, Loader2, Calendar, CheckCircle, AlertCircle, UserCheck } from 'lucide-react';
+import { Search, Loader2, Calendar, CheckCircle, AlertCircle, UserCheck, Car } from 'lucide-react';
 import { EXPENSE_CATEGORIES, getExpenseCategoryColor } from '../../constants/expenses';
 import { useTenant } from '../../context/TenantContext';
 
@@ -97,8 +97,15 @@ export default function ExpensesTable({
                     Rs. {Math.round(Number(ex.amount)).toLocaleString()}
                   </td>
 
-                  <td className="table-td text-slate-700 text-xs max-w-[280px] truncate">
-                    {ex.remarks || '—'}
+                  <td className="table-td text-slate-700 text-xs max-w-[280px]">
+                    <div className="truncate">{ex.remarks || '—'}</div>
+                    {ex.vehicle && (
+                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-1 border border-slate-200/60">
+                        <Car size={11} className="text-brand-primary shrink-0" />
+                        <span className="font-semibold text-slate-800">{ex.vehicle.name}</span>
+                        <span className="text-slate-500 font-mono">({ex.vehicle.plateNumber})</span>
+                      </div>
+                    )}
                   </td>
 
                   <td className="table-td text-center">

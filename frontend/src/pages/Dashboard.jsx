@@ -2,13 +2,13 @@ import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
 import {
   OwnerDashboardView,
   AccountantDashboardView,
   AdminDashboardView,
   MarketingDashboardView,
-  ProductionDashboardView
+  ProductionDashboardView,
+  TransportDashboardView
 } from '../components/dashboard';
 
 export default function Dashboard() {
@@ -122,7 +122,7 @@ export default function Dashboard() {
     case 'MARKETING_MANAGER':
       return <MarketingDashboardView data={data} loading={dashboardLoading} />;
     case 'TRANSPORT_MANAGER':
-      return <Navigate to="/cars" replace />;
+      return <TransportDashboardView />;
     case 'OWNER':
     default:
       return <OwnerDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;

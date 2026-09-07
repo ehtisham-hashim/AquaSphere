@@ -4,6 +4,7 @@ import AdminClose from '../components/dailyClose/AdminClose';
 import ProductionClose from '../components/dailyClose/ProductionClose';
 import AccountantClose from '../components/dailyClose/AccountantClose';
 import MarketingClose from '../components/dailyClose/MarketingClose';
+import TransportClose from '../components/dailyClose/TransportClose';
 
 export default function DailyClosePage() {
   const { user, loading } = useAuth();
@@ -24,6 +25,7 @@ export default function DailyClosePage() {
   else if (role === 'PRODUCTION_MANAGER') content = <ProductionClose />;
   else if (role === 'ACCOUNTANT') content = <AccountantClose />;
   else if (role === 'MARKETING_MANAGER') content = <MarketingClose />;
+  else if (role === 'TRANSPORT_MANAGER') content = <TransportClose />;
   else {
     content = (
       <div className="card-surface p-8 text-center text-slate-500 text-xs font-semibold">

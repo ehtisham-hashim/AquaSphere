@@ -1,20 +1,28 @@
-import { useState, useRef } from 'react';
-import { X, Receipt, Upload, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Car } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { EXPENSE_CATEGORIES } from '../../constants/expenses';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 
 const API = API_URL;
+const TM_CATEGORIES = ['Fuel / Transport', 'Vehicle Repairs', 'Maintenance', 'Miscellaneous'];
 
-export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
+export default function LogExpenseModal({ isOpen, onClose, onSaved, defaultVehicleId = '', lockVehicle = false }) {
+  const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
+  const isTM = user?.role === 'TRANSPORT_MANAGER' || lockVehicle;
+  const availableCategories = isTM ? TM_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const [vehicles, setVehicles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const [form, setForm] = useState({ 
-    category: EXPENSE_CATEGORIES[0] || 'Fuel / Transport', 
+    category: isTM ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
     amount: '', 
     remarks: '', 
+    vehicleId: defaultVehicleId || '',
     expenseDate: new Date().toISOString().split('T')[0] 
   });
   
@@ -25,13 +33,36 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
   const [uploadError, setUploadError] = useState('');
   const fileRef = useRef(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    // Fetch active vehicles for transport logging
+    fetch(`${API}/vehicles`, {
+      headers: { 'x-tenant': tenant },
+      credentials: 'include'
+    })
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setVehicles(json.data.filter(v => v.isActive !== false));
+        }
+      })
+      .catch(() => {});
+  }, [isOpen, tenant]);
+
+  useEffect(() => {
+    if (defaultVehicleId) {
+      setForm(prev => ({ ...prev, vehicleId: defaultVehicleId }));
+    }
+  }, [defaultVehicleId]);
+
   if (!isOpen) return null;
 
   const resetForm = () => {
     setForm({ 
-      category: EXPENSE_CATEGORIES[0] || 'Fuel / Transport', 
+      category: isTM ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
       amount: '', 
       remarks: '', 
+      vehicleId: defaultVehicleId || '',
       expenseDate: new Date().toISOString().split('T')[0] 
     });
     setReceiptFile(null); 
@@ -98,6 +129,11 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
       if (!finalUrl) return;
     }
 
+    if (isTM && !form.vehicleId) {
+      setError('Please select a vehicle for this transport expense');
+      return;
+    }
+
     if (!finalUrl) { 
       setError('Receipt photo is mandatory — please upload the receipt first.'); 
       return; 
@@ -135,7 +171,9 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
       <div className="card-surface w-full max-w-md shadow-2xl overflow-hidden p-0">
         <div className="border-b border-slate-100 px-5 py-4 flex justify-between items-center bg-slate-50/50">
           <div>
-            <h3 className="font-bold text-base text-slate-800">Log New Expense</h3>
+            <h3 className="font-bold text-base text-slate-800">
+              {isTM ? 'Log Vehicle Expense' : 'Log New Expense'}
+            </h3>
             <span className="badge-brand mt-0.5">
               {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
             </span>
@@ -161,7 +199,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
                 onChange={e => setForm({...form, category: e.target.value})} 
                 required
               >
-                {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
@@ -179,6 +217,32 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
               />
             </div>
           </div>
+
+          {/* Vehicle Selector (Mandatory for TM, optional for other roles) */}
+          {(isTM || vehicles.length > 0) && (
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1 text-xs flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Car size={13} className="text-brand-primary" /> Vehicle / Car {isTM && <span className="text-amber-600">* MANDATORY</span>}
+                </span>
+                {!isTM && <span className="text-[10px] text-slate-400 font-normal">Optional</span>}
+              </label>
+              <select
+                className="select-base text-xs py-2 w-full"
+                value={form.vehicleId}
+                onChange={e => setForm({ ...form, vehicleId: e.target.value })}
+                required={isTM}
+                disabled={lockVehicle && !!defaultVehicleId}
+              >
+                <option value="">{isTM ? '-- Select Vehicle --' : 'None (General Expense)'}</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.plateNumber}) {v.model ? `• ${v.model}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block font-semibold text-slate-700 mb-1 text-xs">Expense Date *</label>

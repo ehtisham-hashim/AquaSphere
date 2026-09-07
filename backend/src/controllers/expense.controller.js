@@ -19,10 +19,10 @@ const VALID_CATEGORIES = [
   'Miscellaneous'
 ];
 
-/** Retrieves filtered list of expenses by date range with creator details */
+// ponytail: include vehicle info and filter for transport expenses
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { startDate, endDate, page, limit } = req.query;
+  const { startDate, endDate, page, limit, vehicleId, category } = req.query;
 
   const where = {};
   if (startDate || endDate) {
@@ -35,6 +35,23 @@ export const getExpenses = asyncHandler(async (req, res) => {
     }
   }
 
+  if (vehicleId) {
+    where.vehicleId = vehicleId;
+  }
+
+  if (category && category !== 'ALL') {
+    where.category = category;
+  }
+
+  // TM only sees transport-related expenses
+  if (req.user?.role === 'TRANSPORT_MANAGER') {
+    where.OR = [
+      { vehicleId: { not: null } },
+      { category: { in: ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'] } },
+      { createdById: req.user.id }
+    ];
+  }
+
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
   const skip = (pageNum - 1) * pageSize;
@@ -44,7 +61,10 @@ export const getExpenses = asyncHandler(async (req, res) => {
     prisma[`${prefix}Expense`].findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { createdBy: { select: { id: true, name: true, role: true } } },
+      include: {
+        createdBy: { select: { id: true, name: true, role: true } },
+        vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+      },
       skip,
       take: pageSize
     })
@@ -64,11 +84,20 @@ export const getExpenses = asyncHandler(async (req, res) => {
 /** Creates a new expense entry with mandatory receipt proof and audit logging */
 export const createExpense = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { category, amount, remarks, receiptUrl, expenseDate } = req.body;
+  const { category, amount, remarks, receiptUrl, expenseDate, vehicleId } = req.body;
 
   if (!category) throw new ApiError(400, 'Category is required');
   if (!VALID_CATEGORIES.includes(category)) {
     throw new ApiError(400, `Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
+  }
+
+  if (req.user?.role === 'TRANSPORT_MANAGER' && !vehicleId) {
+    throw new ApiError(400, 'Please select a car/vehicle for transport expenses');
+  }
+
+  if (vehicleId) {
+    const vehicleExists = await prisma[`${prefix}Vehicle`].findUnique({ where: { id: vehicleId } });
+    if (!vehicleExists) throw new ApiError(404, 'Selected vehicle not found');
   }
 
   const parsedAmount = Math.round(parseFloat(amount));
@@ -86,17 +115,21 @@ export const createExpense = asyncHandler(async (req, res) => {
       amount: parsedAmount,
       receiptUrl: receiptUrl.trim(),
       remarks: remarks || '',
+      vehicleId: vehicleId || null,
       createdById: req.user?.id || null,
       createdAt: expenseDate ? new Date(expenseDate) : new Date()
     },
-    include: { createdBy: { select: { id: true, name: true, role: true } } }
+    include: {
+      createdBy: { select: { id: true, name: true, role: true } },
+      vehicle: { select: { id: true, name: true, plateNumber: true } }
+    }
   });
 
   await createAuditLog(prefix, {
     action: 'EXPENSE_CREATED',
     entityType: 'EXPENSE',
     entityId: expense.id,
-    details: { category, amount: expense.amount },
+    details: { category, amount: expense.amount, vehicleId: expense.vehicleId },
     performedBy: req.user?.id || 'SYSTEM'
   });
 

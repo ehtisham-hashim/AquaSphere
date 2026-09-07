@@ -14,7 +14,7 @@ const OWNER_CHECKLIST = [
 ];
 
 export default function OwnerClose() {
-  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
+  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [submitting, setSubmitting] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [history, setHistory] = useState([]);
@@ -94,6 +94,7 @@ export default function OwnerClose() {
           <h3 className="text-base font-bold text-slate-800">Day Status</h3>
           <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
           <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
+          <StatusCard label="Transport (TM)" confirmed={tmConfirmed} confirmedBy={status?.tmConfirmedBy?.name} />
           <StatusCard label="Admin Lock" confirmed={isClosed} confirmedBy={status?.closedBy?.name} />
 
           {cashSummary && (

@@ -18,6 +18,7 @@ const PAGE_TITLES = {
   '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' },
   '/transport-expenses': { title: 'Transport Expenses', subtitle: 'Track fleet operations, fuel, and vehicle maintenance' },
   '/cars': { title: 'Vehicle Fleet', subtitle: 'Manage company vehicles, mileage, and service records' },
+  '/transport': { title: 'Fleet & Transport', subtitle: 'Manage company vehicles, operational status, and expenses' },
   '/users': { title: 'Users & Roles', subtitle: 'Manage system users and access permissions' },
   '/daily-close': { title: 'Daily Close', subtitle: 'Reconcile cash, sales, and end-of-day operations' },
   '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }

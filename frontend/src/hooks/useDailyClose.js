@@ -31,5 +31,6 @@ export function useDailyClose() {
     isClosed: Boolean(status?.adminConfirmed),
     pmConfirmed: Boolean(status?.pmConfirmed),
     mmConfirmed: Boolean(status?.mmConfirmed),
+    tmConfirmed: Boolean(status?.tmConfirmed),
   };
 }
