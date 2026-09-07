@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 /**
  * Global TanStack Query Client configured with SWR and anti-tab-discard caching.
@@ -27,7 +27,7 @@ export const queryClient = new QueryClient({
 // Setup persistent client synchronization with sessionStorage if available
 if (typeof window !== 'undefined' && window.sessionStorage) {
   try {
-    const sessionStoragePersister = createAsyncStoragePersister({
+    const sessionStoragePersister = createSyncStoragePersister({
       storage: window.sessionStorage,
       key: 'AQUASPHERE_QUERY_CACHE',
     });
