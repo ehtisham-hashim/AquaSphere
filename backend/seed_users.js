@@ -7,6 +7,7 @@ async function seedAdminUsers() {
   const pmPassword = await bcrypt.hash('pm123', 10);
   const mmPassword = await bcrypt.hash('mm123', 10);
   const accountantPassword = await bcrypt.hash('acc123', 10);
+  const tmPassword = await bcrypt.hash('tm123', 10);
 
   // AquaSphere Users
   const aqAdmin = await prisma.aquasphereUser.upsert({
@@ -37,6 +38,12 @@ async function seedAdminUsers() {
     where: { email: 'accountant@aquasphere.com' },
     update: { passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true },
     create: { name: 'AquaSphere Accountant', email: 'accountant@aquasphere.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
+  });
+
+  const aqTM = await prisma.aquasphereUser.upsert({
+    where: { email: 'tm@aquasphere.com' },
+    update: { passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true },
+    create: { name: 'AquaSphere Transport Manager', email: 'tm@aquasphere.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
   });
 
   // Wadaana Users
@@ -70,8 +77,14 @@ async function seedAdminUsers() {
     create: { name: 'Wadaana Accountant', email: 'accountant@wadaana.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
   });
 
+  const wdTM = await prisma.wadaanaUser.upsert({
+    where: { email: 'tm@wadaana.com' },
+    update: { passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true },
+    create: { name: 'Wadaana Transport Manager', email: 'tm@wadaana.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
+  });
+
   console.log('Seeded Users:');
-  console.log({ aqAdmin, aqOwner, aqPM, aqMM, aqAccountant, wdAdmin, wdOwner, wdPM, wdMM, wdAccountant });
+  console.log({ aqAdmin, aqOwner, aqPM, aqMM, aqAccountant, aqTM, wdAdmin, wdOwner, wdPM, wdMM, wdAccountant, wdTM });
   await prisma.$disconnect();
 }
 

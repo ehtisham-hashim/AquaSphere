@@ -3,7 +3,7 @@ import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
 import VendorPaymentModal from '../components/vendors/VendorPaymentModal';
@@ -11,7 +11,7 @@ import VendorDetailModal from '../components/vendors/VendorDetailModal';
 
 export default function Vendors() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -230,51 +230,41 @@ export default function Vendors() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              PROCUREMENT & PAYABLES
-            </span>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mt-1">Vendor Directory</h2>
-          <p className="text-slate-500 text-sm">Manage raw material suppliers & accounts payable ledger</p>
-        </div>
-
-        {canAddEdit && (
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition shadow-md flex items-center gap-2"
-          >
-            <Plus size={18} /> Add Vendor
-          </button>
-        )}
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+    <div className="space-y-4">
+      {/* Action Header */}
+      <div className="card-surface p-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input
             type="search"
             placeholder="Search vendor by name or phone..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-emerald-500 transition-colors"
+            className="input-base pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-600 font-medium cursor-pointer self-start sm:self-auto">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-          />
-          Show Archived Vendors
-        </label>
+        <div className="flex items-center gap-3 shrink-0">
+          <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+              className="rounded border-slate-300 text-[var(--brand)] focus:ring-[var(--brand)] h-4 w-4 cursor-pointer"
+            />
+            <span>Show Archived</span>
+          </label>
+
+          {canAddEdit && (
+            <button
+              onClick={handleOpenAdd}
+              className="btn-primary"
+            >
+              <Plus size={16} />
+              <span>Add Vendor</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Vendor Table */}

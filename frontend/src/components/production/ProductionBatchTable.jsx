@@ -81,33 +81,33 @@ export default function ProductionBatchTable({
   const [viewingBatch, setViewingBatch] = useState(null);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="table-container">
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+      <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
         <div>
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <Factory className="w-5 h-5 text-slate-600" />
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Factory className="w-4 h-4 text-brand" />
             Production History & Batch Audit Trail
           </h3>
-          <p className="text-xs text-slate-500">Read-only audit log of past production runs</p>
+          <p className="text-xs text-slate-500">Audit log of past production runs and formula deductions</p>
         </div>
-        <span className="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200">
+        <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
           Total Batches: {batches.length}
         </span>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 text-xs uppercase tracking-wider">
+        <table className="w-full text-left text-xs whitespace-nowrap">
+          <thead>
             <tr>
-              <th className="p-3.5">Batch ID & Date</th>
-              <th className="p-3.5">Produced Product & Breakdown</th>
-              <th className="p-3.5">Total Output</th>
-              <th className="p-3.5">Waste / Loss</th>
-              <th className="p-3.5">Status</th>
-              <th className="p-3.5">Recorded By</th>
-              {isOwner && <th className="p-3.5 text-center">Actions</th>}
+              <th className="table-th">Batch ID & Date</th>
+              <th className="table-th">Produced Product & Breakdown</th>
+              <th className="table-th">Total Output</th>
+              <th className="table-th">Waste / Loss</th>
+              <th className="table-th">Status</th>
+              <th className="table-th">Recorded By</th>
+              {isOwner && <th className="table-th text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -126,19 +126,19 @@ export default function ProductionBatchTable({
                 const wasteCount = getTotalWaste(b);
 
                 return (
-                  <tr key={b.id} className="hover:bg-slate-50/80 transition">
+                  <tr key={b.id} className="hover:bg-slate-50/80 transition-colors text-xs">
                     {/* 1. Batch ID & Date */}
-                    <td className="p-3.5">
-                      <span className="font-mono font-bold text-slate-800 block">
+                    <td className="table-td">
+                      <span className="font-mono font-bold text-brand block">
                         #{b.id.substring(0, 8).toUpperCase()}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-medium block">
-                        {new Date(b.createdAt).toLocaleString()}
+                      <span className="text-[11px] text-slate-400 font-mono block">
+                        {new Date(b.createdAt).toLocaleDateString()} {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
 
-                    {/* 2. Produced Product (Max 2 + more badge, clickable to view details) */}
-                    <td className="p-3.5">
+                    {/* 2. Produced Product */}
+                    <td className="table-td">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {visibleProducts.map((p, pIdx) => (
                           <button
@@ -146,7 +146,7 @@ export default function ProductionBatchTable({
                             type="button"
                             onClick={() => setViewingBatch(b)}
                             title="Click to view full batch details & consumptions"
-                            className={`px-2.5 py-1 rounded-lg font-bold text-xs shadow-2xs hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
+                            className={`px-2 py-0.5 rounded font-mono font-bold text-[11px] shadow-2xs hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
                           >
                             {p.name}: {p.qty}
                           </button>
@@ -155,7 +155,7 @@ export default function ProductionBatchTable({
                           <button
                             type="button"
                             onClick={() => setViewingBatch(b)}
-                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition border border-slate-200 shadow-2xs"
+                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] cursor-pointer transition border border-slate-200"
                             title="View all products produced in this batch"
                           >
                             +{remainingCount} more
@@ -165,43 +165,41 @@ export default function ProductionBatchTable({
                     </td>
 
                     {/* 3. Total Output */}
-                    <td className="p-3.5">
-                      <span className="font-bold text-slate-800">
+                    <td className="table-td">
+                      <span className="font-mono font-bold text-slate-800">
                         {totalOutput}
                       </span>
                     </td>
 
                     {/* 4. Waste / Loss */}
-                    <td className="p-3.5">
+                    <td className="table-td">
                       {wasteCount > 0 ? (
-                        <span className="text-rose-600 font-bold text-xs bg-rose-50 border border-rose-200 px-2 py-1 rounded-md inline-flex items-center gap-1">
-                          <AlertCircle size={12} />
+                        <span className="badge-danger text-[10px]">
+                          <AlertCircle size={11} />
                           {wasteCount} waste
                         </span>
                       ) : (
-                        <span className="text-slate-400 text-xs font-semibold">Clean</span>
+                        <span className="text-slate-400 text-[11px]">Clean</span>
                       )}
                     </td>
 
                     {/* 5. Status & Actions */}
-                    <td className="p-3.5 text-xs">
+                    <td className="table-td">
                       <div className="flex items-center gap-2">
                         {b.status === 'COMPLETED' ? (
-                          <span className="px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1 shadow-2xs">
-                            <CheckCircle2 size={12} />
+                          <span className="badge-success text-[10px]">
+                            <CheckCircle2 size={11} />
                             Completed
                           </span>
                         ) : (
                           <>
-                            <span className="px-2.5 py-1 rounded-full text-amber-800 bg-amber-50 border border-amber-200 font-bold text-xs">
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-amber-50 text-amber-800 border border-amber-200 font-bold">
                               Pending Verification
                             </span>
                             {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
                               <button
                                 onClick={() => onComplete(b.id)}
-                                className={`px-2.5 py-1 text-white rounded-lg text-xs font-bold transition shadow-sm ${
-                                  isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'
-                                }`}
+                                className="btn-primary text-[10px] py-1 px-2"
                               >
                                 Confirm & Complete
                               </button>
@@ -212,19 +210,19 @@ export default function ProductionBatchTable({
                     </td>
 
                     {/* 6. Recorded By */}
-                    <td className="p-3.5 text-xs text-slate-600 font-medium">
+                    <td className="table-td text-slate-600 font-medium">
                       {b.createdBy?.name || 'System'} ({b.createdBy?.role || 'MM'})
                     </td>
 
                     {/* 7. Delete (Owner Only) */}
                     {isOwner && (
-                      <td className="p-3.5 text-center">
+                      <td className="table-td text-right">
                         <button
                           onClick={() => onDelete(b)}
                           title="Delete Batch (Owner Only)"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          className="btn-danger text-xs p-1"
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={13} />
                         </button>
                       </td>
                     )}

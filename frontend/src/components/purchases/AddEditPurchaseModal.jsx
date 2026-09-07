@@ -97,7 +97,7 @@ export default function AddEditPurchaseModal({
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Vendor / Supplier *</label>
               <select
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-bold text-slate-800"
+                className="select-base"
                 value={vendorId}
                 onChange={e => setVendorId(e.target.value)}
                 required
@@ -111,7 +111,7 @@ export default function AddEditPurchaseModal({
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Purchase Date *</label>
               <input
                 type="date"
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-bold text-slate-800"
+                className="input-base"
                 value={purchaseDate}
                 onChange={e => setPurchaseDate(e.target.value)}
                 required
@@ -123,7 +123,7 @@ export default function AddEditPurchaseModal({
               <input
                 type="text"
                 placeholder="e.g. INV-9921"
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-medium text-slate-800"
+                className="input-base"
                 value={invoiceNo}
                 onChange={e => setInvoiceNo(e.target.value)}
               />
@@ -134,7 +134,7 @@ export default function AddEditPurchaseModal({
               <input
                 type="text"
                 placeholder="e.g. CH-4401"
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-medium text-slate-800"
+                className="input-base"
                 value={deliveryChallanNo}
                 onChange={e => setDeliveryChallanNo(e.target.value)}
               />
@@ -143,7 +143,7 @@ export default function AddEditPurchaseModal({
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Shipment Status</label>
               <select
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-bold text-slate-800"
+                className="select-base"
                 value={status}
                 onChange={e => setStatus && setStatus(e.target.value)}
               >
@@ -157,7 +157,7 @@ export default function AddEditPurchaseModal({
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Payment Status</label>
               <select
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-bold text-slate-800"
+                className="select-base"
                 value={paymentStatus}
                 onChange={e => setPaymentStatus(e.target.value)}
               >
@@ -169,7 +169,7 @@ export default function AddEditPurchaseModal({
             <div>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Delivered To *</label>
               <select
-                className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-bold text-slate-800"
+                className="select-base"
                 value={deliveredTo}
                 onChange={e => setDeliveredTo(e.target.value)}
                 required
@@ -310,7 +310,7 @@ export default function AddEditPurchaseModal({
             <input
               type="text"
               placeholder="e.g. Delivered via truck #4401"
-              className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-indigo-500 outline-none text-sm bg-white font-medium text-slate-800"
+              className="input-base"
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
             />
@@ -319,24 +319,24 @@ export default function AddEditPurchaseModal({
           <div className="flex justify-between items-center pt-3 border-t border-slate-100">
             <div>
               <span className="text-xs font-bold uppercase text-slate-400">Grand Total</span>
-              <p className="text-2xl font-black text-indigo-600">Rs. {grandTotal.toLocaleString()}</p>
+              <p className="text-2xl font-bold font-mono text-[var(--brand)]">Rs. {grandTotal.toLocaleString()}</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-sm font-bold text-slate-600 transition-all"
+                className="btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl text-sm font-bold shadow-sm hover:shadow transition-all flex items-center gap-2 disabled:opacity-50"
+                className="btn-primary flex items-center gap-1.5"
               >
-                {submitting && <Loader2 size={16} className="animate-spin" />}
-                {submitting ? 'Saving Purchase...' : 'Save Purchase'}
+                {submitting && <Loader2 size={15} className="animate-spin" />}
+                <span>{submitting ? 'Saving...' : 'Save Purchase'}</span>
               </button>
             </div>
           </div>

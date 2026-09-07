@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { fetchDailyCloseStatus } from '../services/dailyCloseService';
 import { toast } from 'sonner';
 
-// ponytail: single hook replaces ~40 lines of duplicated state+fetch in every component
+/**
+ * React hook to manage daily close reconciliation and submission state.
+ */
 export function useDailyClose() {
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,5 +31,6 @@ export function useDailyClose() {
     isClosed: Boolean(status?.adminConfirmed),
     pmConfirmed: Boolean(status?.pmConfirmed),
     mmConfirmed: Boolean(status?.mmConfirmed),
+    tmConfirmed: Boolean(status?.tmConfirmed),
   };
 }

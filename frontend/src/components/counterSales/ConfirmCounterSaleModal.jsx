@@ -27,7 +27,7 @@ export default function ConfirmCounterSaleModal({
         <div className="space-y-2 text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div className="flex justify-between">
             <span className="font-semibold text-slate-500">Sale Number:</span>
-            <span className="font-mono font-bold text-emerald-800">{liveSaleNumber}</span>
+            <span className="font-mono font-bold text-brand">{liveSaleNumber}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold text-slate-500">Selected Product:</span>
@@ -37,17 +37,17 @@ export default function ConfirmCounterSaleModal({
           </div>
           <div className="flex justify-between">
             <span className="font-semibold text-slate-500">Cash Collected:</span>
-            <span className="font-bold text-emerald-700">Rs. {Number(cashCollected || 0).toLocaleString()}</span>
+            <span className="font-mono font-bold text-emerald-600">Rs. {Number(cashCollected || 0).toLocaleString()}</span>
           </div>
           {numericCredit > 0 && (
             <div className="flex justify-between">
               <span className="font-semibold text-slate-500">Credit Amount:</span>
-              <span className="font-bold text-purple-700">Rs. {numericCredit.toLocaleString()}</span>
+              <span className="font-mono font-bold text-amber-600">Rs. {numericCredit.toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900 text-base">
             <span>Total Amount:</span>
-            <span>Rs. {(Number(cashCollected || 0) + numericCredit).toLocaleString()}</span>
+            <span className="font-mono font-bold text-brand">Rs. {(Number(cashCollected || 0) + numericCredit).toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-xs text-slate-500 pt-1">
             <span>Recorded By:</span>
@@ -59,18 +59,18 @@ export default function ConfirmCounterSaleModal({
           Are you sure you want to record this retail counter sale? Finished goods stock & water will be deducted automatically.
         </p>
 
-        <div className="flex gap-3 justify-end pt-2">
+        <div className="flex gap-2 justify-end pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl hover:bg-slate-50"
+            className="btn-secondary text-xs py-2 px-4"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md"
+            className="btn-primary text-xs py-2 px-5"
           >
             Yes, Record Sale
           </button>

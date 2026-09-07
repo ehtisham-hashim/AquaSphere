@@ -4,15 +4,9 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 
-/**
- * Validates and normalizes company parameter into a valid tenant prefix.
- *
- * @param {string} raw - Raw company parameter.
- * @returns {'aquasphere' | 'wadaana'}
- * @throws {ApiError} If tenant is invalid or missing.
- */
-function resolveTenant(raw) {
-  const comp = (raw || '').toLowerCase();
+// ponytail: fallback to request header if query.company is omitted
+function resolveTenant(raw, req) {
+  const comp = (raw || req?.headers?.['x-tenant'] || req?.tenant || '').toLowerCase();
   if (!['aquasphere', 'wadaana'].includes(comp)) throw new ApiError(400, 'Invalid or missing company parameter');
   return comp;
 }
@@ -25,7 +19,7 @@ function resolveTenant(raw) {
  * @returns {Promise<void>}
  */
 export const getUsers = asyncHandler(async (req, res) => {
-  const prefix = resolveTenant(req.query.company);
+  const prefix = resolveTenant(req.query.company, req);
   const users = await prisma[`${prefix}User`].findMany({
     select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true }
   });
@@ -42,8 +36,8 @@ export const getUsers = asyncHandler(async (req, res) => {
  */
 export const createUser = asyncHandler(async (req, res) => {
   const { name, email, password, role, company } = req.body;
-  if (!email || !password || !company) throw new ApiError(400, 'Email, password, and company are required');
-  const prefix = resolveTenant(company);
+  if (!email || !password) throw new ApiError(400, 'Email and password are required');
+  const prefix = resolveTenant(company, req);
 
   const userName = name || email.split('@')[0];
   const user = await prisma[`${prefix}User`].create({
@@ -63,8 +57,7 @@ export const createUser = asyncHandler(async (req, res) => {
 export const updateUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, email, role, company, password } = req.body;
-  if (!company) throw new ApiError(400, 'Company parameter is required for update');
-  const prefix = resolveTenant(company);
+  const prefix = resolveTenant(company, req);
 
   const updateData = {};
   if (name) updateData.name = name;
@@ -91,8 +84,8 @@ export const updateUser = asyncHandler(async (req, res) => {
 export const toggleUserStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { company, isActive } = req.body;
-  if (!company || typeof isActive !== 'boolean') throw new ApiError(400, 'Company and isActive (boolean) are required');
-  const prefix = resolveTenant(company);
+  if (typeof isActive !== 'boolean') throw new ApiError(400, 'isActive (boolean) is required');
+  const prefix = resolveTenant(company, req);
 
   const updatedUser = await prisma[`${prefix}User`].update({
     where: { id },

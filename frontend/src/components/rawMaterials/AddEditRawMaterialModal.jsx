@@ -473,25 +473,21 @@ export default function AddEditRawMaterialModal({
 
               {/* Footer */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
-                <span className={`text-xs font-bold ${activeCount > 0 ? (isWadaana ? 'text-sky-600' : 'text-emerald-600') : 'text-slate-400'}`}>
+                <span className={`text-xs font-mono font-bold ${activeCount > 0 ? 'text-brand' : 'text-slate-400'}`}>
                   {activeCount} material(s) ready to add
                 </span>
                 <div className="flex items-center gap-2">
                   <button 
                     type="button" 
                     onClick={onClose} 
-                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                    className="btn-secondary text-xs py-2 px-3"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={saving || activeCount === 0}
-                    className={`px-5 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isWadaana 
-                        ? 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700' 
-                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'
-                    }`}
+                    className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Check size={14} />
                     <span>Add Materials ({activeCount})</span>

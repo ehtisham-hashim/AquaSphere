@@ -1,5 +1,8 @@
 import { API_URL } from '../utils/api';
 
+/**
+ * Daily Close API service endpoints and helper functions
+ */
 const opts = (tenant) => ({
   headers: { 'x-tenant': tenant },
   credentials: 'include'
@@ -26,6 +29,9 @@ export const confirmPM = (date, tenant) =>
 
 export const confirmMM = (date, tenant) =>
   fetch(`${API_URL}/daily-close/mm-confirm`, postOpts(tenant, { date })).then(r => r.json());
+
+export const confirmTM = (date, tenant) =>
+  fetch(`${API_URL}/daily-close/tm-confirm`, postOpts(tenant, { date })).then(r => r.json());
 
 export const finalizeDay = (date, tenant) =>
   fetch(`${API_URL}/daily-close`, postOpts(tenant, { date })).then(r => r.json());

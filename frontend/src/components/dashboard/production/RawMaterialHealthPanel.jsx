@@ -9,15 +9,15 @@ const formatNum = (val) => {
 
 export default function RawMaterialHealthPanel({ sortedRawMaterials, recentPurchases }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Raw Material Stock Health (Top 5 Closest to Reorder Level) */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
+      <div className="card-surface p-4 space-y-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} className="text-slate-600" />
+            <AlertTriangle size={15} className="text-brand-primary" />
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Top 5 Reorder Alert Materials</h3>
           </div>
-          <Link to="/raw-materials" className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5">
+          <Link to="/raw-materials" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-0.5">
             View All <ChevronRight size={14} />
           </Link>
         </div>
@@ -61,13 +61,13 @@ export default function RawMaterialHealthPanel({ sortedRawMaterials, recentPurch
       </div>
 
       {/* Recent Raw Material Purchases */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
+      <div className="card-surface p-4 space-y-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <ShoppingCart size={16} className="text-slate-600" />
+            <ShoppingCart size={15} className="text-brand-primary" />
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Recent Purchases</h3>
           </div>
-          <Link to="/purchases" className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5">
+          <Link to="/purchases" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-0.5">
             View All <ChevronRight size={14} />
           </Link>
         </div>
@@ -84,7 +84,7 @@ export default function RawMaterialHealthPanel({ sortedRawMaterials, recentPurch
                 </div>
                 <div className="text-slate-500 font-medium flex justify-between text-[11px]">
                   <span className="truncate max-w-[200px]">{p.items.map(i => `${i.name} (${i.qty} ${i.unit})`).join(', ')}</span>
-                  <span className="font-black text-slate-900 shrink-0">Rs {p.grandTotal.toLocaleString()}</span>
+                  <span className="font-mono font-black text-slate-900 shrink-0">₨ {p.grandTotal.toLocaleString()}</span>
                 </div>
               </div>
             ))

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Calendar } from 'lucide-react';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 import { generateSaleNumber } from '../constants/counterSale';
@@ -18,7 +18,7 @@ import {
 
 export default function CounterSales() {
   const { user } = useAuth();
-  const isWadaana = getCompanyFromCookie() === 'wadaana';
+  const { isWadaana } = useTenant();
 
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -213,7 +213,7 @@ export default function CounterSales() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto space-y-4">
+    <div className="space-y-4">
       <CounterSalesHeader 
         onExportCSV={handleExportCSV} 
         hasSales={filteredSales.length > 0} 
@@ -243,7 +243,7 @@ export default function CounterSales() {
             onClick={() => setActiveTab('new-sale')}
             className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'new-sale'
-                ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-2xs'
+                ? 'bg-white border-slate-200 text-brand border-b-2 border-b-brand shadow-2xs'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -255,7 +255,7 @@ export default function CounterSales() {
           onClick={() => setActiveTab('history')}
           className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
             activeTab === 'history'
-              ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-2xs'
+              ? 'bg-white border-slate-200 text-brand border-b-2 border-b-brand shadow-2xs'
               : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
           }`}
         >

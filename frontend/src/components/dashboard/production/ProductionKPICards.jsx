@@ -11,14 +11,14 @@ export default function ProductionKPICards({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Today's Output */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Today&apos;s Output</span>
           <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
             <Factory size={16} />
           </div>
         </div>
-        <div className="text-2xl font-black text-slate-900">
+        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
           {isWadaana ? (
             Number(todaysProduction?.totalProduced || 0).toLocaleString()
           ) : (
@@ -35,14 +35,14 @@ export default function ProductionKPICards({
       </div>
 
       {/* Factory Stock */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Factory Floor Stock</span>
           <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
             <Building size={16} />
           </div>
         </div>
-        <div className="text-2xl font-black text-slate-900">
+        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
           {(finishedGoods || []).reduce((sum, item) => sum + Number(item.factoryQty || 0), 0).toLocaleString()}
           <span className="text-xs font-semibold text-slate-500 ml-1">
             {isWadaana ? 'Bottles' : 'Units'}
@@ -54,14 +54,14 @@ export default function ProductionKPICards({
       </div>
 
       {/* Raw Material Health */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Raw Material Health</span>
           <div className={`p-1.5 rounded-lg ${lowStockCount > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
             <AlertTriangle size={16} />
           </div>
         </div>
-        <div className="text-2xl font-black text-slate-900">
+        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
           {lowStockCount > 0 ? lowStockCount : 'Healthy'}
           <span className="text-xs font-semibold text-slate-500 ml-1">
             {lowStockCount > 0 ? 'Low Stock' : 'Stock'}
@@ -73,7 +73,7 @@ export default function ProductionKPICards({
       </div>
 
       {/* Daily Close Status */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Daily Close</span>
           <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">

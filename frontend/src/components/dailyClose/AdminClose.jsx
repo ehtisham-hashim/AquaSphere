@@ -42,7 +42,7 @@ export default function AdminClose() {
   const m = status?.marketingTotals || {};
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto p-6">
+    <div className="space-y-4 max-w-5xl mx-auto">
       <DailyCloseHeader
         label="ADMIN VERIFICATION"
         labelColor="indigo"
@@ -56,32 +56,32 @@ export default function AdminClose() {
       {isClosed ? (
         <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Department Status + Stats */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-            <h3 className="text-lg font-bold text-slate-800">Department Status</h3>
+          <div className="card-surface p-5 space-y-3">
+            <h3 className="text-base font-bold text-slate-800">Department Status</h3>
             <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
             <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-4">
+            <div className="grid grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-3">
               <div>
-                <span className="text-slate-500 block">19L Produced</span>
-                <strong className="text-blue-900">{p.total19L || 0}</strong>
+                <span className="text-slate-400 block text-[11px] font-bold uppercase">19L Produced</span>
+                <strong className="text-slate-800 font-mono font-bold text-sm">{p.total19L || 0}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Orders</span>
-                <strong className="text-purple-900">{m.ordersCount || 0}</strong>
+                <span className="text-slate-400 block text-[11px] font-bold uppercase">Orders</span>
+                <strong className="text-slate-800 font-mono font-bold text-sm">{m.ordersCount || 0}</strong>
               </div>
               <div>
-                <span className="text-slate-500 block">Orders Worth</span>
-                <strong className="text-emerald-800">Rs {Number(m.ordersTotalWorth || 0).toLocaleString()}</strong>
+                <span className="text-slate-400 block text-[11px] font-bold uppercase">Orders Worth</span>
+                <strong className="text-brand-primary font-mono font-bold text-sm">Rs. {Number(m.ordersTotalWorth || 0).toLocaleString()}</strong>
               </div>
               {cashSummary && (
                 <div>
-                  <span className="text-slate-500 block">Net Cash</span>
-                  <strong className={cashSummary.netCash >= 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                    Rs {cashSummary.netCash.toLocaleString()}
+                  <span className="text-slate-400 block text-[11px] font-bold uppercase">Net Cash</span>
+                  <strong className={`font-mono font-bold text-sm ${cashSummary.netCash >= 0 ? 'text-brand-primary' : 'text-rose-600'}`}>
+                    Rs. {cashSummary.netCash.toLocaleString()}
                   </strong>
                 </div>
               )}
@@ -89,11 +89,11 @@ export default function AdminClose() {
           </div>
 
           {/* Admin Read-Only Audit Status */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 flex flex-col justify-between">
+          <div className="card-surface p-5 space-y-3 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 text-indigo-600 mb-1">
-                <ShieldCheck size={20} />
-                <h3 className="text-lg font-bold text-slate-800">Daily Close Audit Status</h3>
+                <ShieldCheck size={18} />
+                <h3 className="text-base font-bold text-slate-800">Daily Close Audit Status</h3>
               </div>
               <p className="text-xs text-slate-500">
                 Admin view is read-only. Financial lock and daily close finalization are executed by the Accountant or Owner.

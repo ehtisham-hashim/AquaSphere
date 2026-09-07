@@ -44,7 +44,7 @@ export default function ProductionClose() {
   const hasBlockers = (status?.pendingBatchesCount > 0) || (status?.negativeStockCount > 0);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="space-y-4 max-w-4xl mx-auto">
       <DailyCloseHeader
         label="PRODUCTION"
         labelColor="blue"
@@ -60,24 +60,24 @@ export default function ProductionClose() {
       ) : (
         <>
           {/* Production Stats */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
-            <h3 className="text-lg font-bold text-slate-800">Production Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+          <div className="card-surface p-5 space-y-4">
+            <h3 className="text-base font-bold text-slate-800">Production Summary</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <div>
-                <p className="text-xs text-slate-500 font-semibold">19L Bottles</p>
-                <p className="text-xl font-black text-blue-900">{p.total19L || 0}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">19L Bottles</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.total19L || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-semibold">1.5L Packs</p>
-                <p className="text-xl font-black text-indigo-900">{p.packs15L || 0}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">1.5L Packs</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.packs15L || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-semibold">0.5L Packs</p>
-                <p className="text-xl font-black text-purple-900">{p.packs05L || 0}</p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">0.5L Packs</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.packs05L || 0}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-semibold">Waste / Breakage</p>
-                <p className="text-xl font-black text-rose-600">
+                <p className="text-[11px] text-slate-400 font-bold uppercase">Waste / Breakage</p>
+                <p className="text-lg sm:text-xl font-black font-mono text-rose-600">
                   {(p.waste19L || 0) + (p.broken15L || 0) + (p.broken05L || 0)}
                 </p>
               </div>
@@ -85,13 +85,13 @@ export default function ProductionClose() {
 
             {/* Material Consumption */}
             {materials.length > 0 && (
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Raw Material Consumption</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {materials.map(m => (
                     <div key={m.name} className="text-xs">
                       <span className="text-slate-600">{m.name}:</span>{' '}
-                      <strong className="text-slate-900">{m.quantity} {m.unit}</strong>
+                      <strong className="text-slate-900 font-mono">{m.quantity} {m.unit}</strong>
                     </div>
                   ))}
                 </div>

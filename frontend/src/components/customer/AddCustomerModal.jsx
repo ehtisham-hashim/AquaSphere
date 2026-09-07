@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { X, UserPlus, Upload, Image as ImageIcon } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 import CustomerFormFields from './CustomerFormFields';
+import { useTenant } from '../../context/TenantContext';
 
 const initialFormData = {
   name: '',
@@ -32,7 +33,7 @@ const initialFormData = {
 };
 
 export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
-  const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
+  const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
 
   const [formData, setFormData] = useState(initialFormData);
@@ -222,20 +223,18 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+          <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || uploadingImage}
-              className={`${
-                isWadaana ? 'bg-[#0ea5e9] hover:bg-[#0284c7]' : 'bg-emerald-600 hover:bg-emerald-700'
-              } text-white px-6 py-2.5 rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50`}
+              className="btn-primary"
             >
               {saving ? 'Saving...' : 'Save Customer'}
             </button>

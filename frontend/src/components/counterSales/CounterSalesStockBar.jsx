@@ -10,33 +10,33 @@ export default function CounterSalesStockBar({
   available19LBottles 
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-      <div className="space-y-0.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="card-surface p-3.5 space-y-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-brand flex items-center gap-1.5">
           <Package size={13}/> 0.5L Finished Packs
         </span>
-        <div className="text-lg font-black text-slate-800">
-          {full05L.toLocaleString()} Packs {loose05L > 0 && <span className="text-xs text-emerald-600 font-bold">+ {loose05L} loose</span>}
+        <div className="text-base sm:text-lg font-mono font-bold text-slate-800">
+          {full05L.toLocaleString()} Packs {loose05L > 0 && <span className="text-xs text-brand font-semibold font-sans">+ {loose05L} loose</span>}
         </div>
-        <span className="text-[10px] text-slate-500 font-medium">Total: {totalBottles05L.toLocaleString()} Bottles (12/pack)</span>
+        <span className="text-[10px] text-slate-400 font-medium block">Total: {totalBottles05L.toLocaleString()} bottles (12/pack)</span>
       </div>
 
-      <div className="space-y-0.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
+      <div className="card-surface p-3.5 space-y-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-sky-600 flex items-center gap-1.5">
           <Package size={13}/> 1.5L Finished Packs
         </span>
-        <div className="text-lg font-black text-slate-800">
-          {full15L.toLocaleString()} Packs {loose15L > 0 && <span className="text-xs text-purple-600 font-bold">+ {loose15L} loose</span>}
+        <div className="text-base sm:text-lg font-mono font-bold text-slate-800">
+          {full15L.toLocaleString()} Packs {loose15L > 0 && <span className="text-xs text-sky-600 font-semibold font-sans">+ {loose15L} loose</span>}
         </div>
-        <span className="text-[10px] text-slate-500 font-medium">Total: {totalBottles15L.toLocaleString()} Bottles (6/pack)</span>
+        <span className="text-[10px] text-slate-400 font-medium block">Total: {totalBottles15L.toLocaleString()} bottles (6/pack)</span>
       </div>
 
-      <div className="space-y-0.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1">
+      <div className="card-surface p-3.5 space-y-1">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
           <Droplets size={13}/> 19L Refill Bottles
         </span>
-        <div className="text-lg font-black text-slate-800">{available19LBottles.toLocaleString()} Bottles</div>
-        <span className="text-[10px] text-slate-500 font-medium">24L water per refill bottle</span>
+        <div className="text-base sm:text-lg font-mono font-bold text-slate-800">{available19LBottles.toLocaleString()} Bottles</div>
+        <span className="text-[10px] text-slate-400 font-medium block">24L water per refill bottle</span>
       </div>
     </div>
   );

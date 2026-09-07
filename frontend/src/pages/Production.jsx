@@ -5,7 +5,7 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import DeleteConfirmationModal from '../components/ui/DeleteConfirmationModal';
@@ -16,8 +16,7 @@ import CompleteBatchModal from '../components/production/CompleteBatchModal';
 const API = API_URL;
 
 export default function Production() {
-  const tenant = getCompanyFromCookie();
-  const isWadaana = tenant === 'wadaana';
+  const { tenant, isWadaana } = useTenant();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
 
@@ -171,32 +170,29 @@ export default function Production() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${isWadaana ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-              {isWadaana ? 'WADAANA PRODUCTION' : 'PRODUCTION MANAGER'}
-            </span>
-            <span className="text-xs text-slate-500">
-              {isWadaana ? 'Factory Single Bottle Production Floor' : 'Strict Chemical & Raw Material Formula Control'}
+            <span className="badge-brand text-[10px] uppercase tracking-wider font-bold">
+              {isWadaana ? 'Wadaana Production' : 'Production Manager'}
             </span>
           </div>
-          <h1 className="text-2xl font-bold mt-2 text-slate-800">Factory Floor & Batch Execution</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {isWadaana ? 'Log single preform bottle production runs in bulk.' : 'Log pack output to trigger exact-decimal raw material auto-deductions and breakage tracking.'}
+          <h2 className="text-xl font-bold text-slate-800 mt-1">Factory Floor & Batch Execution</h2>
+          <p className="text-slate-500 text-xs">
+            {isWadaana ? 'Log single preform bottle production runs in bulk.' : 'Log pack output with automatic raw material formula deductions.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className={`px-5 py-2.5 ${isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center gap-2`}
+              className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5"
             >
-              <Plus className="w-5 h-5" />
-              Log Production Batch
+              <Plus size={15} />
+              <span>Log Production Batch</span>
             </button>
           )}
         </div>

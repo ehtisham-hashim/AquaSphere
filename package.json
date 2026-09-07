@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"@tanstack/query-sync-storage-persister": "^5.102.8"
+	}
+}

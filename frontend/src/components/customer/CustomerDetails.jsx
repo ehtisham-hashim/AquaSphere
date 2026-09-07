@@ -12,17 +12,18 @@ import CustomerAlerts from './CustomerAlerts';
 import BottleAdjustmentModal from './BottleAdjustmentModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 
 // ponytail: two-column flat layout eliminates container fatigue; inline image placeholder uses lucide User icon
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted }) {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const tenant = (localStorage.getItem('tenant') || 'aquasphere').toLowerCase();
   const isWadaana = tenant === 'wadaana';
 
   // Fetch full customer details with history
@@ -260,17 +261,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
               
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Current Debt</span>
-                <span className={`text-lg font-bold block mt-1 ${isOverLimit ? 'text-red-600' : (currentBalance > 0 ? 'text-amber-600' : 'text-slate-800')}`}>
+                <span className={`text-lg font-bold font-mono block mt-1 ${isOverLimit ? 'text-rose-600' : (currentBalance > 0 ? 'text-amber-600' : 'text-slate-800')}`}>
                   Rs. {currentBalance.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">
                   {limitVal > 0 ? `Limit: Rs. ${limitVal.toLocaleString()}` : 'No Limit'}
                 </span>
               </div>
 
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Security Deposit</span>
-                <span className="text-lg font-bold text-slate-800 block mt-1">
+                <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
                   Rs. {(c.deposit || 0).toLocaleString()}
                 </span>
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -282,7 +283,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
                   {!isWadaana ? '19L Bottle Custody' : 'Credit Terms'}
                 </span>
-                <span className="text-lg font-bold text-slate-800 block mt-1">
+                <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
                   {!isWadaana ? `${c.cachedBottleBalance || 0} Empty` : `${c.creditDuration || 1} Days`}
                 </span>
                 {!isWadaana ? (

@@ -3,26 +3,26 @@ import { Factory, ChevronRight } from 'lucide-react';
 
 export default function ProductionRecentRuns({ recentBatches, isWadaana }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
-      <div className="p-3.5 border-b border-slate-100 bg-slate-50/60 flex justify-between items-center">
+    <div className="card-surface overflow-hidden">
+      <div className="p-3.5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Factory size={16} className="text-slate-600" />
-          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Recent Production Runs Table</h3>
+          <Factory size={15} className="text-brand-primary" />
+          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Recent Production Runs</h3>
         </div>
-        <Link to="/production" className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5">
+        <Link to="/production" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-0.5">
           View All <ChevronRight size={14} />
         </Link>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left whitespace-nowrap text-xs">
-          <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+          <thead>
             <tr>
-              <th className="p-3">Batch ID</th>
-              <th className="p-3">Output Produced</th>
-              <th className="p-3">Waste/Breakage</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Logged By</th>
+              <th className="table-th">Batch ID</th>
+              <th className="table-th">Output Produced</th>
+              <th className="table-th">Waste/Breakage</th>
+              <th className="table-th">Status</th>
+              <th className="table-th">Logged By</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700">

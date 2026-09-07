@@ -5,3 +5,4 @@ export { default as Card } from './Card';
 export { default as Badge } from './Badge';
 export { default as DeleteConfirmationModal } from './DeleteConfirmationModal';
 export { default as TimeframeDropdown } from './TimeframeDropdown';
+export { default as ImagePreviewModal } from './ImagePreviewModal';

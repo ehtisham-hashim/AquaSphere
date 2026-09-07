@@ -22,15 +22,25 @@
   --ring: oklch(0.708 0 0);
   --border: oklch(0.922 0 0);
   --accent: oklch(0.97 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+
+  /* Default / AquaSphere Tenant Theme (Marine Emerald) */
+  --brand: #059669;
+  --brand-hover: #047857;
+  --brand-light: #ecfdf5;
+  --brand-text: #065f46;
+  --brand-border: #a7f3d0;
+  --brand-ring: rgba(5, 150, 105, 0.22);
+}
+
+/* Wadaana Tenant Theme (Electric Sky Blue) */
+html[data-tenant="wadaana"] {
+  --brand: #0284c7;
+  --brand-hover: #0369a1;
+  --brand-light: #f0f9ff;
+  --brand-text: #075985;
+  --brand-border: #bae6fd;
+  --brand-ring: rgba(2, 132, 199, 0.22);
 }
 
 .dark {
@@ -52,18 +62,19 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @theme inline {
-  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --font-sans: 'Montserrat', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-light: var(--brand-light);
+  --color-brand-text: var(--brand-text);
+  --color-brand-border: var(--brand-border);
+  --color-brand-ring: var(--brand-ring);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -82,6 +93,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -98,49 +110,78 @@
 }
 
 @layer components {
-  .app-shell {
-    @apply min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900;
-  }
-  .surface-card {
-    @apply rounded-[28px] border border-slate-200/70 bg-white/95 shadow-[0_30px_90px_-40px_rgba(15,23,42,0.25)];
-  }
-  .surface-panel {
-    @apply rounded-3xl border border-slate-200/70 bg-white shadow-sm;
-  }
-  .panel-header {
-    @apply flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-200/70;
-  }
-  .section-heading {
-    @apply text-slate-900 text-xs font-semibold uppercase tracking-[0.24em];
-  }
-  .section-subtitle {
-    @apply text-slate-500 text-sm;
-  }
-  .input-field {
-    @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-200;
-  }
-  .select-field {
-    @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-200;
-  }
-  .text-area {
-    @apply w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-200 resize-none;
-  }
+  /* Dynamic Buttons */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition duration-200 hover:bg-slate-800 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition duration-150 hover:bg-brand-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:bg-slate-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-xs transition duration-150 hover:bg-slate-50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
-  .btn-accent {
-    @apply inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/15 transition duration-200 hover:bg-emerald-700 active:scale-[0.98];
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-brand text-brand bg-transparent px-4 py-2.5 text-sm font-semibold transition duration-150 hover:bg-brand-light active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center rounded-2xl bg-rose-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-600/15 transition duration-200 hover:bg-rose-700 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition duration-150 hover:bg-rose-700 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
-  .badge-pill {
-    @apply inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600;
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition duration-150 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98];
   }
-  .card-grid {
-    @apply grid gap-5;
+
+  /* Containers & Surfaces */
+  .card-surface {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-shadow duration-150;
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-4 px-5 py-4 border-b border-slate-100;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  /* Form Controls */
+  .input-base {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition duration-150 placeholder:text-slate-400 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-ring disabled:bg-slate-100 disabled:text-slate-400;
+  }
+  .select-base {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition duration-150 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-ring disabled:bg-slate-100 disabled:text-slate-400;
+  }
+  .textarea-base {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition duration-150 placeholder:text-slate-400 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-ring resize-none;
+  }
+
+  /* Tables */
+  .table-container {
+    @apply w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-xs;
+  }
+  .table-th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/80 border-b border-slate-200;
+  }
+  .table-td {
+    @apply px-4 py-3.5 text-sm text-slate-700 border-b border-slate-100 font-medium;
+  }
+
+  /* Badges */
+  .badge-brand {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-light text-brand-text border border-brand-border;
+  }
+  .badge-neutral {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200;
+  }
+  .badge-success {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-danger {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200;
+  }
+
+  /* Action Headers */
+  .action-header {
+    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1;
+  }
+  .action-title {
+    @apply text-xl sm:text-2xl font-bold tracking-tight text-slate-900;
+  }
+  .action-subtitle {
+    @apply text-xs text-slate-500 mt-0.5;
   }
 }

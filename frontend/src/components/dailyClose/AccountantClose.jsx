@@ -34,7 +34,7 @@ export default function AccountantClose() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="space-y-4 max-w-4xl mx-auto">
       <DailyCloseHeader
         label="ACCOUNTING & FINANCE"
         labelColor="emerald"
@@ -51,24 +51,24 @@ export default function AccountantClose() {
         <>
           {/* Cash Summary */}
           {cash && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-4">Financial Summary</h3>
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="card-surface p-5 space-y-3">
+              <h3 className="text-base font-bold text-slate-800">Financial Summary</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Order Cash</span>
-                  <span className="text-base font-black text-blue-900">Rs. {cash.orderCash.toLocaleString()}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Order Cash</span>
+                  <span className="text-sm sm:text-base font-black font-mono text-slate-800">Rs. {cash.orderCash.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Counter Sales</span>
-                  <span className="text-base font-black text-emerald-800">Rs. {cash.counterSales.toLocaleString()}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Counter Sales</span>
+                  <span className="text-sm sm:text-base font-black font-mono text-brand-primary">Rs. {cash.counterSales.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Total Expenses</span>
-                  <span className="text-base font-black text-rose-700">Rs. {cash.totalExpenses.toLocaleString()}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Total Expenses</span>
+                  <span className="text-sm sm:text-base font-black font-mono text-rose-600">Rs. {cash.totalExpenses.toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Net Cash</span>
-                  <span className={`text-base font-black ${cash.netCash >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-0.5">Net Cash</span>
+                  <span className={`text-sm sm:text-base font-black font-mono ${cash.netCash >= 0 ? 'text-brand-primary' : 'text-rose-600'}`}>
                     Rs. {cash.netCash.toLocaleString()}
                   </span>
                 </div>
@@ -77,8 +77,8 @@ export default function AccountantClose() {
           )}
 
           {/* Close Status */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Day Close Status</h3>
+          <div className="card-surface p-5 space-y-2.5">
+            <h3 className="text-base font-bold text-slate-800 mb-2">Day Close Status</h3>
             <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
             <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
             <StatusCard label="Admin Finalization" confirmed={isClosed} confirmedBy={status?.closedBy?.name} />

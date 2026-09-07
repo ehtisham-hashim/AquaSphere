@@ -27,35 +27,35 @@ export default function VendorDetailModal({
 
         {/* Overview Metric Cards */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <span className="text-slate-500 font-semibold block mb-1">Last Purchase Date</span>
-              <span className="text-sm font-bold text-slate-800 flex items-center gap-1">
-                <Calendar size={14} className="text-slate-400" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="card-surface p-3">
+              <span className="text-slate-400 font-semibold block mb-0.5 text-[11px] uppercase">Last Purchase</span>
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                <Calendar size={13} className="text-slate-400" />
                 {selectedVendorDetail.lastPurchaseDate 
                   ? new Date(selectedVendorDetail.lastPurchaseDate).toLocaleDateString()
                   : 'No purchases'}
               </span>
             </div>
 
-            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-              <span className="text-slate-500 font-semibold block mb-1">Total Purchases</span>
-              <span className="text-sm font-black text-blue-900">
+            <div className="card-surface p-3">
+              <span className="text-slate-400 font-semibold block mb-0.5 text-[11px] uppercase">Total Purchases</span>
+              <span className="text-sm font-bold font-mono text-slate-900">
                 Rs {Number(selectedVendorDetail.totalPurchases || 0).toLocaleString()}
               </span>
             </div>
 
-            <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
-              <span className="text-slate-500 font-semibold block mb-1">Total Paid</span>
-              <span className="text-sm font-black text-emerald-800">
+            <div className="card-surface p-3">
+              <span className="text-slate-400 font-semibold block mb-0.5 text-[11px] uppercase">Total Paid</span>
+              <span className="text-sm font-bold font-mono text-emerald-700">
                 Rs {Number(selectedVendorDetail.totalPaid || 0).toLocaleString()}
               </span>
             </div>
 
-            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 flex justify-between items-center">
+            <div className="card-surface p-3 flex justify-between items-center">
               <div>
-                <span className="text-slate-500 font-semibold block mb-1">Payable Balance</span>
-                <span className="text-sm font-black text-purple-900">
+                <span className="text-slate-400 font-semibold block mb-0.5 text-[11px] uppercase">Payable Balance</span>
+                <span className="text-sm font-bold font-mono text-[var(--brand)]">
                   Rs {Number(selectedVendorDetail.payableBalance || 0).toLocaleString()}
                 </span>
               </div>
@@ -63,51 +63,51 @@ export default function VendorDetailModal({
                 <button
                   onClick={() => onOpenPayment(selectedVendorDetail)}
                   disabled={Number(selectedVendorDetail.payableBalance || 0) <= 0}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors inline-flex items-center gap-1 ${
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition inline-flex items-center gap-1 ${
                     Number(selectedVendorDetail.payableBalance || 0) <= 0
-                      ? 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-60'
-                      : 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300'
+                      ? 'text-slate-300 bg-slate-100 cursor-not-allowed'
+                      : 'btn-primary py-1 px-2.5'
                   }`}
                 >
-                  <CreditCard size={13} /> Pay
+                  <CreditCard size={12} /> Pay
                 </button>
               )}
             </div>
           </div>
 
           {/* Profile Tabs */}
-          <div className="flex border-b border-slate-200 gap-2">
+          <div className="flex border-b border-slate-200 gap-1">
             <button
               onClick={() => setProfileTab('ledger')}
-              className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
                 profileTab === 'ledger'
-                  ? 'bg-white border-slate-200 text-indigo-700 border-b-2 border-b-indigo-600'
+                  ? 'bg-white border-slate-200 text-[var(--brand)] border-b-2 border-b-[var(--brand)]'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
-              <FileText size={14} /> Vendor Payable Registry (Ledger)
+              <FileText size={13} /> Vendor Ledger
             </button>
 
             <button
               onClick={() => setProfileTab('purchases')}
-              className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
                 profileTab === 'purchases'
-                  ? 'bg-white border-slate-200 text-blue-700 border-b-2 border-b-blue-600'
+                  ? 'bg-white border-slate-200 text-[var(--brand)] border-b-2 border-b-[var(--brand)]'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
-              <ShoppingCart size={14} /> Purchase History ({selectedVendorDetail.purchases?.length || 0})
+              <ShoppingCart size={13} /> Purchases ({selectedVendorDetail.purchases?.length || 0})
             </button>
 
             <button
               onClick={() => setProfileTab('payments')}
-              className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
+              className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-1.5 border-t border-x ${
                 profileTab === 'payments'
-                  ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600'
+                  ? 'bg-white border-slate-200 text-[var(--brand)] border-b-2 border-b-[var(--brand)]'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Receipt size={14} /> Payment History ({selectedVendorDetail.payments?.length || 0})
+              <Receipt size={13} /> Payments ({selectedVendorDetail.payments?.length || 0})
             </button>
           </div>
 
@@ -254,7 +254,7 @@ export default function VendorDetailModal({
 
         {/* Footer */}
         <div className="bg-slate-50 border-t border-slate-100 px-6 py-3 flex justify-end shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition">
+          <button onClick={onClose} className="btn-secondary">
             Close Profile
           </button>
         </div>

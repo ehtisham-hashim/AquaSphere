@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getCompanyFromCookie, setCompanyCookie } from '../../utils/companyCookie';
-import { API_URL } from '../../utils/api';
+import { useTenant } from '../../context/TenantContext';
+import { API_URL, clearCache } from '../../utils/api';
 import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
 
 const PAGE_TITLES = {
@@ -15,17 +15,23 @@ const PAGE_TITLES = {
   '/purchases': { title: 'Vendor Purchases', subtitle: 'Record raw material purchases and vendor invoices' },
   '/vendors': { title: 'Vendors Directory', subtitle: 'Manage vendor accounts and purchase ledgers' },
   '/expenses': { title: 'Factory Expenses', subtitle: 'Track operational expenses and receipts' },
-  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' }
+  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' },
+  '/transport-expenses': { title: 'Transport Expenses', subtitle: 'Track fleet operations, fuel, and vehicle maintenance' },
+  '/cars': { title: 'Vehicle Fleet', subtitle: 'Manage company vehicles, mileage, and service records' },
+  '/transport': { title: 'Fleet & Transport', subtitle: 'Manage company vehicles, operational status, and expenses' },
+  '/users': { title: 'Users & Roles', subtitle: 'Manage system users and access permissions' },
+  '/daily-close': { title: 'Daily Close', subtitle: 'Reconcile cash, sales, and end-of-day operations' },
+  '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }
 };
 
 const ACTION_CONFIG = {
   ORDER_CREATED: { title: 'New Order Created', icon: AlertTriangle, color: 'text-amber-600' },
   ORDER_DELIVERED: { title: 'Order Delivered', icon: CheckCircle, color: 'text-emerald-600' },
   ORDER_PAYMENT_SETTLED: { title: 'Payment Settled', icon: CheckCircle, color: 'text-emerald-600' },
-  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-sky-600' },
-  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-sky-600' },
-  CUSTOMER_DELETED: { title: 'Customer Account Removed', icon: Trash2, color: 'text-rose-600' },
-  PRODUCTION_BATCH_CREATED: { title: 'Factory Production Batch', icon: Factory, color: 'text-indigo-600' },
+  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  CUSTOMER_DELETED: { title: 'Customer Record Deleted', icon: Trash2, color: 'text-rose-600' },
+  PRODUCTION_BATCH_CREATED: { title: 'Production Batch Initiated', icon: Factory, color: 'text-sky-600' },
   PRODUCTION_BATCH_COMPLETED: { title: 'Production Batch Completed', icon: Factory, color: 'text-emerald-600' }
 };
 
@@ -85,8 +91,10 @@ const formatAlertDetails = (log) => {
   return raw;
 };
 
-export default function TopNav({ onMenuClick }) {
+export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapsed = false }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { tenant: currentTenant, isWadaana, setTenant } = useTenant();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
@@ -98,19 +106,18 @@ export default function TopNav({ onMenuClick }) {
   const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
 
-  const currentPage = PAGE_TITLES[location.pathname] || {
-    title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
-    subtitle: 'AquaSphere Management OS'
-  };
-
-  const currentTenant = getCompanyFromCookie();
-  const isWadaana = currentTenant === 'wadaana';
+  const canSwitchTenant = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const handleTenantSwitch = (newTenant) => {
-    if (newTenant !== currentTenant) {
-      setCompanyCookie(newTenant);
-      window.location.reload();
-    }
+    if (!canSwitchTenant || newTenant === currentTenant) return;
+    clearCache();
+    setTenant(newTenant);
+    navigate('/');
+  };
+
+  const currentPage = PAGE_TITLES[location.pathname] || {
+    title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
+    subtitle: isWadaana ? 'Wadaana Industrial OS' : 'AquaSphere Management OS'
   };
 
   useEffect(() => {
@@ -162,28 +169,45 @@ export default function TopNav({ onMenuClick }) {
   });
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-10 shadow-sm shadow-slate-200/40">
-      <div className="flex items-center gap-3">
-        <button className="md:hidden text-slate-500 hover:text-slate-800 bg-slate-100 p-2 rounded-2xl transition hover:bg-slate-200" onClick={onMenuClick}>
-          <Menu size={24} />
+    <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-sm flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-20 shadow-2xs">
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Mobile menu drawer trigger */}
+        <button 
+          className="md:hidden text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-2 rounded-xl transition" 
+          onClick={onMobileMenuClick}
+          aria-label="Open navigation drawer"
+        >
+          <Menu size={19} />
         </button>
+
+        {/* Desktop sidebar rail collapse trigger */}
+        <button 
+          className="hidden md:flex text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-2 rounded-xl transition" 
+          onClick={onToggleCollapse}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={19} />
+        </button>
+
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{currentPage.title}</h1>
-          <p className="text-xs text-slate-500">{currentPage.subtitle}</p>
+          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">{currentPage.title}</h1>
+          <p className="hidden sm:block text-xs text-slate-400">{currentPage.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 md:gap-5">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Alerts Bell Icon */}
         <div className="relative">
           <button
             onClick={() => setShowAlertsMenu(!showAlertsMenu)}
             className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all"
             title="System Activity Alerts"
+            aria-label="System Activity Alerts"
           >
-            <Bell size={20} />
+            <Bell size={18} />
             {activeAlerts.length > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white font-bold text-[10px] rounded-full flex items-center justify-center animate-pulse">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white font-bold text-[9px] rounded-full flex items-center justify-center animate-pulse">
                 {activeAlerts.length}
               </span>
             )}
@@ -191,21 +215,21 @@ export default function TopNav({ onMenuClick }) {
 
           {/* Alerts Drawer */}
           {showAlertsMenu && (
-            <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-              <div className="bg-slate-100 text-slate-800 p-3.5 flex justify-between items-center">
+            <div className="absolute right-0 mt-2 w-72 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+              <div className="bg-slate-50 text-slate-800 p-3.5 flex justify-between items-center border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <Bell size={16} className="text-amber-400" />
-                  <h3 className="font-bold text-sm">System & Activity Alerts</h3>
+                  <Bell size={15} className="text-amber-500" />
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700">Activity Alerts</h3>
                 </div>
-                <button onClick={() => setShowAlertsMenu(false)} className="text-slate-400 hover:text-white">
-                  <X size={18} />
+                <button onClick={() => setShowAlertsMenu(false)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                  <X size={16} />
                 </button>
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 p-1">
                 {activeAlerts.length === 0 ? (
                   <div className="p-6 text-center text-slate-400 text-xs">
-                    <CheckCircle size={24} className="mx-auto mb-1 text-emerald-500 opacity-60" />
+                    <CheckCircle size={20} className="mx-auto mb-1 text-emerald-500 opacity-60" />
                     No unconfirmed activity alerts.
                   </div>
                 ) : (
@@ -219,12 +243,12 @@ export default function TopNav({ onMenuClick }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2.5">
                             <div className="p-1.5 bg-slate-100 rounded-lg shrink-0 mt-0.5">
-                              <IconComp size={16} className={config.color} />
+                              <IconComp size={15} className={config.color} />
                             </div>
                             <div>
-                              <span className="font-extrabold text-xs text-slate-900 block">{config.title}</span>
-                              <p className="text-xs text-slate-700 font-medium leading-normal mt-0.5">{humanMessage}</p>
-                              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-semibold">
+                              <span className="font-semibold text-xs text-slate-900 block">{config.title}</span>
+                              <p className="text-xs text-slate-600 leading-normal mt-0.5">{humanMessage}</p>
+                              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
                                 <span>{new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 <span>•</span>
                                 <span>User: {a.performedBy || 'System'}</span>
@@ -235,15 +259,15 @@ export default function TopNav({ onMenuClick }) {
                         <div className="flex gap-2 justify-end pt-1 border-t border-slate-100/60">
                           <button
                             onClick={() => handleSnooze(a.id)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors"
+                            className="px-2 py-1 text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-1 transition-colors"
                           >
-                            <Clock size={12} /> Snooze 1h
+                            <Clock size={11} /> Snooze
                           </button>
                           <button
                             onClick={() => handleConfirm(a.id)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 text-[10px] font-bold text-white bg-brand hover:bg-brand-hover rounded-lg flex items-center gap-1 transition-colors"
                           >
-                            <CheckCircle size={12} /> Confirm
+                            <CheckCircle size={11} /> Confirm
                           </button>
                         </div>
                       </div>
@@ -255,30 +279,43 @@ export default function TopNav({ onMenuClick }) {
           )}
         </div>
 
-        {/* Company Selector */}
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-sm font-medium text-muted-foreground">Select Company:</span>
-          <div className="flex bg-muted rounded-md overflow-hidden p-0.5">
-            <button 
-              onClick={() => handleTenantSwitch('aquasphere')}
-              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${!isWadaana ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              AquaSphere
-            </button>
-            <button 
-              onClick={() => handleTenantSwitch('wadaana')}
-              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${isWadaana ? 'bg-purple-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Wadaana Ind.
-            </button>
+        {/* Company Selector (Role-Guarded: OWNER / ADMIN only) */}
+        {canSwitchTenant ? (
+          <div className="flex items-center gap-1.5">
+            <div className="flex bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
+              <button 
+                type="button"
+                onClick={() => handleTenantSwitch('aquasphere')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span className="sm:hidden">AQ</span>
+                <span className="hidden sm:inline">AquaSphere</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleTenantSwitch('wadaana')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <span className="sm:hidden">WD</span>
+                <span className="hidden sm:inline">Wadaana Ind.</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Read-only company badge for non-admin roles (TM, PM, MM, ACCOUNTANT) */
+          <div className="flex items-center gap-1.5">
+            <div className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+              <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
+              <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
+            </div>
+          </div>
+        )}
 
         {/* Role Display */}
-        <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 pl-4 md:pl-6">
-          <span className="text-sm font-medium text-muted-foreground hidden lg:block">Logged Role:</span>
-          <div className="flex items-center px-3 py-1.5 border border-slate-200 rounded-md bg-background">
-            <span className="text-sm font-medium capitalize">{user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}</span>
+        <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 pl-3 md:pl-4">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 hidden xl:block">Role:</span>
+          <div className="flex items-center px-2.5 py-1 border border-slate-200 rounded-lg bg-white">
+            <span className="text-xs font-semibold capitalize text-slate-700">{user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}</span>
           </div>
         </div>
       </div>

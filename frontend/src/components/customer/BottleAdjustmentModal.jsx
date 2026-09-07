@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { X, Droplet, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 
 export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) {
+  const { tenant } = useTenant();
   const [type, setType] = useState('RETURNED_GOOD');
   const [quantity, setQuantity] = useState('1');
   const [reason, setReason] = useState('');
@@ -31,7 +32,6 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
 
     setSubmitting(true);
     try {
-      const tenant = getCompanyFromCookie();
       const res = await fetch(`${API}/bottles/transactions`, {
         method: 'POST',
         headers: {
@@ -98,7 +98,7 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
             <select
               value={type}
               onChange={e => setType(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none text-sm font-bold bg-white text-slate-800"
+              className="select-base"
             >
               <option value="RETURNED_GOOD">↩️ Retrieve Empty Bottle (Good Condition)</option>
               <option value="RETURNED_BROKEN">💔 Retrieve Broken / Damaged Bottle</option>
@@ -115,7 +115,7 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
               max={['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type) && currentBalance > 0 ? currentBalance : undefined}
               value={quantity}
               onChange={e => setQuantity(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none text-base font-bold text-slate-900 bg-white"
+              className="input-base font-mono"
               required
             />
           </div>
@@ -127,25 +127,25 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
               placeholder="e.g. Collected empty bottle during visit, or lost by customer"
               value={reason}
               onChange={e => setReason(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-2.5 focus:border-sky-500 outline-none text-sm font-medium bg-white text-slate-800"
+              className="input-base"
             />
           </div>
 
-          <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
+          <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition-all"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="btn-primary flex items-center gap-1.5"
             >
               {submitting && <Loader2 size={14} className="animate-spin" />}
-              {submitting ? 'Saving...' : 'Record Transaction'}
+              <span>{submitting ? 'Saving...' : 'Record Transaction'}</span>
             </button>
           </div>
         </form>

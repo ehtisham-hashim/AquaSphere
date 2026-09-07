@@ -55,31 +55,31 @@ export default function FinancialOverview({ data, role }) {
         <DashboardKpiCard
           icon={<Wallet />}
           title={getTimeLabel('SALES')}
-          value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`}
+          value={`₨ ${Number(activeData?.sales || 0).toLocaleString()}`}
           subtitle={`${activeData?.bottlesSold || 0} orders ${timeframe === 'DAILY' ? 'today' : timeframe === 'MONTHLY' ? 'this month' : 'this year'}`}
-          color="text-sky-600"
-          bg="bg-sky-50"
-          border="border-sky-100"
+          color="text-brand-primary"
+          bg="bg-brand-muted"
+          border="border-slate-200"
         />
 
         <DashboardKpiCard
           icon={<CreditCard />}
           title={getTimeLabel('CASH COLLECTED')}
-          value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`}
+          value={`₨ ${Number(activeData?.cash || 0).toLocaleString()}`}
           subtitle={getTimeSubtitle('Cash received')}
-          color="text-emerald-600"
+          color="text-emerald-700"
           bg="bg-emerald-50"
-          border="border-emerald-100"
+          border="border-slate-200"
         />
 
         <DashboardKpiCard
           icon={<CreditCard />}
           title={getTimeLabel('CREDIT SALES')}
-          value={`Rs. ${Number(activeData?.credit || 0).toLocaleString()}`}
+          value={`₨ ${Number(activeData?.credit || 0).toLocaleString()}`}
           subtitle={getTimeSubtitle('Billed on credit')}
-          color="text-orange-600"
-          bg="bg-orange-50"
-          border="border-orange-100"
+          color="text-amber-700"
+          bg="bg-amber-50"
+          border="border-slate-200"
         />
 
         {!isMarketing && (
@@ -87,21 +87,21 @@ export default function FinancialOverview({ data, role }) {
             <DashboardKpiCard
               icon={<Receipt />}
               title={getTimeLabel('EXPENSES')}
-              value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`}
+              value={`₨ ${Number(activeData?.expenses || 0).toLocaleString()}`}
               subtitle={getTimeSubtitle('Logged operating cost')}
               color="text-rose-600"
               bg="bg-rose-50"
-              border="border-rose-100"
+              border="border-slate-200"
             />
 
             <DashboardKpiCard
               icon={<ShoppingCart />}
               title={getTimeLabel('PURCHASES')}
-              value={`Rs. ${Number(activeData?.purchases || 0).toLocaleString()}`}
+              value={`₨ ${Number(activeData?.purchases || 0).toLocaleString()}`}
               subtitle={`${activeData?.purchasesCount || 0} purchase logs`}
-              color="text-purple-600"
-              bg="bg-purple-50"
-              border="border-purple-100"
+              color="text-indigo-700"
+              bg="bg-indigo-50"
+              border="border-slate-200"
             />
           </>
         )}

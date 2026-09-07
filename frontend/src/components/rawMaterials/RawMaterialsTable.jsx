@@ -29,38 +29,38 @@ export default function RawMaterialsTable({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
+    <div className="table-container">
       <div className="overflow-x-auto">
         <table className="w-full text-left whitespace-nowrap">
-          <thead className="bg-slate-50/90 border-b border-slate-200 backdrop-blur">
+          <thead>
             <tr>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Material Details</th>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Category / Type</th>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Current Stock</th>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Reorder Level</th>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider">Status</th>
-              <th className="p-4 font-bold text-slate-700 text-xs uppercase tracking-wider text-right">Actions</th>
+              <th className="table-th">Material Details</th>
+              <th className="table-th">Category / Type</th>
+              <th className="table-th">Current Stock</th>
+              <th className="table-th">Reorder Level</th>
+              <th className="table-th">Status</th>
+              <th className="table-th text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan="6" className="p-12 text-center">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className={`w-8 h-8 border-4 ${isWadaana ? 'border-[#0ea5e9]' : 'border-emerald-600'} border-t-transparent rounded-full animate-spin`}></div>
-                    <p className="text-slate-500 font-medium text-sm">Loading inventory master...</p>
+                <td colSpan="6" className="p-10 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-slate-500 font-medium text-xs">Loading inventory master...</p>
                   </div>
                 </td>
               </tr>
             ) : materials.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-16 text-center text-slate-500">
+                <td colSpan="6" className="p-12 text-center text-slate-500">
                   <div className="max-w-md mx-auto flex flex-col items-center">
-                    <div className={`p-4 rounded-full ${isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'} mb-3`}>
-                      <Package size={32} />
+                    <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
+                      <Package size={24} />
                     </div>
-                    <h4 className="text-base font-bold text-slate-800">No Materials Found</h4>
-                    <p className="text-sm text-slate-400 mt-1">
+                    <h4 className="text-sm font-bold text-slate-800">No Materials Found</h4>
+                    <p className="text-xs text-slate-400 mt-1">
                       {isWadaana 
                         ? 'No preform raw materials match your search criteria.' 
                         : 'No raw materials added yet. Click above to add bottling supplies.'}
@@ -72,81 +72,77 @@ export default function RawMaterialsTable({
               materials.map((m) => {
                 const isLow = parseFloat(m.cachedQty) <= parseFloat(m.reorderLevel);
                 return (
-                  <tr key={m.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3.5">
-                        <div className={`h-10 w-10 rounded-xl ${
-                          isWadaana ? 'bg-sky-50 text-[#0ea5e9] border-sky-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                        } border flex items-center justify-center font-bold shadow-sm transition-transform group-hover:scale-105`}>
-                          <Package size={20} />
+                  <tr key={m.id} className="hover:bg-slate-50/80 transition-colors text-xs">
+                    <td className="table-td">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-brand/10 text-brand border border-brand/20 flex items-center justify-center font-bold shrink-0">
+                          <Package size={16} />
                         </div>
                         <div>
-                          <div className="font-bold text-slate-800 text-base">{m.name}</div>
-                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
-                            Unit: <span className="text-slate-600 font-bold">{m.unit}</span>
+                          <div className="font-semibold text-slate-800 text-xs">{m.name}</div>
+                          <div className="text-[10px] text-slate-400 uppercase tracking-wider">
+                            Unit: <span className="text-slate-600 font-semibold">{m.unit}</span>
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="table-td">
                       {getBadge(m.name)}
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-base font-extrabold ${isLow ? 'text-amber-600' : 'text-slate-800'}`}>
-                          {Number(m.cachedQty).toLocaleString('en-PK')} <span className="text-xs font-normal text-slate-500">{m.unit}</span>
+                    <td className="table-td">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-mono font-bold text-xs ${isLow ? 'text-amber-600' : 'text-slate-800'}`}>
+                          {Number(m.cachedQty).toLocaleString('en-PK')} <span className="text-[10px] font-normal text-slate-400 font-sans">{m.unit}</span>
                         </span>
                         {isLow && !m.archivedAt && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-extrabold animate-pulse">
-                            <AlertTriangle size={11} className="stroke-[2.5]" /> LOW STOCK
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                            <AlertTriangle size={10} /> LOW
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="p-4 text-sm font-semibold text-slate-600">
-                      {m.reorderLevel} <span className="text-xs font-normal text-slate-400">{m.unit}</span>
+                    <td className="table-td font-mono text-slate-600">
+                      {m.reorderLevel} <span className="text-[10px] text-slate-400 font-sans">{m.unit}</span>
                     </td>
-                    <td className="p-4">
+                    <td className="table-td">
                       {m.archivedAt ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
-                          <Archive size={12} /> ARCHIVED
+                        <span className="badge-danger text-[10px]">
+                          <Archive size={11} /> ARCHIVED
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                          <CheckCircle2 size={13} className="text-emerald-600" /> ACTIVE
+                        <span className="badge-success text-[10px]">
+                          <CheckCircle2 size={11} /> ACTIVE
                         </span>
                       )}
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="table-td text-right">
                       {(!isReadOnly || canArchive) ? (
-                        <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1">
                           {!isReadOnly && (
                             <button
                               onClick={() => onEdit(m)}
-                              className={`p-2 text-slate-600 hover:text-white ${
-                                isWadaana ? 'hover:bg-[#0ea5e9]' : 'hover:bg-emerald-600'
-                              } bg-slate-100 rounded-xl transition-all shadow-sm`}
+                              className="btn-outline text-xs p-1.5"
                               title="Edit Material"
                             >
-                              <Edit2 size={16} />
+                              <Edit2 size={13} />
                             </button>
                           )}
                           {canArchive && (
                             <button
                               onClick={() => onToggleArchive(m)}
-                              className={`p-2 rounded-xl transition-all shadow-sm ${
+                              className={`p-1.5 rounded-lg border text-xs transition ${
                                 m.archivedAt
-                                  ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white'
-                                  : 'text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
                               }`}
                               title={m.archivedAt ? 'Restore Material (Owner Only)' : 'Archive Material (Owner Only)'}
                             >
-                              {m.archivedAt ? <RefreshCw size={16} /> : <Archive size={16} />}
+                              {m.archivedAt ? <RefreshCw size={13} /> : <Archive size={13} />}
                             </button>
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 font-medium italic">Read-Only</span>
+                        <span className="text-[11px] text-slate-400 italic">Read-Only</span>
                       )}
                     </td>
                   </tr>

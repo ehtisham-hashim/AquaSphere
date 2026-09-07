@@ -8,17 +8,19 @@
  * - PRODUCTION_MANAGER
  * - ACCOUNTANT
  * - MARKETING_MANAGER
+ * - TRANSPORT_MANAGER
  */
 
-export const ROLES = {
+export const ROLES = Object.freeze({
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',
   PRODUCTION_MANAGER: 'PRODUCTION_MANAGER',
   ACCOUNTANT: 'ACCOUNTANT',
   MARKETING_MANAGER: 'MARKETING_MANAGER',
-};
+  TRANSPORT_MANAGER: 'TRANSPORT_MANAGER',
+});
 
-export const SIDEBAR_ROUTES = {
+export const SIDEBAR_ROUTES = Object.freeze({
   DASHBOARD: '/',
   ORDERS: '/orders',
   CUSTOMERS: '/customers',
@@ -31,7 +33,9 @@ export const SIDEBAR_ROUTES = {
   USERS: '/users',
   DAILY_CLOSE: '/daily-close',
   INVENTORY: '/inventory',
-};
+  TRANSPORT_EXPENSES: '/transport-expenses',
+  TRANSPORT: '/transport',
+});
 
 /**
  * Access Matrix per Role per Tenant
@@ -52,6 +56,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
+      [SIDEBAR_ROUTES.TRANSPORT]: true,
     },
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -66,6 +72,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -80,6 +88,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -94,6 +104,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: false,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -108,6 +120,24 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.INVENTORY]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
+    },
+    [ROLES.TRANSPORT_MANAGER]: {
+      [SIDEBAR_ROUTES.DASHBOARD]: true,
+      [SIDEBAR_ROUTES.ORDERS]: false,
+      [SIDEBAR_ROUTES.CUSTOMERS]: false,
+      [SIDEBAR_ROUTES.PRODUCTION]: false,
+      [SIDEBAR_ROUTES.RAW_MATERIALS]: false,
+      [SIDEBAR_ROUTES.PURCHASES]: false,
+      [SIDEBAR_ROUTES.VENDORS]: false,
+      [SIDEBAR_ROUTES.EXPENSES]: false,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
+      [SIDEBAR_ROUTES.USERS]: false,
+      [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.INVENTORY]: false,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
+      [SIDEBAR_ROUTES.TRANSPORT]: true,
     },
   },
   wadaana: {
@@ -124,6 +154,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
+      [SIDEBAR_ROUTES.TRANSPORT]: true,
     },
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -138,6 +170,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: true,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -152,6 +186,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -166,6 +202,8 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -180,6 +218,24 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.COUNTER_SALES]: false,
       [SIDEBAR_ROUTES.USERS]: false,
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
+      [SIDEBAR_ROUTES.TRANSPORT]: false,
+    },
+    [ROLES.TRANSPORT_MANAGER]: {
+      [SIDEBAR_ROUTES.DASHBOARD]: true,
+      [SIDEBAR_ROUTES.ORDERS]: false,
+      [SIDEBAR_ROUTES.CUSTOMERS]: false,
+      [SIDEBAR_ROUTES.PRODUCTION]: false,
+      [SIDEBAR_ROUTES.INVENTORY]: false,
+      [SIDEBAR_ROUTES.RAW_MATERIALS]: false,
+      [SIDEBAR_ROUTES.PURCHASES]: false,
+      [SIDEBAR_ROUTES.VENDORS]: false,
+      [SIDEBAR_ROUTES.EXPENSES]: false,
+      [SIDEBAR_ROUTES.COUNTER_SALES]: false,
+      [SIDEBAR_ROUTES.USERS]: false,
+      [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
+      [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
+      [SIDEBAR_ROUTES.TRANSPORT]: true,
     },
   },
 };

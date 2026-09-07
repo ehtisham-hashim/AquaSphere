@@ -16,13 +16,13 @@ export const EXPENSE_CATEGORIES = [
 ];
 
 export const EXPENSE_CATEGORY_COLORS = {
-  'Fuel / Transport': 'bg-orange-100 text-orange-800 border border-orange-200',
-  'Fuel': 'bg-orange-100 text-orange-800 border border-orange-200',
-  'Salaries': 'bg-blue-100 text-blue-800 border border-blue-200',
-  'Electricity': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-  'Plant Rent': 'bg-purple-100 text-purple-800 border border-purple-200',
-  'Vehicle Repairs': 'bg-slate-100 text-slate-800 border border-slate-200',
-  'Vehicle Repair': 'bg-slate-100 text-slate-800 border border-slate-200',
+  'Fuel / Transport': 'bg-orange-50 text-orange-700 border border-orange-200',
+  'Fuel': 'bg-orange-50 text-orange-700 border border-orange-200',
+  'Salaries': 'bg-blue-50 text-blue-700 border border-blue-200',
+  'Electricity': 'bg-amber-50 text-amber-700 border border-amber-200',
+  'Plant Rent': 'bg-purple-50 text-purple-700 border border-purple-200',
+  'Vehicle Repairs': 'bg-slate-100 text-slate-700 border border-slate-200',
+  'Vehicle Repair': 'bg-slate-100 text-slate-700 border border-slate-200',
   'Machine Repairs': 'bg-red-100 text-red-800 border border-red-200',
   'Machine Repair': 'bg-red-100 text-red-800 border border-red-200',
   'Maintenance': 'bg-teal-100 text-teal-800 border border-teal-200',

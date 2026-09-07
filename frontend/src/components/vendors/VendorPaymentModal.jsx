@@ -74,22 +74,22 @@ export default function VendorPaymentModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="p-6 space-y-4 text-sm">
+        <form onSubmit={onSubmit} className="p-6 space-y-4 text-xs">
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Outstanding Payable Balance</span>
-            <span className="text-base font-extrabold text-indigo-700">
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Outstanding Payable Balance</span>
+            <span className="text-base font-bold font-mono text-[var(--brand)]">
               Rs {Number(selectedVendor.payableBalance || 0).toLocaleString()}
             </span>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="font-semibold text-slate-700">Payment Amount (Rs) *</label>
+              <label className="font-bold uppercase text-slate-500 text-[11px]">Payment Amount (Rs) *</label>
               {Number(selectedVendor.payableBalance || 0) > 0 && (
                 <button
                   type="button"
                   onClick={() => setPaymentData({ ...paymentData, amount: String(selectedVendor.payableBalance) })}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition"
+                  className="text-[11px] font-bold text-[var(--brand)] hover:opacity-80 bg-[var(--brand-light)] px-2 py-0.5 rounded-md transition"
                 >
                   Pay Full (Rs {Number(selectedVendor.payableBalance).toLocaleString()})
                 </button>
@@ -100,7 +100,7 @@ export default function VendorPaymentModal({
               step="0.01"
               min="0.01"
               max={Number(selectedVendor.payableBalance || 0) > 0 ? selectedVendor.payableBalance : undefined}
-              className="w-full border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800 outline-none focus:border-emerald-500"
+              className="input-base font-mono font-bold"
               value={paymentData.amount}
               onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
               placeholder="0.00"
@@ -110,9 +110,9 @@ export default function VendorPaymentModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Payment Method *</label>
+              <label className="block font-bold uppercase text-slate-500 mb-1 text-[11px]">Payment Method *</label>
               <select
-                className="w-full border border-slate-200 rounded-xl p-2.5 bg-white font-medium outline-none focus:border-emerald-500"
+                className="select-base"
                 value={paymentData.paymentMethod}
                 onChange={(e) => setPaymentData({ ...paymentData, paymentMethod: e.target.value })}
               >
@@ -214,17 +214,17 @@ export default function VendorPaymentModal({
           )}
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Remarks</label>
+            <label className="block font-bold uppercase text-slate-500 mb-1 text-[11px]">Remarks</label>
             <input
-              className="w-full border border-slate-200 rounded-xl p-2.5 outline-none focus:border-emerald-500"
+              className="input-base"
               value={paymentData.remarks}
               onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
               placeholder="Payment notes..."
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-xl">
+          <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancel
             </button>
             {(() => {
@@ -235,16 +235,12 @@ export default function VendorPaymentModal({
                 <button
                   type="submit"
                   disabled={isSubmitDisabled}
-                  className={`px-5 py-2 rounded-xl font-bold shadow-md flex items-center gap-2 text-white transition-all ${
-                    isSubmitDisabled
-                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                      : 'bg-emerald-600 hover:bg-emerald-500'
-                  }`}
+                  className="btn-primary flex items-center gap-1.5"
                 >
                   {paymentSubmitting ? (
-                    <><Loader2 size={16} className="animate-spin" /> Recording...</>
+                    <><Loader2 size={14} className="animate-spin" /> Recording...</>
                   ) : uploadingProof ? (
-                    <><Loader2 size={16} className="animate-spin" /> Uploading Slip...</>
+                    <><Loader2 size={14} className="animate-spin" /> Uploading Slip...</>
                   ) : (
                     'Record Payment'
                   )}

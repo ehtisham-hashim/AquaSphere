@@ -12,18 +12,19 @@ import {
   UserX, 
   CreditCard 
 } from 'lucide-react';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 import { API_URL as API } from '../../utils/api';
+import ModernKpiCard from './ModernKpiCard';
 
 export default function AdminDashboardView() {
-  const tenant = getCompanyFromCookie();
+  const { tenant, isWadaana } = useTenant();
   const [data, setData] = useState(null);
   const [cashData, setCashData] = useState(null);
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const companyTitle = tenant === 'wadaana' ? 'Wadaana Industries' : 'AquaSphere';
+  const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -43,7 +44,7 @@ export default function AdminDashboardView() {
       if (cashJson.success) setCashData(cashJson.data);
       if (alertJson.success) setAlerts(alertJson.data);
     } catch (err) {
-      console.error('Error loading admin dashboard:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -57,8 +58,8 @@ export default function AdminDashboardView() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="text-sm text-slate-500 font-medium">Loading Supervisor Dashboard...</p>
+          <RefreshCw className="w-8 h-8 text-brand animate-spin" />
+          <p className="text-sm text-slate-500 font-medium">Loading Operations Control...</p>
         </div>
       </div>
     );
@@ -67,108 +68,73 @@ export default function AdminDashboardView() {
   const kpis = data?.kpis || {};
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto pb-10">
+    <div className="space-y-6 pb-6">
       {/* Top Banner & Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+      <div className="card-surface p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-200">
-              {companyTitle.toUpperCase()} • SUPERVISOR VIEW
+            <span className="badge-brand">
+              {companyTitle.toUpperCase()} • OPERATIONS CONTROL
             </span>
-            <span className="text-xs text-slate-400 font-medium">Read-Only Operations Control</span>
+            <span className="text-xs text-slate-400 font-medium">Daily Supervisor Overview</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Monitor daily stock levels, production output, delivery status, cash collections, and customer credit alerts.
           </p>
         </div>
 
-        <Link to="/daily-close" className="flex items-center gap-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold transition-all shadow-sm">
-          <Lock className="w-4 h-4 text-emerald-500" />
-          <span>Go to Daily Close Page &rarr;</span>
+        <Link to="/daily-close" className="btn-secondary text-xs">
+          <Lock size={15} className="text-emerald-500" />
+          <span>Daily Close Page &rarr;</span>
         </Link>
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Today's Orders */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-            <Truck className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Today&apos;s Orders</p>
-            <h3 className="text-2xl font-black text-slate-900">{kpis.todaysOrdersCount || 0}</h3>
-            <p className="text-xs text-amber-600 font-bold mt-0.5">{kpis.pendingOrdersCount || 0} Pending Delivery</p>
-          </div>
-        </div>        {/* Today's Production Yield */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <Factory className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-              {tenant === 'wadaana' ? 'Good Yield Today' : 'Production Output'}
-            </p>
-            {tenant === 'wadaana' ? (
-              <>
-                <h3 className="text-2xl font-black text-slate-900">{kpis.totalProductionYield || 0} units</h3>
-                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.productionWaste || 0} units waste</p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-sm font-black text-slate-900">
-                  0.5L: {kpis.packs05LProduced || 0} / 1.5L: {kpis.packs15LProduced || 0}
-                </h3>
-                <p className="text-xs text-rose-500 font-bold mt-0.5">{kpis.productionWaste || 0} units waste</p>
-              </>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <ModernKpiCard
+          icon={Truck}
+          title="Today's Orders"
+          value={kpis.todaysOrdersCount || 0}
+          subtitle={`${kpis.pendingOrdersCount || 0} Pending Delivery`}
+          variant="sky"
+        />
 
-        {/* Stock Health */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${(data?.alerts?.lowStockCount || 0) > 0 ? 'bg-rose-50 text-rose-600' : 'bg-teal-50 text-teal-600'}`}>
-            <Package className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Stock Health</p>
-            <h3 className={`text-xl font-black ${(data?.alerts?.lowStockCount || 0) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
-              {(data?.alerts?.lowStockCount || 0) > 0 ? `${data.alerts.lowStockCount} Low` : 'All Healthy'}
-            </h3>
-            <p className="text-xs text-slate-500 font-bold mt-0.5">Raw Material Status</p>
-          </div>
-        </div>
+        <ModernKpiCard
+          icon={Factory}
+          title={isWadaana ? 'Good Yield Today' : 'Production Output'}
+          value={isWadaana ? `${kpis.totalProductionYield || 0} units` : `${kpis.packs05LProduced || 0} / ${kpis.packs15LProduced || 0}`}
+          subtitle={`${kpis.productionWaste || 0} units waste`}
+          variant="brand"
+        />
 
-        {/* Cash Collected Indicator */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <Banknote className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Cash Collected</p>
-            <h3 className="text-xl font-black text-slate-900 font-mono">Rs. {(kpis.totalCashCollected || 0).toLocaleString()}</h3>
-            <p className="text-xs text-indigo-600 font-bold mt-0.5">Orders + Counter Sales</p>
-          </div>
-        </div>
+        <ModernKpiCard
+          icon={Package}
+          title="Stock Health"
+          value={(data?.alerts?.lowStockCount || 0) > 0 ? `${data.alerts.lowStockCount} Low` : 'Healthy'}
+          subtitle="Raw Material Status"
+          variant={(data?.alerts?.lowStockCount || 0) > 0 ? 'rose' : 'emerald'}
+        />
 
-        {/* Customer Alerts */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Active Alerts</p>
-            <h3 className="text-2xl font-black text-slate-900">{alerts?.totalAlerts || 0}</h3>
-            <p className="text-xs text-amber-600 font-bold mt-0.5">
-              {alerts?.creditBreaches?.length || 0} Credit / {alerts?.inactiveCustomers?.length || 0} Inactive
-            </p>
-          </div>
-        </div>
+        <ModernKpiCard
+          icon={Banknote}
+          title="Cash Collected"
+          value={`Rs. ${(kpis.totalCashCollected || 0).toLocaleString()}`}
+          subtitle="Orders + Spot Sales"
+          variant="brand"
+        />
+
+        <ModernKpiCard
+          icon={ShieldAlert}
+          title="Active Alerts"
+          value={alerts?.totalAlerts || 0}
+          subtitle={`${alerts?.creditBreaches?.length || 0} Credit / ${alerts?.inactiveCustomers?.length || 0} Inactive`}
+          variant={(alerts?.totalAlerts || 0) > 0 ? 'amber' : 'neutral'}
+        />
       </div>
 
       {/* Main Tabs Navigation */}
-      <div className="border-b border-slate-200 flex gap-4">
+      <div className="border-b border-slate-200 flex gap-4 overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Inventory & Production' },
           { id: 'orders', label: 'Order Tracking' },
@@ -178,9 +144,9 @@ export default function AdminDashboardView() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`pb-3 text-xs md:text-sm font-bold border-b-2 transition ${
+            className={`pb-3 text-xs md:text-sm font-semibold border-b-2 transition whitespace-nowrap ${
               activeTab === tab.id
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand text-brand font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >

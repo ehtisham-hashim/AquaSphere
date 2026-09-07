@@ -1,28 +1,28 @@
 export default function OrderTrackingTab({ orders = [] }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+    <div className="card-surface overflow-hidden">
+      <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
         <div>
-          <h3 className="font-bold text-slate-800">Today&apos;s Orders Status</h3>
-          <p className="text-xs text-slate-500 font-medium">Live operational tracking across delivery routes and pickup</p>
+          <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider">Today&apos;s Orders Status</h3>
+          <p className="text-[11px] text-slate-500 font-medium">Live operational tracking across delivery routes and pickup</p>
         </div>
-        <span className="px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-600 font-semibold">
+        <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-200 rounded-md text-[10px] text-slate-600 font-mono font-bold">
           {orders.length} Order(s) Today
         </span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100/60 text-slate-600 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+        <table className="w-full text-left text-xs">
+          <thead>
             <tr>
-              <th className="p-3.5">Order ID</th>
-              <th className="p-3.5">Customer</th>
-              <th className="p-3.5">Type</th>
-              <th className="p-3.5">Item</th>
-              <th className="p-3.5">Qty</th>
-              <th className="p-3.5">Status</th>
+              <th className="table-th">Order ID</th>
+              <th className="table-th">Customer</th>
+              <th className="table-th">Type</th>
+              <th className="table-th">Item</th>
+              <th className="table-th">Qty</th>
+              <th className="table-th">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 bg-white">
             {orders.length === 0 ? (
               <tr>
                 <td colSpan="6" className="p-8 text-center text-slate-400">

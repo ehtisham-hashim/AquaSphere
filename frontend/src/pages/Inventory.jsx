@@ -6,13 +6,13 @@ import {
   StockTransferModal,
   AddEditFinishedGoodModal
 } from '../components/inventory';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Inventory() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
 
   const canTransferStock = user?.role === 'OWNER' || user?.role === 'PRODUCTION_MANAGER';
   const canAddFinishedGood = user?.role === 'OWNER' || user?.role === 'ADMIN';
@@ -70,7 +70,7 @@ export default function Inventory() {
   const hasNegativeStock = negativeStockItems.length > 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4">
       {/* Module 1: Inventory Header */}
       <InventoryHeader 
         search={search}

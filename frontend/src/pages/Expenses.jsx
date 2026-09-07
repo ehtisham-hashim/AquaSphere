@@ -5,7 +5,7 @@ import {
   ExpensesTable, 
   LogExpenseModal 
 } from '../components/expenses';
-import { getCompanyFromCookie } from '../utils/companyCookie';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,7 +13,7 @@ const API = API_URL;
 
 export default function Expenses() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
 
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +100,7 @@ export default function Expenses() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-4">
       <ExpensesHeader 
         timeRange={timeRange}
         setTimeRange={setTimeRange}

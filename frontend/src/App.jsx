@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TenantProvider, useTenant } from './context/TenantContext';
 import MainLayout from './components/layout/MainLayout';
 import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
 
@@ -19,14 +20,14 @@ const Users = lazy(() => import('./pages/Users'));
 const Reports = lazy(() => import('./pages/Reports'));
 const DailyClose = lazy(() => import('./pages/DailyClose'));
 const Inventory = lazy(() => import('./pages/Inventory'));
+const Transport = lazy(() => import('./pages/Transport'));
 
-import { getCompanyFromCookie } from './utils/companyCookie';
 import { isPageAllowedForRole } from './constants/roleAccess';
 
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></div>
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin"></div>
     </div>
   );
 }
@@ -40,7 +41,7 @@ function ProtectedRoute({ children }) {
 
 function RoleProtectedRoute({ path, children }) {
   const { user, loading } = useAuth();
-  const currentTenant = getCompanyFromCookie();
+  const { tenant: currentTenant } = useTenant();
 
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
@@ -87,6 +88,9 @@ function AppRoutes() {
           <Route path="users" element={<RoleProtectedRoute path="/users"><Users /></RoleProtectedRoute>} />
           <Route path="reports" element={<RoleProtectedRoute path="/reports"><Reports /></RoleProtectedRoute>} />
           <Route path="daily-close" element={<RoleProtectedRoute path="/daily-close"><DailyClose /></RoleProtectedRoute>} />
+          <Route path="transport" element={<RoleProtectedRoute path="/transport"><Transport /></RoleProtectedRoute>} />
+          <Route path="transport-expenses" element={<Navigate to="/transport" replace />} />
+          <Route path="cars" element={<Navigate to="/transport" replace />} />
           <Route path="*" element={<div>Page not found</div>} />
         </Route>
       </Routes>
@@ -96,11 +100,13 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Toaster position="top-right" richColors />
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <TenantProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Toaster position="top-right" richColors />
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </TenantProvider>
   );
 }

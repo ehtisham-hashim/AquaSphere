@@ -1,18 +1,19 @@
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useState, useEffect } from 'react';
-import { getCompanyFromCookie } from '../utils/companyCookie';
 import {
   OwnerDashboardView,
   AccountantDashboardView,
   AdminDashboardView,
   MarketingDashboardView,
-  ProductionDashboardView
+  ProductionDashboardView,
+  TransportDashboardView
 } from '../components/dashboard';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [data, setData] = useState({
     sales: 0,
     cash: 0,
@@ -120,6 +121,8 @@ export default function Dashboard() {
       return <AdminDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;
     case 'MARKETING_MANAGER':
       return <MarketingDashboardView data={data} loading={dashboardLoading} />;
+    case 'TRANSPORT_MANAGER':
+      return <TransportDashboardView />;
     case 'OWNER':
     default:
       return <OwnerDashboardView data={data} summary={summary} summaryLoading={summaryLoading} loading={dashboardLoading} />;

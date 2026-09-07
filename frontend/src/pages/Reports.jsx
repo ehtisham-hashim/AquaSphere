@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../utils/api';
+import { useTenant } from '../context/TenantContext';
 import { 
   BarChart2, Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 
@@ -25,6 +26,7 @@ const PERIODS = [
 ];
 
 export default function Reports() {
+  const { isWadaana } = useTenant();
   const [activeTab, setActiveTab] = useState('sales');
   const [period, setPeriod] = useState('monthly');
   const [startDate, setStartDate] = useState('');
@@ -61,7 +63,6 @@ export default function Reports() {
   };
 
   useEffect(() => {
-    // Set default dates if custom
     if (period === 'custom' && !startDate && !endDate) {
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
@@ -72,7 +73,6 @@ export default function Reports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, period]);
 
-  // fetch when custom dates change
   useEffect(() => {
     if (period === 'custom' && startDate && endDate) {
       fetchReport();
@@ -90,7 +90,6 @@ export default function Reports() {
     for (const row of reportData.table) {
       const values = headers.map(header => {
         const val = row[header];
-        // escape quotes and wrap in quotes if contains comma
         const str = String(val).replace(/"/g, '""');
         return `"${str}"`;
       });
@@ -110,23 +109,30 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6 p-2 max-w-[98%] mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-4">
+      {/* Action Header */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
-            <BarChart2 className="text-sky-500" /> Advanced Reports
+          <div className="flex items-center gap-2">
+            <span className="badge-brand">
+              {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
+            </span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight mt-1">
+            <BarChart2 className="text-brand-primary" size={22} /> Advanced Reports
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Analytics and data exports for business operations.</p>
+          <p className="text-slate-500 text-xs sm:text-sm">Analytics and data exports for business operations</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          {/* Period Segmented Filter */}
+          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
             {PERIODS.map(p => (
               <button
                 key={p.id}
                 onClick={() => setPeriod(p.id)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  period === p.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                  period === p.id ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 {p.label}
@@ -135,27 +141,27 @@ export default function Reports() {
           </div>
 
           {period === 'custom' && (
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-              <Calendar size={16} className="text-slate-400" />
-              <input type="date" className="text-sm border-none outline-none text-slate-700 bg-transparent" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+              <Calendar size={14} className="text-slate-400" />
+              <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} />
               <span className="text-slate-300">-</span>
-              <input type="date" className="text-sm border-none outline-none text-slate-700 bg-transparent" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           )}
 
           <button
             onClick={handleExportCSV}
             disabled={!reportData || !reportData.table || reportData.table.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5 disabled:opacity-50"
           >
-            <Download size={16} /> Export CSV
+            <Download size={14} /> Export CSV
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-4">
         {/* Sidebar Tabs */}
-        <div className="lg:w-64 shrink-0 flex flex-col gap-1">
+        <div className="lg:w-60 shrink-0 flex flex-row lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
           {REPORT_TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -163,11 +169,13 @@ export default function Reports() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
-                  isActive ? 'bg-sky-50 text-sky-700 border border-sky-100 shadow-sm' : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left shrink-0 ${
+                  isActive 
+                    ? 'bg-brand-light text-brand-primary border border-brand-light shadow-xs' 
+                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                 }`}
               >
-                <Icon size={18} className={isActive ? 'text-sky-500' : 'text-slate-400'} />
+                <Icon size={16} className={isActive ? 'text-brand-primary' : 'text-slate-400'} />
                 {tab.label}
               </button>
             );
@@ -175,51 +183,51 @@ export default function Reports() {
         </div>
 
         {/* Report Content */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-4">
           {loading ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 shadow-sm">
+            <div className="card-surface p-12 text-center text-slate-400 text-sm">
               Generating report...
             </div>
           ) : error ? (
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 text-rose-600 flex items-center gap-3">
-              <AlertCircle />
-              <p className="font-medium">{error}</p>
+            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-rose-600 flex items-center gap-3">
+              <AlertCircle size={20} />
+              <p className="text-xs font-semibold">{error}</p>
             </div>
           ) : reportData ? (
             <>
               {/* KPI Cards */}
               {reportData.kpis && reportData.kpis.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {reportData.kpis.map((kpi, idx) => (
-                    <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{kpi.label}</h4>
-                      <p className="text-2xl font-black text-slate-800">{kpi.value}</p>
+                    <div key={idx} className="card-surface p-4">
+                      <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</h4>
+                      <p className="text-xl font-black font-mono text-slate-800">{kpi.value}</p>
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Data Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+              <div className="table-container">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 border-b border-slate-200">
+                    <thead>
                       <tr>
                         {reportData.table && reportData.table.length > 0 ? (
                           Object.keys(reportData.table[0]).map(key => (
-                            <th key={key} className="px-6 py-4">{key.replace(/([A-Z])/g, ' $1').trim()}</th>
+                            <th key={key} className="table-th">{key.replace(/([A-Z])/g, ' $1').trim()}</th>
                           ))
                         ) : (
-                          <th className="px-6 py-4">Data</th>
+                          <th className="table-th">Data</th>
                         )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {reportData.table && reportData.table.length > 0 ? (
                         reportData.table.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
+                          <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                             {Object.values(row).map((val, cellIdx) => (
-                              <td key={cellIdx} className="px-6 py-3 whitespace-nowrap">
+                              <td key={cellIdx} className="table-td whitespace-nowrap font-mono text-xs">
                                 {val}
                               </td>
                             ))}
@@ -227,7 +235,7 @@ export default function Reports() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="100%" className="px-6 py-8 text-center text-slate-500">
+                          <td colSpan="100%" className="p-10 text-center text-slate-400 text-sm">
                             No data available for the selected period.
                           </td>
                         </tr>
@@ -238,7 +246,7 @@ export default function Reports() {
               </div>
             </>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 shadow-sm">
+            <div className="card-surface p-12 text-center text-slate-400 text-sm">
               Select a report type and period to view data.
             </div>
           )}

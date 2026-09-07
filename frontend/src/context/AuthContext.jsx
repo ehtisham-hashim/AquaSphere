@@ -1,10 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
-import { setCompanyCookie } from '../utils/companyCookie';
-import { API_URL } from '../utils/api';
+import { setCompanyCookie, clearCompanyCookie } from '../utils/companyCookie';
+import { API_URL, clearCache } from '../utils/api';
 
 const AuthContext = createContext();
 
+/**
+ * Authentication and authorization context provider
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +33,6 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password, tenant = 'aquasphere') => {
     try {
-      setCompanyCookie(tenant);
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,6 +43,8 @@ export function AuthProvider({ children }) {
       const data = await response.json();
 
       if (response.ok) {
+        setCompanyCookie(tenant);
+        clearCache();
         setUser(data.data.user);
         return { success: true };
       } else {
@@ -57,6 +61,8 @@ export function AuthProvider({ children }) {
     } catch (err) {
       // Ignore network errors on logout
     }
+    clearCompanyCookie();
+    clearCache();
     setUser(null);
   };
 

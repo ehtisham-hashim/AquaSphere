@@ -19,15 +19,15 @@ export default function PurchasingSummaryTab({ summary, loading }) {
   const maxMaterialSpend = summary?.topMaterials?.[0]?.totalSpend || 1;
 
   return (
-    <section className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-      <div className="flex items-center gap-1.5 p-2 border-b border-slate-100 bg-slate-50 overflow-x-auto">
+    <section className="card-surface overflow-hidden">
+      <div className="flex items-center gap-1.5 p-2 border-b border-slate-100 bg-slate-50/50 overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
               activeTab === tab.key
-                ? 'bg-white border border-slate-200 shadow-sm text-slate-800'
+                ? 'bg-white border border-slate-200 shadow-xs text-brand-primary'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
             }`}
           >
