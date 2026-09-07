@@ -95,6 +95,20 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   const { user } = useAuth();
   const { tenant: currentTenant, isWadaana } = useTenant();
   const location = useLocation();
+  const [alerts, setAlerts] = useState([]);
+  const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('snoozed_alerts') || '{}'); } catch { return {}; }
+  });
+  const [confirmedAlerts, setConfirmedAlerts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('confirmed_alerts') || '[]'); } catch { return []; }
+  });
+  const [now] = useState(() => new Date().getTime());
+  const [showAlertsMenu, setShowAlertsMenu] = useState(false);
+
+  const currentPage = PAGE_TITLES[location.pathname] || {
+    title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
+    subtitle: isWadaana ? 'Wadaana Industrial OS' : 'AquaSphere Management OS'
+  };
 
   useEffect(() => {
     if (user?.role !== 'OWNER' && user?.role !== 'ADMIN') return;
