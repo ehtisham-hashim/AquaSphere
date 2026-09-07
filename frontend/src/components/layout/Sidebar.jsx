@@ -34,8 +34,8 @@ const navItems = [
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
-  { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
   { icon: Car, label: 'Transport', path: '/transport' },
+  { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
 ];
 
 export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {

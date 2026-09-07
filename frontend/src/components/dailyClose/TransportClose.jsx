@@ -124,13 +124,15 @@ export default function TransportClose() {
 
           {/* Verification Checklist + Confirmation */}
           <VerificationChecklist
-            checklist={TM_CHECKLIST}
+            key={date}
+            title="Transport Fleet Verification"
+            subtitle="Verified by Transport Manager"
+            items={TM_CHECKLIST}
             isConfirmed={tmConfirmed}
             confirmedBy={status?.tmConfirmedBy}
-            confirmedAt={status?.tmConfirmedAt}
             confirmRole="Transport Manager"
             onConfirm={handleConfirm}
-            confirmDisabled={submitting}
+            submitting={submitting}
           />
         </>
       )}

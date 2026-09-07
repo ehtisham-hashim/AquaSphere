@@ -23,17 +23,25 @@ export class RouteErrorBoundary extends Component {
             <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
               <AlertTriangle size={24} />
             </div>
-            <h3 className="text-sm font-bold text-slate-800">Application Update Available</h3>
+            <h3 className="text-sm font-bold text-slate-800">Something went wrong loading this view</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              A new version or component update failed to load. Please reload the page to fetch the latest application version.
+              {this.state.error?.message || 'A component update failed to load. Please try again or reload the page.'}
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="btn-primary text-xs py-2 px-4 flex items-center justify-center gap-1.5 mx-auto"
-            >
-              <RotateCw size={14} />
-              <span>Reload Application</span>
-            </button>
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <button
+                onClick={() => this.setState({ hasError: false, error: null })}
+                className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+              >
+                <span>Try Again</span>
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
+              >
+                <RotateCw size={14} />
+                <span>Reload Application</span>
+              </button>
+            </div>
           </div>
         </div>
       );
