@@ -1,15 +1,16 @@
-/**
- * Global Express error handling middleware that formats ApiError instances and database constraint violations.
- *
- * @param {Error} err - Error object.
- * @param {import('express').Request} req - Express request object.
- * @param {import('express').Response} res - Express response object.
- * @param {import('express').NextFunction} _next - Express next function.
- * @returns {void}
- */
+import multer from 'multer';
+
 export const errorHandler = (err, req, res, _next) => {
   if (err.code === 'P2002') {
-    return res.status(409).json({ status: 409, message: 'Record already exists. Unique constraint failed.' });
+    return res.status(409).json({ success: false, status: 409, message: 'Record already exists. Unique constraint failed.' });
+  }
+
+  // ponytail: clean 400 for multer errors instead of default 500
+  if (err instanceof multer.MulterError || err.name === 'MulterError') {
+    const msg = err.code === 'LIMIT_FILE_SIZE'
+      ? 'File too large. Maximum size is 15MB.'
+      : (err.message || 'File upload error');
+    return res.status(400).json({ success: false, status: 400, message: msg, error: msg });
   }
   
   const status = err.statusCode || err.status || 500;
@@ -20,6 +21,7 @@ export const errorHandler = (err, req, res, _next) => {
   }
   
   res.status(status).json({
+    success: false,
     status,
     message,
     errors: err.errors || []

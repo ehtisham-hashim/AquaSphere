@@ -22,7 +22,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB hard limit
+    fileSize: 15 * 1024 * 1024, // 15 MB limit (supports modern camera photos)
   },
 });
 

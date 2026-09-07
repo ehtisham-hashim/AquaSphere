@@ -21,7 +21,10 @@ export default function Users() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/users?company=${tenant}`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/users?company=${tenant}`, { 
+        headers: { 'x-tenant': tenant },
+        credentials: 'include' 
+      });
       const json = await res.json();
       if (json.success) setUsers(json.data || []);
     } catch (err) {
@@ -69,14 +72,14 @@ export default function Users() {
       
       await fetch(`${API_URL}/users/${editingId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
         body: JSON.stringify(payload),
         credentials: 'include'
       });
     } else {
       await fetch(`${API_URL}/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
         body: JSON.stringify(formData),
         credentials: 'include'
       });
@@ -88,7 +91,7 @@ export default function Users() {
   const toggleStatus = async (id, currentStatus) => {
     await fetch(`${API_URL}/users/${id}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
       body: JSON.stringify({ company: tenant, isActive: !currentStatus }),
       credentials: 'include'
     });
@@ -271,7 +274,6 @@ export default function Users() {
                       <option value="ACCOUNTANT">Accountant</option>
                       <option value="MARKETING_MANAGER">Marketing Manager</option>
                       <option value="TRANSPORT_MANAGER">Transport Manager</option>
-                      <option value="DRIVER">Driver (Limited Access)</option>
                     </select>
                   </div>
                   <div>

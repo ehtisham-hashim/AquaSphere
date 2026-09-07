@@ -50,14 +50,19 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError('File exceeds 15MB limit. Please choose a smaller image.');
+      return;
+    }
     setReceiptFile(file);
     setUploadedUrl('');
     setUploadError('');
-    setReceiptPreview(file.type.startsWith('image/') ? URL.createObjectURL(file) : 'pdf');
+    setReceiptPreview(file.type.startsWith('image/') ? URL.createObjectURL(file) : '');
   };
 
+  // ponytail: extract url from either json.receiptUrl or json.data.receiptUrl
   const handleUpload = async () => {
-    if (!receiptFile) return;
+    if (!receiptFile) return null;
     setUploading(true); 
     setUploadError('');
     try {
@@ -70,10 +75,14 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
         credentials: 'include' 
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.message || 'Upload failed');
-      setUploadedUrl(json.receiptUrl);
+      if (!res.ok || !json.success) throw new Error(json.message || 'Upload failed');
+      const url = json.receiptUrl || json.data?.receiptUrl;
+      if (!url) throw new Error('Server did not return a receipt URL');
+      setUploadedUrl(url);
+      return url;
     } catch (e) { 
       setUploadError(e.message); 
+      return null;
     } finally { 
       setUploading(false); 
     }
@@ -82,7 +91,14 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!uploadedUrl) { 
+
+    let finalUrl = uploadedUrl;
+    if (!finalUrl && receiptFile) {
+      finalUrl = await handleUpload();
+      if (!finalUrl) return;
+    }
+
+    if (!finalUrl) { 
       setError('Receipt photo is mandatory — please upload the receipt first.'); 
       return; 
     }
@@ -101,10 +117,10 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
           'x-tenant': tenant
         },
         credentials: 'include',
-        body: JSON.stringify({ ...form, receiptUrl: uploadedUrl, amount: intAmount })
+        body: JSON.stringify({ ...form, receiptUrl: finalUrl, amount: intAmount })
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.message);
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save expense');
       resetForm(); 
       onSaved();
     } catch (e) { 
@@ -199,7 +215,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
               )}
             </div>
 
-            <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileSelect}/>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect}/>
 
             <div className="flex items-center gap-2">
               <button 
@@ -223,10 +239,10 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
             </div>
             
             <p className="text-[11px] text-slate-400">
-              Accepted formats: Images (JPEG, PNG, WEBP) or PDF • Max 5MB
+              Accepted formats: Images (JPEG, PNG, WEBP) • Max 15MB
             </p>
 
-            {receiptPreview && receiptPreview !== 'pdf' && !uploadedUrl && (
+            {receiptPreview && !uploadedUrl && (
               <img src={receiptPreview} alt="preview" className="h-16 rounded-lg object-cover border border-slate-200"/>
             )}
 
@@ -254,10 +270,16 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved }) {
             </button>
             <button 
               type="submit" 
-              disabled={submitting || !uploadedUrl}
+              disabled={submitting || uploading || (!uploadedUrl && !receiptFile)}
               className="btn-primary flex-1 text-xs py-2.5 disabled:opacity-50"
             >
-              {submitting ? <><Loader2 size={14} className="animate-spin"/> Saving...</> : 'Log Expense'}
+              {uploading ? (
+                <><Loader2 size={14} className="animate-spin"/> Uploading...</>
+              ) : submitting ? (
+                <><Loader2 size={14} className="animate-spin"/> Saving...</>
+              ) : (
+                'Log Expense'
+              )}
             </button>
           </div>
         </form>

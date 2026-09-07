@@ -125,7 +125,8 @@ export default function Purchases() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Upload failed');
-      setUploadedReceiptUrl(json.receiptUrl);
+      const url = json.receiptUrl || json.data?.receiptUrl;
+      setUploadedReceiptUrl(url);
     } catch (err) {
       setUploadError(err.message || 'Failed to upload receipt');
     } finally {

@@ -181,12 +181,12 @@ export const createPurchase = asyncHandler(async (req, res) => {
   return sendSuccess(res, fullPurchase, 201);
 });
 
-/** Uploads purchase invoice or receipt document */
+// ponytail: return receiptUrl at both root and data for client compatibility
 export const uploadReceipt = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const { secure_url } = await uploadImage(req.file, `${prefix}/receipts`);
-  return sendSuccess(res, { receiptUrl: secure_url });
+  return sendSuccess(res, { receiptUrl: secure_url }, 200, { receiptUrl: secure_url });
 });
 
 /** Marks purchase order as verified by accountant */

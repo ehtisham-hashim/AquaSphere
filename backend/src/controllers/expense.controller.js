@@ -104,10 +104,10 @@ export const createExpense = asyncHandler(async (req, res) => {
   return sendSuccess(res, expense, 201);
 });
 
-/** Uploads an expense receipt photo to Cloudinary storage */
+// ponytail: return receiptUrl at both root and data for client compatibility
 export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Receipt file is required');
   const prefix = getTenantPrefix(req);
   const { secure_url } = await uploadImage(req.file, `${prefix}/expenses`);
-  return sendSuccess(res, { receiptUrl: secure_url });
+  return sendSuccess(res, { receiptUrl: secure_url }, 200, { receiptUrl: secure_url });
 });
