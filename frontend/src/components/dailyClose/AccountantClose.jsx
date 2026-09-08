@@ -8,7 +8,7 @@ import StatusCard from './StatusCard';
 
 // ponytail: read-only dashboard, no confirm — schema has no accountantConfirmed field
 export default function AccountantClose() {
-  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
+  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [cash, setCash] = useState(null);
 
   useEffect(() => {
@@ -81,6 +81,7 @@ export default function AccountantClose() {
             <h3 className="text-base font-bold text-slate-800 mb-2">Day Close Status</h3>
             <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
             <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
+            <StatusCard label="Transport (TM)" confirmed={tmConfirmed} confirmedBy={status?.tmConfirmedBy?.name} />
             <StatusCard label="Admin Finalization" confirmed={isClosed} confirmedBy={status?.closedBy?.name} />
           </div>
         </>

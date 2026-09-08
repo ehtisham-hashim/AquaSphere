@@ -97,8 +97,9 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
       });
 
       const json = await res.json();
-      if (json.success) return json.homePictureUrl;
-      toast.error('Failed to upload image');
+      const uploadedUrl = json.data?.homePictureUrl || json.homePictureUrl;
+      if (json.success && uploadedUrl) return uploadedUrl;
+      toast.error(json.message || 'Failed to upload image');
       return null;
     } catch {
       toast.error('Error uploading image');

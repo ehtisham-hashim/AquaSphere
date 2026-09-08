@@ -22,18 +22,17 @@ export default function CounterSales() {
 
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [items, setItems] = useState([]);
+  const [finishedGoods, setFinishedGoods] = useState([]);
   const [dailyCloses, setDailyCloses] = useState([]);
+  const [todaySummary, setTodaySummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
   const userRole = user?.role;
   const isOwner = userRole === 'OWNER';
-  const isAdmin = userRole === 'ADMIN';
-  const isAccountant = userRole === 'ACCOUNTANT';
-  const isMM = userRole === 'MARKETING_MANAGER';
-  const canCreate = (isMM || isAccountant || isOwner) && !isAdmin;
+  const canCreate = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(userRole);
 
-  const [activeTab, setActiveTab] = useState(isAdmin ? 'history' : 'new-sale');
+  const [activeTab, setActiveTab] = useState('new-sale');
   const [submitting, setSubmitting] = useState(false);
 
   const [liveSaleNumber, setLiveSaleNumber] = useState(generateSaleNumber());
@@ -50,11 +49,12 @@ export default function CounterSales() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [salesRes, customersRes, itemsRes, closesRes] = await Promise.all([
+      const [salesRes, customersRes, itemsRes, closesRes, summaryRes] = await Promise.all([
         fetch(`${API_URL}/spot-sales`, { credentials: 'include' }).catch(() => null),
         fetch(`${API_URL}/customers`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/items`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/daily-close/history`, { credentials: 'include' }).catch(() => null)
+        fetch(`${API_URL}/items?type=FINISHED_GOOD`, { credentials: 'include' }).catch(() => null),
+        fetch(`${API_URL}/daily-close/history`, { credentials: 'include' }).catch(() => null),
+        fetch(`${API_URL}/spot-sales/summary/today`, { credentials: 'include' }).catch(() => null)
       ]);
 
       if (salesRes?.ok) {
@@ -67,11 +67,15 @@ export default function CounterSales() {
       }
       if (itemsRes?.ok) {
         const iJson = await itemsRes.json();
-        if (iJson.success) setItems(iJson.data || []);
+        if (iJson.success) setFinishedGoods(iJson.data || []);
       }
       if (closesRes?.ok) {
         const dcJson = await closesRes.json();
         if (dcJson.success) setDailyCloses(dcJson.data || []);
+      }
+      if (summaryRes?.ok) {
+        const sumJson = await summaryRes.json();
+        if (sumJson.success) setTodaySummary(sumJson.data);
       }
     } catch (err) {
       console.error('Error fetching counter sales:', err);
@@ -83,27 +87,6 @@ export default function CounterSales() {
   useEffect(() => { 
     fetchData(); 
   }, [fetchData]);
-
-  // Stock calculations
-  const available05LPacks = useMemo(() => items
-    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')))
-    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0), [items]);
-
-  const available15LPacks = useMemo(() => items
-    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')))
-    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0), [items]);
-
-  const available19LBottles = useMemo(() => items
-    .filter(i => (i.type === 'FINISHED_GOOD' || !i.type) && (i.name.toLowerCase().includes('19')))
-    .reduce((sum, i) => sum + Number(i.cachedQty || 0), 0), [items]);
-
-  const full05L = Math.floor(Math.max(0, available05LPacks));
-  const loose05L = Math.round((Math.max(0, available05LPacks) - full05L) * 12);
-  const totalBottles05L = Math.round(Math.max(0, available05LPacks) * 12);
-
-  const full15L = Math.floor(Math.max(0, available15LPacks));
-  const loose15L = Math.round((Math.max(0, available15LPacks) - full15L) * 6);
-  const totalBottles15L = Math.round(Math.max(0, available15LPacks) * 6);
 
   const handleMultiItemSubmit = async (payload) => {
     setSubmitting(true);
@@ -138,7 +121,7 @@ export default function CounterSales() {
       toast.error('Only Owner can delete counter sales.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to delete sale ${sale.saleNumber || sale.id}?`)) return;
+    if (!window.confirm(`Are you sure you want to delete sale ${sale.saleNumber || sale.id}? Finished goods stock and customer debt will be restored.`)) return;
 
     try {
       const res = await fetch(`${API_URL}/spot-sales/${sale.id}`, {
@@ -150,7 +133,7 @@ export default function CounterSales() {
         toast.error(json.message || 'Failed to delete sale');
         return;
       }
-      toast.success('Sale record deleted successfully.');
+      toast.success('Sale deleted and inventory stock restored.');
       fetchData();
     } catch (err) {
       toast.error('Failed to delete sale record');
@@ -169,31 +152,32 @@ export default function CounterSales() {
 
   const handleExportCSV = () => {
     if (filteredSales.length === 0) return;
-    const headers = ['Sale Number', 'Product Type', 'Qty', 'Date', 'Litres (L)', 'Caps', 'Cash (Rs)', 'Credit (Rs)', 'Total (Rs)', 'Payment Method', 'Customer', 'Remarks', 'Recorded By'];
+    const headers = ['Sale Number', 'Items Sold', 'Qty', 'Date', 'Litres (L)', 'Total Bill (Rs)', 'Amount Paid (Rs)', 'Customer Debt (Rs)', 'Payment Method', 'Customer', 'Remarks', 'Recorded By'];
     const rows = filteredSales.map(s => [
       `"${s.saleNumber || s.id.substring(0, 8)}"`,
-      `"${s.productType || 'CUSTOM'}"`,
+      `"${(s.productType || 'Retail Sale').replace(/"/g, '""')}"`,
       s.productQty || 1,
-      new Date(s.createdAt).toLocaleString(),
-      s.litresSold,
-      s.capsIssued,
-      s.cashCollected,
-      s.creditAmount || 0,
-      Number(s.cashCollected || 0) + Number(s.creditAmount || 0),
-      s.paymentMethod,
+      `"${new Date(s.createdAt).toLocaleString().replace(/"/g, '""')}"`,
+      s.litresSold || 0,
+      Number(s.totalAmount ?? (Number(s.cashCollected || 0) + Number(s.creditAmount || 0))),
+      Number(s.amountPaid ?? Number(s.cashCollected || 0)),
+      Number(s.debtAmount ?? Number(s.creditAmount || 0)),
+      `"${s.paymentMethod || 'CASH'}"`,
       `"${(s.customer?.name || 'Walk-In Cash Customer').replace(/"/g, '""')}"`,
       `"${(s.remarks || '').replace(/"/g, '""')}"`,
-      `"${(s.createdBy?.name || user?.name || 'System').replace(/"/g, '""')}"`
+      `"${(s.createdBy?.name || 'Staff').replace(/"/g, '""')}"`
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvString = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `Counter_Sales_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const isDateClosed = (saleDateStr) => {
@@ -201,12 +185,11 @@ export default function CounterSales() {
     return dailyCloses.some(dc => new Date(dc.date).toDateString() === sDate && dc.adminConfirmed);
   };
 
-  const todayStr = new Date().toDateString();
-  const todaySales = sales.filter(s => new Date(s.createdAt).toDateString() === todayStr);
-  const todayLitres = todaySales.reduce((sum, s) => sum + Number(s.litresSold || 0), 0);
-  const todayCash = todaySales.reduce((sum, s) => sum + Number(s.cashCollected || 0), 0);
-  const todayCredit = todaySales.reduce((sum, s) => sum + Number(s.creditAmount || 0), 0);
-  const todayTotalRevenue = todayCash + todayCredit;
+  // Metrics from dedicated summary endpoint or fallback
+  const todayRevenue = todaySummary?.todayRevenue ?? 0;
+  const todayLitres = todaySummary?.todayLitres ?? 0;
+  const todayPaid = todaySummary?.todayPaid ?? 0;
+  const todayDebt = todaySummary?.todayDebt ?? 0;
 
   if (isWadaana) {
     return <Navigate to="/" replace />;
@@ -219,21 +202,13 @@ export default function CounterSales() {
         hasSales={filteredSales.length > 0} 
       />
 
-      <CounterSalesStockBar 
-        full05L={full05L}
-        loose05L={loose05L}
-        totalBottles05L={totalBottles05L}
-        full15L={full15L}
-        loose15L={loose15L}
-        totalBottles15L={totalBottles15L}
-        available19LBottles={available19LBottles}
-      />
+      <CounterSalesStockBar items={finishedGoods} />
 
       <CounterSalesMetrics 
-        todayTotalRevenue={todayTotalRevenue}
+        todayTotalRevenue={todayRevenue}
         todayLitres={todayLitres}
-        todayCash={todayCash}
-        todayCredit={todayCredit}
+        todayCash={todayPaid}
+        todayCredit={todayDebt}
       />
 
       {/* Tabs Bar */}
@@ -268,11 +243,7 @@ export default function CounterSales() {
           liveSaleNumber={liveSaleNumber}
           user={user}
           liveDateTime={liveDateTime}
-          available19LBottles={available19LBottles}
-          available05LPacks={available05LPacks}
-          totalBottles05L={totalBottles05L}
-          available15LPacks={available15LPacks}
-          totalBottles15L={totalBottles15L}
+          finishedGoods={finishedGoods}
           customers={customers}
           handleMultiItemSubmit={handleMultiItemSubmit}
           submitting={submitting}

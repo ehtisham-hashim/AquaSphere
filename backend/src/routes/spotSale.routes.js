@@ -1,5 +1,5 @@
 import express from 'express';
-import { getSpotSales, createSpotSale, updateSpotSale, deleteSpotSale } from '../controllers/spotSale.controller.js';
+import { getSpotSales, getTodaySpotSalesSummary, createSpotSale, updateSpotSale, deleteSpotSale } from '../controllers/spotSale.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRoles } from '../middlewares/role.middleware.js';
 import { checkDailyCloseLock } from '../middlewares/dailyClose.middleware.js';
@@ -7,6 +7,9 @@ import { checkDailyCloseLock } from '../middlewares/dailyClose.middleware.js';
 const router = express.Router();
 
 router.use(verifyJWT);
+
+// GET today's aggregate summary for fast accurate POS metrics
+router.get('/summary/today', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getTodaySpotSalesSummary);
 
 // GET spot sales history & reports: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER
 router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getSpotSales);

@@ -3,9 +3,9 @@ import AdminClose from './AdminClose';
 import ProductionClose from './ProductionClose';
 import AccountantClose from './AccountantClose';
 import MarketingClose from './MarketingClose';
+import TransportClose from './TransportClose';
 import DailyCloseHeader from './DailyCloseHeader';
 import StatusCard from './StatusCard';
-import VerificationChecklist from './VerificationChecklist';
 import ClosedDayBanner from './ClosedDayBanner';
 
 export {
@@ -14,9 +14,9 @@ export {
   ProductionClose,
   AccountantClose,
   MarketingClose,
+  TransportClose,
   DailyCloseHeader,
   StatusCard,
-  VerificationChecklist,
   ClosedDayBanner
 };
 

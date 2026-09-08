@@ -23,39 +23,76 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   const { isWadaana } = useTenant();
   if (!receiptSale) return null;
 
-  const productStr = receiptSale.productType || 'CUSTOM';
+  // Use normalized items if available, otherwise parse legacy productType string
+  let items = [];
+  if (Array.isArray(receiptSale.items) && receiptSale.items.length > 0) {
+    items = receiptSale.items.map(line => ({
+      name: line.item?.name || 'Item',
+      qty: Number(line.quantity),
+      unitPrice: Number(line.unitPrice),
+      lineTotal: Number(line.subtotal)
+    }));
+  } else {
+    const productStr = receiptSale.productType || 'CUSTOM';
+    items = (productStr.includes('(') || productStr.includes(','))
+      ? productStr.split(',').map(part => {
+          const trimmed = part.trim();
+          const match = trimmed.match(/^([A-Z0-9_]+)\s*\(x(\d+)\)$/);
+          if (match) {
+            const code = match[1];
+            const qty = parseInt(match[2], 10);
+            const name = nameMap[code] || code;
+            const unitPrice = priceMap[code] || 0;
+            return { name, qty, unitPrice, lineTotal: qty * unitPrice };
+          }
+          return { name: trimmed, qty: 1, unitPrice: 0, lineTotal: 0 };
+        })
+      : [{
+          name: nameMap[productStr] || productStr,
+          qty: Number(receiptSale.productQty || 1),
+          unitPrice: priceMap[productStr] || 0,
+          lineTotal: Number(receiptSale.productQty || 1) * (priceMap[productStr] || 0)
+        }];
+  }
 
-  // Parse items from productType string
-  const items = (productStr.includes('(') || productStr.includes(','))
-    ? productStr.split(',').map(part => {
-        const trimmed = part.trim();
-        const match = trimmed.match(/^([A-Z0-9_]+)\s*\(x(\d+)\)$/);
-        if (match) {
-          const code = match[1];
-          const qty = parseInt(match[2], 10);
-          const name = nameMap[code] || code;
-          const unitPrice = priceMap[code] || 0;
-          return { name, qty, unitPrice, lineTotal: qty * unitPrice };
-        }
-        return { name: trimmed, qty: 1, unitPrice: 0, lineTotal: 0 };
-      })
-    : [{
-        name: nameMap[productStr] || productStr,
-        qty: Number(receiptSale.productQty || 1),
-        unitPrice: priceMap[productStr] || 0,
-        lineTotal: Number(receiptSale.productQty || 1) * (priceMap[productStr] || 0)
-      }];
-
-  const cash = Number(receiptSale.cashCollected || 0);
-  const credit = Number(receiptSale.creditAmount || 0);
-  const total = cash + credit;
+  const total = Number(receiptSale.totalAmount ?? (Number(receiptSale.cashCollected || 0) + Number(receiptSale.creditAmount || 0)));
+  const paid = Number(receiptSale.amountPaid ?? Number(receiptSale.cashCollected || 0));
+  const debt = Number(receiptSale.debtAmount ?? Number(receiptSale.creditAmount || 0));
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in duration-150">
-        <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:p-0 print:bg-white print:fixed">
+      {/* Isolated Print Stylesheet */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-receipt, #printable-receipt * {
+            visibility: visible;
+          }
+          #printable-receipt {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 8px;
+            background: white !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: black !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-200 animate-in fade-in zoom-in duration-150 print:border-none print:shadow-none print:p-0">
+        <div className="flex justify-between items-center border-b border-slate-200 pb-3 no-print">
           <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
-            <Eye size={18} className="text-brand" /> Counter Sale Details
+            <Eye size={18} className="text-brand" /> Counter Sale Receipt
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={18}/>
@@ -88,40 +125,43 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider block">Items Purchased</span>
             {items.map((item, idx) => (
               <div key={idx} className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-800">{item.name} × {item.qty}</span>
+                <div>
+                  <span className="font-semibold text-slate-800">{item.name} × {item.qty}</span>
+                  {item.unitPrice > 0 && <span className="text-[10px] text-slate-400 block font-mono">@ Rs. {item.unitPrice.toLocaleString()}</span>}
+                </div>
                 {item.lineTotal > 0 && <span className="font-mono font-bold text-slate-900">Rs. {item.lineTotal.toLocaleString()}</span>}
               </div>
             ))}
           </div>
 
           <div className="space-y-1">
-            <div className="flex justify-between text-slate-600">
-              <span>Cash Paid:</span>
-              <span className="font-mono font-bold text-emerald-600">Rs. {cash.toLocaleString()}</span>
+            <div className="flex justify-between border-t border-slate-300 pt-1.5 text-sm font-bold text-slate-900">
+              <span>Total Bill:</span>
+              <span className="font-mono text-brand">Rs. {total.toLocaleString()}</span>
             </div>
-            {credit > 0 && (
+            <div className="flex justify-between text-slate-600">
+              <span>Amount Paid:</span>
+              <span className="font-mono font-bold text-emerald-600">Rs. {paid.toLocaleString()}</span>
+            </div>
+            {debt > 0 && (
               <div className="flex justify-between text-slate-600">
-                <span>Credit Charged:</span>
-                <span className="font-mono font-bold text-amber-600">Rs. {credit.toLocaleString()}</span>
+                <span>Customer Debt:</span>
+                <span className="font-mono font-bold text-amber-600">Rs. {debt.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between text-slate-600">
               <span>Payment Method:</span>
               <span className="font-semibold">{receiptSale.paymentMethod || 'CASH'}</span>
             </div>
-            <div className="flex justify-between border-t border-slate-300 pt-1.5 text-sm font-bold text-slate-900">
-              <span>Total Amount:</span>
-              <span className="font-mono text-brand">Rs. {total.toLocaleString()}</span>
-            </div>
           </div>
 
           <div className="text-center pt-2 border-t border-dashed border-slate-300 text-[10px] text-slate-400">
-            Recorded By: {receiptSale.createdBy?.role || user?.role} ({receiptSale.createdBy?.name || user?.name || 'Staff'})
+            Recorded By: {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})
             <br />Thank you for your business!
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end pt-2">
+        <div className="flex gap-2 justify-end pt-2 no-print">
           <button
             type="button"
             onClick={onClose}

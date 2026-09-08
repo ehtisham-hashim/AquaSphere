@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, ArrowRight } from 'lucide-react';
+import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, ArrowRight, Clock } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -18,6 +18,7 @@ import {
 import ModernKpiCard from './ModernKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
+import UnprocessedOrdersModal from './UnprocessedOrdersModal';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
@@ -32,19 +33,23 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
   const [timeframe, setTimeframe] = useState('MONTHLY');
+  const [showUnprocessedModal, setShowUnprocessedModal] = useState(false);
 
   const activeData = useMemo(() => {
     if (!data) return {};
     const tfKey = timeframe.toLowerCase();
-    if (data[tfKey]) return data[tfKey];
+    const tf = data[tfKey] || {};
     return {
-      sales: Number(data.sales || 0),
-      cash: Number(data.cash || 0),
-      expenses: Number(data.expenses || 0),
-      netCash: Number(data.netCash || (Number(data.cash || 0) - Number(data.expenses || 0))),
-      purchases: Number(data.purchases || data.monthlyPurchases || data.todaysPurchases || 0),
-      purchasesCount: Number(data.purchasesCount || data.todaysPurchasesCount || 0),
-      bottlesSold: Number(data.bottlesSold || 0)
+      sales: Number(tf.sales ?? data.sales ?? 0),
+      deliveredSales: Number(tf.deliveredSales ?? data.deliveredSales ?? 0),
+      unprocessedSales: Number(tf.unprocessedSales ?? data.unprocessedSales ?? 0),
+      unprocessedOrdersCount: Number(tf.unprocessedOrdersCount ?? data.unprocessedOrdersCount ?? 0),
+      cash: Number(tf.cash ?? data.cash ?? 0),
+      expenses: Number(tf.expenses ?? data.expenses ?? 0),
+      netCash: Number(tf.netCash ?? (Number(tf.cash ?? data.cash ?? 0) - Number(tf.expenses ?? data.expenses ?? 0))),
+      purchases: Number(tf.purchases ?? data.purchases ?? data.monthlyPurchases ?? data.todaysPurchases ?? 0),
+      purchasesCount: Number(tf.purchasesCount ?? data.purchasesCount ?? data.todaysPurchasesCount ?? 0),
+      bottlesSold: Number(tf.bottlesSold ?? data.bottlesSold ?? 0)
     };
   }, [data, timeframe]);
 
@@ -217,8 +222,13 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             icon={Wallet} 
             title={timeframe === 'DAILY' ? "Today's Sales" : timeframe === 'YEARLY' ? "Yearly Sales" : "Monthly Sales"} 
             value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`} 
-            subtitle={`${activeData?.bottlesSold || 0} orders ${getPeriodText()}`} 
+            subtitle={
+              activeData?.unprocessedOrdersCount > 0
+                ? `${activeData.unprocessedOrdersCount} pending (Rs. ${Number(activeData.unprocessedSales || 0).toLocaleString()})`
+                : `${activeData?.bottlesSold || 0} orders ${getPeriodText()}`
+            } 
             variant="sky"
+            onClick={activeData?.unprocessedOrdersCount > 0 ? () => setShowUnprocessedModal(true) : undefined}
           />
           <ModernKpiCard 
             icon={CreditCard} 
@@ -249,6 +259,31 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             variant="neutral"
           />
         </div>
+
+        {/* Unprocessed / Pending Orders Operational Alert */}
+        {activeData?.unprocessedOrdersCount > 0 && (
+          <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                <Clock size={15} />
+              </span>
+              <span className="text-amber-900 font-medium">
+                <strong className="font-bold">{activeData.unprocessedOrdersCount} order(s)</strong> worth{' '}
+                <strong className="font-bold font-mono">Rs. {Number(activeData.unprocessedSales || 0).toLocaleString()}</strong> are pending delivery.
+                <span className="text-amber-700 text-[11px] ml-1.5 hidden md:inline">
+                  (Delivered Realized Sales: Rs. {Number(activeData.deliveredSales || 0).toLocaleString()})
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowUnprocessedModal(true)}
+              className="text-amber-800 font-bold hover:underline flex items-center gap-1 cursor-pointer shrink-0 text-xs self-end sm:self-center"
+            >
+              View Unprocessed Orders &rarr;
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 2. Interactive Recharts Analytics */}
@@ -462,6 +497,17 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           )}
         </section>
       )}
+
+      {/* Unprocessed Orders Modal */}
+      <UnprocessedOrdersModal
+        isOpen={showUnprocessedModal}
+        onClose={() => setShowUnprocessedModal(false)}
+        unprocessedOrders={data?.unprocessedOrders || []}
+        timeframeLabel={getPeriodLabel()}
+        totalSales={activeData.sales}
+        deliveredSales={activeData.deliveredSales}
+        unprocessedSales={activeData.unprocessedSales}
+      />
     </div>
   );
 }

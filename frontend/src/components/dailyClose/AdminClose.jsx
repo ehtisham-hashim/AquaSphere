@@ -1,23 +1,25 @@
-import { useState, useEffect } from 'react';
-import { ShieldCheck, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock, AlertTriangle, Truck, DollarSign } from 'lucide-react';
+import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
-import { fetchDailyCloseHistory, fetchDailySummary } from '../../services/dailyCloseService';
+import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
 
 export default function AdminClose() {
-  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tenant } = useDailyClose();
+  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     Promise.all([
       fetchDailyCloseHistory(tenant),
       fetchDailySummary(date, tenant)
     ]).then(([hJson, cJson]) => {
-      if (hJson.success) setHistory(hJson.data);
+      if (hJson.success) setHistory(hJson.data || []);
       if (cJson.success) {
         const d = cJson.data;
         setCashSummary({
@@ -30,25 +32,50 @@ export default function AdminClose() {
     }).catch(() => {});
   }, [date, tenant]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleFinalize = async () => {
+    setSubmitting(true);
+    try {
+      const json = await finalizeDay(date, tenant);
+      if (json.success) {
+        toast.success('Day double-verified and locked successfully.');
+        refreshStatus(false);
+        loadData();
+      } else {
+        toast.error(json.message || 'Failed to lock day');
+      }
+    } catch {
+      toast.error('Error locking day');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-[var(--brand)] animate-spin" />
       </div>
     );
   }
 
   const p = status?.productionTotals || {};
   const m = status?.marketingTotals || {};
+  const t = status?.transportTotals || {};
+
+  const allDepartmentsConfirmed = pmConfirmed && mmConfirmed && tmConfirmed;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       <DailyCloseHeader
-        label="ADMIN VERIFICATION"
+        label="ADMIN DOUBLE-VERIFICATION"
         labelColor="indigo"
         icon={ShieldCheck}
         title="Admin Daily Close"
-        description="Audit departments and finalize the day. Admin lock auto-confirms PM & MM."
+        description="Audit department verifications, review daily totals, and finalize the day to lock operations."
         date={date}
         onDateChange={setDate}
       />
@@ -56,82 +83,104 @@ export default function AdminClose() {
       {isClosed ? (
         <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Department Status + Stats */}
+        <div className="space-y-4">
+          {/* 1. Department Verification Tracker */}
           <div className="card-surface p-5 space-y-3">
-            <h3 className="text-base font-bold text-slate-800">Department Status</h3>
-            <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
-            <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Department Verifications</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Other managers verify their department figures before final admin lock.</p>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${allDepartmentsConfirmed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                {allDepartmentsConfirmed ? 'All Departments Verified ✓' : 'Awaiting Verifications'}
+              </span>
+            </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-3">
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">19L Produced</span>
-                <strong className="text-slate-800 font-mono font-bold text-sm">{p.total19L || 0}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Orders</span>
-                <strong className="text-slate-800 font-mono font-bold text-sm">{m.ordersCount || 0}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Orders Worth</span>
-                <strong className="text-brand-primary font-mono font-bold text-sm">Rs. {Number(m.ordersTotalWorth || 0).toLocaleString()}</strong>
-              </div>
-              {cashSummary && (
-                <div>
-                  <span className="text-slate-400 block text-[11px] font-bold uppercase">Net Cash</span>
-                  <strong className={`font-mono font-bold text-sm ${cashSummary.netCash >= 0 ? 'text-brand-primary' : 'text-rose-600'}`}>
-                    Rs. {cashSummary.netCash.toLocaleString()}
-                  </strong>
-                </div>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StatusCard label="1. Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
+              <StatusCard label="2. Sales & Distribution (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
+              <StatusCard label="3. Transport & Fleet (TM)" confirmed={tmConfirmed} confirmedBy={status?.tmConfirmedBy?.name} />
             </div>
           </div>
 
-          {/* Admin Read-Only Audit Status */}
-          <div className="card-surface p-5 space-y-3 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-600 mb-1">
-                <ShieldCheck size={18} />
-                <h3 className="text-base font-bold text-slate-800">Daily Close Audit Status</h3>
+          {/* 2. Today's Key Operational Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="card-surface p-4">
+              <div className="flex items-center gap-2 text-blue-600 mb-1">
+                <Box size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase">Production</span>
               </div>
-              <p className="text-xs text-slate-500">
-                Admin view is read-only. Financial lock and daily close finalization are executed by the Accountant or Owner.
+              <p className="text-xl font-extrabold font-mono text-slate-900">{p.total19L || 0} <span className="text-xs font-semibold text-slate-400">19L</span></p>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">1.5L: {p.packs15L || 0} | 0.5L: {p.packs05L || 0}</p>
+            </div>
+
+            <div className="card-surface p-4">
+              <div className="flex items-center gap-2 text-purple-600 mb-1">
+                <ShoppingBag size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase">Orders & Sales</span>
+              </div>
+              <p className="text-xl font-extrabold font-mono text-slate-900">{m.ordersCount || 0} <span className="text-xs font-semibold text-slate-400">Orders</span></p>
+              <p className="text-[10px] text-[var(--brand)] font-bold mt-0.5 font-mono">Rs. {Number(m.ordersTotalWorth || 0).toLocaleString()}</p>
+            </div>
+
+            <div className="card-surface p-4">
+              <div className="flex items-center gap-2 text-amber-600 mb-1">
+                <Truck size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase">Fleet & Fuel</span>
+              </div>
+              <p className="text-xl font-extrabold font-mono text-slate-900">{t.totalVehicles || 0} <span className="text-xs font-semibold text-slate-400">Active</span></p>
+              <p className="text-[10px] text-rose-600 font-bold mt-0.5 font-mono">Rs. {Number(t.totalExpenses || 0).toLocaleString()}</p>
+            </div>
+
+            <div className="card-surface p-4">
+              <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                <DollarSign size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase">Net Cash Drawer</span>
+              </div>
+              <p className={`text-xl font-extrabold font-mono ${cashSummary && cashSummary.netCash >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                Rs. {cashSummary ? Number(cashSummary.netCash || 0).toLocaleString() : '0'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Spot: Rs. {cashSummary?.counterSales?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+
+          {/* 3. Double-Verification & Daily Lock Action Card */}
+          <div className="card-surface p-6 border-2 border-indigo-100 bg-indigo-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-indigo-950 font-black text-base">
+                <ShieldCheck size={20} className="text-indigo-600" />
+                <span>Admin Double-Verification & Lock</span>
+              </div>
+              <p className="text-xs text-slate-600 max-w-xl font-medium">
+                Double-verifying finalizes daily numbers and locks date records from unauthorized edits.
+                {!allDepartmentsConfirmed && (
+                  <span className="block text-amber-700 font-bold text-[11px] mt-1 flex items-center gap-1">
+                    <AlertTriangle size={13} /> Some departments are pending verification. Admin lock will auto-confirm and finalize.
+                  </span>
+                )}
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-600 font-semibold">Production Confirmation:</span>
-                <span className={`font-bold px-2 py-0.5 rounded ${pmConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {pmConfirmed ? 'Confirmed' : 'Pending'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-600 font-semibold">Marketing Confirmation:</span>
-                <span className={`font-bold px-2 py-0.5 rounded ${mmConfirmed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {mmConfirmed ? 'Confirmed' : 'Pending'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
-                <span className="text-slate-700 font-bold">Final Close Status:</span>
-                <span className={`font-bold px-2.5 py-0.5 rounded-full text-xs ${isClosed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {isClosed ? '🔒 Day Finalized' : '⏳ Day Open'}
-                </span>
-              </div>
-            </div>
+            <button
+              onClick={handleFinalize}
+              disabled={submitting}
+              className="btn-primary py-3 px-6 text-sm flex items-center gap-2 shrink-0 font-bold shadow-md hover:shadow-lg transition-all"
+            >
+              {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Lock size={16} />}
+              <span>{submitting ? 'Finalizing...' : 'Double-Verify & Lock Day'}</span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* History Log */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <Calendar size={20} /> History ({history.length})
+      {/* 4. History Log */}
+      <div className="space-y-3 pt-2">
+        <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+          <Calendar size={18} className="text-slate-400" /> Close History ({history.length})
         </h3>
         {history.length === 0 ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center text-slate-500 text-sm">
-            No finalized days found.
+          <div className="card-surface p-8 text-center text-slate-400 text-xs font-semibold">
+            No finalized days recorded yet.
           </div>
         ) : (
           history.map(day => {
@@ -139,50 +188,48 @@ export default function AdminClose() {
             const hp = day.productionTotals || {};
             const hm = day.marketingTotals || {};
             return (
-              <div key={day.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={day.id} className="card-surface border border-slate-200 overflow-hidden transition-all">
                 <div
                   onClick={() => setExpandedId(isExpanded ? null : day.id)}
-                  className="p-5 cursor-pointer flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-colors"
+                  className="p-4 cursor-pointer flex items-center justify-between hover:bg-slate-50/60 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-                      <Calendar size={20} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center font-bold">
+                      <Lock size={16} />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">
-                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                      <h4 className="text-xs font-extrabold text-slate-800">
+                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                       </h4>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
                         <UserCheck size={12} className="text-emerald-600" />
-                        {day.closedBy?.name || 'Admin'} · {new Date(day.closedAt).toLocaleTimeString()}
+                        <span>Closed by <strong className="text-slate-700">{day.closedBy?.name || 'Admin'}</strong></span>
+                        <span>· {new Date(day.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex items-center gap-3 text-xs font-semibold">
-                      <span className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <Box size={14} className="text-blue-500" /> {hp.total19L || 0} 19L
-                      </span>
-                      <span className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <ShoppingBag size={14} className="text-purple-500" /> {hm.ordersCount || 0} Orders
-                      </span>
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold">
+                      <span className="badge-neutral font-mono">{hp.total19L || 0} 19L</span>
+                      <span className="badge-brand font-mono">{hm.ordersCount || 0} Orders</span>
                     </div>
-                    <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400">
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </div>
                   </div>
                 </div>
+
                 {isExpanded && (
-                  <div className="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                      <h5 className="font-bold text-blue-900 text-sm mb-2">Production</h5>
-                      <p>19L: <strong>{hp.total19L || 0}</strong> · 1.5L: <strong>{hp.packs15L || 0}</strong> · 0.5L: <strong>{hp.packs05L || 0}</strong></p>
-                      <p>PM: <strong>{day.pmConfirmedBy?.name || 'Auto'}</strong></p>
+                  <div className="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Production Breakdown</span>
+                      <p className="font-semibold text-slate-800">19L: <strong className="font-mono">{hp.total19L || 0}</strong> | 1.5L: <strong className="font-mono">{hp.packs15L || 0}</strong> | 0.5L: <strong className="font-mono">{hp.packs05L || 0}</strong></p>
+                      <p className="text-[11px] text-slate-500">PM Confirmed: {day.pmConfirmedBy?.name || 'Auto-confirmed'}</p>
                     </div>
-                    <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                      <h5 className="font-bold text-purple-900 text-sm mb-2">Marketing</h5>
-                      <p>Orders: <strong>{hm.ordersCount || 0}</strong> · Worth: <strong>Rs {Number(hm.ordersTotalWorth || 0).toLocaleString()}</strong></p>
-                      <p>MM: <strong>{day.mmConfirmedBy?.name || 'Auto'}</strong></p>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Sales & Orders Breakdown</span>
+                      <p className="font-semibold text-slate-800">Orders: <strong className="font-mono">{hm.ordersCount || 0}</strong> | Worth: <strong className="font-mono text-[var(--brand)]">Rs {Number(hm.ordersTotalWorth || 0).toLocaleString()}</strong></p>
+                      <p className="text-[11px] text-slate-500">MM Confirmed: {day.mmConfirmedBy?.name || 'Auto-confirmed'}</p>
                     </div>
                   </div>
                 )}

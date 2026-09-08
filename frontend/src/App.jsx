@@ -21,6 +21,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const DailyClose = lazy(() => import('./pages/DailyClose'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Transport = lazy(() => import('./pages/Transport'));
+const ProductPricing = lazy(() => import('./pages/ProductPricing'));
 
 import { isPageAllowedForRole } from './constants/roleAccess';
 
@@ -85,6 +86,7 @@ function AppRoutes() {
           <Route path="orders" element={<RoleProtectedRoute path="/orders"><Orders /></RoleProtectedRoute>} />
           <Route path="expenses" element={<RoleProtectedRoute path="/expenses"><Expenses /></RoleProtectedRoute>} />
           <Route path="counter-sales" element={<RoleProtectedRoute path="/counter-sales"><CounterSales /></RoleProtectedRoute>} />
+          <Route path="pricing" element={<RoleProtectedRoute path="/pricing"><ProductPricing /></RoleProtectedRoute>} />
           <Route path="users" element={<RoleProtectedRoute path="/users"><Users /></RoleProtectedRoute>} />
           <Route path="reports" element={<RoleProtectedRoute path="/reports"><Reports /></RoleProtectedRoute>} />
           <Route path="daily-close" element={<RoleProtectedRoute path="/daily-close"><DailyClose /></RoleProtectedRoute>} />

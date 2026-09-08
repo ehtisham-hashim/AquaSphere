@@ -33,7 +33,6 @@ export default function AddEditPurchaseModal({
   const [items, setItems] = useState([{ itemId: '', quantity: '', unitPrice: '' }]);
 
   // Receipt upload state
-  const [receiptFile, setReceiptFile] = useState(null);
   const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -80,7 +79,6 @@ export default function AddEditPurchaseModal({
       }
 
       setUploadedReceiptUrl(initialData.receiptUrl || '');
-      setReceiptFile(null);
       setUploadError('');
       setError('');
     } else {
@@ -95,7 +93,6 @@ export default function AddEditPurchaseModal({
       setRemarks('');
       setItems([{ itemId: '', quantity: '', unitPrice: '' }]);
       setUploadedReceiptUrl('');
-      setReceiptFile(null);
       setUploadError('');
       setError('');
     }
@@ -131,7 +128,6 @@ export default function AddEditPurchaseModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setReceiptFile(file);
     setUploadError('');
     setUploading(true);
 

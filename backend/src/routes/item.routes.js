@@ -11,7 +11,9 @@ import {
   adjustInventory,
   getInventoryTransactions,
   transferStock,
-  reconcileInventory
+  reconcileInventory,
+  updateItemPrice,
+  updateItemPricingBatch
 } from '../controllers/item.controller.js';
 
 const router = Router();
@@ -22,6 +24,10 @@ router.use(verifyJWT);
 router.get('/transactions', getInventoryTransactions);
 router.get('/', getItems);
 router.get('/:id', getItemById);
+
+// Owner-only pricing endpoints
+router.put('/pricing/batch', requireRoles('OWNER'), updateItemPricingBatch);
+router.put('/:id/price', requireRoles('OWNER'), updateItemPrice);
 
 // Adding & updating items manually is restricted to OWNER only (anti-corruption rule)
 router.post('/', requireRoles('OWNER'), createItem);

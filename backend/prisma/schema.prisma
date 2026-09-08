@@ -63,6 +63,7 @@ model AquasphereItem {
   factoryQty   Decimal            @default(0.0) @map("factory_qty")
   warehouseQty Decimal            @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal            @default(0.0) @map("reorder_level")
+  retailPrice  Decimal            @default(0.0) @map("retail_price")
   archivedAt   DateTime?          @map("archived_at")
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
@@ -75,6 +76,7 @@ model AquasphereItem {
   consumedBatches       AquasphereProductionBatch[]            @relation("ConsumedItems")
   recipeFinishedGoods   AquasphereRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    AquasphereRecipeItem[]                 @relation("RecipeRawMaterial")
+  spotSaleItems         AquasphereSpotSaleItem[]
 
   @@index([name])
   @@index([type])
@@ -536,26 +538,47 @@ model AquasphereRecipeItem {
 }
 
 model AquasphereSpotSale {
-  id               String              @id @default(uuid())
-  saleNumber       String?             @map("sale_number")
-  productType      String?             @map("product_type")
-  productQty       Decimal             @default(1.0) @map("product_qty")
-  openPackLeftover Int                 @default(0) @map("open_pack_leftover")
-  litresSold       Decimal             @map("litres_sold")
-  capsIssued       Int                 @default(0) @map("caps_issued")
-  cashCollected    Decimal             @default(0.0) @map("cash_collected")
-  creditAmount     Decimal             @default(0.0) @map("credit_amount")
-  paymentMethod    String              @default("CASH") @map("payment_method")
+  id               String                   @id @default(uuid())
+  saleNumber       String?                  @unique @map("sale_number")
+  productType      String?                  @map("product_type")
+  productQty       Decimal                  @default(1.0) @map("product_qty")
+  openPackLeftover Int                      @default(0) @map("open_pack_leftover")
+  litresSold       Decimal                  @map("litres_sold")
+  capsIssued       Int                      @default(0) @map("caps_issued")
+  cashCollected    Decimal                  @default(0.0) @map("cash_collected")
+  creditAmount     Decimal                  @default(0.0) @map("credit_amount")
+  totalAmount      Decimal                  @default(0.0) @map("total_amount")
+  amountPaid       Decimal                  @default(0.0) @map("amount_paid")
+  debtAmount       Decimal                  @default(0.0) @map("debt_amount")
+  paymentMethod    String                   @default("CASH") @map("payment_method")
   remarks          String?
-  customerId       String?             @map("customer_id")
-  customer         AquasphereCustomer? @relation(fields: [customerId], references: [id])
-  createdById      String?             @map("created_by_id")
-  createdBy        AquasphereUser?     @relation(fields: [createdById], references: [id])
-  createdAt        DateTime            @default(now()) @map("created_at")
+  customerId       String?                  @map("customer_id")
+  customer         AquasphereCustomer?      @relation(fields: [customerId], references: [id])
+  createdById      String?                  @map("created_by_id")
+  createdBy        AquasphereUser?          @relation(fields: [createdById], references: [id])
+  items            AquasphereSpotSaleItem[]
+  createdAt        DateTime                 @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@index([customerId, createdAt(sort: Desc)])
   @@map("spot_sales")
+  @@schema("aquasphere")
+}
+
+model AquasphereSpotSaleItem {
+  id         String             @id @default(uuid())
+  spotSaleId String             @map("spot_sale_id")
+  spotSale   AquasphereSpotSale @relation(fields: [spotSaleId], references: [id], onDelete: Cascade)
+  itemId     String             @map("item_id")
+  item       AquasphereItem     @relation(fields: [itemId], references: [id])
+  quantity   Decimal            @map("quantity")
+  unitPrice  Decimal            @map("unit_price")
+  subtotal   Decimal            @map("subtotal")
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  @@index([spotSaleId])
+  @@index([itemId])
+  @@map("spot_sale_items")
   @@schema("aquasphere")
 }
 
@@ -649,6 +672,7 @@ model WadaanaItem {
   factoryQty   Decimal         @default(0.0) @map("factory_qty")
   warehouseQty Decimal         @default(0.0) @map("warehouse_qty")
   reorderLevel Decimal         @default(0.0) @map("reorder_level")
+  retailPrice  Decimal         @default(0.0) @map("retail_price")
   archivedAt   DateTime?       @map("archived_at")
   createdAt    DateTime        @default(now()) @map("created_at")
   updatedAt    DateTime        @updatedAt @map("updated_at")
@@ -661,6 +685,7 @@ model WadaanaItem {
   consumedBatches       WadaanaProductionBatch[]            @relation("ConsumedItems")
   recipeFinishedGoods   WadaanaRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    WadaanaRecipeItem[]                 @relation("RecipeRawMaterial")
+  spotSaleItems         WadaanaSpotSaleItem[]
 
   @@index([name])
   @@index([type])
@@ -1130,26 +1155,47 @@ model WadaanaRecipeItem {
 }
 
 model WadaanaSpotSale {
-  id               String           @id @default(uuid())
-  saleNumber       String?          @map("sale_number")
-  productType      String?          @map("product_type")
-  productQty       Decimal          @default(1.0) @map("product_qty")
-  openPackLeftover Int              @default(0) @map("open_pack_leftover")
-  litresSold       Decimal          @map("litres_sold")
-  capsIssued       Int              @default(0) @map("caps_issued")
-  cashCollected    Decimal          @default(0.0) @map("cash_collected")
-  creditAmount     Decimal          @default(0.0) @map("credit_amount")
-  paymentMethod    String           @default("CASH") @map("payment_method")
+  id               String                @id @default(uuid())
+  saleNumber       String?               @unique @map("sale_number")
+  productType      String?               @map("product_type")
+  productQty       Decimal               @default(1.0) @map("product_qty")
+  openPackLeftover Int                   @default(0) @map("open_pack_leftover")
+  litresSold       Decimal               @map("litres_sold")
+  capsIssued       Int                   @default(0) @map("caps_issued")
+  cashCollected    Decimal               @default(0.0) @map("cash_collected")
+  creditAmount     Decimal               @default(0.0) @map("credit_amount")
+  totalAmount      Decimal               @default(0.0) @map("total_amount")
+  amountPaid       Decimal               @default(0.0) @map("amount_paid")
+  debtAmount       Decimal               @default(0.0) @map("debt_amount")
+  paymentMethod    String                @default("CASH") @map("payment_method")
   remarks          String?
-  customerId       String?          @map("customer_id")
-  customer         WadaanaCustomer? @relation(fields: [customerId], references: [id])
-  createdById      String?          @map("created_by_id")
-  createdBy        WadaanaUser?     @relation(fields: [createdById], references: [id])
-  createdAt        DateTime         @default(now()) @map("created_at")
+  customerId       String?               @map("customer_id")
+  customer         WadaanaCustomer?      @relation(fields: [customerId], references: [id])
+  createdById      String?               @map("created_by_id")
+  createdBy        WadaanaUser?          @relation(fields: [createdById], references: [id])
+  items            WadaanaSpotSaleItem[]
+  createdAt        DateTime              @default(now()) @map("created_at")
 
   @@index([createdAt(sort: Desc)])
   @@index([customerId, createdAt(sort: Desc)])
   @@map("spot_sales")
+  @@schema("wadaana")
+}
+
+model WadaanaSpotSaleItem {
+  id         String          @id @default(uuid())
+  spotSaleId String          @map("spot_sale_id")
+  spotSale   WadaanaSpotSale @relation(fields: [spotSaleId], references: [id], onDelete: Cascade)
+  itemId     String          @map("item_id")
+  item       WadaanaItem     @relation(fields: [itemId], references: [id])
+  quantity   Decimal         @map("quantity")
+  unitPrice  Decimal         @map("unit_price")
+  subtotal   Decimal         @map("subtotal")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@index([spotSaleId])
+  @@index([itemId])
+  @@map("spot_sale_items")
   @@schema("wadaana")
 }
 

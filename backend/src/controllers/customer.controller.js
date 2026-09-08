@@ -275,6 +275,9 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
 export const uploadCustomerPicture = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Image file is required');
   const { secure_url, public_id } = await uploadImage(req.file, UPLOAD_FOLDERS.CUSTOMERS);
-  return sendSuccess(res, { homePictureUrl: secure_url, publicId: public_id });
+  return sendSuccess(res, { homePictureUrl: secure_url, publicId: public_id }, 200, {
+    homePictureUrl: secure_url,
+    publicId: public_id
+  });
 });
 
