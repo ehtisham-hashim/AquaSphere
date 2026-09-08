@@ -23,15 +23,34 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     const normKey = catItem.name.toLowerCase().trim();
     if (!itemMap.has(normKey)) {
       const dbMatch = items.find(i => i.name?.toLowerCase().trim() === normKey);
+      const dbPrice = dbMatch ? Number(dbMatch.retailPrice || 0) : 0;
       itemMap.set(normKey, {
         id: catItem.id,
         dbItemId: dbMatch?.id || null,
         name: catItem.name,
         category: catItem.category,
         categoryLabel: catItem.categoryLabel,
-        defaultPrice: Math.round(catItem.defaultPrice),
+        defaultPrice: dbPrice > 0 ? dbPrice : Math.round(catItem.defaultPrice),
         unit: catItem.unit
       });
+    }
+  });
+
+  // Also include any active finished goods from DB not in static catalog
+  items.forEach(dbItem => {
+    if (dbItem.type === 'FINISHED_GOOD' || !dbItem.type) {
+      const normKey = (dbItem.name || '').toLowerCase().trim();
+      if (normKey && !itemMap.has(normKey)) {
+        itemMap.set(normKey, {
+          id: dbItem.id,
+          dbItemId: dbItem.id,
+          name: dbItem.name,
+          category: 'FINISHED_GOOD',
+          categoryLabel: 'OTHER FINISHED GOODS',
+          defaultPrice: Number(dbItem.retailPrice || 0),
+          unit: dbItem.unit || 'units'
+        });
+      }
     }
   });
 

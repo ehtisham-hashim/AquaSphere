@@ -35,6 +35,7 @@ export const SIDEBAR_ROUTES = Object.freeze({
   INVENTORY: '/inventory',
   TRANSPORT_EXPENSES: '/transport-expenses',
   TRANSPORT: '/transport',
+  PRICING: '/pricing',
 });
 
 /**
@@ -58,6 +59,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
       [SIDEBAR_ROUTES.TRANSPORT]: true,
+      [SIDEBAR_ROUTES.PRICING]: true,
     },
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -74,6 +76,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -90,6 +93,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -106,6 +110,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: false,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -122,6 +127,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -138,6 +144,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.INVENTORY]: false,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
       [SIDEBAR_ROUTES.TRANSPORT]: true,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
   },
   wadaana: {
@@ -156,6 +163,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
       [SIDEBAR_ROUTES.TRANSPORT]: true,
+      [SIDEBAR_ROUTES.PRICING]: true,
     },
     [ROLES.ADMIN]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -172,6 +180,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.PRODUCTION_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -188,6 +197,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.ACCOUNTANT]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -204,6 +214,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.MARKETING_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -220,6 +231,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -236,6 +248,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.DAILY_CLOSE]: true,
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: true,
       [SIDEBAR_ROUTES.TRANSPORT]: true,
+      [SIDEBAR_ROUTES.PRICING]: false,
     },
   },
 };

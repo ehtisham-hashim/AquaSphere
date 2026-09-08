@@ -64,16 +64,36 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     const normKey = catItem.name.toLowerCase().trim();
     if (!itemMap.has(normKey)) {
       const dbMatch = items.find(i => i.name.toLowerCase().trim() === normKey);
+      const dbPrice = dbMatch ? Number(dbMatch.retailPrice || 0) : 0;
       itemMap.set(normKey, {
         id: catItem.id,
         dbItemId: dbMatch?.id || null,
         name: catItem.name,
         category: catItem.category,
         categoryLabel: catItem.categoryLabel,
-        defaultPrice: catItem.defaultPrice,
+        defaultPrice: dbPrice > 0 ? dbPrice : catItem.defaultPrice,
         unit: catItem.unit,
         isCustomerPreference: catItem.isCustomerPreference
       });
+    }
+  });
+
+  // Also include any active finished goods from DB not in static catalog
+  items.forEach(dbItem => {
+    if (dbItem.type === 'FINISHED_GOOD' || !dbItem.type) {
+      const normKey = (dbItem.name || '').toLowerCase().trim();
+      if (normKey && !itemMap.has(normKey)) {
+        itemMap.set(normKey, {
+          id: dbItem.id,
+          dbItemId: dbItem.id,
+          name: dbItem.name,
+          category: 'FINISHED_GOOD',
+          categoryLabel: 'OTHER FINISHED GOODS',
+          defaultPrice: Number(dbItem.retailPrice || 0),
+          unit: dbItem.unit || 'units',
+          isCustomerPreference: false
+        });
+      }
     }
   });
 

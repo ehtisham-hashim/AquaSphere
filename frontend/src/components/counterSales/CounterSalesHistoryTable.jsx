@@ -90,12 +90,24 @@ export default function CounterSalesHistoryTable({
                 </td>
               </tr>
             ) : filteredSales.map(sale => {
-              const cash = Number(sale.cashCollected || 0);
-              const credit = Number(sale.creditAmount || 0);
-              const total = cash + credit;
+              const total = Number(sale.totalAmount ?? (Number(sale.cashCollected || 0) + Number(sale.creditAmount || 0)));
+              const paid = Number(sale.amountPaid ?? Number(sale.cashCollected || 0));
+              const debt = Number(sale.debtAmount ?? Number(sale.creditAmount || 0));
               const dailyClosed = isDateClosed(sale.createdAt);
-              const pBadge = getPaymentBadge(cash, credit);
-              const { mainItem, extraCount } = formatItemSummary(sale.productType, sale.productQty);
+              const pBadge = getPaymentBadge(paid, debt);
+              
+              // Use normalized items if available
+              let mainItem = 'Retail Sale';
+              let extraCount = 0;
+              if (Array.isArray(sale.items) && sale.items.length > 0) {
+                const first = sale.items[0];
+                mainItem = `${first.item?.name || 'Item'} × ${Number(first.quantity)}`;
+                extraCount = sale.items.length - 1;
+              } else {
+                const legacy = formatItemSummary(sale.productType, sale.productQty);
+                mainItem = legacy.mainItem;
+                extraCount = legacy.extraCount;
+              }
 
               return (
                 <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
@@ -126,10 +138,10 @@ export default function CounterSalesHistoryTable({
                     )}
                   </td>
 
-                    {/* Compact Items Sold (1 item + compact badge for extra) */}
+                  {/* Compact Items Sold */}
                   <td className="table-td whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg text-xs">
+                      <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg text-xs truncate max-w-[200px]">
                         {mainItem}
                       </span>
                       {extraCount > 0 && (
@@ -139,7 +151,7 @@ export default function CounterSalesHistoryTable({
                           title="Click to view all items"
                           className="text-[10px] font-bold text-brand bg-brand/10 hover:bg-brand/20 border border-brand/20 px-1.5 py-0.5 rounded-full transition"
                         >
-                          +{extraCount} extra
+                          +{extraCount} more
                         </button>
                       )}
                     </div>
@@ -150,14 +162,14 @@ export default function CounterSalesHistoryTable({
                     )}
                   </td>
 
-                  {/* Financials (Received vs Credit) */}
+                  {/* Financials (Bill / Paid / Debt) */}
                   <td className="table-td whitespace-nowrap">
                     <div className="font-mono font-bold text-slate-900 text-xs">Rs. {total.toLocaleString()}</div>
                     <div className="flex items-center gap-2 text-[11px] mt-0.5 font-mono">
-                      <span className="text-emerald-700 font-semibold">Rec: Rs. {cash.toLocaleString()}</span>
-                      {credit > 0 && (
+                      <span className="text-emerald-700 font-semibold">Paid: Rs. {paid.toLocaleString()}</span>
+                      {debt > 0 && (
                         <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                          Credit: Rs. {credit.toLocaleString()}
+                          Debt: Rs. {debt.toLocaleString()}
                         </span>
                       )}
                     </div>
@@ -172,7 +184,7 @@ export default function CounterSalesHistoryTable({
 
                   {/* Operator */}
                   <td className="table-td text-slate-600 font-medium text-xs">
-                    {sale.createdBy?.name || userName || 'System'}
+                    {sale.createdBy?.name || 'Staff'}
                     <span className="text-[10px] text-slate-400 block font-normal">
                       ({sale.createdBy?.role || 'MM'})
                     </span>

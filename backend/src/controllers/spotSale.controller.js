@@ -8,41 +8,49 @@ import { sendSuccess } from '../utils/response.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
-const LITRES_MAP = {
-  'PACK_05L': 9.0,
-  'SINGLE_05L': 0.75,
-  'PACK_15L': 12.0,
-  'SINGLE_15L': 2.0,
-  'BOTTLE_19L': 24.0,
-  'CUSTOM': 1.0
-};
-
 const generateSaleNumber = () => {
   const now = new Date();
   const d = String(now.getDate()).padStart(2, '0');
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const y = String(now.getFullYear()).slice(-2);
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `CS-${d}${m}${y}-${rand}`;
+  const ts = Date.now().toString(36).slice(-4).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 4).toUpperCase();
+  return `CS-${d}${m}${y}-${ts}${rand}`;
 };
 
 /** Retrieves paginated spot/counter sales */
 export const getSpotSales = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
+  const { page = 1, limit = 50, search } = req.query;
   const skip = (page - 1) * limit;
   const prefix = getTenantPrefix(req);
 
+  const where = {};
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { saleNumber: { contains: s, mode: 'insensitive' } },
+      { remarks: { contains: s, mode: 'insensitive' } },
+      { customer: { name: { contains: s, mode: 'insensitive' } } }
+    ];
+  }
+
   const [sales, total] = await Promise.all([
     prisma[`${prefix}SpotSale`].findMany({
+      where,
       skip,
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
       include: {
-        customer: { select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true } },
-        createdBy: { select: { id: true, name: true, role: true } }
+        customer: { select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true, deposit: true } },
+        createdBy: { select: { id: true, name: true, role: true } },
+        items: {
+          include: {
+            item: { select: { id: true, name: true, unit: true, retailPrice: true } }
+          }
+        }
       }
     }),
-    prisma[`${prefix}SpotSale`].count()
+    prisma[`${prefix}SpotSale`].count({ where })
   ]);
 
   return sendSuccess(res, sales, 200, {
@@ -50,157 +58,308 @@ export const getSpotSales = asyncHandler(async (req, res) => {
   });
 });
 
-/** Records a walk-in / spot sale transaction */
+/** Retrieves today's aggregate metrics directly from database */
+export const getTodaySpotSalesSummary = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const todaySales = await prisma[`${prefix}SpotSale`].findMany({
+    where: {
+      createdAt: { gte: startOfDay }
+    },
+    select: {
+      totalAmount: true,
+      amountPaid: true,
+      debtAmount: true,
+      cashCollected: true,
+      creditAmount: true,
+      litresSold: true
+    }
+  });
+
+  let todayRevenue = 0;
+  let todayPaid = 0;
+  let todayDebt = 0;
+  let todayLitres = 0;
+
+  for (const s of todaySales) {
+    const rev = Number(s.totalAmount) || (Number(s.cashCollected || 0) + Number(s.creditAmount || 0));
+    const paid = Number(s.amountPaid) || Number(s.cashCollected || 0);
+    const debt = Number(s.debtAmount) || Number(s.creditAmount || 0);
+    const lit = Number(s.litresSold || 0);
+
+    todayRevenue += rev;
+    todayPaid += paid;
+    todayDebt += debt;
+    todayLitres += lit;
+  }
+
+  return sendSuccess(res, {
+    todayRevenue,
+    todayPaid,
+    todayDebt,
+    todayLitres,
+    todayCount: todaySales.length
+  });
+});
+
+/** Records a walk-in / spot sale transaction with dynamic finished goods */
 export const createSpotSale = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const {
-    productType = 'CUSTOM', productQty = 1, items: inputItems,
-    litresSold, capsIssued = 0, cashCollected = 0, creditAmount = 0,
-    paymentMethod = 'CASH', customerId, remarks
+    items: inputItems,
+    amountPaid,
+    cashCollected,
+    creditAmount,
+    paymentMethod = 'CASH',
+    customerId,
+    remarks
   } = req.body;
 
-  const itemsList = (Array.isArray(inputItems) && inputItems.length > 0)
-    ? inputItems
-    : [{ productType, productQty: parseFloat(productQty || 1) }];
-
-  const cash = parseFloat(cashCollected || 0);
-  const credit = parseFloat(creditAmount || 0);
-  const caps = parseInt(capsIssued || 0, 10);
-
-  if (isNaN(cash) || cash < 0) throw new ApiError(400, 'Cash collected must be a non-negative number');
-  if (isNaN(credit) || credit < 0) throw new ApiError(400, 'Credit amount must be a non-negative number');
-  if (credit > 0 && (!customerId || !customerId.trim())) {
-    throw new ApiError(400, 'Customer selection is mandatory for credit sales (Credit Amount > 0)');
+  if (!Array.isArray(inputItems) || inputItems.length === 0) {
+    throw new ApiError(400, 'At least one finished good item must be selected for the sale.');
   }
 
-  if (customerId) {
-    const customerObj = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
+  // Pre-validate customer if provided
+  let customerObj = null;
+  if (customerId && customerId.trim()) {
+    customerObj = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
     if (!customerObj) throw new ApiError(404, 'Selected customer not found');
+  }
+
+  // Fetch all finished goods referenced in the sale
+  const itemIds = inputItems.map(i => i.itemId).filter(Boolean);
+  const dbItems = await prisma[`${prefix}Item`].findMany({
+    where: {
+      id: { in: itemIds },
+      type: 'FINISHED_GOOD',
+      archivedAt: null
+    }
+  });
+
+  const dbItemMap = new Map(dbItems.map(i => [i.id, i]));
+
+  // Calculate line items and total bill
+  let totalBill = new Prisma.Decimal(0);
+  let totalLitres = 0;
+  const processedItems = [];
+
+  for (const raw of inputItems) {
+    const fgItem = dbItemMap.get(raw.itemId);
+    if (!fgItem) {
+      throw new ApiError(400, `Item "${raw.name || raw.itemId}" is either invalid or not an active finished good.`);
+    }
+
+    const qty = parseFloat(raw.quantity);
+    if (isNaN(qty) || qty <= 0) {
+      throw new ApiError(400, `Invalid quantity for "${fgItem.name}". Must be greater than 0.`);
+    }
+
+    const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (fgItem.retailPrice || 0));
+    if (isNaN(unitPrice) || unitPrice < 0) {
+      throw new ApiError(400, `Invalid unit price for "${fgItem.name}".`);
+    }
+
+    const subtotal = new Prisma.Decimal(qty).times(unitPrice);
+    totalBill = totalBill.plus(subtotal);
+
+    // Approximate litres from item name or size
+    const nameLower = fgItem.name.toLowerCase();
+    let litresPerUnit = 0;
+    if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = 9.0; // 12 btls x 0.75L
+    else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = 12.0; // 6 btls x 2L
+    else if (nameLower.includes('19')) litresPerUnit = 24.0;
+    else litresPerUnit = 1.0;
+
+    totalLitres += litresPerUnit * qty;
+
+    processedItems.push({
+      fgItem,
+      quantity: qty,
+      unitPrice,
+      subtotal: Number(subtotal)
+    });
+  }
+
+  const numericTotalBill = Number(totalBill);
+  
+  // Determine amount paid (supports amountPaid or legacy cashCollected)
+  let numericAmountPaid = 0;
+  if (amountPaid !== undefined && amountPaid !== null && amountPaid !== '') {
+    numericAmountPaid = parseFloat(amountPaid);
+  } else if (cashCollected !== undefined && cashCollected !== null && cashCollected !== '') {
+    numericAmountPaid = parseFloat(cashCollected);
+  } else {
+    // Default to paid in full
+    numericAmountPaid = numericTotalBill;
+  }
+
+  if (isNaN(numericAmountPaid) || numericAmountPaid < 0) {
+    throw new ApiError(400, 'Amount paid must be a non-negative number.');
+  }
+
+  const numericDebtAmount = Math.max(0, Number(new Prisma.Decimal(numericTotalBill).minus(numericAmountPaid)));
+
+  // Strict Walk-In rule: Walk-in cash customers cannot leave unpaid balances (debt)
+  if (numericDebtAmount > 0 && (!customerId || !customerId.trim())) {
+    throw new ApiError(400, `Walk-in customers must pay in full. Unpaid balance of Rs. ${numericDebtAmount.toLocaleString()} requires selecting or registering a customer profile to record debt.`);
   }
 
   const saleNumber = generateSaleNumber();
 
   const spotSale = await prisma.$transaction(async (tx) => {
-    const finishedGoods = await tx[`${prefix}Item`].findMany({
-      where: { type: 'FINISHED_GOOD', archivedAt: null }
-    });
-
-    const findFG = (keywords) => finishedGoods.find(i => keywords.some(kw => i.name.toLowerCase().includes(kw.toLowerCase())));
-
-    const deductStock = async (fgItem, qtyDeduct, reason) => {
-      const avail = Number(fgItem.cachedQty || 0);
-      if (avail < qtyDeduct) {
-        throw new ApiError(400, `❌ Cannot process Counter Sale: Insufficient stock for "${fgItem.name}". Required: ${qtyDeduct}, Available: ${avail}.`);
-      }
-
-      const currentFactory = Number(fgItem.factoryQty || 0);
-      const factoryDeduct = currentFactory >= qtyDeduct ? qtyDeduct : (currentFactory > 0 ? currentFactory : 0);
-      const warehouseDeduct = qtyDeduct - factoryDeduct;
-
-      await tx[`${prefix}InventoryTransaction`].create({
-        data: {
-          itemId: fgItem.id,
-          quantity: qtyDeduct,
-          direction: 'OUT',
-          reason,
-          refType: 'SPOT_SALE',
-          refId: saleNumber,
-          location: factoryDeduct > 0 ? 'FACTORY' : 'WAREHOUSE'
-        }
+    // 1. Stock deduction and location validation
+    for (const line of processedItems) {
+      const { fgItem, quantity } = line;
+      
+      // Re-read current stock inside transaction for consistency
+      const currentItem = await tx[`${prefix}Item`].findUnique({
+        where: { id: fgItem.id }
       });
 
+      const totalAvail = Number(currentItem.cachedQty || 0);
+      if (totalAvail < quantity) {
+        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${quantity}, Available: ${totalAvail}.`);
+      }
+
+      const currentFactory = Number(currentItem.factoryQty || 0);
+      const factoryDeduct = currentFactory >= quantity ? quantity : (currentFactory > 0 ? currentFactory : 0);
+      const warehouseDeduct = quantity - factoryDeduct;
+
+      if (warehouseDeduct > 0 && Number(currentItem.warehouseQty || 0) < warehouseDeduct) {
+        throw new ApiError(400, `❌ Insufficient warehouse stock for "${currentItem.name}".`);
+      }
+
+      // Record factory inventory transaction if applicable
+      if (factoryDeduct > 0) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: currentItem.id,
+            quantity: factoryDeduct,
+            direction: 'OUT',
+            reason: 'SPOT_SALE',
+            refType: 'SPOT_SALE',
+            refId: saleNumber,
+            location: 'FACTORY'
+          }
+        });
+      }
+
+      // Record warehouse inventory transaction if applicable
+      if (warehouseDeduct > 0) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: currentItem.id,
+            quantity: warehouseDeduct,
+            direction: 'OUT',
+            reason: 'SPOT_SALE',
+            refType: 'SPOT_SALE',
+            refId: saleNumber,
+            location: 'WAREHOUSE'
+          }
+        });
+      }
+
+      // Decrement item inventory atomically
       await tx[`${prefix}Item`].update({
-        where: { id: fgItem.id },
+        where: { id: currentItem.id },
         data: {
-          cachedQty: { decrement: qtyDeduct },
+          cachedQty: { decrement: quantity },
           ...(factoryDeduct > 0 && { factoryQty: { decrement: factoryDeduct } }),
           ...(warehouseDeduct > 0 && { warehouseQty: { decrement: warehouseDeduct } })
         }
       });
-    };
 
-    let totalLitresCalculated = 0;
-    let openPackLeftover = 0;
-    const summaryProductType = itemsList.map(i => `${i.productType} (x${i.productQty})`).join(', ');
-    const totalQty = itemsList.reduce((acc, i) => acc + Number(i.productQty || 1), 0);
-
-    for (const item of itemsList) {
-      const pType = item.productType;
-      const pQty = parseFloat(item.productQty || 1);
-      totalLitresCalculated += (LITRES_MAP[pType] || 1.0) * pQty;
-
-      if (pType === 'PACK_05L' || pType === 'SINGLE_05L') {
-        const fg05L = findFG(['500ml', '0.5l', '0.5', '500']);
-        if (fg05L) {
-          if (pType === 'PACK_05L') {
-            await deductStock(fg05L, pQty, 'SPOT_SALE_PACK_05L');
-          } else {
-            const packDeduction = Number(new Prisma.Decimal(pQty).dividedBy(12));
-            const looseBottles = pQty % 12;
-            openPackLeftover += (12 - looseBottles) % 12;
-            await deductStock(fg05L, packDeduction, 'SPOT_SALE_SINGLE_05L');
-          }
-        }
-      } else if (pType === 'PACK_15L' || pType === 'SINGLE_15L') {
-        const fg15L = findFG(['1.5l', '1500ml', '1.5', '1500']);
-        if (fg15L) {
-          if (pType === 'PACK_15L') {
-            await deductStock(fg15L, pQty, 'SPOT_SALE_PACK_15L');
-          } else {
-            const packDeduction = Number(new Prisma.Decimal(pQty).dividedBy(6));
-            const looseBottles = pQty % 6;
-            openPackLeftover += (6 - looseBottles) % 6;
-            await deductStock(fg15L, packDeduction, 'SPOT_SALE_SINGLE_15L');
-          }
-        }
-      } else if (pType === 'BOTTLE_19L') {
-        const fg19L = findFG(['19l', '19']);
-        if (fg19L) await deductStock(fg19L, pQty, 'SPOT_SALE_19L');
+      // 19L bottle custody tracking
+      const is19L = currentItem.name.toLowerCase().includes('19');
+      if (is19L) {
         await tx[`${prefix}BottleTransaction`].create({
-          data: { type: 'DELIVERED_TO_CUSTOMER', quantity: Math.round(pQty), reason: `Counter Sale 19L Refill (${saleNumber})` }
+          data: {
+            type: 'DELIVERED_TO_CUSTOMER',
+            quantity: Math.round(quantity),
+            customerId: customerId || null,
+            reason: `Counter Sale 19L Refill (${saleNumber})`
+          }
         });
+
+        if (customerId) {
+          await tx[`${prefix}Customer`].update({
+            where: { id: customerId },
+            data: { cachedBottleBalance: { increment: Math.round(quantity) } }
+          });
+        }
       }
     }
 
-    const finalLitres = parseFloat(litresSold) || totalLitresCalculated;
+    // 2. Summary string for legacy/receipt compatibility
+    const summaryProductType = processedItems
+      .map(p => `${p.fgItem.name} (x${p.quantity})`)
+      .join(', ');
+    const totalQty = processedItems.reduce((acc, p) => acc + p.quantity, 0);
 
+    // 3. Create parent SpotSale record
     const sale = await tx[`${prefix}SpotSale`].create({
       data: {
         saleNumber,
         productType: summaryProductType,
         productQty: totalQty,
-        openPackLeftover,
-        litresSold: finalLitres,
-        capsIssued: caps,
-        cashCollected: cash,
-        creditAmount: credit,
+        litresSold: totalLitres,
+        totalAmount: numericTotalBill,
+        amountPaid: numericAmountPaid,
+        debtAmount: numericDebtAmount,
+        cashCollected: numericAmountPaid,
+        creditAmount: numericDebtAmount,
         paymentMethod: paymentMethod || 'CASH',
         remarks: remarks || null,
         customerId: customerId || null,
         createdById: req.user?.id || null
-      },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        createdBy: { select: { id: true, name: true, role: true } }
       }
     });
 
-    if (credit > 0 && customerId) {
-      await tx[`${prefix}Customer`].update({
-        where: { id: customerId },
-        data: { currentBalance: { increment: credit } }
+    // 4. Create child SpotSaleItem records
+    for (const p of processedItems) {
+      await tx[`${prefix}SpotSaleItem`].create({
+        data: {
+          spotSaleId: sale.id,
+          itemId: p.fgItem.id,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice,
+          subtotal: p.subtotal
+        }
       });
     }
 
+    // 5. Update customer balance if debt occurred
+    if (numericDebtAmount > 0 && customerId) {
+      await tx[`${prefix}Customer`].update({
+        where: { id: customerId },
+        data: { currentBalance: { increment: numericDebtAmount } }
+      });
+    }
+
+    // 6. Audit Log
     await createAuditLog(prefix, {
       action: 'COUNTER_SALE_CREATED',
       entityType: 'SPOT_SALE',
       entityId: sale.id,
-      details: `Counter Sale ${saleNumber} created. Product: ${summaryProductType}, Total Qty: ${totalQty}, Litres: ${finalLitres}L, Caps: ${caps}, Amount: Rs. ${cash + credit}`,
+      details: `Counter Sale ${saleNumber} created. Items: ${summaryProductType}, Bill: Rs. ${numericTotalBill}, Paid: Rs. ${numericAmountPaid}, Debt: Rs. ${numericDebtAmount}`,
       performedBy: req.user?.name || req.user?.id || 'System'
     });
 
-    return sale;
+    // 7. Re-fetch full sale with items for client return
+    return tx[`${prefix}SpotSale`].findUnique({
+      where: { id: sale.id },
+      include: {
+        customer: { select: { id: true, name: true, phone: true, currentBalance: true, deposit: true } },
+        createdBy: { select: { id: true, name: true, role: true } },
+        items: {
+          include: {
+            item: { select: { id: true, name: true, unit: true, retailPrice: true } }
+          }
+        }
+      }
+    });
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
@@ -233,6 +392,11 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
     data: {
       ...(remarks !== undefined && { remarks }),
       ...(paymentMethod !== undefined && { paymentMethod })
+    },
+    include: {
+      customer: { select: { id: true, name: true, phone: true } },
+      createdBy: { select: { id: true, name: true, role: true } },
+      items: { include: { item: true } }
     }
   });
 
@@ -247,37 +411,93 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
   return sendSuccess(res, updated);
 });
 
-/** Deletes a counter sale and reverts credit (OWNER only) */
+/** Deletes a counter sale and restores inventory stock and customer debt (OWNER only) */
 export const deleteSpotSale = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
   const userRole = req.user?.role;
 
-  const existing = await prisma[`${prefix}SpotSale`].findUnique({ where: { id } });
-  if (!existing) throw new ApiError(404, 'Counter sale record not found');
+  const existing = await prisma[`${prefix}SpotSale`].findUnique({
+    where: { id },
+    include: {
+      items: { include: { item: true } }
+    }
+  });
 
+  if (!existing) throw new ApiError(404, 'Counter sale record not found');
   if (userRole !== 'OWNER') throw new ApiError(403, 'Deleting counter sales is strictly restricted to Owner.');
 
   await prisma.$transaction(async (tx) => {
-    if (existing.customerId && Number(existing.creditAmount) > 0) {
+    // 1. Restore finished goods stock for each child line item
+    if (Array.isArray(existing.items) && existing.items.length > 0) {
+      for (const line of existing.items) {
+        const returnQty = Number(line.quantity || 0);
+        if (returnQty > 0) {
+          await tx[`${prefix}Item`].update({
+            where: { id: line.itemId },
+            data: {
+              cachedQty: { increment: returnQty },
+              factoryQty: { increment: returnQty }
+            }
+          });
+
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: line.itemId,
+              quantity: returnQty,
+              direction: 'IN',
+              reason: 'SPOT_SALE_DELETED',
+              refType: 'SPOT_SALE',
+              refId: existing.saleNumber || existing.id,
+              location: 'FACTORY'
+            }
+          });
+
+          // Revert 19L bottle transaction if applicable
+          if (line.item?.name?.toLowerCase().includes('19')) {
+            await tx[`${prefix}BottleTransaction`].create({
+              data: {
+                type: 'RETURNED_GOOD',
+                quantity: Math.round(returnQty),
+                customerId: existing.customerId || null,
+                reason: `Reversal of deleted Counter Sale (${existing.saleNumber || existing.id})`
+              }
+            });
+
+            if (existing.customerId) {
+              await tx[`${prefix}Customer`].update({
+                where: { id: existing.customerId },
+                data: { cachedBottleBalance: { decrement: Math.round(returnQty) } }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Revert customer debt if debt was accrued
+    const debtToRevert = Number(existing.debtAmount || existing.creditAmount || 0);
+    if (existing.customerId && debtToRevert > 0) {
       await tx[`${prefix}Customer`].update({
         where: { id: existing.customerId },
-        data: { currentBalance: { decrement: Number(existing.creditAmount) } }
+        data: { currentBalance: { decrement: debtToRevert } }
       });
     }
 
+    // 3. Delete the parent SpotSale record (cascade deletes SpotSaleItem)
     await tx[`${prefix}SpotSale`].delete({ where: { id } });
 
+    // 4. Audit Log
     await createAuditLog(prefix, {
       action: 'COUNTER_SALE_DELETED',
       entityType: 'SPOT_SALE',
       entityId: id,
-      details: `Counter Sale ${existing.saleNumber || id} deleted by ${req.user?.name} (${userRole})`,
+      details: `Counter Sale ${existing.saleNumber || id} deleted by ${req.user?.name} (${userRole}). Stock and customer balances restored.`,
       performedBy: req.user?.name || req.user?.id || 'System'
     });
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
-  return sendSuccess(res, null, 200, { message: 'Counter sale deleted successfully' });
+  return sendSuccess(res, null, 200, { message: 'Counter sale deleted and inventory restored successfully.' });
 });
 

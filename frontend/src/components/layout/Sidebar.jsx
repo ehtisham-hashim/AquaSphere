@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Boxes,
   Car,
+  Tag,
   LogOut
 } from 'lucide-react';
 
@@ -33,6 +34,7 @@ const navItems = [
   { icon: VendorsIcon, label: 'Vendors', path: '/vendors' },
   { icon: Banknote, label: 'Expenses', path: '/expenses' },
   { icon: Store, label: 'Counter Sales', path: '/counter-sales' },
+  { icon: Tag, label: 'Product Pricing', path: '/pricing' },
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
   { icon: Car, label: 'Transport', path: '/transport' },
   { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },

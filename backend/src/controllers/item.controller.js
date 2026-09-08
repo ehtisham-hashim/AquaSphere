@@ -26,6 +26,7 @@ export const getItems = asyncHandler(async (req, res) => {
       factoryQty: true,
       warehouseQty: true,
       reorderLevel: true,
+      retailPrice: true,
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
@@ -36,14 +37,16 @@ export const getItems = asyncHandler(async (req, res) => {
   const itemsData = items.map(item => {
     if (item.type === 'FINISHED_GOOD' || !item.type) {
       const nameLower = (item.name || '').toLowerCase();
-      if (prefix === 'aquasphere') {
+      if (nameLower.includes('water') || nameLower.includes('bulk') || (item.unit && item.unit.toLowerCase() === 'litres')) {
+        item.unit = 'Litres';
+      } else if (prefix === 'aquasphere') {
         if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
           item.unit = 'packs';
         } else if (nameLower.includes('19')) {
           item.unit = 'bottles';
         }
       } else {
-        item.unit = 'bottles';
+        item.unit = item.unit || 'bottles';
       }
     }
     return item;
@@ -400,4 +403,91 @@ export const reconcileInventory = asyncHandler(async (req, res) => {
     }
   }, 200, { message: 'Inventory reconciled successfully' });
 });
+
+/** Updates a single item's retail price (Owner only) */
+export const updateItemPrice = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { retailPrice } = req.body;
+  const prefix = getTenantPrefix(req);
+
+  const priceNum = parseFloat(retailPrice);
+  if (isNaN(priceNum) || priceNum < 0) {
+    throw new ApiError(400, 'Invalid retail price. Must be a positive number or zero.');
+  }
+
+  const existingItem = await prisma[`${prefix}Item`].findUnique({
+    where: { id }
+  });
+
+  if (!existingItem) {
+    throw new ApiError(404, 'Item not found');
+  }
+
+  const oldPrice = Number(existingItem.retailPrice || 0);
+
+  const updatedItem = await prisma[`${prefix}Item`].update({
+    where: { id },
+    data: { retailPrice: priceNum }
+  });
+
+  await createAuditLog(prefix, {
+    action: 'PRICE_UPDATED',
+    entityType: 'Item',
+    entityId: id,
+    performedBy: req.user?.name || req.user?.id || 'Owner',
+    details: JSON.stringify({
+      itemName: existingItem.name,
+      oldPrice,
+      newPrice: priceNum
+    })
+  });
+
+  return sendSuccess(res, updatedItem, 200, { message: `Price for "${existingItem.name}" updated successfully` });
+});
+
+/** Updates retail prices of multiple items in batch (Owner only) */
+export const updateItemPricingBatch = asyncHandler(async (req, res) => {
+  const { items: pricingUpdates } = req.body;
+  const prefix = getTenantPrefix(req);
+
+  if (!Array.isArray(pricingUpdates) || pricingUpdates.length === 0) {
+    throw new ApiError(400, 'Array of items with id and retailPrice is required');
+  }
+
+  for (const entry of pricingUpdates) {
+    if (!entry.id) throw new ApiError(400, 'Item ID is required for each pricing update');
+    const p = parseFloat(entry.retailPrice);
+    if (isNaN(p) || p < 0) {
+      throw new ApiError(400, `Invalid price for item ${entry.id}. Must be >= 0.`);
+    }
+  }
+
+  const updatedItems = await prisma.$transaction(async (tx) => {
+    const results = [];
+    for (const entry of pricingUpdates) {
+      const p = parseFloat(entry.retailPrice);
+      const updated = await tx[`${prefix}Item`].update({
+        where: { id: entry.id },
+        data: { retailPrice: p }
+      });
+      results.push(updated);
+    }
+
+    await createAuditLog(prefix, {
+      action: 'BATCH_PRICES_UPDATED',
+      entityType: 'Item',
+      entityId: 'BATCH',
+      performedBy: req.user?.name || req.user?.id || 'Owner',
+      details: JSON.stringify({
+        updatedCount: pricingUpdates.length,
+        updates: pricingUpdates.map(u => ({ id: u.id, newPrice: u.retailPrice }))
+      })
+    });
+
+    return results;
+  });
+
+  return sendSuccess(res, updatedItems, 200, { message: `${updatedItems.length} product prices updated successfully` });
+});
+
 
