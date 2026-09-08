@@ -40,26 +40,26 @@ export default function AccountantDashboardView({ data }) {
   }, [tenant, today]);
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 pb-6">
       {/* Top Banner */}
-      <div className="card-surface p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="card-surface p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="badge-brand">
-              {companyTitle} • ACCOUNTS CONTROL
+              {companyTitle}
             </span>
-            <span className="text-xs text-slate-400 font-medium">Daily Finance Ledger</span>
+            <span className="text-[11px] text-slate-400 font-medium">Daily Finance Ledger</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-1">Finance & Cash Ledger Overview</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-1">Finance & Cash Ledger</h1>
         </div>
 
         {closeStatus?.isClosed ? (
-          <div className="badge-success px-3 py-1.5 text-xs font-bold">
-            <Lock size={14} /> Day Closed
+          <div className="badge-success px-2.5 py-1 text-xs font-bold">
+            <Lock size={13} /> Day Closed
           </div>
         ) : (
-          <div className="badge-brand px-3 py-1.5 text-xs font-bold">
-            <Clock size={14} /> Day Open
+          <div className="badge-brand px-2.5 py-1 text-xs font-bold">
+            <Clock size={13} /> Day Open
           </div>
         )}
       </div>
@@ -67,10 +67,10 @@ export default function AccountantDashboardView({ data }) {
       {/* 1. Financial & Cash Overview */}
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <TrendingUp size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Financial Summary</h2>
+          <TrendingUp size={16} className="text-slate-500" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Financial Summary</h2>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <ModernKpiCard icon={CreditCard} title="Cash Collected" value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`} subtitle="Cash received today" variant="emerald" />
           <ModernKpiCard icon={Wallet} title="Today's Sales" value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`} subtitle="Total sales revenue" variant="sky" />
           <ModernKpiCard icon={CreditCard} title="Credit Sales" value={`Rs. ${Number(data?.credit || 0).toLocaleString()}`} subtitle="Billed on credit" variant="amber" />

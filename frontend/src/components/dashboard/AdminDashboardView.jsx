@@ -68,30 +68,30 @@ export default function AdminDashboardView() {
   const kpis = data?.kpis || {};
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 pb-6">
       {/* Top Banner & Title */}
-      <div className="card-surface p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="card-surface p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="badge-brand">
-              {companyTitle.toUpperCase()} • OPERATIONS CONTROL
+              {companyTitle}
             </span>
-            <span className="text-xs text-slate-400 font-medium">Daily Supervisor Overview</span>
+            <span className="text-[11px] text-slate-400 font-medium">Supervisor Overview</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
+          <p className="text-xs text-slate-500 mt-0.5 font-normal">
             Monitor daily stock levels, production output, delivery status, cash collections, and customer credit alerts.
           </p>
         </div>
 
         <Link to="/daily-close" className="btn-secondary text-xs">
-          <Lock size={15} className="text-emerald-500" />
-          <span>Daily Close Page &rarr;</span>
+          <Lock size={14} className="text-emerald-600" />
+          <span>Daily Close &rarr;</span>
         </Link>
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <ModernKpiCard
           icon={Truck}
           title="Today's Orders"

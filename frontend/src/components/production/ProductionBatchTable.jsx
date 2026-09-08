@@ -3,15 +3,19 @@ import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, U
 
 function getColorClasses(color) {
   switch (color) {
-    case 'cyan': return 'bg-cyan-50 border border-cyan-200 text-cyan-800';
-    case 'sky': return 'bg-sky-50 border border-sky-200 text-sky-800';
-    case 'amber': return 'bg-amber-50 border border-amber-200 text-amber-800';
-    case 'orange': return 'bg-orange-50 border border-orange-200 text-orange-800';
-    case 'purple': return 'bg-purple-50 border border-purple-200 text-purple-800';
-    case 'blue': return 'bg-blue-50 border border-blue-200 text-blue-800';
+    case 'cyan':
+    case 'sky': 
+      return 'bg-sky-50 border-sky-200 text-sky-900';
+    case 'amber':
+    case 'orange': 
+      return 'bg-amber-50 border-amber-200 text-amber-900';
+    case 'purple': 
+      return 'bg-purple-50 border-purple-200 text-purple-900';
+    case 'blue': 
+      return 'bg-blue-50 border-blue-200 text-blue-900';
     case 'emerald':
     default:
-      return 'bg-emerald-50 border border-emerald-200 text-emerald-800';
+      return 'bg-emerald-50 border-emerald-200 text-emerald-900';
   }
 }
 
@@ -126,8 +130,8 @@ export default function ProductionBatchTable({
           </h3>
           <p className="text-xs text-slate-500">Audit log of past production runs and formula deductions</p>
         </div>
-        <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
-          Total Batches: {batches.length}
+        <span className="text-xs font-medium text-slate-600 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs">
+          Total Batches: <strong className="text-slate-900 font-bold">{batches.length}</strong>
         </span>
       </div>
 
@@ -164,11 +168,11 @@ export default function ProductionBatchTable({
                   <tr key={b.id} className="hover:bg-slate-50/80 transition-colors text-xs">
                     {/* 1. Batch ID & Date */}
                     <td className="table-td">
-                      <span className="font-mono font-bold text-brand block">
+                      <span className="font-mono font-bold text-xs text-brand block">
                         #{b.id.substring(0, 8).toUpperCase()}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-mono block">
-                        {new Date(b.createdAt).toLocaleDateString()} {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="text-xs text-slate-500 block mt-0.5">
+                        {new Date(b.createdAt).toLocaleDateString()} <span className="text-slate-400">at {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </span>
                     </td>
 
@@ -181,16 +185,17 @@ export default function ProductionBatchTable({
                             type="button"
                             onClick={() => setViewingBatch(b)}
                             title="Click to view full batch details & consumptions"
-                            className={`px-2 py-0.5 rounded font-mono font-bold text-[11px] shadow-2xs hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border shadow-2xs hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
                           >
-                            {p.name}: {p.qty}
+                            <span className="font-semibold">{p.name}:</span>
+                            <span className="font-bold">{p.qty}</span>
                           </button>
                         ))}
                         {remainingCount > 0 && (
                           <button
                             type="button"
                             onClick={() => setViewingBatch(b)}
-                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] cursor-pointer transition border border-slate-200"
+                            className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition border border-slate-200"
                             title="View all products produced in this batch"
                           >
                             +{remainingCount} more
@@ -201,7 +206,7 @@ export default function ProductionBatchTable({
 
                     {/* 3. Total Output */}
                     <td className="table-td">
-                      <span className="font-mono font-bold text-slate-800">
+                      <span className="font-semibold text-slate-900 text-sm tabular-nums">
                         {totalOutput}
                       </span>
                     </td>
@@ -209,12 +214,15 @@ export default function ProductionBatchTable({
                     {/* 4. Waste / Loss */}
                     <td className="table-td">
                       {wasteCount > 0 ? (
-                        <span className="badge-danger text-[10px]">
-                          <AlertCircle size={11} />
+                        <span className="badge-danger text-xs font-semibold">
+                          <AlertCircle size={12} />
                           {wasteCount} waste
                         </span>
                       ) : (
-                        <span className="text-slate-400 text-[11px]">Clean</span>
+                        <span className="inline-flex items-center gap-1.5 text-slate-500 text-xs font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Clean
+                        </span>
                       )}
                     </td>
 
@@ -222,21 +230,22 @@ export default function ProductionBatchTable({
                     <td className="table-td">
                       <div className="flex items-center gap-2">
                         {b.status === 'COMPLETED' ? (
-                          <span className="badge-success text-[10px]">
-                            <CheckCircle2 size={11} />
+                          <span className="badge-success text-xs">
+                            <CheckCircle2 size={12} />
                             Completed
                           </span>
                         ) : (
                           <>
-                            <span className="px-2 py-0.5 rounded text-[10px] bg-amber-50 text-amber-800 border border-amber-200 font-bold">
-                              Pending Verification
+                            <span className="badge-warning text-xs">
+                              <Clock size={12} />
+                              Pending
                             </span>
                             {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
                               <button
                                 onClick={() => onComplete(b.id)}
-                                className="btn-primary text-[10px] py-1 px-2"
+                                className="btn-primary text-xs py-1 px-2.5"
                               >
-                                Confirm & Complete
+                                Confirm
                               </button>
                             )}
                           </>
@@ -245,8 +254,11 @@ export default function ProductionBatchTable({
                     </td>
 
                     {/* 6. Recorded By */}
-                    <td className="table-td text-slate-600 font-medium">
-                      {b.createdBy?.name || 'System'} ({b.createdBy?.role || 'MM'})
+                    <td className="table-td">
+                      <div className="text-xs">
+                        <span className="font-semibold text-slate-800 block">{b.createdBy?.name || 'System'}</span>
+                        <span className="text-[11px] text-slate-400 uppercase tracking-wider">{b.createdBy?.role ? b.createdBy.role.replace(/_/g, ' ') : 'Staff'}</span>
+                      </div>
                     </td>
 
                     {/* 7. Delete (Owner Only) */}

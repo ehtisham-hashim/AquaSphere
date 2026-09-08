@@ -8,6 +8,7 @@ import {
   Download
 } from 'lucide-react';
 import { API_URL } from '../utils/api';
+import { PageHeader } from '../components/ui';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -213,46 +214,34 @@ export default function Transport() {
   return (
     <div className="space-y-4">
       {/* Top Header & Tab Navigation */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge-brand">
-              {isWadaana ? 'WADAANA LOGISTICS' : 'FLEET & TRANSPORT'}
-            </span>
+      <PageHeader
+        title="Fleet & Transport Hub"
+        subtitle="Manage company vehicles, active fleet status, and fuel & maintenance expenses"
+        actions={
+          <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 shrink-0">
+            <button
+              onClick={() => handleTabChange('fleet')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'fleet'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Car size={13} /> Fleet & Vehicles
+            </button>
+            <button
+              onClick={() => handleTabChange('expenses')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'expenses'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Fuel size={13} /> Vehicle Expenses
+            </button>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight mt-1 flex items-center gap-2">
-            <Car className="text-brand-primary" size={22} />
-            Transport & Fleet Hub
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm">
-            Manage company vehicles, operational status, and log fuel & maintenance expenses
-          </p>
-        </div>
-
-        {/* Tab switcher buttons */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0">
-          <button
-            onClick={() => handleTabChange('fleet')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-              activeTab === 'fleet'
-                ? 'bg-white text-brand-primary shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Car size={14} /> Fleet & Vehicles
-          </button>
-          <button
-            onClick={() => handleTabChange('expenses')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-              activeTab === 'expenses'
-                ? 'bg-white text-brand-primary shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Fuel size={14} /> Vehicle Expenses
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ------------------- Tab 1: Fleet & Vehicles ------------------- */}
       {activeTab === 'fleet' && (

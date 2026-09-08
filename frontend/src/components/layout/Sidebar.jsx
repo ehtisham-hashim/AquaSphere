@@ -61,17 +61,17 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
         } ${isCollapsed ? 'md:w-20' : 'md:w-72'} w-72`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 bg-white">
-          <div className={`flex items-center gap-3 ${isCollapsed ? 'md:justify-center md:w-full' : ''}`}>
-            <div className="grid place-items-center rounded-xl p-2.5 bg-brand-light text-brand shrink-0">
+        <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100 bg-white">
+          <div className={`flex items-center gap-2.5 ${isCollapsed ? 'md:justify-center md:w-full' : ''}`}>
+            <div className="grid place-items-center rounded-xl p-2 bg-brand-light text-brand shrink-0">
               {isWadaana ? <Building2 className="w-5 h-5" /> : <Droplets className="w-5 h-5" />}
             </div>
             {(!isCollapsed || isOpen) && (
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">
+                <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
                   {isWadaana ? 'Wadaana Ind.' : 'AquaSphere OS'}
                 </p>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
                   {isWadaana ? 'Blow Molding' : 'Operations'}
                 </p>
               </div>
@@ -87,7 +87,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scrollbar-none">
+        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1 scrollbar-none">
           {navItems
             .filter(item => isPageAllowedForRole(user?.role, item.path, tenant))
             .map((item) => {
@@ -99,20 +99,20 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
                   onClick={() => { if (isOpen) onClose(); }}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl transition-all duration-150 ${
+                    `flex items-center gap-3 rounded-xl text-sm transition-all duration-150 ${
                       isCollapsed 
-                        ? 'md:justify-center md:px-0 md:py-3 px-3 py-2.5' 
+                        ? 'md:justify-center md:px-0 md:py-2.5 px-3.5 py-2.5' 
                         : 'px-3.5 py-2.5'
                     } ${
                       isActive 
                         ? 'bg-brand/10 text-brand font-semibold shadow-2xs' 
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 font-medium'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                     }`
                   }
                 >
                   <Icon className="w-5 h-5 shrink-0" />
                   {(!isCollapsed || isOpen) && (
-                    <span className="text-sm truncate">{item.label}</span>
+                    <span className="truncate tracking-tight">{item.label}</span>
                   )}
                 </NavLink>
               );
@@ -124,11 +124,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
           <button 
             onClick={logout}
             title={isCollapsed ? 'Sign Out' : undefined}
-            className={`w-full flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors ${
-              isCollapsed ? 'md:px-0 px-3' : 'px-3'
+            className={`w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-colors ${
+              isCollapsed ? 'md:px-0 px-3.5' : 'px-3.5'
             }`}
           >
-            <LogOut size={16} className="shrink-0" />
+            <LogOut size={17} className="shrink-0" />
             {(!isCollapsed || isOpen) && (
               <span className="truncate">Sign Out</span>
             )}

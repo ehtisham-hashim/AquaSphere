@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { TableSkeleton } from '../components/common/Skeleton';
+import { PageHeader } from '../components/ui';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -97,10 +98,27 @@ export default function Customers() {
         />
       ) : (
         <>
-          {/* Action Header */}
-          <div className="card-surface p-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          {/* Page Header */}
+          <PageHeader
+            title="Customer Directory"
+            subtitle="Customer profiles, delivery accounts, and financial credit limits"
+            actions={
+              canAddCustomer && (
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="btn-primary"
+                >
+                  <Plus size={15} />
+                  <span>Add Customer</span>
+                </button>
+              )
+            }
+          />
+
+          {/* Search & Filter Toolbar */}
+          <div className="card-surface p-3 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
               <input 
                 type="search" 
                 placeholder="Search by customer name or phone..." 
@@ -112,12 +130,12 @@ export default function Customers() {
 
             <div className="flex items-center gap-2 shrink-0">
               {!isMarketingManager && (
-                <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border border-slate-200">
+                <div className="bg-slate-100/90 p-0.5 rounded-lg flex gap-0.5 border border-slate-200/80 text-xs">
                   <button
                     onClick={() => setActiveTab('Active')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                       activeTab === 'Active' 
-                        ? 'bg-white text-slate-900 shadow-2xs' 
+                        ? 'bg-white text-slate-900 shadow-2xs font-bold' 
                         : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
@@ -125,24 +143,15 @@ export default function Customers() {
                   </button>
                   <button
                     onClick={() => setActiveTab('Archived')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
                       activeTab === 'Archived' 
-                        ? 'bg-white text-rose-700 shadow-2xs' 
+                        ? 'bg-white text-rose-700 shadow-2xs font-bold' 
                         : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     Archived
                   </button>
                 </div>
-              )}
-              {canAddCustomer && (
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="btn-primary"
-                >
-                  <Plus size={16} />
-                  <span>Add Customer</span>
-                </button>
               )}
             </div>
           </div>

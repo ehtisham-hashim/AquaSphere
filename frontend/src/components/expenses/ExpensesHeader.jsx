@@ -28,14 +28,14 @@ export default function ExpensesHeader({
       <div>
         <div className="flex items-center gap-2">
           <span className="badge-brand">
-            {isWadaana ? 'WADAANA EXPENSES' : 'FINANCIAL LOGISTICS'}
+            {isWadaana ? 'Wadaana Expenses' : 'Operating Expenses'}
           </span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight mt-1">Expenses Register</h2>
-        <p className="text-slate-500 text-xs sm:text-sm">Track plant expenses with receipt verification & attribution</p>
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1">Expenses Register</h2>
+        <p className="text-slate-500 text-xs">Track operational plant expenses with receipt verification & category attribution</p>
       </div>
 
-      <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
         <TimeframeDropdown 
           value={timeRange} 
           onChange={setTimeRange} 
@@ -45,17 +45,17 @@ export default function ExpensesHeader({
         <button 
           onClick={onExportCSV}
           disabled={!hasExpenses}
-          className="btn-outline flex items-center gap-1.5 text-xs font-semibold py-2 px-3"
+          className="btn-secondary"
         >
-          <Download size={14} /> Export CSV
+          <Download size={13} /> Export CSV
         </button>
 
         {canLogExpense && (
           <button 
             onClick={onOpenModal}
-            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5"
+            className="btn-primary"
           >
-            <Plus size={16}/> Log Expense
+            <Plus size={14}/> Log Expense
           </button>
         )}
       </div>

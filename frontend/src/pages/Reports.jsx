@@ -5,6 +5,7 @@ import {
   BarChart2, Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 
 } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 
 const REPORT_TABS = [
   { id: 'sales', label: 'Sales Report', icon: TrendingUp },
@@ -111,57 +112,49 @@ export default function Reports() {
   return (
     <div className="space-y-4">
       {/* Action Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge-brand">
-              {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight mt-1">
-            <BarChart2 className="text-brand-primary" size={22} /> Advanced Reports
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm">Analytics and data exports for business operations</p>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          {/* Period Segmented Filter */}
-          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-            {PERIODS.map(p => (
-              <button
-                key={p.id}
-                onClick={() => setPeriod(p.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                  period === p.id ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {period === 'custom' && (
-            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
-              <Calendar size={14} className="text-slate-400" />
-              <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              <span className="text-slate-300">-</span>
-              <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} />
+      <PageHeader
+        title="Advanced Reports & Analytics"
+        subtitle="Business analytics, profit ledgers, and data exports"
+        actions={
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            {/* Period Segmented Filter */}
+            <div className="flex bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80">
+              {PERIODS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    period === p.id ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
-          )}
 
-          <button
-            onClick={handleExportCSV}
-            disabled={!reportData || !reportData.table || reportData.table.length === 0}
-            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5 disabled:opacity-50"
-          >
-            <Download size={14} /> Export CSV
-          </button>
-        </div>
-      </div>
+            {period === 'custom' && (
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
+                <Calendar size={13} className="text-slate-400" />
+                <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <span className="text-slate-300">-</span>
+                <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            )}
+
+            <button
+              onClick={handleExportCSV}
+              disabled={!reportData || !reportData.table || reportData.table.length === 0}
+              className="btn-primary"
+            >
+              <Download size={13} /> Export CSV
+            </button>
+          </div>
+        }
+      />
 
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Sidebar Tabs */}
-        <div className="lg:w-60 shrink-0 flex flex-row lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
+        <div className="lg:w-56 shrink-0 flex flex-row lg:flex-col gap-0.5 overflow-x-auto pb-1 lg:pb-0">
           {REPORT_TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -169,14 +162,14 @@ export default function Reports() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left shrink-0 ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all text-left shrink-0 ${
                   isActive 
-                    ? 'bg-brand-light text-brand-primary border border-brand-light shadow-xs' 
-                    : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                    ? 'bg-brand/10 text-brand font-semibold shadow-2xs' 
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon size={16} className={isActive ? 'text-brand-primary' : 'text-slate-400'} />
-                {tab.label}
+                <Icon size={15} className={isActive ? 'text-brand' : 'text-slate-400'} />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}

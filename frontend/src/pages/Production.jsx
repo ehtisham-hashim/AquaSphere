@@ -9,6 +9,7 @@ import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import DeleteConfirmationModal from '../components/ui/DeleteConfirmationModal';
+import { PageHeader } from '../components/ui';
 import ProductionBatchTable from '../components/production/ProductionBatchTable';
 import CreateBatchModal from '../components/production/CreateBatchModal';
 import CompleteBatchModal from '../components/production/CompleteBatchModal';
@@ -172,31 +173,21 @@ export default function Production() {
   return (
     <div className="space-y-4">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge-brand text-[10px] uppercase tracking-wider font-bold">
-              {isWadaana ? 'Wadaana Production' : 'Production Manager'}
-            </span>
-          </div>
-          <h2 className="text-xl font-bold text-slate-800 mt-1">Factory Floor & Batch Execution</h2>
-          <p className="text-slate-500 text-xs">
-            {isWadaana ? 'Log single preform bottle production runs in bulk.' : 'Log pack output with automatic raw material formula deductions.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
+      <PageHeader
+        title="Factory Floor & Production Batches"
+        subtitle={isWadaana ? 'Log single preform bottle production runs in bulk.' : 'Log finished goods output with automated chemical & raw material deductions.'}
+        actions={
+          (isOwner || user?.role === 'PRODUCTION_MANAGER') && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5"
+              className="btn-primary"
             >
-              <Plus size={15} />
+              <Plus size={14} />
               <span>Log Production Batch</span>
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {/* Production Inventory & Stock Alerts Banner */}
       {lowItems.length > 0 && (

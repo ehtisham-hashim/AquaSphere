@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
+import { PageHeader, StatusBadge } from '../components/ui';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
@@ -105,34 +106,27 @@ export default function Users() {
 
   return (
     <div className="space-y-4">
-      {/* Action Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge-brand">
-              {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
-            </span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight mt-1">Users & Roles</h2>
-          <p className="text-slate-500 text-xs sm:text-sm">Manage employee accounts and operational system access</p>
-        </div>
-        <div className="flex items-center gap-2.5">
+      {/* Page Header */}
+      <PageHeader
+        title="Users & Roles"
+        subtitle="Manage employee accounts and operational system permissions"
+        actions={
           <button 
             onClick={openAddModal}
-            className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5"
+            className="btn-primary"
           >
-            <Plus size={16} /> Add User
+            <Plus size={14} /> <span>Add User</span>
           </button>
-        </div>
-      </div>
+        }
+      />
       
       {/* Search Input */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
         <input 
           type="search" 
           placeholder="Search by name or email..." 
-          className="input-base pl-9 text-xs py-2 w-full"
+          className="input-base pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

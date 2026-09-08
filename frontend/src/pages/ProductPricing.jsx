@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { ROLES } from '../constants/roleAccess';
 import { API_URL } from '../utils/api';
+import { PageHeader } from '../components/ui';
 
 export default function ProductPricing() {
   const { user } = useAuth();
@@ -200,53 +201,39 @@ export default function ProductPricing() {
   }, [items]);
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-4 pb-12">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand/10 text-brand rounded-xl">
-              <Tag className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                Product & Water Pricing
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                  <Lock className="w-3 h-3" /> Owner Exclusive
-                </span>
-              </h1>
-              <p className="text-xs text-slate-500">
-                Configure database-driven retail prices for all finished goods. Drives {isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.
-              </p>
-            </div>
+      <PageHeader
+        title="Product & Catalog Pricing"
+        badge={
+          <span className="badge-warning inline-flex items-center gap-1">
+            <Lock className="w-3 h-3" /> Owner Exclusive
+          </span>
+        }
+        subtitle={`Configure database-driven retail prices for all finished goods. Drives ${isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.`}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchItems}
+              disabled={loading}
+              className="btn-secondary"
+              title="Refresh items from database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+
+            <button
+              onClick={handleSaveAll}
+              disabled={!hasUnsavedChanges || savingAll}
+              className="btn-primary"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{savingAll ? 'Saving...' : `Save All Changes (${Object.keys(editedPrices).length})`}</span>
+            </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchItems}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition disabled:opacity-50"
-            title="Refresh items from database"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-
-          <button
-            onClick={handleSaveAll}
-            disabled={!hasUnsavedChanges || savingAll}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all ${
-              hasUnsavedChanges
-                ? 'bg-brand text-white hover:bg-brand-dark cursor-pointer shadow-brand/20 shadow-md'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            <Save className={`w-4 h-4 ${savingAll ? 'animate-spin' : ''}`} />
-            {savingAll ? 'Saving Prices...' : `Save All Changes ${hasUnsavedChanges ? `(${dirtyItems.length})` : ''}`}
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
