@@ -1,17 +1,10 @@
 import { useState } from 'react';
-import { Factory, AlertTriangle } from 'lucide-react';
-import { RefreshCw } from 'lucide-react';
+import { Factory, CheckCircle2, RefreshCw, Box } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
 import { confirmPM } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
-import VerificationChecklist from './VerificationChecklist';
-
-const PM_CHECKLIST = [
-  { key: 'batchesLogged', label: 'All production batches recorded for today.' },
-  { key: 'materialsDeducted', label: 'Raw materials properly deducted from inventory.' },
-];
 
 export default function ProductionClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, tenant } = useDailyClose();
@@ -27,8 +20,11 @@ export default function ProductionClose() {
       } else {
         toast.error(json.message || 'Failed to confirm');
       }
-    } catch { toast.error('Error confirming production'); }
-    finally { setSubmitting(false); }
+    } catch {
+      toast.error('Error confirming production');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -41,16 +37,15 @@ export default function ProductionClose() {
 
   const p = status?.productionTotals || {};
   const materials = status?.materialConsumption || [];
-  const hasBlockers = (status?.pendingBatchesCount > 0) || (status?.negativeStockCount > 0);
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4 max-w-3xl mx-auto">
       <DailyCloseHeader
-        label="PRODUCTION"
+        label="PRODUCTION VERIFICATION"
         labelColor="blue"
         icon={Factory}
         title="Production Daily Close"
-        description="Verify production batches, raw material deductions, and waste logs."
+        description="Verify today's bottled output, packaging numbers, and raw material usage."
         date={date}
         onDateChange={setDate}
       />
@@ -58,76 +53,76 @@ export default function ProductionClose() {
       {isClosed ? (
         <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
       ) : (
-        <>
-          {/* Production Stats */}
-          <div className="card-surface p-5 space-y-4">
-            <h3 className="text-base font-bold text-slate-800">Production Summary</h3>
+        <div className="space-y-4">
+          {/* Production Output Stats */}
+          <div className="card-surface p-5 space-y-3">
+            <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Today's Production Output</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <div>
                 <p className="text-[11px] text-slate-400 font-bold uppercase">19L Bottles</p>
-                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.total19L || 0}</p>
+                <p className="text-xl font-extrabold font-mono text-slate-900">{p.total19L || 0}</p>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-bold uppercase">1.5L Packs</p>
-                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.packs15L || 0}</p>
+                <p className="text-xl font-extrabold font-mono text-slate-900">{p.packs15L || 0}</p>
               </div>
               <div>
                 <p className="text-[11px] text-slate-400 font-bold uppercase">0.5L Packs</p>
-                <p className="text-lg sm:text-xl font-black font-mono text-slate-800">{p.packs05L || 0}</p>
+                <p className="text-xl font-extrabold font-mono text-slate-900">{p.packs05L || 0}</p>
               </div>
               <div>
-                <p className="text-[11px] text-slate-400 font-bold uppercase">Waste / Breakage</p>
-                <p className="text-lg sm:text-xl font-black font-mono text-rose-600">
-                  {(p.waste19L || 0) + (p.broken15L || 0) + (p.broken05L || 0)}
-                </p>
+                <p className="text-[11px] text-slate-400 font-bold uppercase">Bottle Waste</p>
+                <p className="text-xl font-extrabold font-mono text-rose-600">{p.waste19L || 0}</p>
               </div>
             </div>
+          </div>
 
-            {/* Material Consumption */}
-            {materials.length > 0 && (
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Raw Material Consumption</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {materials.map(m => (
-                    <div key={m.name} className="text-xs">
-                      <span className="text-slate-600">{m.name}:</span>{' '}
-                      <strong className="text-slate-900 font-mono">{m.quantity} {m.unit}</strong>
-                    </div>
-                  ))}
+          {/* Raw Material Usage */}
+          {materials.length > 0 && (
+            <div className="card-surface p-5 space-y-3">
+              <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Raw Material Consumption</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {materials.map((m, idx) => (
+                  <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-500 font-medium block truncate">{m.name}</span>
+                    <strong className="text-slate-800 font-mono text-sm">{m.quantity} {m.unit}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Single-Click Verify Action */}
+          <div className="card-surface p-5 border-2 border-blue-100 bg-blue-50/20">
+            {pmConfirmed ? (
+              <div className="flex items-center gap-3 text-emerald-800">
+                <CheckCircle2 size={24} className="text-emerald-600 shrink-0" />
+                <div>
+                  <h4 className="text-sm font-extrabold">Production Verified for Today ✓</h4>
+                  <p className="text-xs text-emerald-700 font-medium">
+                    Confirmed by {status?.pmConfirmedBy?.name || 'Production Manager'}
+                    {status?.pmConfirmedAt && ` at ${new Date(status.pmConfirmedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                  </p>
                 </div>
               </div>
-            )}
-
-            {/* System Warnings */}
-            {hasBlockers && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-amber-800 text-xs font-bold">
-                  <AlertTriangle size={16} /> System Warnings
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="space-y-0.5 text-center sm:text-left">
+                  <h4 className="text-sm font-extrabold text-slate-900">Verify Production Report</h4>
+                  <p className="text-xs text-slate-500">Confirm today's bottled production totals are accurate for admin double-verification.</p>
                 </div>
-                {status.pendingBatchesCount > 0 && (
-                  <p className="text-xs text-amber-700">{status.pendingBatchesCount} batch(es) still PENDING — complete before confirming.</p>
-                )}
-                {status.negativeStockCount > 0 && (
-                  <p className="text-xs text-amber-700">{status.negativeStockCount} item(s) have negative stock.</p>
-                )}
+                <button
+                  onClick={handleConfirm}
+                  disabled={submitting}
+                  className="btn-primary py-2.5 px-6 text-xs font-bold flex items-center gap-2 shrink-0"
+                >
+                  {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Box size={14} />}
+                  <span>{submitting ? 'Confirming...' : 'Verify Production Report'}</span>
+                </button>
               </div>
             )}
           </div>
-
-          {/* PM Checklist */}
-          <VerificationChecklist
-            key={date}
-            title="Production Verification"
-            subtitle="Verified by Production Manager"
-            items={PM_CHECKLIST}
-            onConfirm={handleConfirm}
-            confirmLabel="Confirm Production Close"
-            confirmed={pmConfirmed}
-            confirmedBy={status?.pmConfirmedBy?.name}
-            submitting={submitting}
-            disabled={hasBlockers}
-          />
-        </>
+        </div>
       )}
     </div>
   );

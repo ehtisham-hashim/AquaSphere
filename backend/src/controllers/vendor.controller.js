@@ -255,5 +255,8 @@ export const uploadPaymentProof = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, 'Payment proof image is required');
   const prefix = getTenantPrefix(req);
   const { secure_url, public_id } = await uploadImage(req.file, `${prefix}/vendor-payments`);
-  return sendSuccess(res, { proofUrl: secure_url, publicId: public_id });
+  return sendSuccess(res, { proofUrl: secure_url, publicId: public_id }, 200, {
+    proofUrl: secure_url,
+    publicId: public_id
+  });
 });

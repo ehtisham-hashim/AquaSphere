@@ -17,8 +17,25 @@ const computeDashboardAnalytics = async (prefix) => {
 
   const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
-      where: { createdAt: { gte: minDate, lte: endOfDay } },
-      select: { createdAt: true, items: { select: { price: true, quantity: true } } }
+      where: { 
+        createdAt: { gte: minDate, lte: endOfDay },
+        deliveryStatus: { not: 'CANCELLED' }
+      },
+      select: { 
+        id: true,
+        createdAt: true, 
+        deliveryStatus: true,
+        paymentStatus: true,
+        customer: { select: { id: true, name: true, phone: true } },
+        items: { 
+          select: { 
+            price: true, 
+            quantity: true,
+            item: { select: { name: true, unit: true } }
+          } 
+        } 
+      },
+      orderBy: { createdAt: 'desc' }
     }),
     prisma[`${prefix}Payment`].findMany({
       where: { createdAt: { gte: minDate, lte: endOfDay } },
@@ -48,27 +65,66 @@ const computeDashboardAnalytics = async (prefix) => {
   const dayMap = Object.create(null);
   const monthMap = Object.create(null);
 
-  const daily = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
-  const monthly = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
-  const yearly = { sales: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const daily = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const monthly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const yearly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
 
   const getDKey = (d) => d.toISOString().split('T')[0];
   const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 });
-  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 });
+  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 });
+  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 });
 
   for (const o of orders) {
     const d = new Date(o.createdAt);
     const total = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+    const isDelivered = o.deliveryStatus === 'DELIVERED';
+    const isUnprocessed = o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL';
+
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.sales += total;
     day.ordersCount += 1;
     month.sales += total;
-    if (d >= startOfDay) { daily.sales += total; daily.bottlesSold += 1; }
-    if (d >= startOfMonth) { monthly.sales += total; monthly.bottlesSold += 1; }
-    if (d >= startOfYear) { yearly.sales += total; yearly.bottlesSold += 1; }
+
+    if (isDelivered) {
+      day.deliveredSales += total;
+      month.deliveredSales += total;
+    }
+    if (isUnprocessed) {
+      day.unprocessedSales += total;
+      day.unprocessedOrdersCount += 1;
+      month.unprocessedSales += total;
+      month.unprocessedOrdersCount += 1;
+    }
+
+    if (d >= startOfDay) { 
+      daily.sales += total; 
+      daily.bottlesSold += 1; 
+      if (isDelivered) daily.deliveredSales += total;
+      if (isUnprocessed) {
+        daily.unprocessedSales += total;
+        daily.unprocessedOrdersCount += 1;
+      }
+    }
+    if (d >= startOfMonth) { 
+      monthly.sales += total; 
+      monthly.bottlesSold += 1; 
+      if (isDelivered) monthly.deliveredSales += total;
+      if (isUnprocessed) {
+        monthly.unprocessedSales += total;
+        monthly.unprocessedOrdersCount += 1;
+      }
+    }
+    if (d >= startOfYear) { 
+      yearly.sales += total; 
+      yearly.bottlesSold += 1; 
+      if (isDelivered) yearly.deliveredSales += total;
+      if (isUnprocessed) {
+        yearly.unprocessedSales += total;
+        yearly.unprocessedOrdersCount += 1;
+      }
+    }
   }
 
   for (const p of payments) {
@@ -160,11 +216,31 @@ const computeDashboardAnalytics = async (prefix) => {
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
   const lowStockMaterials = rawMaterials.filter(item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0));
 
+  const unprocessedOrders = orders
+    .filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL')
+    .slice(0, 20)
+    .map(o => {
+      const orderTotal = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+      const itemsSummary = (o.items || []).map(i => `${i.quantity}x ${i.item?.name || 'Item'}`).join(', ');
+      return {
+        id: o.id,
+        shortId: `#${o.id.substring(0, 8).toUpperCase()}`,
+        createdAt: o.createdAt,
+        customerName: o.customer?.name || 'Walk-in Customer',
+        customerPhone: o.customer?.phone || '—',
+        deliveryStatus: o.deliveryStatus,
+        paymentStatus: o.paymentStatus,
+        totalAmount: orderTotal,
+        itemsSummary: itemsSummary || '—'
+      };
+    });
+
   return {
     ...daily,
     daily,
     monthly,
     yearly,
+    unprocessedOrders,
     dailySalesHistory,
     monthlyTrend,
     pendingVendorPayables,

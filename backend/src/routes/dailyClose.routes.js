@@ -13,10 +13,10 @@ router.get('/status', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'PRODUCTION_M
 router.get('/history', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getDailyCloseHistory);
 
 // Confirmation & Final Close: Restricted to authorized operating roles
-router.post('/pm-confirm', requireRoles('OWNER', 'PRODUCTION_MANAGER'), pmConfirmDailyClose);
-router.post('/mm-confirm', requireRoles('OWNER', 'MARKETING_MANAGER'), mmConfirmDailyClose);
-router.post('/tm-confirm', requireRoles('OWNER', 'TRANSPORT_MANAGER'), tmConfirmDailyClose);
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), closeDay);
+router.post('/pm-confirm', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER'), pmConfirmDailyClose);
+router.post('/mm-confirm', requireRoles('OWNER', 'ADMIN', 'MARKETING_MANAGER'), mmConfirmDailyClose);
+router.post('/tm-confirm', requireRoles('OWNER', 'ADMIN', 'TRANSPORT_MANAGER'), tmConfirmDailyClose);
+router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), closeDay);
 
 // Reopen: Strictly OWNER only
 router.post('/reopen', requireRoles('OWNER'), reopenDay);

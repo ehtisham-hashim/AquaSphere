@@ -47,8 +47,9 @@ export default function VendorPaymentModal({
         credentials: 'include'
       });
       const json = await res.json();
-      if (json.success && json.proofUrl) {
-        setPaymentData(prev => ({ ...prev, proofUrl: json.proofUrl }));
+      const proofUrl = json.data?.proofUrl || json.proofUrl;
+      if (json.success && proofUrl) {
+        setPaymentData(prev => ({ ...prev, proofUrl }));
         toast.success('Payment proof uploaded successfully!');
       } else {
         toast.error(json.message || 'Failed to upload proof');

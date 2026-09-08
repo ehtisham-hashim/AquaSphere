@@ -16,6 +16,22 @@ function getColorClasses(color) {
 }
 
 function getBatchProducts(b, isWadaana) {
+  if (b.remarks) {
+    try {
+      const parsed = JSON.parse(b.remarks);
+      if (Array.isArray(parsed.producedItems) && parsed.producedItems.length > 0) {
+        const colors = ['cyan', 'sky', 'emerald', 'purple', 'amber', 'orange', 'blue'];
+        return parsed.producedItems.map((p, idx) => ({
+          name: p.name,
+          qty: `+${p.quantity?.toLocaleString()} ${p.unit || 'units'}`,
+          color: colors[idx % colors.length]
+        }));
+      }
+    } catch (_err) {
+      // Ignore invalid JSON
+    }
+  }
+
   if (b.outputItem || b.outputItemId) {
     return [
       {
@@ -44,6 +60,25 @@ function getBatchProducts(b, isWadaana) {
 }
 
 function getTotalOutputText(b, isWadaana) {
+  if (b.remarks) {
+    try {
+      const parsed = JSON.parse(b.remarks);
+      if (Array.isArray(parsed.producedItems) && parsed.producedItems.length > 0) {
+        if (parsed.producedItems.length === 1) {
+          return `${parsed.producedItems[0].quantity?.toLocaleString()} ${parsed.producedItems[0].unit || 'Units'}`;
+        }
+        const byUnit = {};
+        for (const p of parsed.producedItems) {
+          const u = (p.unit || 'units').toLowerCase();
+          byUnit[u] = (byUnit[u] || 0) + (Number(p.quantity) || 0);
+        }
+        return Object.entries(byUnit).map(([unit, q]) => `${q.toLocaleString()} ${unit.charAt(0).toUpperCase() + unit.slice(1)}`).join(' + ');
+      }
+    } catch (_err) {
+      // Ignore invalid JSON
+    }
+  }
+
   if (b.outputItem || b.outputItemId) {
     return `${b.quantity?.toLocaleString()} ${b.outputItem?.unit || (isWadaana ? 'Bottles' : 'Packs')}`;
   }
@@ -240,21 +275,21 @@ export default function ProductionBatchTable({
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
             {/* Modal Header */}
             <div className={`px-5 py-4 border-b flex justify-between items-center text-white ${
-              isWadaana ? 'bg-gradient-to-r from-sky-600 to-blue-700' : 'bg-gradient-to-r from-slate-900 to-slate-800'
+              isWadaana ? 'bg-gradient-to-r from-sky-600 to-blue-700' : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700'
             }`}>
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-white/10">
-                  {isWadaana ? <Flame size={18} /> : <Package size={18} className="text-emerald-400" />}
+                <div className="p-1.5 rounded-lg bg-white/15">
+                  {isWadaana ? <Flame size={18} /> : <Package size={18} className="text-white" />}
                 </div>
                 <div>
                   <h4 className="font-bold text-sm">Batch #{viewingBatch.id.substring(0, 8).toUpperCase()} Details</h4>
-                  <p className="text-[11px] text-slate-200">{new Date(viewingBatch.createdAt).toLocaleString()}</p>
+                  <p className="text-[11px] text-white/80">{new Date(viewingBatch.createdAt).toLocaleString()}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingBatch(null)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition"
               >
                 <X size={18} />
               </button>

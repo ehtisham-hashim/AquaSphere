@@ -252,6 +252,7 @@ export default function Production() {
           }}
           onSubmit={handleCompleteBatch}
           batchToComplete={batchToComplete}
+          items={items}
           isWadaana={isWadaana}
           submitting={submitting}
         />

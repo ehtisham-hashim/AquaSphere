@@ -34,30 +34,48 @@ export function invalidateDailyCloseLockCache(prefix, dateStr) {
  * @returns {Promise<void>}
  */
 export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
+  // Owner and Admin are always exempt from daily close locks
+  if (req.user?.role === 'OWNER' || req.user?.role === 'ADMIN') {
+    return next();
+  }
+
   const prefix = getTenantPrefix(req);
+  const body = req.body || {};
   
   // Extract transaction date from various possible body fields
-  let transactionDateRaw = req.body.date || req.body.batchDate || req.body.purchaseDate || req.body.deliveredAt;
+  let transactionDateRaw = body.date || body.batchDate || body.purchaseDate || body.deliveredAt;
   
   // If editing an existing record by ID and no date is passed in body
   if (!transactionDateRaw && req.params.id) {
     const url = req.baseUrl || req.originalUrl || '';
     let modelName = null;
+    let selectFields = { createdAt: true };
     
-    if (url.includes('/orders')) modelName = `${prefix}Order`;
-    else if (url.includes('/purchases')) modelName = `${prefix}Purchase`;
-    else if (url.includes('/production')) modelName = `${prefix}ProductionBatch`;
-    else if (url.includes('/expenses')) modelName = `${prefix}Expense`;
-    else if (url.includes('/spot-sales')) modelName = `${prefix}SpotSale`;
+    if (url.includes('/orders')) {
+      modelName = `${prefix}Order`;
+      selectFields = { createdAt: true, deliveredAt: true };
+    } else if (url.includes('/purchases')) {
+      modelName = `${prefix}Purchase`;
+      selectFields = { createdAt: true, purchaseDate: true };
+    } else if (url.includes('/production')) {
+      modelName = `${prefix}ProductionBatch`;
+      selectFields = { createdAt: true, batchDate: true };
+    } else if (url.includes('/expenses')) {
+      modelName = `${prefix}Expense`;
+      selectFields = { createdAt: true, date: true };
+    } else if (url.includes('/spot-sales')) {
+      modelName = `${prefix}SpotSale`;
+      selectFields = { createdAt: true };
+    }
 
     if (modelName && prisma[modelName]) {
       try {
         const existingRecord = await prisma[modelName].findUnique({
           where: { id: req.params.id },
-          select: { createdAt: true, date: true, batchDate: true, purchaseDate: true, deliveredAt: true }
+          select: selectFields
         });
         if (existingRecord) {
-          transactionDateRaw = existingRecord.createdAt || existingRecord.batchDate || existingRecord.purchaseDate || existingRecord.deliveredAt || existingRecord.date;
+          transactionDateRaw = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.deliveredAt || existingRecord.date || existingRecord.createdAt;
         }
       } catch (_err) {
         // Silently fallback if record not found
@@ -65,7 +83,13 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     }
   }
 
-  let transactionDate = transactionDateRaw ? new Date(transactionDateRaw) : new Date();
+  let transactionDate;
+  if (transactionDateRaw) {
+    const parsed = new Date(transactionDateRaw);
+    transactionDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+  } else {
+    transactionDate = new Date();
+  }
   transactionDate.setUTCHours(0, 0, 0, 0);
   const dateStr = transactionDate.toISOString().split('T')[0];
   const cacheKey = `${prefix}:${dateStr}`;
@@ -85,8 +109,8 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     isLocked = { value: lockedBool };
   }
 
-  if (isLocked.value && req.user?.role !== 'OWNER') {
-    throw new ApiError(403, 'Date is closed for editing by Admin. Contact Owner to request override.');
+  if (isLocked.value && !['OWNER', 'ADMIN'].includes(req.user?.role)) {
+    throw new ApiError(403, 'Date is closed for editing. Contact Admin or Owner for adjustments.');
   }
 
   next();

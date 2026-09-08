@@ -1,32 +1,26 @@
-import { useState, useEffect } from 'react';
-import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock, Truck, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
 import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay, reopenDay } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
-import VerificationChecklist from './VerificationChecklist';
-
-const OWNER_CHECKLIST = [
-  { key: 'departmentsVerified', label: 'All department totals and records verified.' },
-  { key: 'financialsVerified', label: 'Cash, expenses, and bank deposits reconciled.' },
-];
 
 export default function OwnerClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
-  const [submitting, setSubmitting] = useState(false);
-  const [reopenReason, setReopenReason] = useState('');
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     Promise.all([
       fetchDailyCloseHistory(tenant),
       fetchDailySummary(date, tenant)
     ]).then(([hJson, cJson]) => {
-      if (hJson.success) setHistory(hJson.data);
+      if (hJson.success) setHistory(hJson.data || []);
       if (cJson.success) {
         const d = cJson.data;
         setCashSummary({
@@ -39,6 +33,10 @@ export default function OwnerClose() {
     }).catch(() => {});
   }, [date, tenant]);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const handleFinalize = async () => {
     setSubmitting(true);
     try {
@@ -46,25 +44,38 @@ export default function OwnerClose() {
       if (json.success) {
         toast.success('Day finalized and locked.');
         refreshStatus(false);
-        fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else { toast.error(json.message || 'Failed to lock day'); }
-    } catch { toast.error('Error locking day'); }
-    finally { setSubmitting(false); }
+        loadData();
+      } else {
+        toast.error(json.message || 'Failed to lock day');
+      }
+    } catch {
+      toast.error('Error locking day');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReopen = async () => {
-    if (!reopenReason.trim()) { toast.error('Reason required'); return; }
+    if (!reopenReason.trim()) {
+      toast.error('Please enter a reason for reopening this day');
+      return;
+    }
     setSubmitting(true);
     try {
-      const json = await reopenDay(date, reopenReason, tenant);
+      const json = await reopenDay(date, reopenReason.trim(), tenant);
       if (json.success) {
-        toast.success('Day reopened successfully');
+        toast.success('Day reopened successfully.');
         setReopenReason('');
         refreshStatus(false);
-        fetchDailyCloseHistory(tenant).then(h => h.success && setHistory(h.data));
-      } else { toast.error(json.message || 'Failed to reopen'); }
-    } catch { toast.error('Error reopening day'); }
-    finally { setSubmitting(false); }
+        loadData();
+      } else {
+        toast.error(json.message || 'Failed to reopen day');
+      }
+    } catch {
+      toast.error('Error reopening day');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -75,101 +86,133 @@ export default function OwnerClose() {
     );
   }
 
+  const p = status?.productionTotals || {};
+  const m = status?.marketingTotals || {};
+  const t = status?.transportTotals || {};
+
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       <DailyCloseHeader
-        label="OWNER OVERVIEW"
+        label="OWNER OVERSIGHT"
         labelColor="amber"
         icon={Crown}
         title="Owner Daily Close"
-        description="Full oversight — verify, finalize, or reopen any day."
+        description="Executive oversight of plant operations, department verifications, and day lock controls."
         date={date}
         onDateChange={setDate}
       />
 
-      {/* Status + Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Department Status + Financials */}
-        <div className="card-surface p-5 space-y-3">
-          <h3 className="text-base font-bold text-slate-800">Day Status</h3>
-          <StatusCard label="Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
-          <StatusCard label="Marketing (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
-          <StatusCard label="Transport (TM)" confirmed={tmConfirmed} confirmedBy={status?.tmConfirmedBy?.name} />
-          <StatusCard label="Admin Lock" confirmed={isClosed} confirmedBy={status?.closedBy?.name} />
-
-          {cashSummary && (
-            <div className="grid grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs mt-3">
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Order Cash</span>
-                <strong className="text-slate-800 font-mono font-bold text-sm">Rs. {cashSummary.orderCash.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Counter Sales</span>
-                <strong className="text-brand-primary font-mono font-bold text-sm">Rs. {cashSummary.counterSales.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Expenses</span>
-                <strong className="text-rose-600 font-mono font-bold text-sm">Rs. {cashSummary.totalExpenses.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px] font-bold uppercase">Net Cash</span>
-                <strong className={`font-mono font-bold text-sm ${cashSummary.netCash >= 0 ? 'text-brand-primary' : 'text-rose-600'}`}>
-                  Rs. {cashSummary.netCash.toLocaleString()}
-                </strong>
-              </div>
+      {/* 1. Closed Banner or Status */}
+      {isClosed ? (
+        <div className="space-y-3">
+          <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
+          
+          {/* Owner Reopen Card */}
+          <div className="card-surface p-4 border border-amber-200 bg-amber-50/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="space-y-0.5 text-center sm:text-left">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-1 justify-center sm:justify-start">
+                <Unlock size={14} className="text-amber-700" /> Owner Override: Reopen Day
+              </span>
+              <p className="text-[11px] text-amber-800/80 font-medium">Reopening unlocks this day for staff adjustments.</p>
             </div>
-          )}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                placeholder="Reason for reopening..."
+                value={reopenReason}
+                onChange={e => setReopenReason(e.target.value)}
+                className="input-base text-xs py-1.5 flex-1 sm:w-64 bg-white"
+              />
+              <button
+                onClick={handleReopen}
+                disabled={submitting || !reopenReason.trim()}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50 shrink-0"
+              >
+                {submitting ? 'Reopening...' : 'Reopen Day'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 2. Department Verification Tracker */}
+      <div className="card-surface p-5 space-y-3">
+        <div>
+          <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Department Verification Status</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Live status of department daily confirmations.</p>
         </div>
 
-        {/* Finalize or Reopen */}
-        <div className="space-y-6">
-          {isClosed ? (
-            <>
-              <ClosedDayBanner date={date} closedBy={status?.closedBy} closedAt={status?.closedAt} />
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 space-y-3">
-                <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
-                  <Unlock size={14} /> Owner Override: Reopen Day
-                </span>
-                <input
-                  type="text"
-                  placeholder="Reason for reopening..."
-                  value={reopenReason}
-                  onChange={e => setReopenReason(e.target.value)}
-                  className="w-full border border-amber-300 rounded-lg p-2.5 text-xs bg-white outline-none focus:border-amber-500"
-                />
-                <button
-                  onClick={handleReopen}
-                  disabled={submitting || !reopenReason.trim()}
-                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition disabled:opacity-50"
-                >
-                  {submitting ? 'Reopening...' : 'Reopen Day'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <VerificationChecklist
-              key={date}
-              title="Owner Finalize & Lock"
-              subtitle="Lock day — auto-confirms PM/MM if pending"
-              items={OWNER_CHECKLIST}
-              onConfirm={handleFinalize}
-              confirmLabel="Finalize & Lock Daily Close"
-              confirmIcon={Lock}
-              confirmed={false}
-              submitting={submitting}
-            />
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatusCard label="1. Production (PM)" confirmed={pmConfirmed} confirmedBy={status?.pmConfirmedBy?.name} />
+          <StatusCard label="2. Sales & Distribution (MM)" confirmed={mmConfirmed} confirmedBy={status?.mmConfirmedBy?.name} />
+          <StatusCard label="3. Transport & Fleet (TM)" confirmed={tmConfirmed} confirmedBy={status?.tmConfirmedBy?.name} />
         </div>
       </div>
 
-      {/* History */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <Calendar size={20} /> History ({history.length})
+      {/* 3. Operational Snapshot (4 Cards) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="card-surface p-4">
+          <div className="flex items-center gap-2 text-blue-600 mb-1">
+            <Box size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Production</span>
+          </div>
+          <p className="text-xl font-extrabold font-mono text-slate-900">{p.total19L || 0} <span className="text-xs font-semibold text-slate-400">19L</span></p>
+          <p className="text-[10px] text-slate-500 mt-0.5 font-medium">1.5L: {p.packs15L || 0} | 0.5L: {p.packs05L || 0}</p>
+        </div>
+
+        <div className="card-surface p-4">
+          <div className="flex items-center gap-2 text-purple-600 mb-1">
+            <ShoppingBag size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Sales & Orders</span>
+          </div>
+          <p className="text-xl font-extrabold font-mono text-slate-900">{m.ordersCount || 0} <span className="text-xs font-semibold text-slate-400">Orders</span></p>
+          <p className="text-[10px] text-[var(--brand)] font-bold mt-0.5 font-mono">Rs. {Number(m.ordersTotalWorth || 0).toLocaleString()}</p>
+        </div>
+
+        <div className="card-surface p-4">
+          <div className="flex items-center gap-2 text-amber-600 mb-1">
+            <Truck size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Fleet & Fuel</span>
+          </div>
+          <p className="text-xl font-extrabold font-mono text-slate-900">{t.totalVehicles || 0} <span className="text-xs font-semibold text-slate-400">Active</span></p>
+          <p className="text-[10px] text-rose-600 font-bold mt-0.5 font-mono">Rs. {Number(t.totalExpenses || 0).toLocaleString()}</p>
+        </div>
+
+        <div className="card-surface p-4">
+          <div className="flex items-center gap-2 text-emerald-600 mb-1">
+            <DollarSign size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase">Net Cash Drawer</span>
+          </div>
+          <p className={`text-xl font-extrabold font-mono ${cashSummary && cashSummary.netCash >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+            Rs. {cashSummary ? Number(cashSummary.netCash || 0).toLocaleString() : '0'}
+          </p>
+          <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Spot: Rs. {cashSummary?.counterSales?.toLocaleString() || '0'}</p>
+        </div>
+      </div>
+
+      {/* 4. If open, Owner can also finalize */}
+      {!isClosed && (
+        <div className="card-surface p-4 bg-slate-50 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-600">Day is currently open for operations.</span>
+          <button
+            onClick={handleFinalize}
+            disabled={submitting}
+            className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5"
+          >
+            <Lock size={14} />
+            <span>{submitting ? 'Finalizing...' : 'Finalize & Lock Day'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 5. Close History */}
+      <div className="space-y-3 pt-2">
+        <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+          <Calendar size={18} className="text-slate-400" /> Close History ({history.length})
         </h3>
         {history.length === 0 ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center text-slate-500 text-sm">
-            No finalized days found.
+          <div className="card-surface p-8 text-center text-slate-400 text-xs font-semibold">
+            No finalized days recorded yet.
           </div>
         ) : (
           history.map(day => {
@@ -177,50 +220,48 @@ export default function OwnerClose() {
             const hp = day.productionTotals || {};
             const hm = day.marketingTotals || {};
             return (
-              <div key={day.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={day.id} className="card-surface border border-slate-200 overflow-hidden transition-all">
                 <div
                   onClick={() => setExpandedId(isExpanded ? null : day.id)}
-                  className="p-5 cursor-pointer flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-colors"
+                  className="p-4 cursor-pointer flex items-center justify-between hover:bg-slate-50/60 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
-                      <Calendar size={20} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center font-bold">
+                      <Lock size={16} />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">
-                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                      <h4 className="text-xs font-extrabold text-slate-800">
+                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                       </h4>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
                         <UserCheck size={12} className="text-emerald-600" />
-                        {day.closedBy?.name || 'Admin'} · {new Date(day.closedAt).toLocaleTimeString()}
+                        <span>Closed by <strong className="text-slate-700">{day.closedBy?.name || 'Admin'}</strong></span>
+                        <span>· {new Date(day.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex items-center gap-3 text-xs font-semibold">
-                      <span className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <Box size={14} className="text-blue-500" /> {hp.total19L || 0} 19L
-                      </span>
-                      <span className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <ShoppingBag size={14} className="text-purple-500" /> {hm.ordersCount || 0} Orders
-                      </span>
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold">
+                      <span className="badge-neutral font-mono">{hp.total19L || 0} 19L</span>
+                      <span className="badge-brand font-mono">{hm.ordersCount || 0} Orders</span>
                     </div>
-                    <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400">
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </div>
                   </div>
                 </div>
+
                 {isExpanded && (
-                  <div className="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                      <h5 className="font-bold text-blue-900 text-sm mb-2">Production</h5>
-                      <p>19L: <strong>{hp.total19L || 0}</strong> · 1.5L: <strong>{hp.packs15L || 0}</strong> · 0.5L: <strong>{hp.packs05L || 0}</strong></p>
-                      <p>PM: <strong>{day.pmConfirmedBy?.name || 'Auto'}</strong></p>
+                  <div className="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Production Breakdown</span>
+                      <p className="font-semibold text-slate-800">19L: <strong className="font-mono">{hp.total19L || 0}</strong> | 1.5L: <strong className="font-mono">{hp.packs15L || 0}</strong> | 0.5L: <strong className="font-mono">{hp.packs05L || 0}</strong></p>
+                      <p className="text-[11px] text-slate-500">PM Confirmed: {day.pmConfirmedBy?.name || 'Auto-confirmed'}</p>
                     </div>
-                    <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                      <h5 className="font-bold text-purple-900 text-sm mb-2">Marketing</h5>
-                      <p>Orders: <strong>{hm.ordersCount || 0}</strong> · Worth: <strong>Rs {Number(hm.ordersTotalWorth || 0).toLocaleString()}</strong></p>
-                      <p>MM: <strong>{day.mmConfirmedBy?.name || 'Auto'}</strong></p>
+                    <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Sales & Orders Breakdown</span>
+                      <p className="font-semibold text-slate-800">Orders: <strong className="font-mono">{hm.ordersCount || 0}</strong> | Worth: <strong className="font-mono text-[var(--brand)]">Rs {Number(hm.ordersTotalWorth || 0).toLocaleString()}</strong></p>
+                      <p className="text-[11px] text-slate-500">MM Confirmed: {day.mmConfirmedBy?.name || 'Auto-confirmed'}</p>
                     </div>
                   </div>
                 )}

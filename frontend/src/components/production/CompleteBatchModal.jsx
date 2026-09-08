@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, AlertTriangle, Package, CheckCircle2, Factory } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CompleteBatchModal({
@@ -7,305 +7,425 @@ export default function CompleteBatchModal({
   onClose,
   onSubmit,
   batchToComplete,
+  items = [],
   isWadaana,
   submitting
 }) {
-  // Wadaana Broken State
-  const [brokenPure05L, setBrokenPure05L] = useState('');
-  const [brokenPure15L, setBrokenPure15L] = useState('');
-  const [brokenMix05L, setBrokenMix05L] = useState('');
-  const [brokenMix15L, setBrokenMix15L] = useState('');
-
-  // AquaSphere Broken State
-  const [brokenBottles05L, setBrokenBottles05L] = useState('');
-  const [brokenBottles15L, setBrokenBottles15L] = useState('');
-  const [wasteQuantity, setWasteQuantity] = useState('');
+  const [breakages, setBreakages] = useState({});
 
   // Reset internal breakage state whenever modal opens or active batch changes
   useEffect(() => {
     if (isOpen) {
-      setBrokenPure05L('');
-      setBrokenPure15L('');
-      setBrokenMix05L('');
-      setBrokenMix15L('');
-      setBrokenBottles05L('');
-      setBrokenBottles15L('');
-      setWasteQuantity('');
+      setBreakages({});
     }
   }, [isOpen, batchToComplete?.id]);
 
+  // Dynamically extract the products that were ACTUALLY produced in this batch
+  const producedProducts = useMemo(() => {
+    if (!batchToComplete) return [];
+
+    // 1. Check if remarks contains producedItems (supports custom items like Pivirifine + standard items in unified batch)
+    if (batchToComplete.remarks) {
+      try {
+        const parsed = JSON.parse(batchToComplete.remarks);
+        if (Array.isArray(parsed.producedItems) && parsed.producedItems.length > 0) {
+          return parsed.producedItems.map(item => {
+            const dbItem = items.find(i => i.id === item.itemId);
+            const name = dbItem?.name || item.name || 'Finished Good';
+            const unit = dbItem?.unit || item.unit || 'units';
+            const nameLower = name.toLowerCase();
+
+            // Check if standard AquaSphere / Wadaana or custom
+            let key;
+            let isPacks = false;
+            let perPack = 1;
+            let pieceLabel;
+            let maxBreakage;
+
+            if ((nameLower.includes('0.5') && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+              key = 'brokenBottles05L';
+              isPacks = true;
+              perPack = 12;
+              pieceLabel = 'broken bottles';
+              maxBreakage = item.quantity * 12;
+            } else if (((nameLower.includes('1.5') || nameLower.includes('1500')) && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+              key = 'brokenBottles15L';
+              isPacks = true;
+              perPack = 6;
+              pieceLabel = 'broken bottles';
+              maxBreakage = item.quantity * 6;
+            } else if (nameLower.includes('19l') || nameLower.includes('19 l')) {
+              key = 'wasteQuantity';
+              pieceLabel = 'bottles';
+              maxBreakage = item.quantity;
+            } else if (nameLower.includes('pure') && (nameLower.includes('0.5') || nameLower.includes('500'))) {
+              key = 'brokenPure05L';
+              pieceLabel = 'bottles';
+              maxBreakage = item.quantity;
+            } else if (nameLower.includes('pure') && (nameLower.includes('1.5') || nameLower.includes('1500'))) {
+              key = 'brokenPure15L';
+              pieceLabel = 'bottles';
+              maxBreakage = item.quantity;
+            } else if (nameLower.includes('mix') && (nameLower.includes('0.5') || nameLower.includes('500'))) {
+              key = 'brokenMix05L';
+              pieceLabel = 'bottles';
+              maxBreakage = item.quantity;
+            } else if (nameLower.includes('mix') && (nameLower.includes('1.5') || nameLower.includes('1500'))) {
+              key = 'brokenMix15L';
+              pieceLabel = 'bottles';
+              maxBreakage = item.quantity;
+            } else {
+              key = `breakage_${item.itemId}`;
+              pieceLabel = unit;
+              maxBreakage = item.quantity;
+            }
+
+            return {
+              itemId: item.itemId,
+              key,
+              name,
+              unit,
+              qty: item.quantity,
+              bottlesTotal: isPacks ? item.quantity * perPack : null,
+              maxBreakage,
+              pieceLabel,
+              isPacks,
+              perPack
+            };
+          });
+        }
+      } catch (_err) {
+        // Ignore invalid JSON in remarks
+      }
+    }
+
+    // 2. Single custom outputItem batch
+    if (batchToComplete.outputItem || batchToComplete.outputItemId) {
+      const fg = batchToComplete.outputItem || items.find(i => i.id === batchToComplete.outputItemId);
+      return [
+        {
+          itemId: batchToComplete.outputItemId || batchToComplete.outputItem?.id,
+          key: 'wasteQuantity',
+          name: fg?.name || 'Finished Good',
+          unit: fg?.unit || 'units',
+          qty: batchToComplete.quantity || 0,
+          maxBreakage: batchToComplete.quantity || 0,
+          pieceLabel: fg?.unit || 'units',
+          isPacks: false
+        }
+      ];
+    }
+
+    // 3. Wadaana batch
+    if (isWadaana) {
+      const list = [];
+      if (batchToComplete.qtyPure05L > 0) {
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('pure') && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+        list.push({
+          itemId: fg?.id,
+          key: 'brokenPure05L',
+          name: fg?.name || '0.5L Pure Bottled Water',
+          unit: fg?.unit || 'bottles',
+          qty: batchToComplete.qtyPure05L,
+          maxBreakage: batchToComplete.qtyPure05L,
+          pieceLabel: 'bottles',
+          isPacks: false
+        });
+      }
+      if (batchToComplete.qtyPure15L > 0) {
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('pure') && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+        list.push({
+          itemId: fg?.id,
+          key: 'brokenPure15L',
+          name: fg?.name || '1.5L Pure Bottled Water',
+          unit: fg?.unit || 'bottles',
+          qty: batchToComplete.qtyPure15L,
+          maxBreakage: batchToComplete.qtyPure15L,
+          pieceLabel: 'bottles',
+          isPacks: false
+        });
+      }
+      if (batchToComplete.qtyMix05L > 0) {
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('mix') && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+        list.push({
+          itemId: fg?.id,
+          key: 'brokenMix05L',
+          name: fg?.name || '0.5L Mix Bottled Water',
+          unit: fg?.unit || 'bottles',
+          qty: batchToComplete.qtyMix05L,
+          maxBreakage: batchToComplete.qtyMix05L,
+          pieceLabel: 'bottles',
+          isPacks: false
+        });
+      }
+      if (batchToComplete.qtyMix15L > 0) {
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('mix') && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+        list.push({
+          itemId: fg?.id,
+          key: 'brokenMix15L',
+          name: fg?.name || '1.5L Mix Bottled Water',
+          unit: fg?.unit || 'bottles',
+          qty: batchToComplete.qtyMix15L,
+          maxBreakage: batchToComplete.qtyMix15L,
+          pieceLabel: 'bottles',
+          isPacks: false
+        });
+      }
+      return list;
+    }
+
+    // 4. AquaSphere unified / standard batch
+    const list = [];
+    if (batchToComplete.quantity > 0) {
+      const fg19L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('19l') || i.name.toLowerCase().includes('19 l')));
+      list.push({
+        itemId: fg19L?.id,
+        key: 'wasteQuantity',
+        name: fg19L?.name || '19L Refill Bottle',
+        unit: fg19L?.unit || 'bottles',
+        qty: batchToComplete.quantity,
+        maxBreakage: batchToComplete.quantity,
+        pieceLabel: 'bottles',
+        isPacks: false
+      });
+    }
+    if (batchToComplete.packs15L > 0) {
+      const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+      list.push({
+        itemId: fg15L?.id,
+        key: 'brokenBottles15L',
+        name: fg15L?.name || '1.5L PET Pack',
+        unit: fg15L?.unit || 'packs',
+        qty: batchToComplete.packs15L,
+        bottlesTotal: batchToComplete.packs15L * 6,
+        maxBreakage: batchToComplete.packs15L * 6,
+        pieceLabel: 'broken bottles',
+        isPacks: true,
+        perPack: 6
+      });
+    }
+    if (batchToComplete.packs05L > 0) {
+      const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+      list.push({
+        itemId: fg05L?.id,
+        key: 'brokenBottles05L',
+        name: fg05L?.name || '0.5L PET Pack',
+        unit: fg05L?.unit || 'packs',
+        qty: batchToComplete.packs05L,
+        bottlesTotal: batchToComplete.packs05L * 12,
+        maxBreakage: batchToComplete.packs05L * 12,
+        pieceLabel: 'broken bottles',
+        isPacks: true,
+        perPack: 12
+      });
+    }
+    return list;
+  }, [batchToComplete, items, isWadaana]);
+
   if (!isOpen || !batchToComplete) return null;
+
+  const handleBreakageChange = (key, val) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setBreakages(prev => ({
+      ...prev,
+      [key]: clean
+    }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Validate breakages for each produced item
+    const itemBreakages = {};
+    for (const prod of producedProducts) {
+      const val = parseInt(breakages[prod.key] || 0, 10);
+      if (val < 0) {
+        toast.error(`Breakage for ${prod.name} cannot be negative`);
+        return;
+      }
+      if (val > prod.maxBreakage) {
+        toast.error(`Breakage for ${prod.name} (${val}) cannot exceed produced amount (${prod.maxBreakage})`);
+        return;
+      }
+      if (prod.itemId) {
+        itemBreakages[prod.itemId] = val;
+      }
+    }
+
+    // Build payload matching backend expectations
     if (batchToComplete.outputItem || batchToComplete.outputItemId) {
-      const w = parseInt(wasteQuantity || 0, 10);
-      const maxQty = batchToComplete.quantity || 0;
-      if (w < 0) {
-        toast.error('Waste quantity cannot be negative');
-        return;
-      }
-      if (w > maxQty) {
-        toast.error(`Waste quantity (${w}) cannot exceed total produced amount (${maxQty})`);
-        return;
-      }
-      onSubmit({ wasteQuantity: w, confirmed: true });
+      const w = parseInt(breakages.wasteQuantity || 0, 10);
+      onSubmit({ wasteQuantity: w, itemBreakages, confirmed: true });
       return;
     }
 
     if (isWadaana) {
-      const brP05 = parseInt(brokenPure05L || 0, 10);
-      const brP15 = parseInt(brokenPure15L || 0, 10);
-      const brM05 = parseInt(brokenMix05L || 0, 10);
-      const brM15 = parseInt(brokenMix15L || 0, 10);
-
-      const maxP05 = batchToComplete?.qtyPure05L || 0;
-      const maxP15 = batchToComplete?.qtyPure15L || 0;
-      const maxM05 = batchToComplete?.qtyMix05L || 0;
-      const maxM15 = batchToComplete?.qtyMix15L || 0;
-
-      if (brP05 > maxP05) {
-        toast.error(`Broken 0.5L Pure bottles (${brP05}) cannot exceed produced amount (${maxP05})`);
-        return;
-      }
-      if (brP15 > maxP15) {
-        toast.error(`Broken 1.5L Pure bottles (${brP15}) cannot exceed produced amount (${maxP15})`);
-        return;
-      }
-      if (brM05 > maxM05) {
-        toast.error(`Broken 0.5L Mix bottles (${brM05}) cannot exceed produced amount (${maxM05})`);
-        return;
-      }
-      if (brM15 > maxM15) {
-        toast.error(`Broken 1.5L Mix bottles (${brM15}) cannot exceed produced amount (${maxM15})`);
-        return;
-      }
-
       onSubmit({
-        brokenPure05L: brP05,
-        brokenPure15L: brP15,
-        brokenMix05L: brM05,
-        brokenMix15L: brM15,
+        brokenPure05L: parseInt(breakages.brokenPure05L || 0, 10),
+        brokenPure15L: parseInt(breakages.brokenPure15L || 0, 10),
+        brokenMix05L: parseInt(breakages.brokenMix05L || 0, 10),
+        brokenMix15L: parseInt(breakages.brokenMix15L || 0, 10),
+        itemBreakages,
         confirmed: true
       });
-    } else {
-      const br05 = parseInt(brokenBottles05L || 0, 10);
-      const br15 = parseInt(brokenBottles15L || 0, 10);
-      const w19 = parseInt(wasteQuantity || 0, 10);
-
-      const max05LBottles = (batchToComplete?.packs05L || 0) * 12;
-      const max15LBottles = (batchToComplete?.packs15L || 0) * 6;
-      const max19LBottles = batchToComplete?.quantity || 0;
-
-      if (br05 > max05LBottles) {
-        toast.error(`Broken 0.5L bottles (${br05}) cannot exceed total produced bottles (${max05LBottles} pcs)`);
-        return;
-      }
-      if (br15 > max15LBottles) {
-        toast.error(`Broken 1.5L bottles (${br15}) cannot exceed total produced bottles (${max15LBottles} pcs)`);
-        return;
-      }
-      if (w19 > max19LBottles) {
-        toast.error(`Broken 19L bottles (${w19}) cannot exceed total produced bottles (${max19LBottles} pcs)`);
-        return;
-      }
-
-      onSubmit({
-        brokenBottles05L: br05,
-        brokenBottles15L: br15,
-        wasteQuantity: w19,
-        confirmed: true
-      });
+      return;
     }
+
+    // AquaSphere
+    onSubmit({
+      brokenBottles05L: parseInt(breakages.brokenBottles05L || 0, 10),
+      brokenBottles15L: parseInt(breakages.brokenBottles15L || 0, 10),
+      wasteQuantity: parseInt(breakages.wasteQuantity || 0, 10),
+      itemBreakages,
+      confirmed: true
+    });
   };
 
+  const batchShortId = `#${batchToComplete.id.substring(0, 8).toUpperCase()}`;
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100">
-        <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-bold">Confirm & Complete Batch</h3>
-            <p className="text-xs text-slate-400">Complete production batch and update inventory.</p>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className={`px-6 py-4 flex justify-between items-center text-white shrink-0 ${
+          isWadaana 
+            ? 'bg-gradient-to-r from-sky-600 to-blue-700' 
+            : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-white/15 backdrop-blur-xs">
+              <Factory size={22} className="text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold">Confirm & Complete Batch</h3>
+                <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-white/20 font-semibold">
+                  {batchShortId}
+                </span>
+              </div>
+              <p className="text-xs text-white/80 mt-0.5">
+                Verify outputs and record scrap/breakage to finalize inventory.
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-full">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/20 transition cursor-pointer"
+          >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {(batchToComplete?.outputItem || batchToComplete?.outputItemId) ? (
-            <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 space-y-3">
-              <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
-                Waste / Breakage Verification
-              </h4>
-              <div className="bg-white p-3 rounded-lg border border-rose-100 text-xs text-slate-700 space-y-1">
-                <div>Product: <strong className="text-slate-900">{batchToComplete?.outputItem?.name || 'Finished Good'}</strong></div>
-                <div>Batch Output: <strong className="text-slate-900">{batchToComplete?.quantity || 0} {batchToComplete?.outputItem?.unit || 'units'}</strong></div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Rejected / Broken Units <span className="text-slate-400 font-normal">(Max: {batchToComplete?.quantity || 0})</span>
-                </label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  max={batchToComplete?.quantity || 0}
-                  placeholder="0" 
-                  value={wasteQuantity} 
-                  onChange={e => setWasteQuantity(e.target.value)} 
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none" 
-                />
-                <span className="text-[11px] text-slate-500 mt-1 block">
-                  Net Good Output Added to Stock: <strong>{Math.max(0, (batchToComplete?.quantity || 0) - (parseInt(wasteQuantity || 0, 10)))} {batchToComplete?.outputItem?.unit || 'units'}</strong>
-                </span>
-              </div>
-            </div>
-          ) : isWadaana ? (
-            <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 space-y-3">
-              <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
-                Wadaana Production Breakage (pcs)
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Broken 0.5L Pure <span className="text-slate-400 font-normal">(Max: {batchToComplete?.qtyPure05L || 0})</span>
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max={batchToComplete?.qtyPure05L || 0}
-                    disabled={(batchToComplete?.qtyPure05L || 0) === 0}
-                    placeholder="0" 
-                    value={brokenPure05L} 
-                    onChange={e => setBrokenPure05L(e.target.value)} 
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                  />
-                </div>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+            <span>Products in this Run ({producedProducts.length})</span>
+            <span>Recorded Output & Waste Verification</span>
+          </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Broken 1.5L Pure <span className="text-slate-400 font-normal">(Max: {batchToComplete?.qtyPure15L || 0})</span>
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max={batchToComplete?.qtyPure15L || 0}
-                    disabled={(batchToComplete?.qtyPure15L || 0) === 0}
-                    placeholder="0" 
-                    value={brokenPure15L} 
-                    onChange={e => setBrokenPure15L(e.target.value)} 
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Broken 0.5L Mix <span className="text-slate-400 font-normal">(Max: {batchToComplete?.qtyMix05L || 0})</span>
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max={batchToComplete?.qtyMix05L || 0}
-                    disabled={(batchToComplete?.qtyMix05L || 0) === 0}
-                    placeholder="0" 
-                    value={brokenMix05L} 
-                    onChange={e => setBrokenMix05L(e.target.value)} 
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Broken 1.5L Mix <span className="text-slate-400 font-normal">(Max: {batchToComplete?.qtyMix15L || 0})</span>
-                  </label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max={batchToComplete?.qtyMix15L || 0}
-                    disabled={(batchToComplete?.qtyMix15L || 0) === 0}
-                    placeholder="0" 
-                    value={brokenMix15L} 
-                    onChange={e => setBrokenMix15L(e.target.value)} 
-                    className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                  />
-                </div>
-              </div>
+          {producedProducts.length === 0 ? (
+            <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+              No products found for this batch. Click below to complete.
             </div>
           ) : (
-            <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-200 space-y-3">
-              <h4 className="text-xs font-bold text-rose-800 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
-                Breakage During Batch
-              </h4>
-              {(() => {
-                const max05 = (batchToComplete?.packs05L || 0) * 12;
-                const max15 = (batchToComplete?.packs15L || 0) * 6;
-                const max19 = batchToComplete?.quantity || 0;
+            <div className="space-y-3">
+              {producedProducts.map((prod) => {
+                const breakageVal = parseInt(breakages[prod.key] || 0, 10);
+                
+                let netText;
+                if (prod.isPacks && prod.perPack) {
+                  const netBottles = Math.max(0, prod.bottlesTotal - breakageVal);
+                  const netPacks = (netBottles / prod.perPack).toFixed(1);
+                  netText = `${netPacks} packs (${netBottles} bottles)`;
+                } else {
+                  const net = Math.max(0, prod.qty - breakageVal);
+                  netText = `${net.toLocaleString()} ${prod.unit}`;
+                }
 
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Broken 0.5L (pcs) <span className="text-slate-400 font-normal">(Max: {max05})</span>
-                      </label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max={max05}
-                        disabled={max05 === 0}
-                        placeholder="0" 
-                        value={brokenBottles05L} 
-                        onChange={e => setBrokenBottles05L(e.target.value)} 
-                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                      />
+                  <div
+                    key={prod.key}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-slate-300 transition space-y-3 shadow-2xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Package size={16} className="text-brand shrink-0" />
+                          <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Produced:{' '}
+                          <strong className="text-slate-800 font-mono">
+                            {prod.qty.toLocaleString()} {prod.unit}
+                          </strong>
+                          {prod.bottlesTotal && (
+                            <span className="text-slate-400 font-normal ml-1">
+                              ({prod.bottlesTotal.toLocaleString()} total bottles)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Breakage Input */}
+                      <div className="text-right shrink-0">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-600 mb-1">
+                          Scrap / Broken ({prod.pieceLabel})
+                        </label>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={breakages[prod.key] || ''}
+                            onChange={(e) => handleBreakageChange(prod.key, e.target.value)}
+                            placeholder="0"
+                            className="w-20 border border-slate-300 bg-white rounded-lg p-1.5 text-right font-mono font-bold text-sm text-slate-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          Max: {prod.maxBreakage.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Broken 1.5L (pcs) <span className="text-slate-400 font-normal">(Max: {max15})</span>
-                      </label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max={max15}
-                        disabled={max15 === 0}
-                        placeholder="0" 
-                        value={brokenBottles15L} 
-                        onChange={e => setBrokenBottles15L(e.target.value)} 
-                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Broken 19L (pcs) <span className="text-slate-400 font-normal">(Max: {max19})</span>
-                      </label>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        max={max19}
-                        disabled={max19 === 0}
-                        placeholder="0" 
-                        value={wasteQuantity} 
-                        onChange={e => setWasteQuantity(e.target.value)} 
-                        className="w-full border border-slate-200 rounded-lg p-2.5 text-sm font-medium focus:border-rose-500 outline-none disabled:bg-slate-100 disabled:cursor-not-allowed" 
-                      />
+                    {/* Net Output Preview */}
+                    <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Net Good Output added to Stock:</span>
+                      <span className="font-bold font-mono text-emerald-700 flex items-center gap-1 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md text-[11px]">
+                        <CheckCircle2 size={12} className="text-emerald-600" />
+                        +{netText}
+                      </span>
                     </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">
+          {/* Operational Formula Notification */}
+          <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+            <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              <strong>Automatic Formula Deduction:</strong> Confirming this run will deduct the exact raw materials (caps, labels, bottles, shrink wrap, minerals) and update Factory Finished Goods inventory.
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary text-xs py-2 px-4 cursor-pointer"
+            >
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? 'Completing...' : 'Complete Batch'}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary text-xs py-2 px-5 cursor-pointer flex items-center gap-1.5"
+            >
+              <CheckCircle2 size={14} />
+              {submitting ? 'Confirming Batch...' : 'Confirm & Complete Batch'}
             </button>
           </div>
         </form>
