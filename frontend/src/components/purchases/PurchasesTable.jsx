@@ -1,29 +1,30 @@
-import { Calendar, Eye, Printer, ShieldCheck, Trash2, ShoppingCart, Building2 } from 'lucide-react';
+import { Calendar, Eye, Printer, ShieldCheck, Trash2, ShoppingCart, Building2, Edit3 } from 'lucide-react';
 
 export default function PurchasesTable({
-  purchases,
+  purchases = [],
   onView,
   onPrint,
+  onEdit,
   onVerify,
   onDelete,
-  onStatusChange,
   verifyingId,
-  updatingStatusId,
   deletingId,
   isOwner,
   isAccountant,
   user,
   onOpenModal
 }) {
+  const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+
   if (!purchases || purchases.length === 0) {
     return (
       <div className="card-surface p-12 text-center flex flex-col items-center min-h-[300px] justify-center">
         <ShoppingCart size={40} className="text-slate-300 mb-3" />
         <h3 className="text-base font-bold text-slate-700 mb-1">No Purchase Records Found</h3>
         <p className="text-slate-500 max-w-md text-xs mb-4">
-          Log raw material purchases to automatically increase plant stock levels and manage vendor accounts.
+          Log raw material purchases to track plant stock levels and manage supplier khata accounts.
         </p>
-        {['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role) && (
+        {canAddPurchase && (
           <button onClick={onOpenModal} className="btn-primary">
             Record First Purchase
           </button>
@@ -31,6 +32,28 @@ export default function PurchasesTable({
       </div>
     );
   }
+
+  const renderStatusBadge = (status) => {
+    switch (status) {
+      case 'RECEIVED':
+        return <span className="badge-success">Received</span>;
+      case 'PARTIALLY_RECEIVED':
+        return <span className="badge-brand">Partial</span>;
+      case 'PENDING':
+        return <span className="badge-warning">Pending</span>;
+      case 'CANCELLED':
+        return <span className="badge-danger">Cancelled</span>;
+      default:
+        return <span className="badge-neutral">{status || 'Received'}</span>;
+    }
+  };
+
+  const renderPaymentBadge = (status) => {
+    if (status === 'PAID') {
+      return <span className="badge-success">Paid</span>;
+    }
+    return <span className="badge-danger">Credit / Khata</span>;
+  };
 
   return (
     <div className="table-container">
@@ -42,7 +65,7 @@ export default function PurchasesTable({
               <th className="table-th">Invoice #</th>
               <th className="table-th">Vendor</th>
               <th className="table-th">Total Amount</th>
-              <th className="table-th">Fulfillment</th>
+              <th className="table-th">Stock Status</th>
               <th className="table-th">Payment</th>
               <th className="table-th">Verification</th>
               <th className="table-th text-right">Actions</th>
@@ -54,7 +77,7 @@ export default function PurchasesTable({
                 <td className="table-td text-slate-600">
                   <div className="flex items-center gap-1.5 font-semibold">
                     <Calendar size={13} className="text-slate-400" />
-                    {new Date(p.purchaseDate).toLocaleDateString()}
+                    {new Date(p.purchaseDate || p.createdAt).toLocaleDateString('en-GB')}
                   </div>
                 </td>
                 <td className="table-td font-mono font-bold text-[var(--brand)]">
@@ -70,51 +93,10 @@ export default function PurchasesTable({
                   Rs {Number(p.grandTotal).toLocaleString('en-PK')}
                 </td>
                 <td className="table-td">
-                  {['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role) ? (
-                    <select
-                      value={p.status || 'RECEIVED'}
-                      onChange={(e) => onStatusChange(p.id, e.target.value, null)}
-                      disabled={updatingStatusId === p.id}
-                      className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    >
-                      <option value="RECEIVED">🟢 Received</option>
-                      <option value="PARTIALLY_RECEIVED">🔵 Partially Received</option>
-                      <option value="PENDING">🟡 Pending</option>
-                      <option value="CANCELLED">🔴 Cancelled</option>
-                    </select>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      {p.status === 'RECEIVED' ? '🟢 Received' : p.status === 'PARTIALLY_RECEIVED' ? '🔵 Partial' : p.status === 'PENDING' ? '🟡 Pending' : '🔴 Cancelled'}
-                    </span>
-                  )}
+                  {renderStatusBadge(p.status)}
                 </td>
                 <td className="table-td">
-                  {isOwner || isAccountant ? (
-                    <select
-                      value={p.paymentStatus || 'PAID'}
-                      onChange={(e) => onStatusChange(p.id, null, e.target.value)}
-                      disabled={updatingStatusId === p.id}
-                      className="bg-transparent font-bold text-xs cursor-pointer border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--brand)]"
-                    >
-                      <option value="PAID">🟢 Paid</option>
-                      <option value="PARTIAL">🔵 Partial</option>
-                      <option value="CREDIT">🔴 Credit</option>
-                    </select>
-                  ) : (
-                    p.paymentStatus === 'PAID' ? (
-                      <span className="badge-success">
-                        Paid
-                      </span>
-                    ) : p.paymentStatus === 'PARTIAL' ? (
-                      <span className="badge-brand">
-                        Partial
-                      </span>
-                    ) : (
-                      <span className="badge-danger">
-                        Unpaid
-                      </span>
-                    )
-                  )}
+                  {renderPaymentBadge(p.paymentStatus)}
                 </td>
                 <td className="table-td text-xs font-medium">
                   {p.verifiedBy ? (
@@ -123,13 +105,15 @@ export default function PurchasesTable({
                         <ShieldCheck size={12} /> Verified
                       </span>
                       <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                        By: <span className="text-slate-800 font-bold">{p.verifiedBy || 'Admin'}</span>
+                        By: <span className="text-slate-800 font-bold">{p.verifiedBy}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {new Date(p.verifiedAt || p.updatedAt || p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </div>
+                      {p.verifiedAt && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {new Date(p.verifiedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </div>
+                      )}
                     </div>
-                  ) : ['ACCOUNTANT', 'OWNER'].includes(user?.role) ? (
+                  ) : (isAccountant || isOwner) ? (
                     <button
                       onClick={() => onVerify(p.id)}
                       disabled={verifyingId === p.id}
@@ -146,21 +130,36 @@ export default function PurchasesTable({
                     <button
                       onClick={() => onView(p)}
                       className="p-1.5 text-slate-600 hover:text-[var(--brand)] hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
+                      title="View Details"
                     >
                       <Eye size={14} /> View
                     </button>
                     <button
                       onClick={() => onPrint(p)}
                       className="p-1.5 text-slate-600 hover:text-[var(--brand)] hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
+                      title="Print Voucher"
                     >
                       <Printer size={14} /> Print
                     </button>
-                    {user?.role === 'OWNER' && (
+
+                    {/* Strictly OWNER can Edit */}
+                    {isOwner && (
+                      <button
+                        onClick={() => onEdit(p)}
+                        className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition inline-flex items-center text-xs font-semibold"
+                        title="Edit Purchase (Owner Only)"
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                    )}
+
+                    {/* Strictly OWNER can Delete */}
+                    {isOwner && (
                       <button
                         onClick={() => onDelete(p)}
                         disabled={deletingId === p.id}
                         className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition inline-flex items-center text-xs font-semibold"
-                        title="Delete Purchase"
+                        title="Delete Purchase (Owner Only)"
                       >
                         <Trash2 size={14} />
                       </button>
