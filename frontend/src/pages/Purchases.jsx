@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
-import { INVOICE_CONFIG, DEFAULT_DELIVERED_LOCATION } from '../constants/purchases';
 import { toast } from 'sonner';
 import { DeleteConfirmationModal } from '../components/ui';
 import {
@@ -10,8 +9,7 @@ import {
   PurchasesFilters,
   PurchasesTable,
   ViewPurchaseModal,
-  AddEditPurchaseModal,
-  PrintPurchaseModal
+  AddEditPurchaseModal
 } from '../components/purchases';
 
 export default function Purchases() {
@@ -19,169 +17,84 @@ export default function Purchases() {
   const { tenant } = useTenant();
   const isOwner = user?.role === 'OWNER';
   const isAccountant = user?.role === 'ACCOUNTANT';
+  const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
 
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [materials, setMaterials] = useState([]);
+
+  // Modal & Selected state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPurchase, setEditingPurchase] = useState(null);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
-  const [printPurchase, setPrintPurchase] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [purchaseToDelete, setPurchaseToDelete] = useState(null);
+
+  // Loading indicators
   const [deletingId, setDeletingId] = useState(null);
   const [verifyingId, setVerifyingId] = useState(null);
-  const [updatingStatusId, setUpdatingStatusId] = useState(null);
-  const [error, setError] = useState('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('ALL');
 
-  // Form State
-  const [vendorId, setVendorId] = useState('');
-  const [invoiceNo, setInvoiceNo] = useState('');
-  const [deliveryChallanNo, setDeliveryChallanNo] = useState('');
-  const [deliveredTo, setDeliveredTo] = useState('FACTORY');
-  const [status, setStatus] = useState('RECEIVED'); // PENDING, RECEIVED, PARTIALLY_RECEIVED, CANCELLED
-  const [paymentStatus, setPaymentStatus] = useState('PAID'); // PAID, PARTIAL, CREDIT
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
-  const [remarks, setRemarks] = useState('');
-  const [items, setItems] = useState([{ itemId: '', quantity: '', unitPrice: '' }]);
-
-  // Receipt upload state
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const fileInputRef = useRef(null);
-
-  const fetchData = async () => {
+  // Fetch static catalogs once on mount / tenant change
+  const fetchCatalogs = useCallback(async () => {
     try {
-      const qParams = new URLSearchParams();
-      if (searchQuery) qParams.append('search', searchQuery);
-      if (dateFilter) qParams.append('dateFilter', dateFilter);
-
-      const [purchasesRes, vendorsRes, materialsRes] = await Promise.all([
-        fetch(`${API}/purchases?${qParams.toString()}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+      const [vendorsRes, materialsRes] = await Promise.all([
         fetch(`${API}/vendors`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
         fetch(`${API}/items?type=RAW_MATERIAL`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
-      const pData = await purchasesRes.json();
       const vData = await vendorsRes.json();
       const mData = await materialsRes.json();
-      if (pData.success) setPurchases(pData.data);
       if (vData.success) setVendors(vData.data.filter(v => !v.archivedAt));
       if (mData.success) setMaterials(mData.data.filter(m => !m.archivedAt));
     } catch (err) {
+      console.error('Error fetching vendors/materials:', err);
+    }
+  }, [tenant]);
+
+  // Fetch purchases list with search & date filters
+  const fetchPurchases = useCallback(async () => {
+    try {
+      const qParams = new URLSearchParams();
+      if (searchQuery.trim()) qParams.append('search', searchQuery.trim());
+      if (dateFilter && dateFilter !== 'ALL') qParams.append('dateFilter', dateFilter);
+
+      const res = await fetch(`${API}/purchases?${qParams.toString()}`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPurchases(data.data || []);
+      }
+    } catch (err) {
       console.error('Error fetching purchase data:', err);
     }
+  }, [tenant, searchQuery, dateFilter]);
+
+  useEffect(() => {
+    fetchCatalogs();
+  }, [fetchCatalogs]);
+
+  useEffect(() => {
+    fetchPurchases();
+  }, [fetchPurchases]);
+
+  // Handlers
+  const handleOpenAddModal = () => {
+    setEditingPurchase(null);
+    setIsModalOpen(true);
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchData(); }, [searchQuery, dateFilter]);
-
-  const resetForm = () => {
-    setVendorId('');
-    setInvoiceNo(INVOICE_CONFIG.GENERATE_INVOICE_NO());
-    setDeliveredTo(DEFAULT_DELIVERED_LOCATION);
-    setStatus('RECEIVED');
-    setPaymentStatus('PAID');
-    setPurchaseDate(new Date().toISOString().split('T')[0]);
-    setRemarks('');
-    setItems([{ itemId: '', quantity: '', unitPrice: '' }]);
-    setReceiptFile(null);
-    setUploadedReceiptUrl('');
-    setUploadError('');
-    setError('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleOpenModal = () => {
-    resetForm();
+  const handleOpenEditModal = (purchase) => {
+    setEditingPurchase(purchase);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    resetForm();
-  };
-
-  // ── Receipt Upload ────────────────────────────────────────────────────────
-  const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setReceiptFile(file);
-    setUploadError('');
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('receipt', file);
-
-      const res = await fetch(`${API}/purchases/upload-receipt`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Upload failed');
-      const url = json.receiptUrl || json.data?.receiptUrl;
-      setUploadedReceiptUrl(url);
-    } catch (err) {
-      setUploadError(err.message || 'Failed to upload receipt');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!vendorId) return setError('Please select a vendor');
-    if (items.some(i => !i.itemId || !i.quantity || !i.unitPrice)) {
-      return setError('Please fill all item rows (material, quantity, unit price)');
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${API}/purchases`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-tenant': tenant
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          vendorId,
-          invoiceNo,
-          deliveryChallanNo,
-          receivedBy: `${user?.name || 'Production Manager'} (${user?.role || 'PM'})`,
-          purchaseDate,
-          deliveredTo,
-          status,
-          paymentStatus,
-          receiptUrl: uploadedReceiptUrl || null,
-          remarks,
-          items: items.map(i => ({
-            itemId: i.itemId,
-            quantity: parseFloat(i.quantity),
-            unitPrice: parseFloat(i.unitPrice)
-          }))
-        })
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save purchase');
-      
-      toast.success('Purchase Order Created! Raw Material Stock & Vendor Balance Updated.');
-      handleCloseModal();
-      fetchData();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
+    setEditingPurchase(null);
   };
 
   const handleApprovePurchase = async (pId) => {
@@ -195,47 +108,20 @@ export default function Purchases() {
       const json = await res.json();
       if (json.success) {
         toast.success('Purchase verified successfully');
-        fetchData();
+        fetchPurchases();
+        if (selectedPurchase?.id === pId) {
+          setSelectedPurchase(json.data);
+        }
+      } else {
+        toast.error(json.message || 'Failed to verify purchase');
       }
     } catch (err) {
       console.error('Error approving purchase:', err);
+      toast.error('Error approving purchase');
     } finally {
       setVerifyingId(null);
     }
   };
-
-  const handleQuickStatusChange = async (purchaseId, newStatus, newPaymentStatus) => {
-    setUpdatingStatusId(purchaseId);
-    try {
-      const body = {};
-      if (newStatus) body.status = newStatus;
-      if (newPaymentStatus) body.paymentStatus = newPaymentStatus;
-
-      const res = await fetch(`${API}/purchases/${purchaseId}/status`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-tenant': tenant 
-        },
-        credentials: 'include',
-        body: JSON.stringify(body)
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success('Status updated successfully');
-        fetchData();
-        if (selectedPurchase?.id === purchaseId) {
-          setSelectedPurchase(json.data);
-        }
-      }
-    } catch (err) {
-      toast.error('Failed to update status');
-    } finally {
-      setUpdatingStatusId(null);
-    }
-  };
-
-  const [purchaseToDelete, setPurchaseToDelete] = useState(null);
 
   const handleConfirmDeletePurchase = async () => {
     if (!purchaseToDelete) return;
@@ -249,9 +135,9 @@ export default function Purchases() {
       });
       const json = await res.json();
       if (json.success) {
-        toast.success('Purchase deleted and inventory reversed');
+        toast.success('Purchase deleted and inventory reversed successfully');
         setPurchaseToDelete(null);
-        fetchData();
+        fetchPurchases();
         if (selectedPurchase?.id === pId) setSelectedPurchase(null);
       } else {
         toast.error(json.message || 'Failed to delete purchase');
@@ -266,7 +152,6 @@ export default function Purchases() {
 
   const totalCount = purchases.length;
   const totalAmount = purchases.reduce((acc, p) => acc + (Number(p.grandTotal) || 0), 0);
-  const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER'].includes(user?.role);
 
   return (
     <div className="space-y-4">
@@ -279,7 +164,7 @@ export default function Purchases() {
         setSearchQuery={setSearchQuery}
         dateFilter={dateFilter}
         setDateFilter={setDateFilter}
-        onOpenModal={handleOpenModal}
+        onOpenModal={handleOpenAddModal}
         canAddPurchase={canAddPurchase}
       />
 
@@ -287,69 +172,37 @@ export default function Purchases() {
       <PurchasesTable
         purchases={purchases}
         onView={setSelectedPurchase}
-        onPrint={setPrintPurchase}
+        onPrint={setSelectedPurchase}
+        onEdit={handleOpenEditModal}
         onVerify={handleApprovePurchase}
         onDelete={setPurchaseToDelete}
-        onStatusChange={handleQuickStatusChange}
         verifyingId={verifyingId}
-        updatingStatusId={updatingStatusId}
         deletingId={deletingId}
         isOwner={isOwner}
         isAccountant={isAccountant}
         user={user}
-        onOpenModal={handleOpenModal}
+        onOpenModal={handleOpenAddModal}
       />
 
-      {/* Add / Edit Purchase Modal Component */}
+      {/* Add / Edit Purchase Modal */}
       <AddEditPurchaseModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-        error={error}
-        submitting={submitting}
-        vendorId={vendorId}
-        setVendorId={setVendorId}
-        invoiceNo={invoiceNo}
-        setInvoiceNo={setInvoiceNo}
-        deliveryChallanNo={deliveryChallanNo}
-        setDeliveryChallanNo={setDeliveryChallanNo}
-        purchaseDate={purchaseDate}
-        setPurchaseDate={setPurchaseDate}
-        deliveredTo={deliveredTo}
-        setDeliveredTo={setDeliveredTo}
-        status={status}
-        setStatus={setStatus}
-        paymentStatus={paymentStatus}
-        setPaymentStatus={setPaymentStatus}
-        remarks={remarks}
-        setRemarks={setRemarks}
-        items={items}
-        setItems={setItems}
+        onSuccess={fetchPurchases}
+        initialData={editingPurchase}
         vendors={vendors}
         materials={materials}
         user={user}
-        fileInputRef={fileInputRef}
-        handleFileSelect={handleFileSelect}
-        uploading={uploading}
-        uploadedReceiptUrl={uploadedReceiptUrl}
-        receiptFile={receiptFile}
-        uploadError={uploadError}
+        tenant={tenant}
       />
 
-      {/* View Purchase Voucher Modal Component */}
+      {/* View Purchase Voucher Modal */}
       <ViewPurchaseModal
         purchase={selectedPurchase}
         onClose={() => setSelectedPurchase(null)}
-        onPrint={setPrintPurchase}
       />
 
-      {/* Printable Voucher Modal Component */}
-      <PrintPurchaseModal
-        purchase={printPurchase}
-        onClose={() => setPrintPurchase(null)}
-      />
-
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal (Owner Only) */}
       <DeleteConfirmationModal
         isOpen={Boolean(purchaseToDelete)}
         title="Delete Purchase Record"

@@ -7,6 +7,7 @@ import {
   getPurchases,
   getPurchaseById,
   createPurchase,
+  updatePurchase,
   uploadReceipt,
   approvePurchase,
   deletePurchase,
@@ -21,10 +22,15 @@ router.use(verifyJWT);
 router.get('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchases);
 router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchaseById);
 
-// POST routes: Only OWNER and PRODUCTION_MANAGER can record purchases and upload receipts
-router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER'), checkDailyCloseLock, createPurchase);
-router.post('/upload-receipt', requireRoles('OWNER', 'PRODUCTION_MANAGER'), upload.single('receipt'), uploadReceipt);
-router.patch('/:id/status', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT'), updatePurchaseStatus);
+// POST routes: Staff & Managers can record purchases and upload receipts
+router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, createPurchase);
+router.post('/upload-receipt', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), upload.single('receipt'), uploadReceipt);
+
+// PUT route: Strictly OWNER can edit purchase records
+router.put('/:id', requireRoles('OWNER'), checkDailyCloseLock, updatePurchase);
+
+// PATCH route: Strictly OWNER can update purchase status
+router.patch('/:id/status', requireRoles('OWNER'), checkDailyCloseLock, updatePurchaseStatus);
 
 // APPROVE route: ACCOUNTANT and OWNER can verify bills
 router.post('/:id/approve', requireRoles('OWNER', 'ACCOUNTANT'), approvePurchase);
