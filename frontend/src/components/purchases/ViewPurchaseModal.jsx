@@ -176,7 +176,7 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all font-semibold text-slate-700"
               >
-                <FileText size={16} className="text-[var(--brand)]" />
+                <FileText size={16} className="text-brand" />
                 <span>Open Attached Bill Photo</span>
               </a>
             </div>
@@ -185,7 +185,7 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
           {/* Grand Total */}
           <div className="flex justify-between items-center pt-3 border-t border-slate-100">
             <span className="font-bold text-slate-700 text-sm">Total Procurement Value</span>
-            <span className="text-2xl font-bold font-mono text-[var(--brand)]">
+            <span className="text-2xl font-bold font-mono text-brand">
               Rs {Number(purchase.grandTotal).toLocaleString('en-PK')}
             </span>
           </div>

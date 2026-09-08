@@ -18,7 +18,7 @@ export default function PurchasesTable({
 
   if (!purchases || purchases.length === 0) {
     return (
-      <div className="card-surface p-12 text-center flex flex-col items-center min-h-[300px] justify-center">
+      <div className="card-surface p-12 text-center flex flex-col items-center min-h-75 justify-center">
         <ShoppingCart size={40} className="text-slate-300 mb-3" />
         <h3 className="text-base font-bold text-slate-700 mb-1">No Purchase Records Found</h3>
         <p className="text-slate-500 max-w-md text-xs mb-4">
@@ -80,7 +80,7 @@ export default function PurchasesTable({
                     {new Date(p.purchaseDate || p.createdAt).toLocaleDateString('en-GB')}
                   </div>
                 </td>
-                <td className="table-td font-mono font-bold text-[var(--brand)]">
+                <td className="table-td font-mono font-bold text-brand">
                   {p.invoiceNo || `#${p.id.slice(0, 8)}`}
                 </td>
                 <td className="table-td font-bold text-slate-800">
@@ -129,14 +129,14 @@ export default function PurchasesTable({
                   <div className="flex items-center justify-end gap-1.5">
                     <button
                       onClick={() => onView(p)}
-                      className="p-1.5 text-slate-600 hover:text-[var(--brand)] hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
+                      className="p-1.5 text-slate-600 hover:text-brand hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
                       title="View Details"
                     >
                       <Eye size={14} /> View
                     </button>
                     <button
                       onClick={() => onPrint(p)}
-                      className="p-1.5 text-slate-600 hover:text-[var(--brand)] hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
+                      className="p-1.5 text-slate-600 hover:text-brand hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
                       title="Print Voucher"
                     >
                       <Printer size={14} /> Print

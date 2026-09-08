@@ -269,7 +269,7 @@ export default function AddEditPurchaseModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
+              <label className="flex items-center justify-between text-xs font-bold uppercase text-slate-500 mb-1">
                 <span>Purchase Invoice #</span>
                 <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Auto-Generated & Locked</span>
               </label>
@@ -349,7 +349,7 @@ export default function AddEditPurchaseModal({
                 disabled={uploading}
                 className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl font-bold text-xs text-slate-700 flex items-center gap-2 shadow-xs transition-all"
               >
-                {uploading ? <Loader2 size={15} className="animate-spin text-[var(--brand)]" /> : <Upload size={15} />}
+                {uploading ? <Loader2 size={15} className="animate-spin text-brand" /> : <Upload size={15} />}
                 {uploading ? 'Uploading...' : 'Choose Receipt File'}
               </button>
               {uploadedReceiptUrl && (
@@ -357,7 +357,7 @@ export default function AddEditPurchaseModal({
                   href={uploadedReceiptUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs font-bold text-[var(--brand)] hover:underline inline-flex items-center gap-1"
+                  className="text-xs font-bold text-brand hover:underline inline-flex items-center gap-1"
                 >
                   <FileText size={13} /> View File
                 </a>
@@ -373,7 +373,7 @@ export default function AddEditPurchaseModal({
               <button
                 type="button"
                 onClick={handleAddItemRow}
-                className="text-xs font-bold text-[var(--brand)] hover:opacity-80 flex items-center gap-1"
+                className="text-xs font-bold text-brand hover:opacity-80 flex items-center gap-1"
               >
                 <Plus size={16} /> Add Item Row
               </button>
@@ -388,7 +388,7 @@ export default function AddEditPurchaseModal({
                   <div className="col-span-5">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">Raw Material *</label>
                     <select
-                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-[var(--brand)] outline-none text-sm bg-white font-medium text-slate-800"
+                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-medium text-slate-800"
                       value={row.itemId}
                       onChange={e => handleItemChange(idx, 'itemId', e.target.value)}
                       required
@@ -408,7 +408,7 @@ export default function AddEditPurchaseModal({
                       type="number"
                       step="any"
                       min="0.001"
-                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-[var(--brand)] outline-none text-sm bg-white font-bold text-slate-800"
+                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800"
                       value={row.quantity}
                       onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
                       placeholder="0"
@@ -422,7 +422,7 @@ export default function AddEditPurchaseModal({
                       type="number"
                       step="any"
                       min="0"
-                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-[var(--brand)] outline-none text-sm bg-white font-bold text-slate-800"
+                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800"
                       value={row.unitPrice}
                       onChange={e => handleItemChange(idx, 'unitPrice', e.target.value)}
                       placeholder="0.00"
@@ -468,7 +468,7 @@ export default function AddEditPurchaseModal({
           <div className="flex justify-between items-center pt-3 border-t border-slate-100">
             <div>
               <span className="text-xs font-bold uppercase text-slate-400">Total Purchase Value</span>
-              <p className="text-2xl font-bold font-mono text-[var(--brand)]">Rs. {grandTotal.toLocaleString()}</p>
+              <p className="text-2xl font-bold font-mono text-brand">Rs. {grandTotal.toLocaleString()}</p>
             </div>
 
             <div className="flex items-center gap-2">
