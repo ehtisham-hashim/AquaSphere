@@ -3,7 +3,7 @@ import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { toast } from 'sonner';
-import { DeleteConfirmationModal } from '../components/ui';
+import { DeleteConfirmationModal, PageHeader } from '../components/ui';
 import {
   PurchasesHeaderStats,
   PurchasesFilters,
@@ -155,6 +155,22 @@ export default function Purchases() {
 
   return (
     <div className="space-y-4">
+      {/* Page Header */}
+      <PageHeader
+        title="Vendor Purchases & Procurement"
+        subtitle="Log raw material vendor invoices, bills, and warehouse stock additions"
+        actions={
+          canAddPurchase && (
+            <button
+              onClick={handleOpenAddModal}
+              className="btn-primary"
+            >
+              <span>+ Record Purchase</span>
+            </button>
+          )
+        }
+      />
+
       {/* Stats Summary */}
       <PurchasesHeaderStats totalCount={totalCount} totalAmount={totalAmount} />
 

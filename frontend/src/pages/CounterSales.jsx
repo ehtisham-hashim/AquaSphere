@@ -212,29 +212,29 @@ export default function CounterSales() {
       />
 
       {/* Tabs Bar */}
-      <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-200 gap-2">
+      <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 w-fit">
         {canCreate && (
           <button
             onClick={() => setActiveTab('new-sale')}
-            className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
               activeTab === 'new-sale'
-                ? 'bg-white border-slate-200 text-brand border-b-2 border-b-brand shadow-2xs'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Plus size={15} /> Log Retail Sale (Multi-Item POS)
+            <Plus size={14} /> Retail Sale (POS)
           </button>
         )}
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`whitespace-nowrap px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 border-t border-x ${
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
             activeTab === 'history'
-              ? 'bg-white border-slate-200 text-brand border-b-2 border-b-brand shadow-2xs'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'bg-white text-slate-900 shadow-2xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Calendar size={15} /> Sales History ({sales.length})
+          <Calendar size={14} /> Sales History ({sales.length})
         </button>
       </div>
 

@@ -19,7 +19,7 @@ export default function RawMaterialsHeader({
             {isWadaana ? 'Preform / kg' : 'Plant Stock'}
           </span>
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mt-1">
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1">
           {isWadaana ? 'Wadaana Preform Master' : 'Raw Material Inventory'}
         </h2>
         <p className="text-slate-500 text-xs">
@@ -36,7 +36,7 @@ export default function RawMaterialsHeader({
           <input
             type="search"
             placeholder={isWadaana ? "Search preform type..." : "Search material name..."}
-            className="input-base pl-9 text-xs py-2"
+            className="input-base pl-9"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
@@ -47,7 +47,7 @@ export default function RawMaterialsHeader({
             type="checkbox"
             checked={includeArchived}
             onChange={(e) => onToggleArchived(e.target.checked)}
-            className="rounded border-slate-300 accent-brand h-3.5 w-3.5"
+            className="rounded border-slate-300 text-brand focus:ring-brand h-3.5 w-3.5"
           />
           <span>Show Archived</span>
         </label>
@@ -55,9 +55,9 @@ export default function RawMaterialsHeader({
         {!isReadOnly && (
           <button
             onClick={onOpenAdd}
-            className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5"
+            className="btn-primary"
           >
-            <Plus size={15} /> 
+            <Plus size={14} /> 
             <span>{isWadaana ? 'Add Preform' : 'Add Material'}</span>
           </button>
         )}

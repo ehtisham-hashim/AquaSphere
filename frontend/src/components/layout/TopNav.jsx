@@ -170,39 +170,39 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   });
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-sm flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-20 shadow-2xs">
+    <header className="h-14 border-b border-slate-200/90 bg-white/95 backdrop-blur-xs flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-20 shadow-2xs">
       <div className="flex items-center gap-2.5 sm:gap-3">
         {/* Mobile menu drawer trigger */}
         <button 
-          className="md:hidden text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-2 rounded-xl transition" 
+          className="md:hidden text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-lg transition" 
           onClick={onMobileMenuClick}
           aria-label="Open navigation drawer"
         >
-          <Menu size={19} />
+          <Menu size={18} />
         </button>
 
         {/* Desktop sidebar rail collapse trigger */}
         <button 
-          className="hidden md:flex text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-2 rounded-xl transition" 
+          className="hidden md:flex text-slate-400 hover:text-slate-800 hover:bg-slate-100 p-1.5 rounded-lg transition" 
           onClick={onToggleCollapse}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label="Toggle sidebar"
         >
-          <Menu size={19} />
+          <Menu size={18} />
         </button>
 
         <div>
-          <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">{currentPage.title}</h1>
-          <p className="hidden sm:block text-xs text-slate-400">{currentPage.subtitle}</p>
+          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight">{currentPage.title}</h1>
+          <p className="hidden sm:block text-xs text-slate-400 font-normal">{currentPage.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3.5">
         {/* Alerts Bell Icon */}
         <div className="relative">
           <button
             onClick={() => setShowAlertsMenu(!showAlertsMenu)}
-            className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all"
+            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all"
             title="System Activity Alerts"
             aria-label="System Activity Alerts"
           >
@@ -282,12 +282,12 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
         {/* Company Selector (Role-Guarded: OWNER / ADMIN only) */}
         {canSwitchTenant ? (
-          <div className="flex items-center gap-1.5">
-            <div className="flex bg-slate-100 rounded-xl p-0.5 border border-slate-200/80">
+          <div className="flex items-center gap-2">
+            <div className="flex bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80">
               <button 
                 type="button"
                 onClick={() => handleTenantSwitch('aquasphere')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 <span className="sm:hidden">AQ</span>
                 <span className="hidden sm:inline">AquaSphere</span>
@@ -295,7 +295,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
               <button 
                 type="button"
                 onClick={() => handleTenantSwitch('wadaana')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'}`}
               >
                 <span className="sm:hidden">WD</span>
                 <span className="hidden sm:inline">Wadaana Ind.</span>
@@ -303,9 +303,9 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
             </div>
           </div>
         ) : (
-          /* Read-only company badge for non-admin roles (TM, PM, MM, ACCOUNTANT) */
-          <div className="flex items-center gap-1.5">
-            <div className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+          /* Read-only company badge for non-admin roles */
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
               <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
               <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
             </div>
@@ -313,10 +313,9 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
         )}
 
         {/* Role Display */}
-        <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 pl-3 md:pl-4">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 hidden xl:block">Role:</span>
-          <div className="flex items-center px-2.5 py-1 border border-slate-200 rounded-lg bg-white">
-            <span className="text-xs font-semibold capitalize text-slate-700">{user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}</span>
+        <div className="hidden sm:flex items-center gap-2 border-l border-slate-200/80 pl-3 md:pl-4">
+          <div className="flex items-center px-2.5 py-1 border border-slate-200/80 rounded-lg bg-slate-50 text-xs font-semibold capitalize text-slate-600">
+            {user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}
           </div>
         </div>
       </div>

@@ -169,55 +169,54 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 pb-6">
       {/* Top Action Header */}
-      <div className="card-surface p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="card-surface p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="badge-brand">
-              <Sparkles size={12} />
-              {companyTitle} • EXECUTIVE CONTROL
+              <Sparkles size={11} />
+              {companyTitle}
             </span>
-            <span className="text-xs text-slate-400 font-medium">Real-time Financials</span>
+            <span className="text-[11px] text-slate-400 font-medium">Executive Overview</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold mt-1.5 tracking-tight text-slate-900">
-            Executive Owner Dashboard
+          <h1 className="text-lg sm:text-xl font-bold mt-1 tracking-tight text-slate-900">
+            Operations & Financials
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Live overview of sales revenue, cash inflow, operating expenses, and inventory health.
+          <p className="text-xs text-slate-500 mt-0.5 font-normal">
+            Real-time overview of sales revenue, cash inflow, operating expenses, and inventory health.
           </p>
         </div>
 
         {/* Primary High-Level Metric Badge */}
-        <div className="bg-slate-50 border border-slate-200/80 p-3.5 sm:p-4 rounded-xl flex items-center gap-3.5 shrink-0">
-          <div className={`p-2.5 rounded-xl shrink-0 ${netCash >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-            <Wallet size={24} />
+        <div className="bg-slate-50/80 border border-slate-200/80 px-3.5 py-2.5 rounded-xl flex items-center gap-3 shrink-0">
+          <div className={`p-2 rounded-lg shrink-0 ${netCash >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+            <Wallet size={18} />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{getPeriodLabel()} Net Cash Position</span>
-            <div className={`text-xl sm:text-2xl font-bold font-mono ${netCash >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{getPeriodLabel()} Net Cash</span>
+            <div className={`text-base sm:text-lg font-bold font-mono tracking-tight ${netCash >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
               Rs. {netCash.toLocaleString()}
             </div>
-            <span className="text-[10px] text-slate-400 block">Cash Received - Expenses</span>
           </div>
         </div>
       </div>
 
       {/* 1. Executive Financial Overview Grid */}
-      <section className="space-y-3.5">
+      <section className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <TrendingUp size={18} className="text-slate-500" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Financial Snapshot</h2>
+            <TrendingUp size={16} className="text-slate-500" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Financial Snapshot</h2>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400">Timeframe:</span>
+            <span className="text-xs text-slate-400">Timeframe:</span>
             <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <ModernKpiCard 
             icon={Wallet} 
             title={timeframe === 'DAILY' ? "Today's Sales" : timeframe === 'YEARLY' ? "Yearly Sales" : "Monthly Sales"} 

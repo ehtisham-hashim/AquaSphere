@@ -8,6 +8,7 @@ import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
 import VendorPaymentModal from '../components/vendors/VendorPaymentModal';
 import VendorDetailModal from '../components/vendors/VendorDetailModal';
+import { PageHeader } from '../components/ui';
 
 export default function Vendors() {
   const { user } = useAuth();
@@ -231,10 +232,27 @@ export default function Vendors() {
 
   return (
     <div className="space-y-4">
-      {/* Action Header */}
+      {/* Page Header */}
+      <PageHeader
+        title="Vendors Directory"
+        subtitle="Manage raw material suppliers, vendor invoices, and accounts payable"
+        actions={
+          canAddEdit && (
+            <button
+              onClick={handleOpenAdd}
+              className="btn-primary"
+            >
+              <Plus size={14} />
+              <span>Add Vendor</span>
+            </button>
+          )
+        }
+      />
+
+      {/* Action Header & Filter */}
       <div className="card-surface p-3 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
           <input
             type="search"
             placeholder="Search vendor by name or phone..."
@@ -245,25 +263,15 @@ export default function Vendors() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer">
+          <label className="flex items-center gap-1.5 text-xs text-slate-600 font-medium cursor-pointer select-none">
             <input
               type="checkbox"
               checked={includeArchived}
               onChange={(e) => setIncludeArchived(e.target.checked)}
-              className="rounded border-slate-300 text-[var(--brand)] focus:ring-[var(--brand)] h-4 w-4 cursor-pointer"
+              className="rounded border-slate-300 text-brand focus:ring-brand h-3.5 w-3.5 cursor-pointer"
             />
             <span>Show Archived</span>
           </label>
-
-          {canAddEdit && (
-            <button
-              onClick={handleOpenAdd}
-              className="btn-primary"
-            >
-              <Plus size={16} />
-              <span>Add Vendor</span>
-            </button>
-          )}
         </div>
       </div>
 
