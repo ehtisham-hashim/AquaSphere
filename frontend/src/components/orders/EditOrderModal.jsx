@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Package, Calendar } from 'lucide-react';
+import { X, Package, Calendar, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getTenantCatalog } from '../../constants/wadaanaProducts';
@@ -93,20 +93,43 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
   const handleItemToggle = (itemId) => {
     setSelectedItems(prev => {
       const next = { ...prev };
-      if (next[itemId]) {
+      if (next[itemId] && next[itemId].quantity > 0) {
         delete next[itemId];
       } else {
-        next[itemId] = { quantity: 1 };
+        const existingDbId = availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
+        next[itemId] = { quantity: 1, dbItemId: existingDbId };
       }
       return next;
     });
   };
 
-  const handleItemQuantityChange = (itemId, qty) => {
-    setSelectedItems(prev => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], quantity: parseInt(qty) || 0 }
-    }));
+  const handleItemQuantityChange = (itemId, valStr) => {
+    const parsed = parseInt(valStr, 10);
+    setSelectedItems(prev => {
+      const next = { ...prev };
+      if (isNaN(parsed) || parsed <= 0) {
+        delete next[itemId];
+      } else {
+        const existingDbId = prev[itemId]?.dbItemId || availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
+        next[itemId] = { quantity: parsed, dbItemId: existingDbId };
+      }
+      return next;
+    });
+  };
+
+  const handleQtyAdjust = (itemId, delta) => {
+    setSelectedItems(prev => {
+      const next = { ...prev };
+      const current = next[itemId]?.quantity || 0;
+      const updated = current + delta;
+      if (updated <= 0) {
+        delete next[itemId];
+      } else {
+        const existingDbId = prev[itemId]?.dbItemId || availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
+        next[itemId] = { quantity: updated, dbItemId: existingDbId };
+      }
+      return next;
+    });
   };
 
   const submitEdit = async (e) => {
@@ -200,7 +223,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-5 space-y-4">
+          <div className="border-t border-slate-100 pt-5 space-y-3">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
               <Package size={15}/> Order Items ({isWadaana ? 'Single Preform Bottles' : 'AquaSphere Packs'})
             </h4>
@@ -209,62 +232,86 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
               {categories.map(catLabel => {
                 const catItems = availableItems.filter(i => i.categoryLabel === catLabel);
                 return (
-                  <div key={catLabel} className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                    <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-2 flex items-center gap-1.5">
+                  <div key={catLabel} className="space-y-1.5">
+                    {/* Minimalist Section Header */}
+                    <div className="flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                       <span className={`w-2 h-2 rounded-full ${catLabel.includes('PURE') ? 'bg-[#0ea5e9]' : catLabel.includes('MIX') ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                      {catLabel}
+                      <span>{catLabel}</span>
+                      <span className="flex-1 h-px bg-slate-200/80"></span>
                     </div>
 
-                    <div className="space-y-2.5">
+                    {/* Single Clean Row per Product */}
+                    <div className="space-y-1.5">
                       {catItems.map(item => {
                         const isSelected = !!selectedItems[item.id];
+                        const qty = selectedItems[item.id]?.quantity || 0;
+                        const price = Math.round(item.defaultPrice);
+                        const lineSubtotal = qty * price;
 
                         return (
                           <div 
                             key={item.id} 
-                            className={`p-3 rounded-xl border transition-all ${
+                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all ${
                               isSelected 
-                                ? 'bg-white border-sky-400 shadow-xs ring-1 ring-sky-400/20' 
-                                : 'bg-white/60 border-slate-200 hover:bg-white'
+                                ? 'bg-sky-50/50 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' 
+                                : 'bg-white border-slate-200 hover:border-slate-300'
                             }`}
                           >
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <label className="flex items-center gap-3 cursor-pointer flex-1">
+                            {/* Product Info & Checkbox */}
+                            <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 select-none">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleItemToggle(item.id)}
+                                className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-800 text-sm truncate">
+                                  {item.name}
+                                </div>
+                                <div className="text-xs text-slate-400 font-mono">
+                                  Rs. {price.toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
+                                </div>
+                              </div>
+                            </label>
+
+                            {/* Inline Stepper, Qty Input, and Line Total */}
+                            <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
+                              <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQtyAdjust(item.id, -1)}
+                                  disabled={!isSelected}
+                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                                  title="Decrease quantity"
+                                >
+                                  <Minus size={13} />
+                                </button>
                                 <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleItemToggle(item.id)}
-                                  className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300"
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={qty > 0 ? qty : ''}
+                                  placeholder="0"
+                                  onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
+                                  className="w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none focus:bg-sky-50/50"
                                 />
-                                <div>
-                                  <div className="font-bold text-slate-800 text-sm">{item.name}</div>
-                                  <span className="text-xs text-slate-400">Fixed Rate: Rs. {item.defaultPrice} / {item.unit}</span>
-                                </div>
-                              </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQtyAdjust(item.id, 1)}
+                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition"
+                                  title="Increase quantity"
+                                >
+                                  <Plus size={13} />
+                                </button>
+                              </div>
 
-                              {isSelected && (
-                                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                                  <div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Quantity</span>
-                                    <input
-                                      type="number"
-                                      step="1"
-                                      min="1"
-                                      value={selectedItems[item.id]?.quantity || 1}
-                                      onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
-                                      className="w-24 border border-slate-200 bg-white rounded-lg p-1.5 text-sm font-bold text-slate-800 outline-none focus:border-sky-500"
-                                      required
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Fixed Rate</span>
-                                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-black px-3 py-1.5 rounded-lg">
-                                      Rs. {item.defaultPrice}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="w-24 text-right">
+                                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
+                                <span className={`text-xs font-mono font-black ${isSelected ? 'text-emerald-700' : 'text-slate-300'}`}>
+                                  Rs. {lineSubtotal.toLocaleString()}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         );
