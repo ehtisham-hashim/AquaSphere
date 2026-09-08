@@ -73,32 +73,32 @@ export default function InventoryTransactionHistoryTable({
                 const locDisplay = t.location || 'FACTORY';
 
                 return (
-                  <tr key={t.id} className="hover:bg-slate-50/80 transition-colors text-sm">
-                    <td className="table-td text-slate-600 font-mono">
+                  <tr key={t.id} className="hover:bg-slate-50/80 transition-colors text-xs sm:text-sm">
+                    <td className="table-td text-slate-600">
                       <span className="font-semibold text-slate-800 block">{new Date(t.createdAt).toLocaleDateString()}</span>
                       <span className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </td>
-                    <td className="table-td font-semibold text-slate-800">
+                    <td className="table-td font-semibold text-slate-900">
                       {t.item?.name || 'Finished Product'}
                     </td>
                     <td className="table-td">
                       {isTransfer ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold">
                           <ArrowLeftRight size={13} /> TRANSFER
                         </span>
                       ) : isIN ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
                           <ArrowUpRight size={13} /> INBOUND
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold">
                           <ArrowDownRight size={13} /> OUTBOUND
                         </span>
                       )}
                     </td>
                     <td className="table-td">
-                      <span className={`font-mono font-bold text-sm ${isTransfer ? 'text-sky-700' : isIN ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {isTransfer ? '↔' : isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-400 font-sans">{getFinishedGoodUnit(t.item)}</span>
+                      <span className={`font-semibold text-sm tabular-nums ${isTransfer ? 'text-sky-700' : isIN ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {isTransfer ? '↔' : isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500 font-sans">{getFinishedGoodUnit(t.item)}</span>
                       </span>
                     </td>
                     <td className="table-td text-xs font-semibold text-slate-700">
@@ -110,8 +110,8 @@ export default function InventoryTransactionHistoryTable({
                     <td className="table-td text-slate-600 truncate max-w-[200px]">
                       {t.reason || 'PRODUCTION'}
                     </td>
-                    <td className="table-td text-xs text-slate-500 font-mono">
-                      <div className="flex items-center gap-1">
+                    <td className="table-td text-xs text-slate-500">
+                      <div className="flex items-center gap-1.5">
                         <Calendar size={13} className="text-slate-400" />
                         {t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'FIFO: +1 Yr'}
                       </div>

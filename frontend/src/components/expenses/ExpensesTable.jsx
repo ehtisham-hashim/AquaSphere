@@ -93,7 +93,7 @@ export default function ExpensesTable({
                     </span>
                   </td>
 
-                  <td className="table-td font-black font-mono text-brand-primary text-sm">
+                  <td className="table-td font-bold text-slate-900 text-sm tabular-nums">
                     Rs. {Math.round(Number(ex.amount)).toLocaleString()}
                   </td>
 
@@ -103,7 +103,7 @@ export default function ExpensesTable({
                       <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-1 border border-slate-200/60">
                         <Car size={11} className="text-brand-primary shrink-0" />
                         <span className="font-semibold text-slate-800">{ex.vehicle.name}</span>
-                        <span className="text-slate-500 font-mono">({ex.vehicle.plateNumber})</span>
+                        <span className="text-slate-500">({ex.vehicle.plateNumber})</span>
                       </div>
                     )}
                   </td>

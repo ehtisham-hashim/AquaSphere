@@ -89,8 +89,8 @@ export default function PurchasesTable({
                     {p.vendor?.name || 'Unknown Vendor'}
                   </div>
                 </td>
-                <td className="table-td font-mono font-bold text-slate-900">
-                  Rs {Number(p.grandTotal).toLocaleString('en-PK')}
+                <td className="table-td tabular-nums font-bold text-slate-900">
+                  Rs. {Number(p.grandTotal).toLocaleString('en-PK')}
                 </td>
                 <td className="table-td">
                   {renderStatusBadge(p.status)}

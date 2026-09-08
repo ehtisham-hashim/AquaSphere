@@ -94,19 +94,19 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                     </div>
                   </td>
                   <td className="table-td">
-                    <div className="flex flex-col gap-0.5 font-mono">
-                      <span className={`font-bold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-rose-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                    <div className="flex flex-col gap-0.5 tabular-nums">
+                      <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-rose-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
                         Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
                       </span>
-                      <span className="text-[11px] text-slate-400">Limit: Rs. {c.creditLimit}</span>
+                      <span className="text-xs text-slate-400">Limit: Rs. {c.creditLimit}</span>
                     </div>
                   </td>
                   {!isWadaana && (
                     <td className="table-td">
-                      <div className="flex items-center gap-1.5 font-mono">
+                      <div className="flex items-center gap-1.5 tabular-nums">
                         <Package size={14} className="text-amber-500" />
-                        <strong className="text-slate-800">{c.cachedBottleBalance}</strong>
-                        <span className="text-[11px] text-slate-400">empty</span>
+                        <strong className="text-slate-800 font-semibold">{c.cachedBottleBalance}</strong>
+                        <span className="text-xs text-slate-400 font-normal">empty</span>
                       </div>
                     </td>
                   )}

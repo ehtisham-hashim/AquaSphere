@@ -121,28 +121,28 @@ export default function OrdersTable({
                 {/* Customer column */}
                 {showCustomerName && (
                   <td className="table-td">
-                    <div className="font-bold text-slate-800 text-xs">{o.customer?.name}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">{o.customer?.phone}</div>
+                    <div className="font-semibold text-slate-800 text-xs sm:text-sm">{o.customer?.name}</div>
+                    <div className="text-xs text-slate-400">{o.customer?.phone}</div>
                   </td>
                 )}
 
                 {/* Items column */}
                 <td className="table-td">
                   {o.items?.map((item, idx) => (
-                    <div key={idx} className="text-slate-700 font-medium text-[11px]">
-                      <span className="font-mono font-bold text-slate-800">{item.quantity}×</span> <span className="text-slate-600">{item.item?.name?.replace(/aquasphere|wadaana/gi, '').trim()}</span>
+                    <div key={idx} className="text-slate-700 font-medium text-xs">
+                      <span className="font-semibold text-slate-900 tabular-nums">{item.quantity}×</span> <span className="text-slate-600">{item.item?.name?.replace(/aquasphere|wadaana/gi, '').trim()}</span>
                     </div>
                   ))}
-                  <div className="text-[10px] text-slate-400 font-mono font-bold mt-0.5">{totalQty} Pcs Total</div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">{totalQty} Pcs Total</div>
                 </td>
 
                 {/* Financials column */}
                 <td className="table-td whitespace-nowrap">
-                  <div className="font-mono font-black text-slate-900 text-xs">₨ {total.toLocaleString()}</div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-mono mt-0.5">
-                    <span className="text-emerald-700 font-bold">Rec: ₨ {alreadyPaid.toLocaleString()}</span>
+                  <div className="font-bold text-slate-900 text-sm tabular-nums">₨ {total.toLocaleString()}</div>
+                  <div className="flex items-center gap-1.5 text-xs tabular-nums mt-0.5">
+                    <span className="text-emerald-700 font-semibold">Rec: ₨ {alreadyPaid.toLocaleString()}</span>
                     {outstanding > 0 && (
-                      <span className="text-rose-600 font-bold bg-rose-50 px-1 py-0.5 rounded border border-rose-200">
+                      <span className="text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 text-xs">
                         Debt: ₨ {outstanding.toLocaleString()}
                       </span>
                     )}

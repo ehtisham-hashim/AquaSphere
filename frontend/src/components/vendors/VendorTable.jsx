@@ -85,16 +85,16 @@ export default function VendorTable({
                   )}
                 </td>
 
-                <td className="table-td font-mono font-semibold text-slate-700">
-                  Rs {Number(v.totalPurchases || 0).toLocaleString()}
+                <td className="table-td tabular-nums font-semibold text-slate-700">
+                  Rs. {Number(v.totalPurchases || 0).toLocaleString()}
                 </td>
 
-                <td className="table-td font-mono font-semibold text-emerald-700">
-                  Rs {Number(v.totalPaid || 0).toLocaleString()}
+                <td className="table-td tabular-nums font-semibold text-emerald-700">
+                  Rs. {Number(v.totalPaid || 0).toLocaleString()}
                 </td>
 
-                <td className="table-td font-mono font-bold text-slate-900">
-                  Rs {Number(v.payableBalance || 0).toLocaleString()}
+                <td className="table-td tabular-nums font-bold text-slate-900">
+                  Rs. {Number(v.payableBalance || 0).toLocaleString()}
                 </td>
 
                 <td className="table-td text-right">
