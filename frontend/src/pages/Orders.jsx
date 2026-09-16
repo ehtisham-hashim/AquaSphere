@@ -180,14 +180,14 @@ export default function Orders() {
 
       {/* Top Banner Alert for Unpaid Orders */}
       {unpaidOrdersCount > 0 && activeTab !== 'Unpaid Orders' && (
-        <div className="bg-amber-50/90 border border-amber-200/80 px-4 py-2.5 rounded-xl flex justify-between items-center text-xs">
+        <div className="bg-amber-50/90 border border-amber-200/80 px-4 py-2.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
           <div className="flex items-center gap-2 text-amber-900 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
             <span>You have <strong>{unpaidOrdersCount}</strong> unpaid or partial order{unpaidOrdersCount > 1 ? 's' : ''} awaiting settlement.</span>
           </div>
           <button 
             onClick={() => setActiveTab('Unpaid Orders')} 
-            className="font-bold text-amber-800 hover:text-amber-950 bg-amber-100/80 px-2.5 py-1 rounded-md border border-amber-200 transition-all text-xs"
+            className="font-bold text-amber-800 hover:text-amber-950 bg-amber-100/80 px-2.5 py-1 rounded-md border border-amber-200 transition-all text-xs shrink-0 self-end sm:self-auto"
           >
             View Unpaid &rarr;
           </button>
@@ -197,25 +197,27 @@ export default function Orders() {
       {/* Tab Filter & Search Toolbar */}
       <div className="card-surface p-3 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 w-fit">
-            {tabs.map(tab => (
-              <button 
-                key={tab} 
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1 rounded-md font-semibold text-xs whitespace-nowrap transition-all ${
-                  activeTab === tab 
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="w-full sm:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
+            <div className="inline-flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 min-w-max">
+              {tabs.map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1.5 rounded-md font-semibold text-xs whitespace-nowrap shrink-0 transition-all ${
+                    activeTab === tab 
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="shrink-0 sm:w-48">
+          <div className="shrink-0 w-full sm:w-48">
             <select 
-              className="select-base text-xs py-1.5 px-2.5"
+              className="select-base text-xs py-1.5 px-2.5 w-full"
               value={clientFilter}
               onChange={e => setClientFilter(e.target.value)}
             >
