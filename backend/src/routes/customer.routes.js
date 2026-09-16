@@ -7,9 +7,9 @@ import upload from '../middlewares/upload.middleware.js';
 const router = Router();
 router.use(verifyJWT);
 
-// Customer view access: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER (PM is strictly excluded)
-router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getCustomers);
-router.get('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getCustomerDetails);
+// Customer view access: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER, TRANSPORT_MANAGER (PM is strictly excluded)
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getCustomers);
+router.get('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getCustomerDetails);
 
 // Add / Edit customers: OWNER, MARKETING_MANAGER (Admin is view-only)
 router.post('/', requireRoles('OWNER', 'MARKETING_MANAGER'), createCustomer);

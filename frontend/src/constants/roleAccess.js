@@ -131,7 +131,7 @@ export const ROLE_ACCESS = {
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
-      [SIDEBAR_ROUTES.ORDERS]: false,
+      [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: false,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.RAW_MATERIALS]: false,
@@ -235,7 +235,7 @@ export const ROLE_ACCESS = {
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
-      [SIDEBAR_ROUTES.ORDERS]: false,
+      [SIDEBAR_ROUTES.ORDERS]: true,
       [SIDEBAR_ROUTES.CUSTOMERS]: false,
       [SIDEBAR_ROUTES.PRODUCTION]: false,
       [SIDEBAR_ROUTES.INVENTORY]: false,
