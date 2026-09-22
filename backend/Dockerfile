@@ -9,15 +9,8 @@ WORKDIR /app
 RUN npm install -g pnpm@12
 
 # Copy dependency definitions and prisma schema first
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
-
-# Approve build scripts for packages that need them (generated inline to avoid CRLF issues)
-RUN printf '%s\n' \
-  'only-built-dependencies[]=@prisma/engines' \
-  'only-built-dependencies[]=@scarf/scarf' \
-  'only-built-dependencies[]=bcrypt' \
-  'only-built-dependencies[]=prisma' > .npmrc
 
 # Install dependencies (including devDependencies required for Prisma generate)
 RUN pnpm install --frozen-lockfile
