@@ -1,6 +1,4 @@
 import { prisma, closeDatabaseConnections } from '../src/config/db.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 
 async function testE2E() {
   console.log('=== RUNNING END-TO-END PRICING INTEGRATION TESTS ===');

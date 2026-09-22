@@ -111,7 +111,6 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     items: inputItems,
     amountPaid,
     cashCollected,
-    creditAmount,
     paymentMethod = 'CASH',
     customerId,
     remarks
@@ -122,9 +121,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   }
 
   // Pre-validate customer if provided
-  let customerObj = null;
   if (customerId && customerId.trim()) {
-    customerObj = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
+    const customerObj = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
     if (!customerObj) throw new ApiError(404, 'Selected customer not found');
   }
 
@@ -166,7 +164,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     // Approximate litres from item name or size
     const nameLower = fgItem.name.toLowerCase();
-    let litresPerUnit = 0;
+    let litresPerUnit;
     if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = 9.0; // 12 btls x 0.75L
     else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = 12.0; // 6 btls x 2L
     else if (nameLower.includes('19')) litresPerUnit = 24.0;

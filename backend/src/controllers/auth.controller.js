@@ -36,10 +36,12 @@ export const login = asyncHandler(async (req, res) => {
 
   const token = generateToken({ id: user.id, role: user.role, tenant: prefix });
 
+  const isSecure = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
+
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 1 day
   };
 
@@ -60,10 +62,12 @@ export const login = asyncHandler(async (req, res) => {
  * @returns {Promise<void>}
  */
 export const logout = asyncHandler(async (req, res) => {
+  const isSecure = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
+
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
   };
 
   res
