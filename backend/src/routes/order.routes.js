@@ -6,9 +6,9 @@ import { requireRoles } from '../middlewares/role.middleware.js';
 const router = Router();
 router.use(verifyJWT);
 
-// View Orders: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER
-router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getOrders);
-router.get('/:id/pdf', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), getOrderPDF);
+// View Orders: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER, TRANSPORT_MANAGER
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getOrders);
+router.get('/:id/pdf', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getOrderPDF);
 
 // Write Orders: OWNER, ACCOUNTANT, MARKETING_MANAGER (Admin is read-only)
 router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), createOrder);

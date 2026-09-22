@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Clock, UserPlus, Printer } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { getCompanyFromCookie } from '../utils/companyCookie';
@@ -15,6 +15,7 @@ import AddCustomerModal from '../components/customer/AddCustomerModal';
 import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
 import RecordPaymentModal from '../components/orders/RecordPaymentModal';
 import OrderSearch from '../components/orders/OrderSearch';
+import OrderDetail from '../components/orders/OrderDetail';
 
 export default function Orders() {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ export default function Orders() {
   const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedPaymentOrder, setSelectedPaymentOrder] = useState(null);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [invoiceOrder, setInvoiceOrder] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -102,9 +104,10 @@ export default function Orders() {
   const isOwner = user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN';
   const isMarketingManager = user?.role === 'MARKETING_MANAGER';
-  const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
-  const canCreateOrder = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
-  const canDeleteOrder = ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
+  const isTransportManager = user?.role === 'TRANSPORT_MANAGER';
+  const canAddCustomer = !isTransportManager && (user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER');
+  const canCreateOrder = !isTransportManager && (user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER');
+  const canDeleteOrder = !isTransportManager && ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
 
   // Unpaid/Partial order count for quick alerts
   const unpaidOrdersCount = orders.filter(o => o.paymentStatus !== 'PAID' && o.deliveryStatus !== 'CANCELLED').length;
@@ -142,9 +145,15 @@ export default function Orders() {
 
   return (
     <div className="space-y-4 pb-6">
-      
-      {/* Page Header */}
-      <PageHeader
+      {selectedOrderDetails ? (
+        <OrderDetail
+          order={selectedOrderDetails}
+          onClose={() => setSelectedOrderDetails(null)}
+        />
+      ) : (
+        <>
+          {/* Page Header */}
+          <PageHeader
         title="Orders & Dispatches"
         subtitle="Customer orders, dispatch status, and delivery tracking"
         actions={
@@ -171,14 +180,14 @@ export default function Orders() {
 
       {/* Top Banner Alert for Unpaid Orders */}
       {unpaidOrdersCount > 0 && activeTab !== 'Unpaid Orders' && (
-        <div className="bg-amber-50/90 border border-amber-200/80 px-4 py-2.5 rounded-xl flex justify-between items-center text-xs">
+        <div className="bg-amber-50/90 border border-amber-200/80 px-4 py-2.5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
           <div className="flex items-center gap-2 text-amber-900 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
             <span>You have <strong>{unpaidOrdersCount}</strong> unpaid or partial order{unpaidOrdersCount > 1 ? 's' : ''} awaiting settlement.</span>
           </div>
           <button 
             onClick={() => setActiveTab('Unpaid Orders')} 
-            className="font-bold text-amber-800 hover:text-amber-950 bg-amber-100/80 px-2.5 py-1 rounded-md border border-amber-200 transition-all text-xs"
+            className="font-bold text-amber-800 hover:text-amber-950 bg-amber-100/80 px-2.5 py-1 rounded-md border border-amber-200 transition-all text-xs shrink-0 self-end sm:self-auto"
           >
             View Unpaid &rarr;
           </button>
@@ -188,25 +197,27 @@ export default function Orders() {
       {/* Tab Filter & Search Toolbar */}
       <div className="card-surface p-3 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 w-fit">
-            {tabs.map(tab => (
-              <button 
-                key={tab} 
-                onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1 rounded-md font-semibold text-xs whitespace-nowrap transition-all ${
-                  activeTab === tab 
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold' 
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="w-full sm:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
+            <div className="inline-flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 min-w-max">
+              {tabs.map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1.5 rounded-md font-semibold text-xs whitespace-nowrap shrink-0 transition-all ${
+                    activeTab === tab 
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="shrink-0 sm:w-48">
+          <div className="shrink-0 w-full sm:w-48">
             <select 
-              className="select-base text-xs py-1.5 px-2.5"
+              className="select-base text-xs py-1.5 px-2.5 w-full"
               value={clientFilter}
               onChange={e => setClientFilter(e.target.value)}
             >
@@ -246,7 +257,7 @@ export default function Orders() {
                 filteredOrders.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
-                  const canProcess = !isAdmin && o.deliveryStatus !== 'CANCELLED' && (
+                  const canProcess = !isAdmin && !isTransportManager && o.deliveryStatus !== 'CANCELLED' && (
                     !isMarketingManager 
                       ? !isFullyGreenlit 
                       : o.deliveryStatus !== 'DELIVERED'
@@ -254,11 +265,19 @@ export default function Orders() {
 
                   return (
                     <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="table-td font-mono font-semibold text-slate-500">
+                      <td 
+                        className="table-td font-mono font-semibold text-slate-500 cursor-pointer hover:text-brand transition-colors"
+                        onClick={() => setSelectedOrderDetails(o)}
+                        title="Click to view details"
+                      >
                         #{o.id.substring(0,6).toUpperCase()}
                       </td>
-                      <td className="table-td">
-                        <div className="font-bold text-slate-800">{o.customer?.name}</div>
+                      <td 
+                        className="table-td cursor-pointer group"
+                        onClick={() => setSelectedOrderDetails(o)}
+                        title="Click to view details"
+                      >
+                        <div className="font-bold text-slate-800 group-hover:text-brand transition-colors">{o.customer?.name}</div>
                         <div className="flex gap-2 items-center text-xs mt-0.5">
                           <span className="text-slate-400 font-mono">{o.customer?.phone}</span>
                         </div>
@@ -293,7 +312,43 @@ export default function Orders() {
                         </div>
                       </td>
                       <td className="table-td text-right">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex justify-end gap-1.5 items-center">
+                          <button
+                            onClick={() => setSelectedOrderDetails(o)}
+                            className="btn-secondary py-1 px-2.5 text-xs inline-flex items-center gap-1 font-semibold"
+                            title="View Order Details & Share to Driver"
+                          >
+                            <Eye size={13} /> Details
+                          </button>
+
+                          {isTransportManager && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  const cust = o.customer || {};
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  navigator.clipboard.writeText(text);
+                                  toast.success('Order summary copied for driver!');
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                title="Quick copy order for driver"
+                              >
+                                <Copy size={13} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const cust = o.customer || {};
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                }}
+                                className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                                title="Share to driver via WhatsApp"
+                              >
+                                <Share2 size={13} />
+                              </button>
+                            </>
+                          )}
+
                           <button
                             onClick={() => setInvoiceOrder(o)}
                             className="btn-secondary py-1 px-2.5 text-xs"
@@ -334,6 +389,8 @@ export default function Orders() {
           </table>
         </div>
       )}
+      </>
+    )}
 
       {/* Add Order Modal Component */}
       {isAddModalOpen && (

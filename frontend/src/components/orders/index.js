@@ -6,3 +6,4 @@ export { default as ProcessDeliveryModal } from './ProcessDeliveryModal';
 export { default as OrderInvoiceModal } from './OrderInvoiceModal';
 export { default as RecordPaymentModal } from './RecordPaymentModal';
 export { default as OrderSearch } from './OrderSearch';
+export { default as OrderDetail } from './OrderDetail';
