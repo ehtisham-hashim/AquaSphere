@@ -47,5 +47,13 @@
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"
   },
-  "type": "module"
+  "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "@scarf/scarf",
+      "bcrypt",
+      "prisma"
+    ]
+  }
 }
