@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Share2, MapPinIcon,
-  Copy, CheckCircle2, Clock, Truck, CreditCard, Send, Navigation
+  FileText, ExternalLink, ShoppingBag, User, Share2,
+  Copy, CheckCircle2, Clock, Truck, Navigation
 } from 'lucide-react';
 import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +13,7 @@ import { getOrderCleanName as formatItemName } from '../../constants/orders';
 // ponytail: layout mirrors CustomerDetails flat pattern; avoids modal bloat with inline swap view
 export default function OrderDetail({ order, onClose }) {
   const { user } = useAuth();
-  const { tenant, isWadaana } = useTenant();
+  const { isWadaana } = useTenant();
   const [previewImage, setPreviewImage] = useState(null);
   const [copied, setCopied] = useState(false);
 

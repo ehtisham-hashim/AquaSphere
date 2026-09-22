@@ -24,7 +24,7 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   if (!receiptSale) return null;
 
   // Use normalized items if available, otherwise parse legacy productType string
-  let items = [];
+  let items;
   if (Array.isArray(receiptSale.items) && receiptSale.items.length > 0) {
     items = receiptSale.items.map(line => ({
       name: line.item?.name || 'Item',

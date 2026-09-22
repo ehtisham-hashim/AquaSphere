@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { 
-  Tag, 
   Droplets, 
   Package, 
   Save, 
@@ -12,8 +11,6 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Sparkles,
-  Layers,
-  Building2,
   Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,11 +23,6 @@ import { PageHeader } from '../components/ui';
 export default function ProductPricing() {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
-
-  // Strict role guard: only OWNER can view or edit pricing
-  if (user?.role !== ROLES.OWNER) {
-    return <Navigate to="/" replace />;
-  }
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +191,11 @@ export default function ProductPricing() {
     const sum = items.reduce((acc, i) => acc + Number(i.retailPrice || 0), 0);
     return Math.round(sum / items.length);
   }, [items]);
+
+  // Strict role guard: only OWNER can view or edit pricing
+  if (user?.role !== ROLES.OWNER) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="space-y-4 pb-12">

@@ -51,8 +51,7 @@ export default function CounterSalesHistoryTable({
   isDateClosed,
   isOwner,
   onPrintReceipt,
-  onDeleteSale,
-  userName
+  onDeleteSale
 }) {
   return (
     <div className="space-y-3">
@@ -97,8 +96,8 @@ export default function CounterSalesHistoryTable({
               const pBadge = getPaymentBadge(paid, debt);
               
               // Use normalized items if available
-              let mainItem = 'Retail Sale';
-              let extraCount = 0;
+              let mainItem;
+              let extraCount;
               if (Array.isArray(sale.items) && sale.items.length > 0) {
                 const first = sale.items[0];
                 mainItem = `${first.item?.name || 'Item'} × ${Number(first.quantity)}`;

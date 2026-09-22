@@ -18,8 +18,8 @@ export default function LogCounterSaleForm({
 
   // Auto-select first finished good when list loads
   useEffect(() => {
-    if (finishedGoods.length > 0 && Object.keys(cartMap).length === 0) {
-      setCartMap({ [finishedGoods[0].id]: 1 });
+    if (finishedGoods.length > 0) {
+      setCartMap(prev => (Object.keys(prev).length === 0 ? { [finishedGoods[0].id]: 1 } : prev));
     }
   }, [finishedGoods]);
 
@@ -133,7 +133,6 @@ export default function LogCounterSaleForm({
   const selectedCustomer = customers.find(c => c.id === customerId);
   const customerBalance = selectedCustomer ? Number(selectedCustomer.currentBalance || 0) : 0;
   const customerLimit = selectedCustomer ? Number(selectedCustomer.creditLimit || 0) : 0;
-  const customerDeposit = selectedCustomer ? Number(selectedCustomer.deposit || 0) : 0;
   const projectedBalance = customerBalance + unpaidBalance;
   const isLimitExceeded = !isWalkIn && customerLimit > 0 && projectedBalance > customerLimit;
 

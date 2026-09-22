@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../utils/api';
-import { useTenant } from '../context/TenantContext';
 import { 
-  BarChart2, Download, Calendar, TrendingUp, DollarSign, 
+  Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 
 } from 'lucide-react';
 import { PageHeader } from '../components/ui';
@@ -27,7 +26,6 @@ const PERIODS = [
 ];
 
 export default function Reports() {
-  const { isWadaana } = useTenant();
   const [activeTab, setActiveTab] = useState('sales');
   const [period, setPeriod] = useState('monthly');
   const [startDate, setStartDate] = useState('');

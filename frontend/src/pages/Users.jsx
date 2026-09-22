@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
-import { PageHeader, StatusBadge } from '../components/ui';
+import { PageHeader } from '../components/ui';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
