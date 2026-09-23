@@ -23,6 +23,7 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState(null);
 
   const fetchInventoryData = useCallback(async () => {
     setIsLoading(true);
@@ -114,6 +115,10 @@ export default function Inventory() {
       <FinishedGoodsSummaryCards 
         items={items}
         tenant={tenant}
+        onEditItem={canAddFinishedGood ? (item) => {
+          setItemToEdit(item);
+          setIsAddModalOpen(true);
+        } : null}
       />
 
       {/* Module 4: Audit Ledger & Transaction History Table */}
@@ -134,11 +139,15 @@ export default function Inventory() {
         />
       )}
 
-      {/* Add Custom Finished Good Modal with Recipe Builder */}
+      {/* Add/Edit Finished Good Modal with Recipe Builder */}
       {canAddFinishedGood && (
         <AddEditFinishedGoodModal
           isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
+          itemToEdit={itemToEdit}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setItemToEdit(null);
+          }}
           onSaved={fetchInventoryData}
           tenant={tenant}
         />

@@ -1,6 +1,6 @@
 import { Warehouse, Factory, ShieldCheck } from 'lucide-react';
 
-export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere' }) {
+export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasphere', onEditItem = null }) {
   const isWadaana = tenant === 'wadaana';
 
   if (!isWadaana) {
@@ -47,9 +47,10 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
             const total = Number(item.cachedQty || 0);
             const fac = Number(item.factoryQty || 0);
             const wh = Number(item.warehouseQty || 0);
+            const reorder = Number(item.reorderLevel || 0);
             const effectiveFactory = (fac === 0 && wh === 0) ? total : fac;
             const effectiveWarehouse = (fac === 0 && wh === 0) ? 0 : wh;
-            const status = getBadge(total, Number(item.reorderLevel || 20));
+            const status = getBadge(total, reorder);
 
             return (
               <div key={item.id || idx} className="card-surface p-4 space-y-2.5">
@@ -63,13 +64,26 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
                       <span className="text-xs font-normal text-slate-400 font-sans">{item.unit || 'units'}</span>
                     </div>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold uppercase tracking-wide border ${
-                    status.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                    status.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
-                    {status.label}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onEditItem && onEditItem(item)}
+                      disabled={!onEditItem}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold uppercase tracking-wide border transition ${
+                        onEditItem ? 'hover:scale-105 hover:shadow-xs cursor-pointer' : ''
+                      } ${
+                        status.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100' :
+                        status.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                      title={onEditItem ? 'Click to edit reorder level & recipe' : undefined}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
+                      {status.label}
+                    </button>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      Alert: {reorder.toLocaleString()} {item.unit || 'units'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
@@ -115,27 +129,42 @@ export default function FinishedGoodsSummaryCards({ items = [], tenant = 'aquasp
         const total = Number(c.item?.cachedQty || 0);
         const fac = Number(c.item?.factoryQty || 0);
         const wh = Number(c.item?.warehouseQty || 0);
+        const reorder = Number(c.item?.reorderLevel || 100);
         const factoryVal = (fac === 0 && wh === 0) ? total : fac;
         const warehouseVal = (fac === 0 && wh === 0) ? 0 : wh;
 
-        // Low Stock Threshold: Below 100 bottles (< 100)
-        const isLowStock = total < 100;
+        const isLowStock = total <= reorder;
 
         return (
           <div key={idx} className="card-surface p-4 space-y-2.5">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">{c.name}</span>
+            <div className="flex justify-between items-center gap-2">
+              <div className="min-w-0">
+                <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider truncate block mb-0.5">{c.name}</span>
                 <div className="text-2xl font-mono font-bold text-slate-900">
                   {total.toLocaleString()} <span className="text-xs font-normal text-slate-400 font-sans">bottles</span>
                 </div>
               </div>
 
-              {isLowStock && (
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
-                  LOW STOCK
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onEditItem && c.item && onEditItem(c.item)}
+                  disabled={!onEditItem || !c.item}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border transition ${
+                    onEditItem && c.item ? 'hover:scale-105 hover:shadow-xs cursor-pointer' : ''
+                  } ${
+                    isLowStock
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                  title={onEditItem && c.item ? 'Click to edit reorder level & recipe' : undefined}
+                >
+                  {isLowStock ? 'LOW STOCK' : 'NORMAL'}
+                </button>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Alert: {reorder.toLocaleString()}
                 </span>
-              )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-slate-100 text-xs">
