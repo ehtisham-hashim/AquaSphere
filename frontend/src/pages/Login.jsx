@@ -35,15 +35,15 @@ export default function Login() {
           <div className={`absolute top-[60%] -right-[20%] w-[80%] h-[80%] rounded-full blur-[120px] ${isWadaana ? 'bg-sky-300' : 'bg-emerald-300'}`} />
         </div>
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-[52px] h-[52px] bg-white/20 rounded-2xl backdrop-blur-sm flex items-center justify-center shadow-xs shrink-0">
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-24 h-24 bg-white/20 rounded-3xl backdrop-blur-sm flex items-center justify-center p-2.5 shadow-sm shrink-0">
             {isWadaana ? (
-              <Building2 className="w-8 h-8 text-white" />
+              <Building2 className="w-12 h-12 text-white" />
             ) : (
               <img 
                 src="/logo.png" 
                 alt="AquaSphere Logo" 
-                className="w-10 h-10 object-contain drop-shadow-xs" 
+                className="w-full h-full object-contain drop-shadow-xs" 
               />
             )}
           </div>
@@ -98,14 +98,14 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center lg:text-left">
             <div className="lg:hidden flex justify-center mb-6">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isWadaana ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100'}`}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center p-2 ${isWadaana ? 'bg-sky-100 text-sky-600' : 'bg-emerald-100'}`}>
                 {isWadaana ? (
-                  <Building2 className="w-8 h-8" />
+                  <Building2 className="w-9 h-9" />
                 ) : (
                   <img 
                     src="/logo.png" 
                     alt="AquaSphere Logo" 
-                    className="w-10 h-10 object-contain" 
+                    className="w-full h-full object-contain" 
                   />
                 )}
               </div>
