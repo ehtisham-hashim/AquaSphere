@@ -17,11 +17,56 @@ export default function OrderInvoiceModal({ order, onClose }) {
   const handlePrint = () => window.print();
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:p-0 print:bg-white print:fixed">
+      {/* Isolated Print Stylesheet */}
+      <style>{`
+        @page {
+          size: A5 portrait;
+          margin: 10mm;
+        }
+        @media print {
+          html, body {
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #order-invoice-print, #order-invoice-print * {
+            visibility: visible;
+          }
+          #order-invoice-print {
+            position: absolute !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            top: 0 !important;
+            width: 125mm !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 18px 22px !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
+            color: #0f172a !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print:border-none print:shadow-none print:p-0">
 
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0 no-print">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Printer size={16} className="text-brand-primary" /> Order Invoice
           </h3>
@@ -132,7 +177,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0">
+        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 no-print">
           <button
             onClick={onClose}
             className="btn-secondary text-xs py-2 px-4"
