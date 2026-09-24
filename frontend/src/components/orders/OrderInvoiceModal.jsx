@@ -90,10 +90,10 @@ export default function OrderInvoiceModal({ order, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Printer size={16} className="text-slate-800" /> Order Invoice
           </h3>
@@ -102,8 +102,8 @@ export default function OrderInvoiceModal({ order, onClose }) {
           </button>
         </div>
 
-        {/* Printable Area - Classic POS with Dashed Lines & Edge Expansion */}
-        <div id="order-invoice-print" className="p-8 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
+        {/* Printable Area - 80mm POS Thermal Slip with Dashed Lines */}
+        <div id="order-invoice-print" className="p-6 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
 
           {/* Company Header */}
           <div className="text-center pb-2">

@@ -34,8 +34,8 @@ export async function copyTextToClipboard(text) {
 
 /**
  * Cleanly prints a DOM element by isolating it inside a hidden iframe.
- * Copies document styles, removes all modal flex/centering constraints,
- * and expands 100% to page edges with clean 4mm-6mm borders.
+ * Uses 80mm thermal roll width with dynamic height measured from content length.
+ * Zero wasted white space in PDF, native auto-cut on thermal roll printers.
  */
 export function printReceiptElement(elementId) {
   const element = document.getElementById(elementId);
@@ -46,6 +46,12 @@ export function printReceiptElement(elementId) {
 
   const oldFrame = document.getElementById('receipt-print-iframe');
   if (oldFrame) oldFrame.remove();
+
+  // Measure dynamic content height so the PDF tight-crops with zero void
+  const rect = element.getBoundingClientRect();
+  const heightPx = Math.max(element.scrollHeight, rect.height, 300);
+  // Convert px to mm (1px ≈ 0.264583 mm) plus 10mm buffer
+  const heightMm = Math.ceil(heightPx * 0.264583) + 10;
 
   const iframe = document.createElement('iframe');
   iframe.id = 'receipt-print-iframe';
@@ -70,12 +76,12 @@ export function printReceiptElement(elementId) {
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Print Slip</title>
+        <title>Receipt</title>
         ${headStyles}
         <style>
           @page {
-            size: auto;
-            margin: 4mm 6mm;
+            size: 80mm ${heightMm}mm;
+            margin: 2mm 3mm;
           }
           * {
             box-sizing: border-box;
@@ -88,16 +94,16 @@ export function printReceiptElement(elementId) {
           }
           html, body {
             width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
+            max-width: 74mm !important;
+            margin: 0 auto !important;
             padding: 0 !important;
             background: #ffffff !important;
           }
           .receipt-wrap {
             width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 6px 8px !important;
+            max-width: 74mm !important;
+            margin: 0 auto !important;
+            padding: 4px 2px !important;
           }
           .no-print {
             display: none !important;

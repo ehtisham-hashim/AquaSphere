@@ -129,9 +129,9 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-150">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-150">
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
             <Eye size={18} className="text-slate-800" /> Counter Sale Receipt
           </h3>
@@ -140,8 +140,8 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </button>
         </div>
 
-        {/* Printable Receipt Body - Classic POS with Dashed Lines & Good Padding */}
-        <div id="printable-receipt" className="p-8 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
+        {/* Printable Receipt Body - 80mm POS Thermal Slip with Dashed Lines */}
+        <div id="printable-receipt" className="p-6 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
           {/* Header */}
           <div className="text-center pb-2">
             <h2 className="text-xl font-bold uppercase tracking-wider text-black">
