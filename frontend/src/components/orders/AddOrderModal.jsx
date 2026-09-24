@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Star, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
-import { getTenantCatalog } from '../../constants/wadaanaProducts';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers = [], items = [] }) {
@@ -56,51 +55,56 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
   const selectedCustomer = asyncCustomers.find(c => c.id === orderData.customerId) || customers.find(c => c.id === orderData.customerId);
 
-  // Merge DB items with tenant catalog using Map for strict deduplication
-  const catalog = getTenantCatalog(activeTenant, selectedCustomer);
-  const itemMap = new Map();
+  // Map real database finished goods into organized categories
+  const finishedGoods = items.filter(dbItem => dbItem.type === 'FINISHED_GOOD' || !dbItem.type);
 
-  catalog.forEach(catItem => {
-    const normKey = catItem.name.toLowerCase().trim();
-    if (!itemMap.has(normKey)) {
-      const dbMatch = items.find(i => i.name.toLowerCase().trim() === normKey);
-      const dbPrice = dbMatch ? Number(dbMatch.retailPrice || 0) : 0;
-      itemMap.set(normKey, {
-        id: catItem.id,
-        dbItemId: dbMatch?.id || null,
-        name: catItem.name,
-        category: catItem.category,
-        categoryLabel: catItem.categoryLabel,
-        defaultPrice: dbPrice > 0 ? dbPrice : catItem.defaultPrice,
-        unit: catItem.unit,
-        isCustomerPreference: catItem.isCustomerPreference
-      });
+  const availableItems = finishedGoods.map(dbItem => {
+    const nameLower = (dbItem.name || '').toLowerCase();
+    let category = 'FINISHED_GOOD';
+    let categoryLabel = 'OTHER FINISHED GOODS';
+
+    if (nameLower.includes('19l') || nameLower.includes('19 l')) {
+      category = '19L';
+      categoryLabel = '19L WATER BOTTLES';
+    } else if (nameLower.includes('0.5') || nameLower.includes('500')) {
+      category = '0.5L';
+      categoryLabel = isWadaana ? '0.5L PREFORM BOTTLES' : '0.5L PET PACKS';
+    } else if (nameLower.includes('1.5') || nameLower.includes('1500')) {
+      category = '1.5L';
+      categoryLabel = isWadaana ? '1.5L PREFORM BOTTLES' : '1.5L PET PACKS';
     }
-  });
 
-  // Also include any active finished goods from DB not in static catalog
-  items.forEach(dbItem => {
-    if (dbItem.type === 'FINISHED_GOOD' || !dbItem.type) {
-      const normKey = (dbItem.name || '').toLowerCase().trim();
-      if (normKey && !itemMap.has(normKey)) {
-        itemMap.set(normKey, {
-          id: dbItem.id,
-          dbItemId: dbItem.id,
-          name: dbItem.name,
-          category: 'FINISHED_GOOD',
-          categoryLabel: 'OTHER FINISHED GOODS',
-          defaultPrice: Number(dbItem.retailPrice || 0),
-          unit: dbItem.unit || 'units',
-          isCustomerPreference: false
-        });
+    if (isWadaana) {
+      if (nameLower.includes('pure')) {
+        category = 'PURE';
+        categoryLabel = 'PURE PREFORM BOTTLES';
+      } else if (nameLower.includes('mix')) {
+        category = 'MIX';
+        categoryLabel = 'MIX PREFORM BOTTLES';
       }
     }
+
+    return {
+      id: dbItem.id,
+      dbItemId: dbItem.id,
+      name: dbItem.name,
+      category,
+      categoryLabel,
+      defaultPrice: Number(dbItem.retailPrice || 0),
+      unit: dbItem.unit || 'units'
+    };
   });
 
-  const availableItems = Array.from(itemMap.values());
-
-  // Group items by category label
-  const categories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));
+  const categoryOrder = isWadaana 
+    ? ['PURE PREFORM BOTTLES', 'MIX PREFORM BOTTLES', 'OTHER FINISHED GOODS']
+    : ['19L WATER BOTTLES', '0.5L PET PACKS', '1.5L PET PACKS', 'OTHER FINISHED GOODS'];
+  
+  const existingCategories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));
+  const categories = existingCategories.sort((a, b) => {
+    const idxA = categoryOrder.indexOf(a);
+    const idxB = categoryOrder.indexOf(b);
+    return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+  });
 
   const filteredCustomers = asyncCustomers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
