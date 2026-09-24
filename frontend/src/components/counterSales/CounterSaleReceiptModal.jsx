@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { X, Printer, Eye, Copy, Check } from 'lucide-react';
+import { X, Printer, Eye, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
-import { copyTextToClipboard, formatCounterSaleWhatsApp } from '../../utils/receiptFormatter';
+import {
+  copyTextToClipboard,
+  formatCounterSaleWhatsApp,
+  printReceiptElement,
+  renderReceiptToCanvas,
+  copyCanvasImageToClipboard
+} from '../../utils/receiptFormatter';
 
 const nameMap = {
   'PACK_05L': '0.5L Full Pack (12 Btls)',
@@ -24,32 +30,12 @@ const priceMap = {
 
 export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) {
   const { isWadaana } = useTenant();
-  const [copied, setCopied] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
 
   if (!receiptSale) return null;
 
   const saleId = receiptSale.saleNumber || receiptSale.id?.substring(0, 8) || 'Receipt';
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleCopyWhatsApp = async () => {
-    try {
-      const text = formatCounterSaleWhatsApp(receiptSale, items, total, paid, debt, isWadaana, user);
-      const ok = await copyTextToClipboard(text);
-      if (ok) {
-        setCopied(true);
-        toast.success('Receipt copied! Paste (Ctrl+V) directly into WhatsApp.');
-        setTimeout(() => setCopied(false), 2500);
-      } else {
-        toast.error('Failed to copy to clipboard.');
-      }
-    } catch (err) {
-      console.error('Copy failed:', err);
-      toast.error('Failed to copy to clipboard.');
-    }
-  };
 
   // Use normalized items if available, otherwise parse legacy productType string
   let items;
@@ -87,79 +73,65 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   const paid = Number(receiptSale.amountPaid ?? Number(receiptSale.cashCollected || 0));
   const debt = Number(receiptSale.debtAmount ?? Number(receiptSale.creditAmount || 0));
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print-modal-container print:p-0 print:bg-white print:fixed">
-      {/* Isolated Print Stylesheet */}
-      <style>{`
-        @page {
-          size: auto;
-          margin: 12mm 15mm;
-        }
-        @media print {
-          html, body {
-            width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          .print-modal-container {
-            position: static !important;
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100% !important;
-            background: transparent !important;
-          }
-          .print-modal-box {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            border: none !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: transparent !important;
-          }
-          #printable-receipt, #printable-receipt * {
-            visibility: visible !important;
-          }
-          #printable-receipt {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            font-size: 13px !important;
-            line-height: 1.5 !important;
-          }
-          #printable-receipt * {
-            color: #000000 !important;
-            border-color: #000000 !important;
-            background-color: transparent !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
+  const handlePrint = () => {
+    printReceiptElement('printable-receipt');
+  };
 
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-150 print-modal-box print:border-none print:shadow-none print:p-0 print:max-w-none print:max-h-none">
+  const handleCopyImage = async () => {
+    try {
+      const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
+      const canvas = renderReceiptToCanvas({
+        title: company,
+        subtitle: 'Retail Sale Receipt • Counter Dispatch',
+        receiptNoLabel: 'RECEIPT NO',
+        receiptNo: saleId,
+        dateStr: new Date(receiptSale.createdAt).toLocaleString(),
+        customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
+        paymentMethod: receiptSale.paymentMethod || 'CASH',
+        servedBy: receiptSale.createdBy?.name || user?.name || 'Staff',
+        statusValue: debt > 0 ? `CREDIT (DUE: Rs. ${debt.toLocaleString()})` : 'PAID IN FULL',
+        items,
+        summaryRows: [
+          { label: 'TOTAL BILL', value: total },
+          { label: 'AMOUNT PAID', value: paid },
+          ...(debt > 0 ? [{ label: 'CUSTOMER DEBT', value: debt }] : [])
+        ],
+        netTotal: total,
+        footerNote: `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!`
+      });
+
+      await copyCanvasImageToClipboard(canvas);
+      setCopiedImage(true);
+      toast.success('Receipt image copied! Paste (Ctrl+V) directly into WhatsApp.');
+      setTimeout(() => setCopiedImage(false), 2500);
+    } catch (err) {
+      console.warn('Canvas image copy failed, falling back to text:', err);
+      handleCopyText();
+    }
+  };
+
+  const handleCopyText = async () => {
+    try {
+      const text = formatCounterSaleWhatsApp(receiptSale, items, total, paid, debt, isWadaana, user);
+      const ok = await copyTextToClipboard(text);
+      if (ok) {
+        setCopiedText(true);
+        toast.success('Receipt text copied! Paste into WhatsApp.');
+        setTimeout(() => setCopiedText(false), 2500);
+      } else {
+        toast.error('Failed to copy to clipboard.');
+      }
+    } catch (err) {
+      console.error('Copy failed:', err);
+      toast.error('Failed to copy to clipboard.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-150">
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0 no-print">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
             <Eye size={18} className="text-slate-800" /> Counter Sale Receipt
           </h3>
@@ -168,131 +140,114 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </button>
         </div>
 
-        {/* Printable Receipt Body */}
-        <div id="printable-receipt" className="p-8 overflow-y-auto flex-1 space-y-4 font-sans text-xs bg-white text-black">
+        {/* Printable Receipt Body - Classic POS with Dashed Lines & Good Padding */}
+        <div id="printable-receipt" className="p-8 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
           {/* Header */}
-          <div className="text-center pb-3 border-b-2 border-black">
-            <h2 className="text-2xl font-black text-black uppercase tracking-wider">
+          <div className="text-center pb-2">
+            <h2 className="text-xl font-bold uppercase tracking-wider text-black">
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
+            <p className="text-xs font-semibold text-black uppercase tracking-widest mt-0.5">
               Retail Sale Receipt • Counter Dispatch
             </p>
-            <p className="text-[11px] text-slate-600 print:text-black mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
+            <div className="border-b border-dashed border-black mt-3"></div>
           </div>
 
-          {/* Meta Details Grid */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs py-2 border-b border-black">
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Receipt No:</span>
-              <span className="font-mono font-black text-black text-sm">{saleId}</span>
+          {/* Meta Details */}
+          <div className="space-y-1.5 py-2">
+            <div className="flex justify-between">
+              <span><strong>RECEIPT NO:</strong> {saleId}</span>
+              <span><strong>DATE:</strong> {new Date(receiptSale.createdAt).toLocaleString()}</span>
             </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Date & Time:</span>
-              <span className="font-semibold text-black font-mono">{new Date(receiptSale.createdAt).toLocaleString()}</span>
+            <div className="flex justify-between">
+              <span><strong>CUSTOMER:</strong> {receiptSale.customer?.name || 'Walk-In Cash Customer'}</span>
+              <span><strong>PAYMENT:</strong> {receiptSale.paymentMethod || 'CASH'}</span>
             </div>
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Customer:</span>
-              <span className="font-bold text-black">{receiptSale.customer?.name || 'Walk-In Cash Customer'}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Payment Method:</span>
-              <span className="font-bold text-black uppercase">{receiptSale.paymentMethod || 'CASH'}</span>
-            </div>
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Served By:</span>
-              <span className="font-medium text-black">
-                {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Payment Status:</span>
-              <span className="font-mono font-bold text-black">
-                {debt > 0 ? `[ CREDIT / DUE: ₨ ${debt.toLocaleString()} ]` : '[ PAID IN FULL ]'}
-              </span>
+            <div className="flex justify-between">
+              <span><strong>STAFF:</strong> {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</span>
+              <span><strong>STATUS:</strong> {debt > 0 ? `CREDIT (DUE: ₨ ${debt.toLocaleString()})` : 'PAID IN FULL'}</span>
             </div>
           </div>
 
-          {/* Itemized Table */}
-          <div className="mt-3">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-y-2 border-black font-black uppercase text-[11px]">
-                  <th className="py-2.5 px-3 w-10">#</th>
-                  <th className="py-2.5 px-3">Item Description</th>
-                  <th className="py-2.5 px-3 text-center w-24">Qty</th>
-                  <th className="py-2.5 px-3 text-right w-32">Rate (₨)</th>
-                  <th className="py-2.5 px-3 text-right w-32">Amount (₨)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-4 text-center text-slate-500 italic">No items recorded</td>
-                  </tr>
-                ) : (
-                  items.map((item, idx) => (
-                    <tr key={idx} className="border-b border-slate-300 print:border-black">
-                      <td className="py-2 px-3 font-mono text-[11px] text-slate-600 print:text-black">{idx + 1}</td>
-                      <td className="py-2 px-3 font-semibold text-black">{item.name}</td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-black">{item.qty}</td>
-                      <td className="py-2 px-3 text-right font-mono text-black">
-                        {item.unitPrice > 0 ? `₨ ${item.unitPrice.toLocaleString()}` : '—'}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-black">
-                        ₨ {item.lineTotal.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Table Header with Dashed Lines */}
+          <div className="border-t border-dashed border-black mt-2 pt-2">
+            <div className="grid grid-cols-12 font-bold uppercase pb-1.5 text-[11px]">
+              <div className="col-span-1">#</div>
+              <div className="col-span-5">Item Description</div>
+              <div className="col-span-2 text-center">Qty</div>
+              <div className="col-span-2 text-right">Rate</div>
+              <div className="col-span-2 text-right">Amount</div>
+            </div>
+            <div className="border-b border-dashed border-black"></div>
+
+            {/* Table Rows */}
+            <div className="py-2 space-y-1.5">
+              {items.length === 0 ? (
+                <div className="py-3 text-center text-slate-500 italic">No items recorded</div>
+              ) : (
+                items.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-12 items-center">
+                    <div className="col-span-1 text-slate-600">{idx + 1}</div>
+                    <div className="col-span-5 font-bold">{item.name}</div>
+                    <div className="col-span-2 text-center font-bold">{item.qty}</div>
+                    <div className="col-span-2 text-right">
+                      {item.unitPrice > 0 ? `₨ ${item.unitPrice.toLocaleString()}` : '—'}
+                    </div>
+                    <div className="col-span-2 text-right font-bold">
+                      ₨ {item.lineTotal.toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="border-b border-dashed border-black"></div>
           </div>
 
-          {/* Financial Totals */}
+          {/* Totals Section */}
           <div className="flex justify-end pt-3">
-            <div className="w-80 space-y-1.5 text-xs border-t border-black pt-2">
+            <div className="w-72 space-y-1 text-xs">
               <div className="flex justify-between py-0.5">
-                <span className="font-semibold text-black">Total Bill:</span>
-                <span className="font-mono font-bold text-black">₨ {total.toLocaleString()}</span>
+                <span>Total Bill:</span>
+                <span className="font-bold">₨ {total.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-0.5">
-                <span className="font-semibold text-black">Amount Paid:</span>
-                <span className="font-mono font-bold text-black">₨ {paid.toLocaleString()}</span>
+                <span>Amount Paid:</span>
+                <span className="font-bold">₨ {paid.toLocaleString()}</span>
               </div>
               {debt > 0 && (
                 <div className="flex justify-between py-0.5">
-                  <span className="font-bold text-black">Customer Debt:</span>
-                  <span className="font-mono font-bold text-black">₨ {debt.toLocaleString()}</span>
+                  <span className="font-bold">Customer Debt:</span>
+                  <span className="font-bold">₨ {debt.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between py-2 border-t-2 border-b-2 border-black font-black text-sm mt-1">
+              <div className="border-t-2 border-b-2 border-double border-black py-1.5 my-1 flex justify-between font-black text-sm">
                 <span>NET TOTAL:</span>
-                <span className="font-mono">₨ {total.toLocaleString()}</span>
+                <span>₨ {total.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
           {/* Signature Lines */}
-          <div className="grid grid-cols-2 gap-8 pt-10 pb-2 mt-6 text-xs text-black">
+          <div className="grid grid-cols-2 gap-8 pt-8 pb-2 mt-4 text-xs">
             <div>
-              <div className="border-b border-black w-44 mb-1"></div>
+              <div className="border-b border-dashed border-black w-40 mb-1"></div>
               <span className="text-[10px] font-bold uppercase tracking-wider">Customer Signature</span>
             </div>
             <div className="text-right flex flex-col items-end">
-              <div className="border-b border-black w-44 mb-1"></div>
+              <div className="border-b border-dashed border-black w-40 mb-1"></div>
               <span className="text-[10px] font-bold uppercase tracking-wider">Authorized Stamp / Sign</span>
             </div>
           </div>
 
-          {/* Bottom Receipt Notice */}
-          <div className="text-center pt-3 border-t border-black text-[10px] font-medium text-slate-600 print:text-black mt-3">
-            Thank you for choosing {isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water'}! • Computer Generated POS Slip
+          {/* Footer Notice */}
+          <div className="text-center pt-3 border-t border-dashed border-black text-[10px] text-slate-600 mt-4">
+            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}! • COMPUTER GENERATED POS SLIP
           </div>
         </div>
 
         {/* Modal Actions */}
-        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 no-print flex-wrap">
+        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={onClose}
@@ -302,14 +257,25 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </button>
           <button
             type="button"
-            onClick={handleCopyWhatsApp}
+            onClick={handleCopyText}
             className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
-              copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
+              copiedText ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
             }`}
-            title="Copy receipt for WhatsApp"
+            title="Copy receipt text for WhatsApp / SMS"
           >
-            {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            {copied ? 'Copied!' : 'Copy for WhatsApp'}
+            {copiedText ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            {copiedText ? 'Text Copied!' : 'Copy Text'}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyImage}
+            className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
+              copiedImage ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
+            }`}
+            title="Copy receipt as PNG image for WhatsApp"
+          >
+            {copiedImage ? <Check size={14} className="text-emerald-600" /> : <ImageIcon size={14} />}
+            {copiedImage ? 'Image Copied!' : 'Copy Image (WhatsApp)'}
           </button>
           <button
             type="button"
@@ -319,7 +285,6 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <Printer size={14} /> Print Receipt
           </button>
         </div>
-      </div>
     </div>
   );
 }

@@ -1,37 +1,23 @@
 import { useState } from 'react';
-import { X, Printer, Copy, Check } from 'lucide-react';
+import { X, Printer, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
-import { copyTextToClipboard, formatOrderInvoiceWhatsApp } from '../../utils/receiptFormatter';
+import {
+  copyTextToClipboard,
+  formatOrderInvoiceWhatsApp,
+  printReceiptElement,
+  renderReceiptToCanvas,
+  copyCanvasImageToClipboard
+} from '../../utils/receiptFormatter';
 
 export default function OrderInvoiceModal({ order, onClose }) {
   const { isWadaana } = useTenant();
-  const [copied, setCopied] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
 
   if (!order) return null;
 
   const orderId = order.id ? order.id.substring(0, 8).toUpperCase() : 'Invoice';
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleCopyWhatsApp = async () => {
-    try {
-      const text = formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana);
-      const ok = await copyTextToClipboard(text);
-      if (ok) {
-        setCopied(true);
-        toast.success('Invoice copied! Paste (Ctrl+V) directly into WhatsApp.');
-        setTimeout(() => setCopied(false), 2500);
-      } else {
-        toast.error('Failed to copy to clipboard.');
-      }
-    } catch (err) {
-      console.error('Copy failed:', err);
-      toast.error('Failed to copy to clipboard.');
-    }
-  };
 
   const orderDate = new Date(order.createdAt).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric'
@@ -42,80 +28,72 @@ export default function OrderInvoiceModal({ order, onClose }) {
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print-modal-container print:p-0 print:bg-white print:fixed">
-      {/* Isolated Print Stylesheet */}
-      <style>{`
-        @page {
-          size: auto;
-          margin: 12mm 15mm;
-        }
-        @media print {
-          html, body {
-            width: 100% !important;
-            height: auto !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          .print-modal-container {
-            position: static !important;
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100% !important;
-            background: transparent !important;
-          }
-          .print-modal-box {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            border: none !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: transparent !important;
-          }
-          #order-invoice-print, #order-invoice-print * {
-            visibility: visible !important;
-          }
-          #order-invoice-print {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            font-size: 13px !important;
-            line-height: 1.5 !important;
-          }
-          #order-invoice-print * {
-            color: #000000 !important;
-            border-color: #000000 !important;
-            background-color: transparent !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
+  const handlePrint = () => {
+    printReceiptElement('order-invoice-print');
+  };
 
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print-modal-box print:border-none print:shadow-none print:p-0 print:max-w-none print:max-h-none">
+  const handleCopyImage = async () => {
+    try {
+      const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
+      const canvas = renderReceiptToCanvas({
+        title: company,
+        subtitle: 'Commercial Sales Invoice',
+        receiptNoLabel: 'INVOICE NO',
+        receiptNo: `#${orderId}`,
+        dateStr: orderDate,
+        customerName: order.customer?.name || 'Walk-In Customer',
+        paymentMethod: order.customer?.phone || 'Cash / Delivery',
+        servedBy: order.deliveryStatus || 'Commercial',
+        statusValue: balanceDue > 0 ? `DUE (Rs. ${balanceDue.toLocaleString()})` : 'PAID IN FULL',
+        items: items.map(item => ({
+          name: item.item?.name || 'Item',
+          qty: Number(item.quantity || 0),
+          unitPrice: Number(item.price || 0),
+          lineTotal: Number(item.price || 0) * Number(item.quantity || 0)
+        })),
+        summaryRows: [
+          { label: 'SUBTOTAL', value: grandTotal },
+          { label: 'AMOUNT PAID', value: totalPaid },
+          ...(balanceDue > 0 ? [{ label: 'BALANCE DUE', value: balanceDue }] : [])
+        ],
+        netTotal: grandTotal,
+        remarks: order.remarks,
+        footerNote: `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!`
+      });
+
+      await copyCanvasImageToClipboard(canvas);
+      setCopiedImage(true);
+      toast.success('Invoice image copied! Paste (Ctrl+V) directly into WhatsApp.');
+      setTimeout(() => setCopiedImage(false), 2500);
+    } catch (err) {
+      console.warn('Canvas image copy failed, falling back to text:', err);
+      handleCopyText();
+    }
+  };
+
+  const handleCopyText = async () => {
+    try {
+      const text = formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana);
+      const ok = await copyTextToClipboard(text);
+      if (ok) {
+        setCopiedText(true);
+        toast.success('Invoice text copied! Paste into WhatsApp.');
+        setTimeout(() => setCopiedText(false), 2500);
+      } else {
+        toast.error('Failed to copy to clipboard.');
+      }
+    } catch (err) {
+      console.error('Copy failed:', err);
+      toast.error('Failed to copy to clipboard.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Modal Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0 no-print">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Printer size={16} className="text-slate-800" /> Order Invoice
           </h3>
@@ -124,137 +102,121 @@ export default function OrderInvoiceModal({ order, onClose }) {
           </button>
         </div>
 
-        {/* Printable Area */}
-        <div id="order-invoice-print" className="p-8 overflow-y-auto flex-1 space-y-4 text-xs bg-white text-black font-sans">
+        {/* Printable Area - Classic POS with Dashed Lines & Edge Expansion */}
+        <div id="order-invoice-print" className="p-8 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
 
           {/* Company Header */}
-          <div className="text-center pb-3 border-b-2 border-black">
-            <h2 className="text-2xl font-black text-black uppercase tracking-wider">
+          <div className="text-center pb-2">
+            <h2 className="text-xl font-bold uppercase tracking-wider text-black">
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
+            <p className="text-xs font-semibold text-black uppercase tracking-widest mt-0.5">
               Commercial Sales Invoice
             </p>
-            <p className="text-[11px] text-slate-600 print:text-black mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
+            <div className="border-b border-dashed border-black mt-3"></div>
           </div>
 
           {/* Order Meta Grid */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs py-2 border-b border-black">
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Invoice No:</span>
-              <span className="font-mono font-black text-black text-sm">#{orderId}</span>
+          <div className="space-y-1.5 py-2">
+            <div className="flex justify-between">
+              <span><strong>INVOICE NO:</strong> #{orderId}</span>
+              <span><strong>DATE:</strong> {orderDate}</span>
             </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Date:</span>
-              <span className="font-semibold text-black font-mono">{orderDate}</span>
+            <div className="flex justify-between">
+              <span><strong>CUSTOMER:</strong> {order.customer?.name || 'Walk-In Customer'}</span>
+              <span><strong>PHONE:</strong> {order.customer?.phone || '—'}</span>
             </div>
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Customer:</span>
-              <span className="font-bold text-black">{order.customer?.name || 'Walk-In Customer'}</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Phone:</span>
-              <span className="font-mono font-semibold text-black">{order.customer?.phone || '—'}</span>
-            </div>
-            <div>
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Delivery Status:</span>
-              <span className="font-mono font-bold text-black uppercase">[ {order.deliveryStatus || 'PENDING'} ]</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Payment Status:</span>
-              <span className="font-mono font-bold text-black uppercase">
-                {balanceDue > 0 ? `[ DUE: ₨ ${balanceDue.toLocaleString()} ]` : '[ PAID IN FULL ]'}
-              </span>
+            <div className="flex justify-between">
+              <span><strong>DELIVERY:</strong> {order.deliveryStatus || 'PENDING'}</span>
+              <span><strong>STATUS:</strong> {balanceDue > 0 ? `DUE (₨ ${balanceDue.toLocaleString()})` : 'PAID IN FULL'}</span>
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="mt-3">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-y-2 border-black font-black uppercase text-[11px]">
-                  <th className="py-2.5 px-3 w-10">#</th>
-                  <th className="py-2.5 px-3">Item Description</th>
-                  <th className="py-2.5 px-3 text-center w-24">Qty</th>
-                  <th className="py-2.5 px-3 text-right w-32">Rate (₨)</th>
-                  <th className="py-2.5 px-3 text-right w-32">Amount (₨)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-4 text-center text-slate-500 italic">No items recorded</td>
-                  </tr>
-                ) : (
-                  items.map((item, idx) => {
-                    const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
-                    return (
-                      <tr key={idx} className="border-b border-slate-300 print:border-black">
-                        <td className="py-2 px-3 font-mono text-[11px] text-slate-600 print:text-black">{idx + 1}</td>
-                        <td className="py-2 px-3 font-semibold text-black">{item.item?.name || 'Item'}</td>
-                        <td className="py-2 px-3 text-center font-mono font-bold text-black">{item.quantity}</td>
-                        <td className="py-2 px-3 text-right font-mono text-black">
-                          ₨ {Number(item.price || 0).toLocaleString()}
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-black">
-                          ₨ {lineTotal.toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+          {/* Items Table with Dashed Lines */}
+          <div className="border-t border-dashed border-black mt-2 pt-2">
+            <div className="grid grid-cols-12 font-bold uppercase pb-1.5 text-[11px]">
+              <div className="col-span-1">#</div>
+              <div className="col-span-5">Item Description</div>
+              <div className="col-span-2 text-center">Qty</div>
+              <div className="col-span-2 text-right">Rate</div>
+              <div className="col-span-2 text-right">Amount</div>
+            </div>
+            <div className="border-b border-dashed border-black"></div>
+
+            {/* Table Rows */}
+            <div className="py-2 space-y-1.5">
+              {items.length === 0 ? (
+                <div className="py-3 text-center text-slate-500 italic">No items recorded</div>
+              ) : (
+                items.map((item, idx) => {
+                  const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+                  return (
+                    <div key={idx} className="grid grid-cols-12 items-center">
+                      <div className="col-span-1 text-slate-600">{idx + 1}</div>
+                      <div className="col-span-5 font-bold">{item.item?.name || 'Item'}</div>
+                      <div className="col-span-2 text-center font-bold">{item.quantity}</div>
+                      <div className="col-span-2 text-right">
+                        ₨ {Number(item.price || 0).toLocaleString()}
+                      </div>
+                      <div className="col-span-2 text-right font-bold">
+                        ₨ {lineTotal.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="border-b border-dashed border-black"></div>
           </div>
 
           {/* Financial Summary */}
           <div className="flex justify-end pt-3">
-            <div className="w-80 space-y-1.5 text-xs border-t border-black pt-2">
+            <div className="w-72 space-y-1 text-xs">
               <div className="flex justify-between py-0.5">
-                <span className="font-semibold text-black">Subtotal:</span>
-                <span className="font-mono font-bold text-black">₨ {grandTotal.toLocaleString()}</span>
+                <span>Subtotal:</span>
+                <span className="font-bold">₨ {grandTotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-0.5">
-                <span className="font-semibold text-black">Amount Paid:</span>
-                <span className="font-mono font-bold text-black">₨ {totalPaid.toLocaleString()}</span>
+                <span>Amount Paid:</span>
+                <span className="font-bold">₨ {totalPaid.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between py-2 border-t-2 border-b-2 border-black font-black text-sm mt-1">
+              <div className="border-t-2 border-b-2 border-double border-black py-1.5 my-1 flex justify-between font-black text-sm">
                 <span>BALANCE DUE:</span>
-                <span className="font-mono">
-                  ₨ {balanceDue.toLocaleString()}
-                </span>
+                <span>₨ {balanceDue.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
           {order.remarks && (
-            <div className="border border-black p-2 text-xs text-black mt-2">
+            <div className="border border-dashed border-black p-2 text-xs text-black mt-3">
               <span className="font-bold uppercase tracking-wider text-[10px] block">Remarks:</span>
               <span>{order.remarks}</span>
             </div>
           )}
 
           {/* Signature Lines */}
-          <div className="grid grid-cols-2 gap-8 pt-10 pb-2 mt-6 text-xs text-black">
+          <div className="grid grid-cols-2 gap-8 pt-8 pb-2 mt-4 text-xs">
             <div>
-              <div className="border-b border-black w-44 mb-1"></div>
+              <div className="border-b border-dashed border-black w-40 mb-1"></div>
               <span className="text-[10px] font-bold uppercase tracking-wider">Received By / Customer</span>
             </div>
             <div className="text-right flex flex-col items-end">
-              <div className="border-b border-black w-44 mb-1"></div>
+              <div className="border-b border-dashed border-black w-40 mb-1"></div>
               <span className="text-[10px] font-bold uppercase tracking-wider">Authorized Stamp / Sign</span>
             </div>
           </div>
 
           {/* Bottom Invoice Notice */}
-          <div className="text-center pt-3 border-t border-black text-[10px] font-medium text-slate-600 print:text-black mt-3">
-            Thank you for choosing {isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water'}! • Computer Generated POS Invoice
+          <div className="text-center pt-3 border-t border-dashed border-black text-[10px] text-slate-600 mt-4">
+            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}! • COMPUTER GENERATED POS INVOICE
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 no-print flex-wrap">
+        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 flex-wrap">
           <button
+            type="button"
             onClick={onClose}
             className="btn-secondary text-xs py-2 px-4"
           >
@@ -262,14 +224,25 @@ export default function OrderInvoiceModal({ order, onClose }) {
           </button>
           <button
             type="button"
-            onClick={handleCopyWhatsApp}
+            onClick={handleCopyText}
             className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
-              copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
+              copiedText ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
             }`}
-            title="Copy invoice for WhatsApp"
+            title="Copy invoice text for WhatsApp / SMS"
           >
-            {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-            {copied ? 'Copied!' : 'Copy for WhatsApp'}
+            {copiedText ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            {copiedText ? 'Text Copied!' : 'Copy Text'}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyImage}
+            className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
+              copiedImage ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
+            }`}
+            title="Copy invoice as PNG image for WhatsApp"
+          >
+            {copiedImage ? <Check size={14} className="text-emerald-600" /> : <ImageIcon size={14} />}
+            {copiedImage ? 'Image Copied!' : 'Copy Image (WhatsApp)'}
           </button>
           <button
             type="button"
