@@ -222,11 +222,16 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       }
 
       const currentFactory = Number(currentItem.factoryQty || 0);
-      const factoryDeduct = currentFactory >= quantity ? quantity : (currentFactory > 0 ? currentFactory : 0);
+      const currentWarehouse = Number(currentItem.warehouseQty || 0);
+      // Fallback: if locations are unallocated (0 and 0) but total stock exists, treat as factory stock
+      const effectiveFactory = (currentFactory === 0 && currentWarehouse === 0) ? totalAvail : currentFactory;
+      const effectiveWarehouse = (currentFactory === 0 && currentWarehouse === 0) ? 0 : currentWarehouse;
+
+      const factoryDeduct = effectiveFactory >= quantity ? quantity : (effectiveFactory > 0 ? effectiveFactory : 0);
       const warehouseDeduct = quantity - factoryDeduct;
 
-      if (warehouseDeduct > 0 && Number(currentItem.warehouseQty || 0) < warehouseDeduct) {
-        throw new ApiError(400, `❌ Insufficient warehouse stock for "${currentItem.name}".`);
+      if (warehouseDeduct > 0 && effectiveWarehouse < warehouseDeduct) {
+        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${quantity}, Available: ${totalAvail}.`);
       }
 
       // Record factory inventory transaction if applicable
@@ -260,12 +265,14 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       }
 
       // Decrement item inventory atomically
+      const newFactoryQty = Math.max(0, effectiveFactory - factoryDeduct);
+      const newWarehouseQty = Math.max(0, effectiveWarehouse - warehouseDeduct);
       await tx[`${prefix}Item`].update({
         where: { id: currentItem.id },
         data: {
           cachedQty: { decrement: quantity },
-          ...(factoryDeduct > 0 && { factoryQty: { decrement: factoryDeduct } }),
-          ...(warehouseDeduct > 0 && { warehouseQty: { decrement: warehouseDeduct } })
+          factoryQty: newFactoryQty,
+          warehouseQty: newWarehouseQty
         }
       });
 

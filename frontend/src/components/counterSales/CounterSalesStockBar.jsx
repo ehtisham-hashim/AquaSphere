@@ -16,8 +16,10 @@ export default function CounterSalesStockBar({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {items.map(item => {
           const total = Number(item.cachedQty || 0);
-          const factory = Number(item.factoryQty || 0);
-          const warehouse = Number(item.warehouseQty || 0);
+          const fac = Number(item.factoryQty || 0);
+          const wh = Number(item.warehouseQty || 0);
+          const factory = (fac === 0 && wh === 0) ? total : fac;
+          const warehouse = (fac === 0 && wh === 0) ? 0 : wh;
           const price = Number(item.retailPrice || 0);
 
           return (

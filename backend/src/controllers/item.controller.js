@@ -103,6 +103,7 @@ export const createItem = asyncHandler(async (req, res) => {
         where: { id: existingItem.id },
         data: {
           cachedQty: { increment: addQty > 0 ? addQty : 0 },
+          factoryQty: { increment: addQty > 0 ? addQty : 0 },
           reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
           unit: unit || existingItem.unit
         },
@@ -115,7 +116,14 @@ export const createItem = asyncHandler(async (req, res) => {
 
   const item = await prisma.$transaction(async (tx) => {
     const newItem = await tx[`${prefix}Item`].create({
-      data: { name: cleanName, type, unit, reorderLevel: parseFloat(reorderLevel) || 0, cachedQty: addQty > 0 ? addQty : 0 }
+      data: {
+        name: cleanName,
+        type,
+        unit,
+        reorderLevel: parseFloat(reorderLevel) || 0,
+        cachedQty: addQty > 0 ? addQty : 0,
+        factoryQty: addQty > 0 ? addQty : 0
+      }
     });
 
     if (addQty > 0) {
@@ -184,7 +192,9 @@ export const updateItem = asyncHandler(async (req, res) => {
           }
         });
       }
+      const currentWh = Number(item.warehouseQty || 0);
       updateData.cachedQty = targetStock;
+      updateData.factoryQty = Math.max(0, targetStock - currentWh);
     } else {
       if (addQty > 0) {
         await tx[`${prefix}InventoryTransaction`].create({
@@ -192,6 +202,7 @@ export const updateItem = asyncHandler(async (req, res) => {
         });
       }
       updateData.cachedQty = { increment: addQty > 0 ? addQty : 0 };
+      updateData.factoryQty = { increment: addQty > 0 ? addQty : 0 };
     }
 
     if (Array.isArray(recipe)) {
@@ -254,7 +265,8 @@ export const adjustInventory = asyncHandler(async (req, res) => {
     const item = await tx[`${prefix}Item`].findUnique({ where: { id } });
     if (!item) throw new ApiError(404, 'Item not found');
 
-    const newQty = direction === 'IN' ? parseFloat(item.cachedQty) + qty : parseFloat(item.cachedQty) - qty;
+    const newQty = direction === 'IN' ? parseFloat(item.cachedQty) + qty : Math.max(0, parseFloat(item.cachedQty) - qty);
+    const newFac = direction === 'IN' ? parseFloat(item.factoryQty || 0) + qty : Math.max(0, parseFloat(item.factoryQty || 0) - qty);
 
     await tx[`${prefix}InventoryTransaction`].create({
       data: { itemId: item.id, quantity: qty, direction, reason: `MANUAL_ADJUSTMENT: ${reason}`, refType: 'MANUAL', refId: 'SYSTEM' }
@@ -262,7 +274,10 @@ export const adjustInventory = asyncHandler(async (req, res) => {
 
     return tx[`${prefix}Item`].update({
       where: { id },
-      data: { cachedQty: newQty }
+      data: {
+        cachedQty: newQty,
+        factoryQty: newFac
+      }
     });
   });
 
