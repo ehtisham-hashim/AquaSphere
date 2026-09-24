@@ -29,7 +29,7 @@ export default function AddEditRawMaterialModal({
       setName(editingItem.name || '');
       setUnit(editingItem.unit || defaultUnit);
       setReorderLevel(String(editingItem.reorderLevel ?? 100));
-      setStock('');
+      setStock(editingItem.cachedQty !== undefined && editingItem.cachedQty !== null ? String(editingItem.cachedQty) : '0');
     } else {
       setName('');
       setUnit(defaultUnit);
@@ -54,14 +54,14 @@ export default function AddEditRawMaterialModal({
     try {
       if (editingItem) {
         const res = await fetch(`${API}/items/${editingItem.id}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
           credentials: 'include',
           body: JSON.stringify({
             name: cleanName,
             unit,
             reorderLevel: parseFloat(reorderLevel || 0),
-            quantityToAdd: parseFloat(stock || 0),
+            currentStock: parseFloat(stock || 0),
             type: 'RAW_MATERIAL'
           })
         });
@@ -203,7 +203,7 @@ export default function AddEditRawMaterialModal({
             {/* Stock Input */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                {editingItem ? `Add Stock (${unit || 'units'})` : `Initial Stock (${unit || 'units'})`}
+                {editingItem ? `Current Stock (${unit || 'units'})` : `Initial Stock (${unit || 'units'})`}
               </label>
               <input
                 type="number"
@@ -211,12 +211,12 @@ export default function AddEditRawMaterialModal({
                 step="any"
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
-                placeholder={editingItem ? '0 (optional)' : '0'}
+                placeholder="0"
                 className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition"
               />
               {editingItem ? (
                 <p className="text-[10px] text-slate-400 font-medium">
-                  Current: <span className="font-bold text-slate-700">{Number(editingItem.cachedQty || 0).toLocaleString()} {editingItem.unit}</span>
+                  Modifying this directly adjusts inventory records.
                 </p>
               ) : (
                 <p className="text-[10px] text-slate-400 font-medium">Opening stock balance (optional).</p>

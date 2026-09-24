@@ -22,7 +22,7 @@ export default function LowStockAlertGrid({ count, list }) {
               <div className="text-[11px] text-slate-500 font-mono">Threshold: {mat.reorderLevel} {mat.unit}</div>
             </div>
             <span className="text-xs font-mono font-black text-rose-600 px-2 py-0.5 bg-rose-50 border border-rose-200 rounded-md">
-              {mat.cachedQty} {mat.unit}
+              {Number(mat.cachedQty || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} {mat.unit}
             </span>
           </div>
         ))}

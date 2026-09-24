@@ -150,20 +150,48 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, recipe } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, recipe } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
+  const hasDirectStock = currentStock !== undefined && currentStock !== null && currentStock !== '';
   const addQty = parseFloat(initialStock || quantityToAdd || 0);
 
   const updated = await prisma.$transaction(async (tx) => {
     const item = await tx[`${prefix}Item`].findUnique({ where: { id } });
     if (!item) throw new ApiError(404, 'Item not found');
 
-    if (addQty > 0) {
-      await tx[`${prefix}InventoryTransaction`].create({
-        data: { itemId: item.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: 'SYSTEM' }
-      });
+    const updateData = {
+      name: name.trim(),
+      unit: unit || item.unit,
+      reorderLevel: parseFloat(reorderLevel) || item.reorderLevel
+    };
+
+    if (hasDirectStock) {
+      const targetStock = Math.max(0, parseFloat(currentStock) || 0);
+      const currentStockVal = Number(item.cachedQty || 0);
+      const diff = targetStock - currentStockVal;
+
+      if (Math.abs(diff) > 0.000001) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: item.id,
+            quantity: Math.abs(diff),
+            direction: diff > 0 ? 'IN' : 'OUT',
+            reason: 'STOCK_ADJUSTMENT',
+            refType: 'MANUAL',
+            refId: req.user?.id || 'SYSTEM'
+          }
+        });
+      }
+      updateData.cachedQty = targetStock;
+    } else {
+      if (addQty > 0) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { itemId: item.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
+        });
+      }
+      updateData.cachedQty = { increment: addQty > 0 ? addQty : 0 };
     }
 
     if (Array.isArray(recipe)) {
@@ -183,12 +211,7 @@ export const updateItem = asyncHandler(async (req, res) => {
 
     return tx[`${prefix}Item`].update({
       where: { id },
-      data: {
-        name: name.trim(),
-        unit: unit || item.unit,
-        reorderLevel: parseFloat(reorderLevel) || item.reorderLevel,
-        cachedQty: { increment: addQty > 0 ? addQty : 0 }
-      },
+      data: updateData,
       include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
     });
   });

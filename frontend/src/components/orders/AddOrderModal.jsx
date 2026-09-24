@@ -117,20 +117,6 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Pre-select items preferred by selected customer
-  useEffect(() => {
-    if (selectedCustomer) {
-      const initialSelected = {};
-      availableItems.forEach(item => {
-        if (item.isCustomerPreference) {
-          initialSelected[item.id] = { quantity: 1 };
-        }
-      });
-      setSelectedItems(initialSelected);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderData.customerId]);
-
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
@@ -141,18 +127,6 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   const handleChange = (e) => {
     const { name, value } = e.target;
     setOrderData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleItemToggle = (itemId) => {
-    setSelectedItems(prev => {
-      const next = { ...prev };
-      if (next[itemId] && next[itemId].quantity > 0) {
-        delete next[itemId];
-      } else {
-        next[itemId] = { quantity: 1 };
-      }
-      return next;
-    });
   };
 
   const handleItemQuantityChange = (itemId, valStr) => {
@@ -372,11 +346,6 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <Package size={15}/> Order Items ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere'})
               </h4>
-              {selectedCustomer && (
-                <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                  <Star size={11} className="fill-amber-500 text-amber-500" /> Customer Preferred Items Highlighted
-                </span>
-              )}
             </div>
 
             <div className="space-y-4">
@@ -394,8 +363,8 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                     {/* Single Clean Row per Product */}
                     <div className="space-y-1.5">
                       {catItems.map(item => {
-                        const isSelected = !!selectedItems[item.id];
                         const qty = selectedItems[item.id]?.quantity || 0;
+                        const hasQty = qty > 0;
                         const price = Math.round(item.defaultPrice);
                         const lineSubtotal = qty * price;
 
@@ -403,33 +372,22 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                           <div 
                             key={item.id} 
                             className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all ${
-                              isSelected 
-                                ? 'bg-sky-50/50 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' 
+                              hasQty 
+                                ? (isWadaana ? 'bg-sky-50/60 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' : 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/30 shadow-2xs')
                                 : 'bg-white border-slate-200 hover:border-slate-300'
                             }`}
                           >
-                            {/* Product Info & Checkbox */}
-                            <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 select-none">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleItemToggle(item.id)}
-                                className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 shrink-0"
-                              />
+                            {/* Product Info */}
+                            <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
                               <div className="min-w-0">
-                                <div className="font-bold text-slate-800 text-sm flex items-center gap-1.5 truncate">
-                                  <span>{item.name}</span>
-                                  {item.isCustomerPreference && (
-                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded shrink-0 flex items-center gap-0.5">
-                                      <Star size={9} className="fill-amber-500 text-amber-500" /> Preferred
-                                    </span>
-                                  )}
+                                <div className="font-bold text-slate-800 text-sm truncate">
+                                  {item.name}
                                 </div>
                                 <div className="text-xs text-slate-500 font-mono">
                                   Rs. {price.toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
                                 </div>
                               </div>
-                            </label>
+                            </div>
 
                             {/* Inline Stepper, Qty Input, and Line Total */}
                             <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
@@ -437,7 +395,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                                 <button
                                   type="button"
                                   onClick={() => handleQtyAdjust(item.id, -1)}
-                                  disabled={!isSelected}
+                                  disabled={!hasQty}
                                   className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition"
                                   title="Decrease quantity"
                                 >
@@ -450,7 +408,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                                   value={qty > 0 ? qty : ''}
                                   placeholder="0"
                                   onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
-                                  className="w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none focus:bg-sky-50/50"
+                                  className={`w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none ${isWadaana ? 'focus:bg-sky-50/50' : 'focus:bg-emerald-50/50'}`}
                                 />
                                 <button
                                   type="button"
@@ -464,7 +422,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
                               <div className="w-24 text-right">
                                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
-                                <span className={`text-xs font-mono font-black ${isSelected ? 'text-emerald-700' : 'text-slate-300'}`}>
+                                <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
                                   Rs. {lineSubtotal.toLocaleString()}
                                 </span>
                               </div>
