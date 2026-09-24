@@ -285,6 +285,8 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <Printer size={14} /> Print Receipt
           </button>
         </div>
+      </div>
     </div>
   );
 }
+
