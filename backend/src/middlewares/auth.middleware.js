@@ -71,8 +71,8 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       throw new ApiError(401, 'Invalid access token or user is inactive');
     }
 
-    // Strict cross-tenant entitlement check: only authorized roles (OWNER / ADMIN) with target membership
-    if (fallbackUser.role === 'OWNER' || fallbackUser.role === 'ADMIN') {
+    // Strict cross-tenant entitlement check: only authorized role (OWNER) with target membership
+    if (fallbackUser.role === 'OWNER') {
       // Check if user has an account in the target tenant with same email
       const targetUser = await prisma[`${requestedPrefix}User`].findUnique({
         where: { email: fallbackUser.email },
@@ -82,7 +82,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       if (targetUser && targetUser.isActive) {
         user = targetUser;
         resolvedTenant = requestedPrefix;
-      } else if (fallbackUser.role === 'OWNER' || fallbackUser.role === 'ADMIN') {
+      } else if (fallbackUser.role === 'OWNER') {
         // Global administrative authority granted access
         user = fallbackUser;
         resolvedTenant = requestedPrefix;
@@ -90,7 +90,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
         throw new ApiError(403, 'Forbidden: User is not authorized to access this tenant');
       }
     } else {
-      // Reject cross-tenant access for non-owner/non-admin roles
+      // Reject cross-tenant access for non-owner roles
       throw new ApiError(403, 'Forbidden: User is not authorized to access this tenant');
     }
   }

@@ -107,7 +107,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
 
-  const canSwitchTenant = user?.role === 'OWNER' || user?.role === 'ADMIN';
+  const canSwitchTenant = user?.role === 'OWNER';
 
   const handleTenantSwitch = (newTenant) => {
     if (!canSwitchTenant || newTenant === currentTenant) return;
@@ -280,8 +280,8 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
           )}
         </div>
 
-        {/* Company Selector (Role-Guarded: OWNER / ADMIN only) */}
-        {canSwitchTenant ? (
+        {/* Company Selector (Role-Guarded: OWNER only) */}
+        {canSwitchTenant && (
           <div className="flex items-center gap-2">
             <div className="flex bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80">
               <button 
@@ -300,14 +300,6 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
                 <span className="sm:hidden">WD</span>
                 <span className="hidden sm:inline">Wadaana Ind.</span>
               </button>
-            </div>
-          </div>
-        ) : (
-          /* Read-only company badge for non-admin roles */
-          <div className="flex items-center gap-2">
-            <div className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-              <span className="sm:hidden">{isWadaana ? 'WD' : 'AQ'}</span>
-              <span className="hidden sm:inline">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
             </div>
           </div>
         )}
