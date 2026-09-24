@@ -105,7 +105,7 @@ export default function App() {
     <TenantProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Toaster position="top-right" richColors />
+          <Toaster position="top-right" richColors closeButton duration={3500} />
           <AppRoutes />
         </BrowserRouter>
       </AuthProvider>
