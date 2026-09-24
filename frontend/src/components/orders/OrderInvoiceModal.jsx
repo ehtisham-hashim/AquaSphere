@@ -1,9 +1,41 @@
-import { X, Printer } from 'lucide-react';
+import { useState } from 'react';
+import { X, Printer, Download, Loader2 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
+import { generateA5Pdf } from '../../utils/pdfGenerator';
 
 export default function OrderInvoiceModal({ order, onClose }) {
   const { isWadaana } = useTenant();
+  const [isGenerating, setIsGenerating] = useState(false);
+
   if (!order) return null;
+
+  const orderId = order.id ? order.id.substring(0, 8).toUpperCase() : 'Invoice';
+
+  const handlePrintA5 = async () => {
+    const el = document.getElementById('order-invoice-print');
+    if (!el) return;
+    setIsGenerating(true);
+    try {
+      await generateA5Pdf(el, `Invoice-${orderId}.pdf`, 'print');
+    } catch (err) {
+      console.error('Failed to generate A5 invoice PDF:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownloadA5 = async () => {
+    const el = document.getElementById('order-invoice-print');
+    if (!el) return;
+    setIsGenerating(true);
+    try {
+      await generateA5Pdf(el, `Invoice-${orderId}.pdf`, 'download');
+    } catch (err) {
+      console.error('Failed to download A5 invoice PDF:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const orderDate = new Date(order.createdAt).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric'
@@ -22,12 +54,12 @@ export default function OrderInvoiceModal({ order, onClose }) {
       <style>{`
         @page {
           size: A5 portrait;
-          margin: 10mm;
+          margin: 8mm 10mm;
         }
         @media print {
           html, body {
             width: 100% !important;
-            height: auto !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
@@ -41,17 +73,15 @@ export default function OrderInvoiceModal({ order, onClose }) {
             visibility: visible;
           }
           #order-invoice-print {
-            position: absolute !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            top: 0 !important;
-            width: 125mm !important;
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
             max-width: 100% !important;
-            margin: 0 auto !important;
-            padding: 18px 22px !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #ffffff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 12px !important;
+            border: none !important;
+            border-radius: 0 !important;
             box-shadow: none !important;
             color: #0f172a !important;
             font-size: 13px !important;
@@ -63,7 +93,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print:border-none print:shadow-none print:p-0">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print:border-none print:shadow-none print:p-0 print:max-w-none print:max-h-none">
 
         {/* Modal Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0 no-print">
@@ -174,6 +204,23 @@ export default function OrderInvoiceModal({ order, onClose }) {
               <span className="font-semibold text-slate-700">Remarks: </span>{order.remarks}
             </div>
           )}
+
+          {/* Signature Lines */}
+          <div className="grid grid-cols-2 gap-8 pt-8 pb-2 border-t border-slate-200 mt-4 text-xs text-slate-600">
+            <div>
+              <div className="border-b border-slate-300 w-36 mb-1"></div>
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Received By / Customer</span>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <div className="border-b border-slate-300 w-36 mb-1"></div>
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Authorized Stamp / Sign</span>
+            </div>
+          </div>
+
+          {/* Bottom Invoice Notice */}
+          <div className="text-center pt-2 border-t border-dashed border-slate-200 text-[10px] text-slate-400">
+            Thank you for choosing {isWadaana ? 'Wadaana' : 'AquaSphere'}! • Computer generated invoice.
+          </div>
         </div>
 
         {/* Footer Actions */}
@@ -185,10 +232,20 @@ export default function OrderInvoiceModal({ order, onClose }) {
             Close
           </button>
           <button
-            onClick={handlePrint}
+            disabled={isGenerating}
+            onClick={handleDownloadA5}
+            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
+            title="Download PDF"
+          >
+            <Download size={14} /> PDF
+          </button>
+          <button
+            disabled={isGenerating}
+            onClick={handlePrintA5}
             className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
           >
-            <Printer size={14} /> Print
+            {isGenerating ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+            Print Invoice
           </button>
         </div>
       </div>
