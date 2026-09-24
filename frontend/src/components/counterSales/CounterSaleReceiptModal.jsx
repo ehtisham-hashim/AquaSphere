@@ -140,109 +140,92 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </button>
         </div>
 
-        {/* Printable Receipt Body - 80mm POS Thermal Slip with Dashed Lines */}
-        <div id="printable-receipt" className="p-6 overflow-y-auto flex-1 font-mono text-xs bg-white text-black leading-relaxed">
+        {/* Printable Receipt Body - Compact 80mm POS Thermal Slip */}
+        <div id="printable-receipt" className="p-3.5 overflow-y-auto flex-1 font-mono text-[10px] bg-white text-black leading-tight">
           {/* Header */}
-          <div className="text-center pb-2">
-            <h2 className="text-xl font-bold uppercase tracking-wider text-black">
+          <div className="text-center pb-1">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-black">
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-xs font-semibold text-black uppercase tracking-widest mt-0.5">
-              Retail Sale Receipt • Counter Dispatch
+            <p className="text-[9px] font-semibold text-black uppercase tracking-widest mt-0.5">
+              Retail Sale • Counter Dispatch
             </p>
-            <p className="text-[11px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
-            <div className="border-b border-dashed border-black mt-3"></div>
+            <p className="text-[8px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Water</p>
+            <div className="border-b border-dashed border-black mt-1.5"></div>
           </div>
 
           {/* Meta Details */}
-          <div className="space-y-1.5 py-2">
+          <div className="text-[10px] space-y-1 py-1.5 border-b border-dashed border-black">
             <div className="flex justify-between">
-              <span><strong>RECEIPT NO:</strong> {saleId}</span>
-              <span><strong>DATE:</strong> {new Date(receiptSale.createdAt).toLocaleString()}</span>
+              <span><strong>REC:</strong> {saleId}</span>
+              <span>{new Date(receiptSale.createdAt).toLocaleDateString()} {new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
+            <div><strong>CUST:</strong> {receiptSale.customer?.name || 'Walk-In Cash Customer'}</div>
             <div className="flex justify-between">
-              <span><strong>CUSTOMER:</strong> {receiptSale.customer?.name || 'Walk-In Cash Customer'}</span>
-              <span><strong>PAYMENT:</strong> {receiptSale.paymentMethod || 'CASH'}</span>
+              <span><strong>PAY:</strong> {receiptSale.paymentMethod || 'CASH'}</span>
+              <span><strong>{debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL'}</strong></span>
             </div>
-            <div className="flex justify-between">
-              <span><strong>STAFF:</strong> {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</span>
-              <span><strong>STATUS:</strong> {debt > 0 ? `CREDIT (DUE: ₨ ${debt.toLocaleString()})` : 'PAID IN FULL'}</span>
-            </div>
+            <div className="text-slate-600">STAFF: {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</div>
           </div>
 
-          {/* Table Header with Dashed Lines */}
-          <div className="border-t border-dashed border-black mt-2 pt-2">
-            <div className="grid grid-cols-12 font-bold uppercase pb-1.5 text-[11px]">
-              <div className="col-span-1">#</div>
-              <div className="col-span-5">Item Description</div>
-              <div className="col-span-2 text-center">Qty</div>
-              <div className="col-span-2 text-right">Rate</div>
-              <div className="col-span-2 text-right">Amount</div>
-            </div>
-            <div className="border-b border-dashed border-black"></div>
-
-            {/* Table Rows */}
-            <div className="py-2 space-y-1.5">
-              {items.length === 0 ? (
-                <div className="py-3 text-center text-slate-500 italic">No items recorded</div>
-              ) : (
-                items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 items-center">
-                    <div className="col-span-1 text-slate-600">{idx + 1}</div>
-                    <div className="col-span-5 font-bold">{item.name}</div>
-                    <div className="col-span-2 text-center font-bold">{item.qty}</div>
-                    <div className="col-span-2 text-right">
-                      {item.unitPrice > 0 ? `₨ ${item.unitPrice.toLocaleString()}` : '—'}
-                    </div>
-                    <div className="col-span-2 text-right font-bold">
-                      ₨ {item.lineTotal.toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="border-b border-dashed border-black"></div>
+          {/* Itemized Table */}
+          <div className="mt-1.5">
+            <table className="w-full text-left text-[10px] border-collapse">
+              <thead>
+                <tr className="border-b border-dashed border-black font-bold uppercase text-[9px]">
+                  <th className="py-1 text-left w-4">#</th>
+                  <th className="py-1 text-left">Item</th>
+                  <th className="py-1 text-center w-7">Qty</th>
+                  <th className="py-1 text-right w-11">Rate</th>
+                  <th className="py-1 text-right w-12">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dashed divide-slate-200">
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-2 text-center text-slate-400 italic">No items recorded</td>
+                  </tr>
+                ) : (
+                  items.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="py-1 text-slate-500 font-mono text-[9px]">{idx + 1}</td>
+                      <td className="py-1 font-bold pr-1 leading-snug">{item.name}</td>
+                      <td className="py-1 text-center font-bold">{item.qty}</td>
+                      <td className="py-1 text-right font-mono text-[9px]">{item.unitPrice > 0 ? item.unitPrice : '—'}</td>
+                      <td className="py-1 text-right font-bold font-mono">{item.lineTotal.toLocaleString()}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            <div className="border-b border-dashed border-black mt-1"></div>
           </div>
 
           {/* Totals Section */}
-          <div className="flex justify-end pt-3">
-            <div className="w-72 space-y-1 text-xs">
-              <div className="flex justify-between py-0.5">
-                <span>Total Bill:</span>
-                <span className="font-bold">₨ {total.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-0.5">
-                <span>Amount Paid:</span>
-                <span className="font-bold">₨ {paid.toLocaleString()}</span>
-              </div>
-              {debt > 0 && (
-                <div className="flex justify-between py-0.5">
-                  <span className="font-bold">Customer Debt:</span>
-                  <span className="font-bold">₨ {debt.toLocaleString()}</span>
-                </div>
-              )}
-              <div className="border-t-2 border-b-2 border-double border-black py-1.5 my-1 flex justify-between font-black text-sm">
-                <span>NET TOTAL:</span>
-                <span>₨ {total.toLocaleString()}</span>
-              </div>
+          <div className="pt-1.5 space-y-0.5 text-[10px]">
+            <div className="flex justify-between">
+              <span>Total Bill:</span>
+              <span className="font-bold">₨ {total.toLocaleString()}</span>
             </div>
-          </div>
-
-          {/* Signature Lines */}
-          <div className="grid grid-cols-2 gap-8 pt-8 pb-2 mt-4 text-xs">
-            <div>
-              <div className="border-b border-dashed border-black w-40 mb-1"></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Customer Signature</span>
+            <div className="flex justify-between">
+              <span>Amount Paid:</span>
+              <span className="font-bold">₨ {paid.toLocaleString()}</span>
             </div>
-            <div className="text-right flex flex-col items-end">
-              <div className="border-b border-dashed border-black w-40 mb-1"></div>
-              <span className="text-[10px] font-bold uppercase tracking-wider">Authorized Stamp / Sign</span>
+            {debt > 0 && (
+              <div className="flex justify-between">
+                <span>Customer Debt:</span>
+                <span className="font-bold">₨ {debt.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="border-t-2 border-b-2 border-double border-black py-1 my-1 flex justify-between font-black text-xs">
+              <span>NET TOTAL:</span>
+              <span>₨ {total.toLocaleString()}</span>
             </div>
           </div>
 
           {/* Footer Notice */}
-          <div className="text-center pt-3 border-t border-dashed border-black text-[10px] text-slate-600 mt-4">
-            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}! • COMPUTER GENERATED POS SLIP
+          <div className="text-center pt-2 border-t border-dashed border-black text-[8px] text-slate-600 mt-2">
+            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}!
           </div>
         </div>
 

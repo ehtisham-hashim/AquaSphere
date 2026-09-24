@@ -49,7 +49,7 @@ export function printReceiptElement(elementId) {
 
   // Measure dynamic content height so the PDF tight-crops with zero void
   const rect = element.getBoundingClientRect();
-  const heightPx = Math.max(element.scrollHeight, rect.height, 300);
+  const heightPx = Math.max(element.scrollHeight, rect.height, 200);
   // Convert px to mm (1px ≈ 0.264583 mm) plus 10mm buffer
   const heightMm = Math.ceil(heightPx * 0.264583) + 10;
 
@@ -81,7 +81,7 @@ export function printReceiptElement(elementId) {
         <style>
           @page {
             size: 80mm ${heightMm}mm;
-            margin: 2mm 3mm;
+            margin: 0;
           }
           * {
             box-sizing: border-box;
@@ -93,17 +93,16 @@ export function printReceiptElement(elementId) {
             print-color-adjust: exact !important;
           }
           html, body {
-            width: 100% !important;
-            max-width: 74mm !important;
+            width: 80mm !important;
             margin: 0 auto !important;
             padding: 0 !important;
             background: #ffffff !important;
           }
           .receipt-wrap {
-            width: 100% !important;
-            max-width: 74mm !important;
-            margin: 0 auto !important;
-            padding: 4px 2px !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
+            margin: 3mm auto !important;
+            padding: 0 !important;
           }
           .no-print {
             display: none !important;
@@ -156,7 +155,7 @@ export function renderReceiptToCanvas({
   const scale = 2;
   const width = 540;
 
-  const baseHeight = 390;
+  const baseHeight = 320;
   const itemRowHeight = 24;
   const itemsHeight = Math.max(items.length, 1) * itemRowHeight;
   const summaryHeight = summaryRows.length * 20;
@@ -284,19 +283,8 @@ export function renderReceiptToCanvas({
     ctx.fillText(`REMARKS: ${remarks}`, 20, y);
   }
 
-  // Signatures
-  y += 36;
-  ctx.font = '10px ui-monospace, monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('----------------------', 20, y);
-  ctx.fillText('CUSTOMER SIGNATURE', 20, y + 12);
-
-  ctx.textAlign = 'right';
-  ctx.fillText('----------------------', width - 20, y);
-  ctx.fillText('AUTHORIZED STAMP/SIGN', width - 20, y + 12);
-
   // Footer Note
-  y += 32;
+  y += 24;
   drawDashedLine(y);
   y += 14;
   ctx.textAlign = 'center';
