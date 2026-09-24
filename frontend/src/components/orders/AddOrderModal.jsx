@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Star, Minus, Plus } from 'lucide-react';
+import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';

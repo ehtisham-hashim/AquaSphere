@@ -208,7 +208,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
           
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex justify-between items-center">
             <div>
-              <div className="text-sm font-bold text-slate-800">{selectedCustomer?.name}</div>
+              <div className="text-sm font-bold text-slate-800">{order.customer?.name}</div>
               <div className="text-xs text-slate-500">ORD-{order.id.substring(0,6).toUpperCase()}</div>
             </div>
             <div className="text-right">

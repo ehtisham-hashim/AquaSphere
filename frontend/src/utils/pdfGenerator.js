@@ -138,7 +138,7 @@ export async function generateA5Pdf(element, filename = 'document.pdf', mode = '
  * @param {string} filename - Filename.
  * @returns {Promise<{success: boolean, type: string}>}
  */
-export async function copyReceiptToClipboard(element, filename = 'receipt.pdf') {
+export async function copyReceiptToClipboard(element, _filename = 'receipt.pdf') {
   if (!element) {
     throw new Error('Element not found');
   }

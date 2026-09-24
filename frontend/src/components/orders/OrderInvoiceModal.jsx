@@ -81,8 +81,6 @@ export default function OrderInvoiceModal({ order, onClose }) {
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
 
-  const handlePrint = () => window.print();
-
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:p-0 print:bg-white print:fixed">
       {/* Isolated Print Stylesheet */}
