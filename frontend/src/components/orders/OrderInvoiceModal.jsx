@@ -43,28 +43,51 @@ export default function OrderInvoiceModal({ order, onClose }) {
   const balanceDue = grandTotal - totalPaid;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:p-0 print:bg-white print:fixed">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print-modal-container print:p-0 print:bg-white print:fixed">
       {/* Isolated Print Stylesheet */}
       <style>{`
         @page {
-          size: A5 portrait;
-          margin: 8mm 10mm;
+          size: auto;
+          margin: 12mm 15mm;
         }
         @media print {
           html, body {
             width: 100% !important;
-            height: 100% !important;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
+            color: #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
+          }
+          .print-modal-container {
+            position: static !important;
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            background: transparent !important;
+          }
+          .print-modal-box {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
           }
           #order-invoice-print, #order-invoice-print * {
-            visibility: visible;
+            visibility: visible !important;
           }
           #order-invoice-print {
             position: static !important;
@@ -74,12 +97,14 @@ export default function OrderInvoiceModal({ order, onClose }) {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            color: #0f172a !important;
+            color: #000000 !important;
             font-size: 13px !important;
             line-height: 1.5 !important;
+          }
+          #order-invoice-print * {
+            color: #000000 !important;
+            border-color: #000000 !important;
+            background-color: transparent !important;
           }
           .no-print {
             display: none !important;
@@ -87,12 +112,12 @@ export default function OrderInvoiceModal({ order, onClose }) {
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print:border-none print:shadow-none print:p-0 print:max-w-none print:max-h-none">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] print-modal-box print:border-none print:shadow-none print:p-0 print:max-w-none print:max-h-none">
 
         {/* Modal Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0 no-print">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Printer size={16} className="text-brand-primary" /> Order Invoice
+            <Printer size={16} className="text-slate-800" /> Order Invoice
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X size={18} />
@@ -100,73 +125,80 @@ export default function OrderInvoiceModal({ order, onClose }) {
         </div>
 
         {/* Printable Area */}
-        <div id="order-invoice-print" className="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
+        <div id="order-invoice-print" className="p-8 overflow-y-auto flex-1 space-y-4 text-xs bg-white text-black font-sans">
 
           {/* Company Header */}
-          <div className="text-center border-b border-dashed border-slate-200 pb-3">
-            <h2 className="text-base font-black text-slate-900 uppercase tracking-wide">
-              {isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water'}
+          <div className="text-center pb-3 border-b-2 border-black">
+            <h2 className="text-2xl font-black text-black uppercase tracking-wider">
+              {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">Sales Invoice</p>
+            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
+              Commercial Sales Invoice
+            </p>
+            <p className="text-[11px] text-slate-600 print:text-black mt-0.5">Pure Quality • Safe & Healthy Drinking Water</p>
           </div>
 
-          {/* Order Meta */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          {/* Order Meta Grid */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs py-2 border-b border-black">
             <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Order ID</span>
-              <span className="font-mono font-bold text-slate-800">#{orderId}</span>
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Invoice No:</span>
+              <span className="font-mono font-black text-black text-sm">#{orderId}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Date:</span>
+              <span className="font-semibold text-black font-mono">{orderDate}</span>
             </div>
             <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Date</span>
-              <span className="font-semibold text-slate-800">{orderDate}</span>
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Customer:</span>
+              <span className="font-bold text-black">{order.customer?.name || 'Walk-In Customer'}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Phone:</span>
+              <span className="font-mono font-semibold text-black">{order.customer?.phone || '—'}</span>
             </div>
             <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Customer</span>
-              <span className="font-bold text-slate-900">{order.customer?.name || '—'}</span>
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Delivery Status:</span>
+              <span className="font-mono font-bold text-black uppercase">[ {order.deliveryStatus || 'PENDING'} ]</span>
             </div>
-            <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Phone</span>
-              <span className="font-mono font-semibold text-slate-800">{order.customer?.phone || '—'}</span>
-            </div>
-            <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Delivery Status</span>
-              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-50 text-slate-700 border-slate-200">
-                {order.deliveryStatus || 'PENDING'}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase tracking-wider">Payment Status</span>
-              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-slate-50 text-slate-700 border-slate-200">
-                {order.paymentStatus || 'UNPAID'}
+            <div className="text-right">
+              <span className="font-bold text-black uppercase text-[10px] tracking-wider block">Payment Status:</span>
+              <span className="font-mono font-bold text-black uppercase">
+                {balanceDue > 0 ? `[ DUE: ₨ ${balanceDue.toLocaleString()} ]` : '[ PAID IN FULL ]'}
               </span>
             </div>
           </div>
 
           {/* Items Table */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
-                <tr>
-                  <th className="py-2 px-3">Item</th>
-                  <th className="py-2 px-3 text-center">Qty</th>
-                  <th className="py-2 px-3 text-right">Rate</th>
-                  <th className="py-2 px-3 text-right">Amount</th>
+          <div className="mt-3">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-y-2 border-black font-black uppercase text-[11px]">
+                  <th className="py-2.5 px-3 w-10">#</th>
+                  <th className="py-2.5 px-3">Item Description</th>
+                  <th className="py-2.5 px-3 text-center w-24">Qty</th>
+                  <th className="py-2.5 px-3 text-right w-32">Rate (₨)</th>
+                  <th className="py-2.5 px-3 text-right w-32">Amount (₨)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-3 text-center text-slate-400 italic text-xs">No items</td>
+                    <td colSpan={5} className="py-4 text-center text-slate-500 italic">No items recorded</td>
                   </tr>
                 ) : (
                   items.map((item, idx) => {
                     const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
                     return (
-                      <tr key={idx} className="hover:bg-slate-50/50">
-                        <td className="py-2 px-3 font-medium text-slate-800">{item.item?.name || 'Item'}</td>
-                        <td className="py-2 px-3 text-center font-mono font-bold">{item.quantity}</td>
-                        <td className="py-2 px-3 text-right font-mono text-slate-600">₨ {Number(item.price || 0).toLocaleString()}</td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">₨ {lineTotal.toLocaleString()}</td>
+                      <tr key={idx} className="border-b border-slate-300 print:border-black">
+                        <td className="py-2 px-3 font-mono text-[11px] text-slate-600 print:text-black">{idx + 1}</td>
+                        <td className="py-2 px-3 font-semibold text-black">{item.item?.name || 'Item'}</td>
+                        <td className="py-2 px-3 text-center font-mono font-bold text-black">{item.quantity}</td>
+                        <td className="py-2 px-3 text-right font-mono text-black">
+                          ₨ {Number(item.price || 0).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-black">
+                          ₨ {lineTotal.toLocaleString()}
+                        </td>
                       </tr>
                     );
                   })
@@ -176,44 +208,47 @@ export default function OrderInvoiceModal({ order, onClose }) {
           </div>
 
           {/* Financial Summary */}
-          <div className="border-t border-slate-200 pt-3 space-y-1.5 text-xs">
-            <div className="flex justify-between font-mono">
-              <span className="text-slate-600">Subtotal:</span>
-              <span className="font-bold text-slate-800">₨ {grandTotal.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between font-mono">
-              <span className="text-slate-600">Amount Paid:</span>
-              <span className="font-bold text-emerald-700">₨ {totalPaid.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between font-mono font-bold text-sm border-t border-slate-200 pt-1.5">
-              <span className="text-slate-900">Balance Due:</span>
-              <span className={balanceDue > 0 ? 'text-rose-600' : 'text-slate-800'}>
-                ₨ {balanceDue.toLocaleString()}
-              </span>
+          <div className="flex justify-end pt-3">
+            <div className="w-80 space-y-1.5 text-xs border-t border-black pt-2">
+              <div className="flex justify-between py-0.5">
+                <span className="font-semibold text-black">Subtotal:</span>
+                <span className="font-mono font-bold text-black">₨ {grandTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between py-0.5">
+                <span className="font-semibold text-black">Amount Paid:</span>
+                <span className="font-mono font-bold text-black">₨ {totalPaid.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between py-2 border-t-2 border-b-2 border-black font-black text-sm mt-1">
+                <span>BALANCE DUE:</span>
+                <span className="font-mono">
+                  ₨ {balanceDue.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
 
           {order.remarks && (
-            <div className="border-t border-dashed border-slate-200 pt-2 text-[11px] text-slate-500">
-              <span className="font-semibold text-slate-700">Remarks: </span>{order.remarks}
+            <div className="border border-black p-2 text-xs text-black mt-2">
+              <span className="font-bold uppercase tracking-wider text-[10px] block">Remarks:</span>
+              <span>{order.remarks}</span>
             </div>
           )}
 
           {/* Signature Lines */}
-          <div className="grid grid-cols-2 gap-8 pt-8 pb-2 border-t border-slate-200 mt-4 text-xs text-slate-600">
+          <div className="grid grid-cols-2 gap-8 pt-10 pb-2 mt-6 text-xs text-black">
             <div>
-              <div className="border-b border-slate-300 w-36 mb-1"></div>
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Received By / Customer</span>
+              <div className="border-b border-black w-44 mb-1"></div>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Received By / Customer</span>
             </div>
             <div className="text-right flex flex-col items-end">
-              <div className="border-b border-slate-300 w-36 mb-1"></div>
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Authorized Stamp / Sign</span>
+              <div className="border-b border-black w-44 mb-1"></div>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Authorized Stamp / Sign</span>
             </div>
           </div>
 
           {/* Bottom Invoice Notice */}
-          <div className="text-center pt-2 border-t border-dashed border-slate-200 text-[10px] text-slate-400">
-            Thank you for choosing {isWadaana ? 'Wadaana' : 'AquaSphere'}! • Computer generated invoice.
+          <div className="text-center pt-3 border-t border-black text-[10px] font-medium text-slate-600 print:text-black mt-3">
+            Thank you for choosing {isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water'}! • Computer Generated POS Invoice
           </div>
         </div>
 
