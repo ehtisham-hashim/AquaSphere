@@ -130,3 +130,103 @@ export async function generateA5Pdf(element, filename = 'document.pdf', mode = '
     throw error;
   }
 }
+
+/**
+ * Copies the receipt/invoice image or PDF directly to the system clipboard.
+ * When pasted (Ctrl+V) into WhatsApp Web, Telegram, or Gmail, it attaches seamlessly.
+ * @param {HTMLElement} element - The DOM element.
+ * @param {string} filename - Filename.
+ * @returns {Promise<{success: boolean, type: string}>}
+ */
+export async function copyReceiptToClipboard(element, filename = 'receipt.pdf') {
+  if (!element) {
+    throw new Error('Element not found');
+  }
+
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    backgroundColor: '#ffffff'
+  });
+
+  const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!pngBlob) {
+    throw new Error('Failed to generate image blob');
+  }
+
+  // Attempt to write image/png to the clipboard
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': pngBlob
+        })
+      ]);
+      return { success: true, type: 'image' };
+    } catch (err) {
+      console.warn('ClipboardItem write failed, trying fallback...', err);
+    }
+  }
+
+  throw new Error('Clipboard write permission denied or unsupported in this browser.');
+}
+
+/**
+ * Shares the PDF document natively using the Web Share API (especially on mobile / WhatsApp).
+ * @param {HTMLElement} element - The DOM element.
+ * @param {string} filename - Filename.
+ * @param {string} title - Share title.
+ * @returns {Promise<boolean>}
+ */
+export async function sharePdf(element, filename = 'receipt.pdf', title = 'Receipt') {
+  if (!element) return false;
+
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    logging: false,
+    backgroundColor: '#ffffff'
+  });
+
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a5'
+  });
+
+  const pageWidth = 148;
+  const pageHeight = 210;
+  const margin = 8;
+  const contentWidth = pageWidth - (margin * 2);
+  const imgHeight = (canvas.height * contentWidth) / canvas.width;
+  const maxContentHeight = pageHeight - (margin * 2);
+
+  let finalWidth = contentWidth;
+  let finalHeight = imgHeight;
+  if (finalHeight > maxContentHeight) {
+    const scale = maxContentHeight / finalHeight;
+    finalWidth = finalWidth * scale;
+    finalHeight = maxContentHeight;
+  }
+
+  const xOffset = (pageWidth - finalWidth) / 2;
+  const yOffset = margin;
+  pdf.addImage(imgData, 'PNG', xOffset, yOffset, finalWidth, finalHeight, undefined, 'FAST');
+
+  const pdfBlob = pdf.output('blob');
+  const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+
+  if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    await navigator.share({
+      files: [pdfFile],
+      title: title,
+      text: `${title} from AquaSphere / Wadaana`
+    });
+    return true;
+  }
+
+  return false;
+}
+

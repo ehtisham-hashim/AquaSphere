@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { X, Printer, Download, Loader2 } from 'lucide-react';
+import { X, Printer, Download, Loader2, Copy, Check, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
-import { generateA5Pdf } from '../../utils/pdfGenerator';
+import { generateA5Pdf, copyReceiptToClipboard, sharePdf } from '../../utils/pdfGenerator';
 
 export default function OrderInvoiceModal({ order, onClose }) {
   const { isWadaana } = useTenant();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!order) return null;
 
@@ -32,6 +34,39 @@ export default function OrderInvoiceModal({ order, onClose }) {
       await generateA5Pdf(el, `Invoice-${orderId}.pdf`, 'download');
     } catch (err) {
       console.error('Failed to download A5 invoice PDF:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    const el = document.getElementById('order-invoice-print');
+    if (!el) return;
+    setIsGenerating(true);
+    try {
+      await copyReceiptToClipboard(el, `Invoice-${orderId}.pdf`);
+      setCopied(true);
+      toast.success('Invoice copied to clipboard! Paste (Ctrl+V) directly into WhatsApp or email.');
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.error('Copy failed:', err);
+      toast.error('Could not copy to clipboard in this browser.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const el = document.getElementById('order-invoice-print');
+    if (!el) return;
+    setIsGenerating(true);
+    try {
+      const shared = await sharePdf(el, `Invoice-${orderId}.pdf`, `Invoice #${orderId}`);
+      if (!shared) {
+        toast.info('Direct sharing not available on this device. Use Copy or PDF download.');
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -224,13 +259,36 @@ export default function OrderInvoiceModal({ order, onClose }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 no-print">
+        <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 no-print flex-wrap">
           <button
             onClick={onClose}
             className="btn-secondary text-xs py-2 px-4"
           >
             Close
           </button>
+          <button
+            type="button"
+            disabled={isGenerating}
+            onClick={handleCopy}
+            className={`btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 transition-colors ${
+              copied ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
+            }`}
+            title="Copy to clipboard for WhatsApp / Email"
+          >
+            {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+          {typeof navigator !== 'undefined' && !!navigator.share && (
+            <button
+              type="button"
+              disabled={isGenerating}
+              onClick={handleShare}
+              className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 text-slate-700 hover:text-slate-900"
+              title="Share via WhatsApp / Mobile"
+            >
+              <Share2 size={14} /> Share
+            </button>
+          )}
           <button
             disabled={isGenerating}
             onClick={handleDownloadA5}
