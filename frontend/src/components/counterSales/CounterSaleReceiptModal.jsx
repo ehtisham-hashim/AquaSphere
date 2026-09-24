@@ -63,7 +63,20 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 print:p-0 print:bg-white print:fixed">
       {/* Isolated Print Stylesheet */}
       <style>{`
+        @page {
+          size: A5 portrait;
+          margin: 10mm;
+        }
         @media print {
+          html, body {
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body * {
             visibility: hidden;
           }
@@ -71,17 +84,21 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             visibility: visible;
           }
           #printable-receipt {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100%;
-            max-width: 80mm;
-            margin: 0 auto;
-            padding: 8px;
-            background: white !important;
-            border: none !important;
+            position: absolute !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            top: 0 !important;
+            width: 125mm !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 18px 22px !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 12px !important;
             box-shadow: none !important;
-            color: black !important;
+            color: #0f172a !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
           }
           .no-print {
             display: none !important;
