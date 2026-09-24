@@ -69,6 +69,8 @@ html[data-tenant="wadaana"] {
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   
   --color-brand: var(--brand);
+  --color-brand-primary: var(--brand);
+  --color-brand-muted: var(--brand-light);
   --color-brand-hover: var(--brand-hover);
   --color-brand-light: var(--brand-light);
   --color-brand-text: var(--brand-text);

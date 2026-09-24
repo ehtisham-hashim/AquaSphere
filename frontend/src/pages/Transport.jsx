@@ -325,7 +325,7 @@ export default function Transport() {
                     onClick={() => setTimeRange(r)}
                     className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
                       timeRange === r
-                        ? 'bg-brand-primary text-white shadow-xs'
+                        ? 'bg-brand text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >

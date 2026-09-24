@@ -22,7 +22,7 @@ export default function ExpensesTable({
             onClick={() => setSelectedCategory('ALL')}
             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border shrink-0 ${
               selectedCategory === 'ALL'
-                ? 'bg-brand-primary text-white border-transparent shadow-xs'
+                ? 'bg-brand text-white border-transparent shadow-xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -34,7 +34,7 @@ export default function ExpensesTable({
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border shrink-0 ${
                 selectedCategory === cat
-                  ? 'bg-brand-primary text-white border-transparent shadow-xs'
+                  ? 'bg-brand text-white border-transparent shadow-xs'
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
