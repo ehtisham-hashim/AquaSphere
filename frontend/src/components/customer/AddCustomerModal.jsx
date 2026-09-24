@@ -4,6 +4,7 @@ import { X, UserPlus, Upload, Image as ImageIcon } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 import CustomerFormFields from './CustomerFormFields';
 import { useTenant } from '../../context/TenantContext';
+import { getInitialCustomerProductFields } from '../../constants/wadaanaProducts';
 
 const initialFormData = {
   name: '',
@@ -16,20 +17,7 @@ const initialFormData = {
   creditDuration: 1,
   remarks: '',
   homePictureUrl: '',
-  buys19L: false,
-  qty19L: 0,
-  buys05LPet: false,
-  qty05LPet: 0,
-  buys15LPet: false,
-  qty15LPet: 0,
-  buysPure05L: false,
-  qtyPure05L: 0,
-  buysPure15L: false,
-  qtyPure15L: 0,
-  buysMix05L: false,
-  qtyMix05L: 0,
-  buysMix15L: false,
-  qtyMix15L: 0
+  ...getInitialCustomerProductFields()
 };
 
 export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {

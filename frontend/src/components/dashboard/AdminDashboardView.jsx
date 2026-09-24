@@ -178,7 +178,7 @@ export default function AdminDashboardView() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`font-mono font-bold ${isLow ? 'text-rose-600' : 'text-slate-900'}`}>
-                          {item.cachedQty} {item.unit}
+                          {Number(item.cachedQty || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} {item.unit}
                         </span>
                         {isLow && (
                           <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-black rounded-md uppercase">

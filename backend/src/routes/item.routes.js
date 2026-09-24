@@ -32,6 +32,7 @@ router.put('/:id/price', requireRoles('OWNER'), updateItemPrice);
 // Adding & updating items manually is restricted to OWNER only (anti-corruption rule)
 router.post('/', requireRoles('OWNER'), createItem);
 router.put('/:id', requireRoles('OWNER'), updateItem);
+router.patch('/:id', requireRoles('OWNER'), updateItem);
 
 // Stock transfers & manual adjustments
 router.post('/transfer-stock', requireRoles('OWNER', 'PRODUCTION_MANAGER'), transferStock);

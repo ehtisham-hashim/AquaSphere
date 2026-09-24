@@ -21,7 +21,7 @@ export default function InventoryStatusTab({ rawMaterials = [], productionBatche
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`font-mono font-bold ${item.isLow ? 'text-rose-600' : 'text-slate-900'}`}>
-                    {item.cachedQty} {item.unit}
+                    {Number(item.cachedQty || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} {item.unit}
                   </span>
                   {item.isLow && (
                     <span className="px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold rounded-md">

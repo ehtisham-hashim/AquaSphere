@@ -1,6 +1,8 @@
 import { MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { getTenantCatalog } from '../../constants/wadaanaProducts';
 
 export default function CustomerFormFields({ formData, handleChange, isWadaana }) {
+  const products = getTenantCatalog(isWadaana ? 'wadaana' : 'aquasphere');
   return (
     <>
       {/* Basic Info Section */}
@@ -91,179 +93,38 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           <ShoppingBag size={14} className="text-slate-500" /> Products & Expected Quantities
         </h4>
         
-        {isWadaana ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-sky-50/50 p-4 rounded-xl border border-sky-100">
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buysPure05L"
-                  checked={Boolean(formData.buysPure05L)}
-                  onChange={handleChange}
-                  className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
-                />
-                0.5L Pure
-              </label>
-              {formData.buysPure05L && (
-                <input
-                  type="number"
-                  name="qtyPure05L"
-                  min="0"
-                  value={formData.qtyPure05L || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-20 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buysPure15L"
-                  checked={Boolean(formData.buysPure15L)}
-                  onChange={handleChange}
-                  className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
-                />
-                1.5L Pure
-              </label>
-              {formData.buysPure15L && (
-                <input
-                  type="number"
-                  name="qtyPure15L"
-                  min="0"
-                  value={formData.qtyPure15L || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-20 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buysMix05L"
-                  checked={Boolean(formData.buysMix05L)}
-                  onChange={handleChange}
-                  className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
-                />
-                0.5L Mix
-              </label>
-              {formData.buysMix05L && (
-                <input
-                  type="number"
-                  name="qtyMix05L"
-                  min="0"
-                  value={formData.qtyMix05L || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-20 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buysMix15L"
-                  checked={Boolean(formData.buysMix15L)}
-                  onChange={handleChange}
-                  className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
-                />
-                1.5L Mix
-              </label>
-              {formData.buysMix15L && (
-                <input
-                  type="number"
-                  name="qtyMix15L"
-                  min="0"
-                  value={formData.qtyMix15L || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-20 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-emerald-50/40 p-4 rounded-xl border border-emerald-100">
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buys19L"
-                  checked={Boolean(formData.buys19L)}
-                  onChange={handleChange}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                19L Bottle
-              </label>
-              {formData.buys19L && (
-                <input
-                  type="number"
-                  name="qty19L"
-                  min="0"
-                  value={formData.qty19L || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-16 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buys05LPet"
-                  checked={Boolean(formData.buys05LPet)}
-                  onChange={handleChange}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                0.5L PET Pack
-              </label>
-              {formData.buys05LPet && (
-                <input
-                  type="number"
-                  name="qty05LPet"
-                  min="0"
-                  value={formData.qty05LPet || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-16 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="buys15LPet"
-                  checked={Boolean(formData.buys15LPet)}
-                  onChange={handleChange}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                1.5L PET Pack
-              </label>
-              {formData.buys15LPet && (
-                <input
-                  type="number"
-                  name="qty15LPet"
-                  min="0"
-                  value={formData.qty15LPet || ''}
-                  onChange={handleChange}
-                  placeholder="Qty"
-                  className="w-16 text-xs p-1 border rounded text-right font-bold"
-                />
-              )}
-            </div>
-          </div>
-        )}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-4 rounded-xl border ${
+          isWadaana ? 'bg-sky-50/50 border-sky-100' : 'bg-emerald-50/40 border-emerald-100'
+        }`}>
+          {products.map((prod) => {
+            const isChecked = Boolean(formData[prod.customerBuyField]);
+            return (
+              <div key={prod.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name={prod.customerBuyField}
+                    checked={isChecked}
+                    onChange={handleChange}
+                    className={`rounded h-4 w-4 ${isWadaana ? 'text-sky-600 focus:ring-sky-500' : 'text-emerald-600 focus:ring-emerald-500'}`}
+                  />
+                  {prod.displayName || prod.name}
+                </label>
+                {isChecked && (
+                  <input
+                    type="number"
+                    name={prod.customerQtyField}
+                    min="0"
+                    value={formData[prod.customerQtyField] || ''}
+                    onChange={handleChange}
+                    placeholder="Qty"
+                    className="w-16 text-xs p-1 border rounded text-right font-bold"
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Financial & Credit Terms */}

@@ -4,6 +4,7 @@ import { X, Edit3 } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 import CustomerFormFields from './CustomerFormFields';
 import { useTenant } from '../../context/TenantContext';
+import { extractCustomerProductFields } from '../../constants/wadaanaProducts';
 
 export default function EditCustomerModal({ isOpen, customer, onClose, onCustomerUpdated }) {
   const { tenant } = useTenant();
@@ -27,20 +28,7 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
         creditDuration: customer.creditDuration || 1,
         remarks: customer.remarks || '',
         homePictureUrl: customer.homePictureUrl || '',
-        buys19L: Boolean(customer.buys19L),
-        qty19L: customer.qty19L || 0,
-        buys05LPet: Boolean(customer.buys05LPet),
-        qty05LPet: customer.qty05LPet || 0,
-        buys15LPet: Boolean(customer.buys15LPet),
-        qty15LPet: customer.qty15LPet || 0,
-        buysPure05L: Boolean(customer.buysPure05L),
-        qtyPure05L: customer.qtyPure05L || 0,
-        buysPure15L: Boolean(customer.buysPure15L),
-        qtyPure15L: customer.qtyPure15L || 0,
-        buysMix05L: Boolean(customer.buysMix05L),
-        qtyMix05L: customer.qtyMix05L || 0,
-        buysMix15L: Boolean(customer.buysMix15L),
-        qtyMix15L: customer.qtyMix15L || 0
+        ...extractCustomerProductFields(customer)
       });
       setError('');
     }
