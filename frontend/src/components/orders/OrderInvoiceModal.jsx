@@ -102,64 +102,68 @@ export default function OrderInvoiceModal({ order, onClose }) {
           </button>
         </div>
 
-        {/* Printable Area - Compact 80mm POS Thermal Slip */}
-        <div id="order-invoice-print" className="p-3.5 overflow-y-auto flex-1 font-mono text-[10px] bg-white text-black leading-tight">
+        {/* Printable Area - Professional Times New Roman Layout */}
+        <div 
+          id="order-invoice-print" 
+          className="p-5 overflow-y-auto flex-1 bg-white text-black leading-normal selection:bg-slate-200"
+          style={{ fontFamily: '"Times New Roman", Times, "Tinos", serif' }}
+        >
 
           {/* Company Header */}
-          <div className="text-center pb-1">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-black">
+          <div className="text-center pb-2">
+            <h2 className="text-lg font-bold uppercase tracking-wider text-black">
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-[9px] font-semibold text-black uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
               Commercial Sales Invoice
             </p>
-            <p className="text-[8px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Water</p>
-            <div className="border-b border-dashed border-black mt-1.5"></div>
+            <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
+            <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>
 
           {/* Order Meta Grid */}
-          <div className="text-[10px] space-y-1 py-1.5 border-b border-dashed border-black">
-            <div className="flex justify-between">
+          <div className="text-xs space-y-1.5 py-1 border-b border-dashed border-black/80">
+            <div className="flex justify-between items-center">
               <span><strong>INV:</strong> #{orderId}</span>
-              <span>{orderDate}</span>
+              <span className="text-slate-800">{orderDate}</span>
             </div>
             <div><strong>CUST:</strong> {order.customer?.name || 'Walk-In Customer'}</div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span><strong>PHONE:</strong> {order.customer?.phone || '—'}</span>
-              <span><strong>{balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL'}</strong></span>
+              <span className="font-bold">{balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL'}</span>
             </div>
-            <div className="text-slate-600">DELIVERY: {order.deliveryStatus || 'PENDING'}</div>
+            <div className="text-slate-700 text-[11px]">DELIVERY: {order.deliveryStatus || 'PENDING'}</div>
           </div>
 
           {/* Items Table */}
-          <div className="mt-1.5">
-            <table className="w-full text-left text-[10px] border-collapse">
+          <div className="mt-2.5">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-dashed border-black font-bold uppercase text-[9px]">
-                  <th className="py-1 text-left w-4">#</th>
-                  <th className="py-1 text-left">Item</th>
-                  <th className="py-1 text-center w-7">Qty</th>
-                  <th className="py-1 text-right w-11">Rate</th>
-                  <th className="py-1 text-right w-12">Amount</th>
+                <tr className="border-b border-dashed border-black font-bold uppercase text-[11px]">
+                  <th className="py-1.5 text-left w-5">#</th>
+                  <th className="py-1.5 text-left">Item</th>
+                  <th className="py-1.5 text-center w-10">Qty</th>
+                  <th className="py-1.5 text-right w-14">Rate</th>
+                  <th className="py-1.5 text-right w-16">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-dashed divide-slate-200">
+              <tbody className="divide-y divide-dashed divide-slate-300">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-2 text-center text-slate-400 italic">No items recorded</td>
+                    <td colSpan={5} className="py-3 text-center text-slate-500 italic">No items recorded</td>
                   </tr>
                 ) : (
                   items.map((item, idx) => {
                     const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
                     return (
                       <tr key={idx}>
-                        <td className="py-1 text-slate-500 font-mono text-[9px]">{idx + 1}</td>
-                        <td className="py-1 font-bold pr-1 leading-snug">{item.item?.name || 'Item'}</td>
-                        <td className="py-1 text-center font-bold">{item.quantity}</td>
-                        <td className="py-1 text-right font-mono text-[9px]">
+                        <td className="py-1.5 text-slate-600 text-[11px] align-top">{idx + 1}</td>
+                        <td className="py-1.5 font-bold pr-1.5 leading-snug align-top">{item.item?.name || 'Item'}</td>
+                        <td className="py-1.5 text-center font-bold align-top">{item.quantity}</td>
+                        <td className="py-1.5 text-right text-slate-800 align-top">
                           {Number(item.price || 0).toLocaleString()}
                         </td>
-                        <td className="py-1 text-right font-bold font-mono">
+                        <td className="py-1.5 text-right font-bold align-top">
                           {lineTotal.toLocaleString()}
                         </td>
                       </tr>
@@ -168,11 +172,11 @@ export default function OrderInvoiceModal({ order, onClose }) {
                 )}
               </tbody>
             </table>
-            <div className="border-b border-dashed border-black mt-1"></div>
+            <div className="border-b border-dashed border-black/80 mt-2"></div>
           </div>
 
           {/* Financial Summary */}
-          <div className="pt-1.5 space-y-0.5 text-[10px]">
+          <div className="pt-2.5 space-y-1.5 text-xs">
             <div className="flex justify-between">
               <span>Subtotal:</span>
               <span className="font-bold">₨ {grandTotal.toLocaleString()}</span>
@@ -181,21 +185,21 @@ export default function OrderInvoiceModal({ order, onClose }) {
               <span>Amount Paid:</span>
               <span className="font-bold">₨ {totalPaid.toLocaleString()}</span>
             </div>
-            <div className="border-t-2 border-b-2 border-double border-black py-1 my-1 flex justify-between font-black text-xs">
+            <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
               <span>BALANCE DUE:</span>
               <span>₨ {balanceDue.toLocaleString()}</span>
             </div>
           </div>
 
           {order.remarks && (
-            <div className="border border-dashed border-black p-1.5 text-[9px] text-black mt-2">
-              <span className="font-bold uppercase tracking-wider text-[8px] block">Remarks:</span>
+            <div className="border border-dashed border-black/80 p-2 text-xs text-black mt-2.5 rounded-sm">
+              <span className="font-bold uppercase tracking-wider text-[10px] block text-slate-700">Remarks:</span>
               <span>{order.remarks}</span>
             </div>
           )}
 
           {/* Bottom Invoice Notice */}
-          <div className="text-center pt-2 border-t border-dashed border-black text-[8px] text-slate-600 mt-2">
+          <div className="text-center pt-3 border-t border-dashed border-black/80 text-[11px] italic text-slate-700 mt-3">
             THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}!
           </div>
         </div>

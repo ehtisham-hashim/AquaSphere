@@ -140,69 +140,73 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </button>
         </div>
 
-        {/* Printable Receipt Body - Compact 80mm POS Thermal Slip */}
-        <div id="printable-receipt" className="p-3.5 overflow-y-auto flex-1 font-mono text-[10px] bg-white text-black leading-tight">
+        {/* Printable Receipt Body - Professional Times New Roman Layout */}
+        <div 
+          id="printable-receipt" 
+          className="p-5 overflow-y-auto flex-1 bg-white text-black leading-normal selection:bg-slate-200"
+          style={{ fontFamily: '"Times New Roman", Times, "Tinos", serif' }}
+        >
           {/* Header */}
-          <div className="text-center pb-1">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-black">
+          <div className="text-center pb-2">
+            <h2 className="text-lg font-bold uppercase tracking-wider text-black">
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
-            <p className="text-[9px] font-semibold text-black uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
               Retail Sale • Counter Dispatch
             </p>
-            <p className="text-[8px] text-slate-600 mt-0.5">Pure Quality • Safe & Healthy Water</p>
-            <div className="border-b border-dashed border-black mt-1.5"></div>
+            <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
+            <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>
 
           {/* Meta Details */}
-          <div className="text-[10px] space-y-1 py-1.5 border-b border-dashed border-black">
-            <div className="flex justify-between">
+          <div className="text-xs space-y-1.5 py-1 border-b border-dashed border-black/80">
+            <div className="flex justify-between items-center">
               <span><strong>REC:</strong> {saleId}</span>
-              <span>{new Date(receiptSale.createdAt).toLocaleDateString()} {new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="text-slate-800">{new Date(receiptSale.createdAt).toLocaleDateString()} {new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             <div><strong>CUST:</strong> {receiptSale.customer?.name || 'Walk-In Cash Customer'}</div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span><strong>PAY:</strong> {receiptSale.paymentMethod || 'CASH'}</span>
-              <span><strong>{debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL'}</strong></span>
+              <span className="font-bold">{debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL'}</span>
             </div>
-            <div className="text-slate-600">STAFF: {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</div>
+            <div className="text-slate-700 text-[11px]">STAFF: {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</div>
           </div>
 
           {/* Itemized Table */}
-          <div className="mt-1.5">
-            <table className="w-full text-left text-[10px] border-collapse">
+          <div className="mt-2.5">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-dashed border-black font-bold uppercase text-[9px]">
-                  <th className="py-1 text-left w-4">#</th>
-                  <th className="py-1 text-left">Item</th>
-                  <th className="py-1 text-center w-7">Qty</th>
-                  <th className="py-1 text-right w-11">Rate</th>
-                  <th className="py-1 text-right w-12">Amount</th>
+                <tr className="border-b border-dashed border-black font-bold uppercase text-[11px]">
+                  <th className="py-1.5 text-left w-5">#</th>
+                  <th className="py-1.5 text-left">Item</th>
+                  <th className="py-1.5 text-center w-10">Qty</th>
+                  <th className="py-1.5 text-right w-14">Rate</th>
+                  <th className="py-1.5 text-right w-16">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-dashed divide-slate-200">
+              <tbody className="divide-y divide-dashed divide-slate-300">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-2 text-center text-slate-400 italic">No items recorded</td>
+                    <td colSpan={5} className="py-3 text-center text-slate-500 italic">No items recorded</td>
                   </tr>
                 ) : (
                   items.map((item, idx) => (
                     <tr key={idx}>
-                      <td className="py-1 text-slate-500 font-mono text-[9px]">{idx + 1}</td>
-                      <td className="py-1 font-bold pr-1 leading-snug">{item.name}</td>
-                      <td className="py-1 text-center font-bold">{item.qty}</td>
-                      <td className="py-1 text-right font-mono text-[9px]">{item.unitPrice > 0 ? item.unitPrice : '—'}</td>
-                      <td className="py-1 text-right font-bold font-mono">{item.lineTotal.toLocaleString()}</td>
+                      <td className="py-1.5 text-slate-600 text-[11px] align-top">{idx + 1}</td>
+                      <td className="py-1.5 font-bold pr-1.5 leading-snug align-top">{item.name}</td>
+                      <td className="py-1.5 text-center font-bold align-top">{item.qty}</td>
+                      <td className="py-1.5 text-right text-slate-800 align-top">{item.unitPrice > 0 ? item.unitPrice.toLocaleString() : '—'}</td>
+                      <td className="py-1.5 text-right font-bold align-top">{item.lineTotal.toLocaleString()}</td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-            <div className="border-b border-dashed border-black mt-1"></div>
+            <div className="border-b border-dashed border-black/80 mt-2"></div>
           </div>
 
           {/* Totals Section */}
-          <div className="pt-1.5 space-y-0.5 text-[10px]">
+          <div className="pt-2.5 space-y-1.5 text-xs">
             <div className="flex justify-between">
               <span>Total Bill:</span>
               <span className="font-bold">₨ {total.toLocaleString()}</span>
@@ -217,14 +221,14 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
                 <span className="font-bold">₨ {debt.toLocaleString()}</span>
               </div>
             )}
-            <div className="border-t-2 border-b-2 border-double border-black py-1 my-1 flex justify-between font-black text-xs">
+            <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
               <span>NET TOTAL:</span>
               <span>₨ {total.toLocaleString()}</span>
             </div>
           </div>
 
           {/* Footer Notice */}
-          <div className="text-center pt-2 border-t border-dashed border-black text-[8px] text-slate-600 mt-2">
+          <div className="text-center pt-3 border-t border-dashed border-black/80 text-[11px] italic text-slate-700 mt-3">
             THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}!
           </div>
         </div>
