@@ -461,24 +461,6 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
     if (prefix !== 'wadaana') {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
-    } else {
-      for (const orderItem of o.items) {
-        const iName = orderItem.item?.name?.toLowerCase() || '';
-        const qtyItem = orderItem.quantity || 0;
-        if (iName.includes('pure') && (iName.includes('0.5l') || iName.includes('500ml'))) {
-          customerUpdateData.qtyPure05L = { increment: qtyItem };
-          customerUpdateData.buysPure05L = true;
-        } else if (iName.includes('pure') && (iName.includes('1.5l') || iName.includes('1500ml'))) {
-          customerUpdateData.qtyPure15L = { increment: qtyItem };
-          customerUpdateData.buysPure15L = true;
-        } else if (iName.includes('mix') && (iName.includes('0.5l') || iName.includes('500ml'))) {
-          customerUpdateData.qtyMix05L = { increment: qtyItem };
-          customerUpdateData.buysMix05L = true;
-        } else if (iName.includes('mix') && (iName.includes('1.5l') || iName.includes('1500ml'))) {
-          customerUpdateData.qtyMix15L = { increment: qtyItem };
-          customerUpdateData.buysMix15L = true;
-        }
-      }
     }
 
     await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });

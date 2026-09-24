@@ -90,19 +90,6 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     setEditData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleItemToggle = (itemId) => {
-    setSelectedItems(prev => {
-      const next = { ...prev };
-      if (next[itemId] && next[itemId].quantity > 0) {
-        delete next[itemId];
-      } else {
-        const existingDbId = availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
-        next[itemId] = { quantity: 1, dbItemId: existingDbId };
-      }
-      return next;
-    });
-  };
-
   const handleItemQuantityChange = (itemId, valStr) => {
     const parsed = parseInt(valStr, 10);
     setSelectedItems(prev => {
@@ -243,8 +230,8 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                     {/* Single Clean Row per Product */}
                     <div className="space-y-1.5">
                       {catItems.map(item => {
-                        const isSelected = !!selectedItems[item.id];
                         const qty = selectedItems[item.id]?.quantity || 0;
+                        const hasQty = qty > 0;
                         const price = Math.round(item.defaultPrice);
                         const lineSubtotal = qty * price;
 
@@ -252,19 +239,13 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                           <div 
                             key={item.id} 
                             className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all ${
-                              isSelected 
-                                ? 'bg-sky-50/50 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' 
+                              hasQty 
+                                ? (isWadaana ? 'bg-sky-50/60 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' : 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/30 shadow-2xs')
                                 : 'bg-white border-slate-200 hover:border-slate-300'
                             }`}
                           >
-                            {/* Product Info & Checkbox */}
-                            <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 select-none">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleItemToggle(item.id)}
-                                className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 shrink-0"
-                              />
+                            {/* Product Info */}
+                            <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
                               <div className="min-w-0">
                                 <div className="font-bold text-slate-800 text-sm truncate">
                                   {item.name}
@@ -273,7 +254,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                   Rs. {price.toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
                                 </div>
                               </div>
-                            </label>
+                            </div>
 
                             {/* Inline Stepper, Qty Input, and Line Total */}
                             <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
@@ -281,7 +262,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                 <button
                                   type="button"
                                   onClick={() => handleQtyAdjust(item.id, -1)}
-                                  disabled={!isSelected}
+                                  disabled={!hasQty}
                                   className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition"
                                   title="Decrease quantity"
                                 >
@@ -294,7 +275,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                   value={qty > 0 ? qty : ''}
                                   placeholder="0"
                                   onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
-                                  className="w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none focus:bg-sky-50/50"
+                                  className={`w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none ${isWadaana ? 'focus:bg-sky-50/50' : 'focus:bg-emerald-50/50'}`}
                                 />
                                 <button
                                   type="button"
@@ -308,7 +289,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
 
                               <div className="w-24 text-right">
                                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
-                                <span className={`text-xs font-mono font-black ${isSelected ? 'text-emerald-700' : 'text-slate-300'}`}>
+                                <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
                                   Rs. {lineSubtotal.toLocaleString()}
                                 </span>
                               </div>
