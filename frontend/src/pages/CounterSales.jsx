@@ -141,12 +141,16 @@ export default function CounterSales() {
   };
 
   const filteredSales = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return sales;
     return sales.filter(s => 
-      (s.saleNumber && s.saleNumber.toLowerCase().includes(search.toLowerCase())) ||
-      (s.productType && s.productType.toLowerCase().includes(search.toLowerCase())) ||
-      (s.paymentMethod || 'CASH').toLowerCase().includes(search.toLowerCase()) || 
-      (s.remarks && s.remarks.toLowerCase().includes(search.toLowerCase())) ||
-      (s.customer?.name && s.customer.name.toLowerCase().includes(search.toLowerCase()))
+      (s.saleNumber && s.saleNumber.toLowerCase().includes(q)) ||
+      (s.productType && s.productType.toLowerCase().includes(q)) ||
+      (Array.isArray(s.items) && s.items.some(i => (i.item?.name || '').toLowerCase().includes(q))) ||
+      (s.paymentMethod || 'CASH').toLowerCase().includes(q) || 
+      (s.remarks && s.remarks.toLowerCase().includes(q)) ||
+      (s.customer?.name && s.customer.name.toLowerCase().includes(q)) ||
+      (s.createdBy?.name && s.createdBy.name.toLowerCase().includes(q))
     );
   }, [sales, search]);
 

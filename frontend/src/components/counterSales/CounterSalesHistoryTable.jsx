@@ -1,4 +1,4 @@
-import { Search, Calendar, Trash2, ShieldAlert, User, Receipt, Eye } from 'lucide-react';
+import { Search, Calendar, Trash2, ShieldAlert, User, ShoppingBag, Eye } from 'lucide-react';
 
 const getPaymentBadge = (cash, credit) => {
   if (credit > 0 && cash > 0) {
@@ -31,28 +31,40 @@ const nameMap = {
   'CUSTOM': 'Custom Water'
 };
 
-const formatItemSummary = (productTypeStr, productQty) => {
-  if (!productTypeStr) return { mainItem: 'Retail Sale', extraCount: 0 };
-
-  if (productTypeStr.includes('(') || productTypeStr.includes(',')) {
-    const parts = productTypeStr.split(',').map(p => p.trim());
-    const firstPart = parts[0];
-    const match = firstPart.match(/^([A-Z0-9_]+)\s*\((x\d+)\)$/);
-    let mainLabel = firstPart;
-    if (match) {
-      mainLabel = `${nameMap[match[1]] || match[1]} ${match[2]}`;
-    }
-    return {
-      mainItem: mainLabel,
-      extraCount: parts.length - 1
-    };
+const getSaleProducts = (sale) => {
+  if (Array.isArray(sale.items) && sale.items.length > 0) {
+    return sale.items.map(it => ({
+      name: it.item?.name || 'Item',
+      qty: Number(it.quantity || 1)
+    }));
   }
 
-  const label = nameMap[productTypeStr] || productTypeStr;
-  return {
-    mainItem: `${label} × ${productQty || 1}`,
-    extraCount: 0
-  };
+  const str = sale.productType;
+  if (!str) {
+    return [{ name: 'Retail Sale', qty: Number(sale.productQty || 1) }];
+  }
+
+  if (str.includes('(') || str.includes(',')) {
+    const parts = str.split(',').map(p => p.trim()).filter(Boolean);
+    return parts.map(part => {
+      const match = part.match(/^([A-Z0-9_]+)\s*\((?:x|×)?(\d+)\)$/);
+      if (match) {
+        return {
+          name: nameMap[match[1]] || match[1],
+          qty: Number(match[2])
+        };
+      }
+      return {
+        name: nameMap[part] || part,
+        qty: 1
+      };
+    });
+  }
+
+  return [{
+    name: nameMap[str] || str,
+    qty: Number(sale.productQty || 1)
+  }];
 };
 
 export default function CounterSalesHistoryTable({
@@ -108,7 +120,7 @@ export default function CounterSalesHistoryTable({
                   <td colSpan="7" className="p-12 text-center text-slate-500">
                     <div className="max-w-md mx-auto flex flex-col items-center">
                       <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
-                        <Receipt size={24} />
+                        <ShoppingBag size={24} />
                       </div>
                       <h4 className="text-sm font-bold text-slate-800">No Counter Sales Found</h4>
                       <p className="text-xs text-slate-400 mt-1">
@@ -124,18 +136,10 @@ export default function CounterSalesHistoryTable({
                   const debt = Number(sale.debtAmount ?? Number(sale.creditAmount || 0));
                   const dailyClosed = isDateClosed(sale.createdAt);
 
-                  // Normalized items summary
-                  let mainItem;
-                  let extraCount;
-                  if (Array.isArray(sale.items) && sale.items.length > 0) {
-                    const first = sale.items[0];
-                    mainItem = `${first.item?.name || 'Item'} × ${Number(first.quantity)}`;
-                    extraCount = sale.items.length - 1;
-                  } else {
-                    const legacy = formatItemSummary(sale.productType, sale.productQty);
-                    mainItem = legacy.mainItem;
-                    extraCount = legacy.extraCount;
-                  }
+                  // Products breakdown (show up to 2 items + remaining count badge)
+                  const products = getSaleProducts(sale);
+                  const visibleProducts = products.slice(0, 2);
+                  const remainingCount = products.length - 2;
 
                   const saleNum = sale.saleNumber || (sale.id ? sale.id.substring(0, 8).toUpperCase() : 'SALE');
 
@@ -143,20 +147,13 @@ export default function CounterSalesHistoryTable({
                     <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors text-xs">
                       {/* Sale ID & Timestamp */}
                       <td className="table-td">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-brand/10 text-brand border border-brand/20 flex items-center justify-center shrink-0">
-                            <Receipt size={16} />
-                          </div>
-                          <div>
-                            <div className="font-mono font-bold text-slate-800 text-xs">
-                              #{saleNum}
-                            </div>
-                            <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono mt-0.5">
-                              <Calendar size={11} className="text-slate-400 shrink-0" />
-                              {new Date(sale.createdAt).toLocaleDateString()} {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          </div>
-                        </div>
+                        <span className="font-mono font-bold text-xs text-brand block">
+                          #{saleNum}
+                        </span>
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono mt-0.5">
+                          <Calendar size={11} className="text-slate-400 shrink-0" />
+                          {new Date(sale.createdAt).toLocaleDateString()} {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </td>
 
                       {/* Customer */}
@@ -178,23 +175,29 @@ export default function CounterSalesHistoryTable({
 
                       {/* Items Sold */}
                       <td className="table-td">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md text-xs max-w-[180px] truncate">
-                            {mainItem}
-                          </span>
-                          {extraCount > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {visibleProducts.map((p, idx) => (
+                            <span 
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border bg-slate-50 border-slate-200 text-slate-800"
+                            >
+                              <span className="font-semibold text-slate-700">{p.name}:</span>
+                              <span className="font-bold text-slate-900 font-mono">×{p.qty}</span>
+                            </span>
+                          ))}
+                          {remainingCount > 0 && (
                             <button
                               type="button"
                               onClick={() => onPrintReceipt(sale)}
-                              title="Click to view all items"
-                              className="text-[10px] font-bold text-brand bg-brand/10 hover:bg-brand/20 border border-brand/20 px-1.5 py-0.5 rounded-full transition"
+                              title="Click to view all items on receipt"
+                              className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition border border-slate-200"
                             >
-                              +{extraCount} more
+                              +{remainingCount} more
                             </button>
                           )}
                         </div>
                         {sale.remarks && (
-                          <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[180px]">
+                          <span className="text-[10px] text-slate-400 block mt-1 truncate max-w-[200px]">
                             {sale.remarks}
                           </span>
                         )}
