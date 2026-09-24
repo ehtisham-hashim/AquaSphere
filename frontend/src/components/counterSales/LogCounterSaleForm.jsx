@@ -11,17 +11,11 @@ export default function LogCounterSaleForm({
   handleMultiItemSubmit,
   submitting,
   lastRecordedSale,
-  onPrintReceipt
+  onPrintReceipt,
+  loading = false
 }) {
-  // Map of itemId -> quantity
+  // Map of itemId -> quantity (0 or missing = not in sale)
   const [cartMap, setCartMap] = useState({});
-
-  // Auto-select first finished good when list loads
-  useEffect(() => {
-    if (finishedGoods.length > 0) {
-      setCartMap(prev => (Object.keys(prev).length === 0 ? { [finishedGoods[0].id]: 1 } : prev));
-    }
-  }, [finishedGoods]);
 
   const [amountPaid, setAmountPaid] = useState('');
   const [isAmountPaidManual, setIsAmountPaidManual] = useState(false);
@@ -68,18 +62,6 @@ export default function LogCounterSaleForm({
     }
   }, [cartTotal, isAmountPaidManual]);
 
-  const toggleItem = (itemId) => {
-    setCartMap(prev => {
-      const next = { ...prev };
-      if (next[itemId]) {
-        delete next[itemId];
-      } else {
-        next[itemId] = 1;
-      }
-      return next;
-    });
-  };
-
   const updateItemQty = (itemId, delta) => {
     setCartMap(prev => {
       const next = { ...prev };
@@ -96,21 +78,23 @@ export default function LogCounterSaleForm({
 
   const setItemQtyDirect = (itemId, valStr) => {
     if (valStr === '') {
-      setCartMap(prev => ({ ...prev, [itemId]: '' }));
+      setCartMap(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
       return;
     }
     const val = parseInt(valStr, 10);
-    if (!isNaN(val) && val >= 0) {
-      setCartMap(prev => {
-        const next = { ...prev };
-        if (val === 0) {
-          delete next[itemId];
-        } else {
-          next[itemId] = val;
-        }
-        return next;
-      });
-    }
+    setCartMap(prev => {
+      const next = { ...prev };
+      if (isNaN(val) || val <= 0) {
+        delete next[itemId];
+      } else {
+        next[itemId] = val;
+      }
+      return next;
+    });
   };
 
   // Stock check
@@ -159,6 +143,7 @@ export default function LogCounterSaleForm({
     });
 
     // Reset fields for next transaction
+    setCartMap({});
     setIsAmountPaidManual(false);
     setRemarks('');
   };
@@ -204,96 +189,113 @@ export default function LogCounterSaleForm({
             <label className="font-bold text-slate-800 text-xs uppercase tracking-wider">
               1. Finished Goods Catalog ({finishedGoods.length}) *
             </label>
-            <span className="text-[11px] text-slate-400 font-medium">Select finished products to add to bill</span>
+            <span className="text-[11px] text-slate-400 font-medium">Enter quantities to add products to bill</span>
           </div>
 
-          {finishedGoods.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[1, 2, 3, 4].map(idx => (
+                <div key={idx} className="p-3 rounded-xl border border-slate-200 bg-white space-y-2.5 animate-pulse">
+                  <div className="flex justify-between items-center">
+                    <div className="h-3.5 bg-slate-200 rounded w-28"></div>
+                    <div className="h-4 bg-slate-200 rounded w-12"></div>
+                  </div>
+                  <div className="h-3 bg-slate-200 rounded w-20"></div>
+                  <div className="h-8 bg-slate-200 rounded w-full"></div>
+                </div>
+              ))}
+            </div>
+          ) : finishedGoods.length === 0 ? (
             <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs">
               No active finished goods found in catalog. Add finished products in the Inventory module first.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[440px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[460px] overflow-y-auto pr-1">
               {finishedGoods.map(item => {
-                const inCart = Boolean(cartMap[item.id]);
-                const qty = cartMap[item.id] !== undefined ? cartMap[item.id] : 0;
+                const qty = Number(cartMap[item.id] || 0);
+                const hasQty = qty > 0;
                 const warning = getStockWarning(item);
                 const price = Number(item.retailPrice || 0);
+                const lineSubtotal = qty * price;
 
                 return (
                   <div
                     key={item.id}
                     className={`p-2.5 rounded-xl border transition-all ${
-                      inCart 
-                        ? 'bg-brand/5 border-brand ring-2 ring-brand/20 shadow-2xs' 
+                      hasQty 
+                        ? 'bg-brand/5 border-brand ring-1 ring-brand/20 shadow-2xs' 
                         : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer select-none grow min-w-0">
-                        <input 
-                          type="checkbox" 
-                          checked={inCart} 
-                          onChange={() => toggleItem(item.id)}
-                          className="w-4 h-4 accent-brand rounded cursor-pointer shrink-0"
-                        />
-                        <div className="truncate">
-                          <div className="text-xs font-bold text-slate-900 truncate">{item.name}</div>
-                          <div className="text-[11px] font-mono font-bold text-brand">
-                            Rs. {price.toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">/{item.unit || 'unit'}</span>
-                          </div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 truncate">{item.name}</div>
+                        <div className="text-[11px] font-mono font-bold text-brand">
+                          Rs. {price.toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">/{item.unit || 'unit'}</span>
                         </div>
-                      </label>
+                      </div>
 
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
-                        inCart ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'
+                        hasQty ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {Number(item.cachedQty || 0)} {item.unit || 'pk'}
                       </span>
                     </div>
 
-                    {/* Quantity Stepper when selected */}
-                    {inCart && (
-                      <div className="mt-2 pt-2 border-t border-brand/20 flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateItemQty(item.id, -1)}
-                            className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs"
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-12 text-center font-mono font-bold text-xs text-slate-900 border border-slate-200 rounded-lg p-0.5 bg-white outline-none"
-                            value={qty}
-                            onChange={(e) => setItemQtyDirect(item.id, e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateItemQty(item.id, 1)}
-                            className="w-6 h-6 rounded-lg bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs"
-                          >
-                            <Plus size={12} />
-                          </button>
-                        </div>
+                    {/* Quantity Stepper & Quick Add */}
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateItemQty(item.id, -1)}
+                          disabled={!hasQty}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-slate-100 text-slate-800 flex items-center justify-center font-bold text-xs transition"
+                          title="Decrease quantity"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="0"
+                          className={`w-14 text-center font-mono font-bold text-xs text-slate-900 border rounded-lg p-1 outline-none transition ${
+                            hasQty ? 'border-brand bg-white ring-1 ring-brand/30' : 'border-slate-200 bg-slate-50/50'
+                          }`}
+                          value={qty > 0 ? qty : ''}
+                          onChange={(e) => setItemQtyDirect(item.id, e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateItemQty(item.id, 1)}
+                          className="w-7 h-7 rounded-lg bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs transition shadow-2xs"
+                          title="Increase quantity"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
 
-                        <div className="flex items-center gap-1">
-                          {[1, 5, 10].map(q => (
-                            <button
-                              type="button"
-                              key={q}
-                              onClick={() => setItemQtyDirect(item.id, q)}
-                              className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border ${
-                                qty === q 
-                                  ? 'bg-brand text-white border-brand' 
-                                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                              }`}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                        </div>
+                      {/* Quick Add Pills */}
+                      <div className="flex items-center gap-1">
+                        {[1, 5, 10].map(q => (
+                          <button
+                            type="button"
+                            key={q}
+                            onClick={() => updateItemQty(item.id, q)}
+                            className="px-1.5 py-1 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 transition"
+                            title={`Add +${q}`}
+                          >
+                            +{q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Line Subtotal */}
+                    {hasQty && (
+                      <div className="mt-1.5 pt-1 border-t border-brand/10 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Subtotal:</span>
+                        <span className="font-mono font-bold text-brand">Rs. {lineSubtotal.toLocaleString()}</span>
                       </div>
                     )}
 

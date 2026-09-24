@@ -1,4 +1,17 @@
-import { Search, Calendar, Trash2, ShieldAlert, User, ShoppingBag, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  Search, 
+  Calendar, 
+  Trash2, 
+  ShieldAlert, 
+  User, 
+  ShoppingBag, 
+  Eye, 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsLeft, 
+  ChevronsRight 
+} from 'lucide-react';
 
 const getPaymentBadge = (cash, credit) => {
   if (credit > 0 && cash > 0) {
@@ -77,6 +90,21 @@ export default function CounterSalesHistoryTable({
   onPrintReceipt,
   onDeleteSale
 }) {
+  // Strict Pagination: default 50, options 50, 100, 500
+  const [pageSize, setPageSize] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 whenever search or pageSize changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredSales.length);
+  const paginatedSales = filteredSales.slice(startIndex, endIndex);
+
   return (
     <div className="space-y-3">
       {/* Search Input */}
@@ -107,14 +135,43 @@ export default function CounterSalesHistoryTable({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr>
-                  <td colSpan="7" className="p-10 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-slate-500 font-medium text-xs">Loading sales history...</p>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="table-td">
+                      <div className="h-4 bg-slate-200 rounded w-20 mb-1"></div>
+                      <div className="h-3 bg-slate-200 rounded w-28"></div>
+                    </td>
+                    <td className="table-td">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-200 shrink-0"></div>
+                        <div className="space-y-1">
+                          <div className="h-3 bg-slate-200 rounded w-24"></div>
+                          <div className="h-2.5 bg-slate-200 rounded w-16"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="table-td">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-5 bg-slate-200 rounded-md w-28"></div>
+                        <div className="h-5 bg-slate-200 rounded-md w-24"></div>
+                      </div>
+                    </td>
+                    <td className="table-td">
+                      <div className="h-4 bg-slate-200 rounded w-20 mb-1"></div>
+                      <div className="h-3 bg-slate-200 rounded w-16"></div>
+                    </td>
+                    <td className="table-td">
+                      <div className="h-5 bg-slate-200 rounded-full w-14"></div>
+                    </td>
+                    <td className="table-td">
+                      <div className="h-3.5 bg-slate-200 rounded w-16 mb-1"></div>
+                      <div className="h-2.5 bg-slate-200 rounded w-10"></div>
+                    </td>
+                    <td className="table-td text-right">
+                      <div className="h-6 bg-slate-200 rounded w-16 ml-auto"></div>
+                    </td>
+                  </tr>
+                ))
               ) : filteredSales.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="p-12 text-center text-slate-500">
@@ -130,7 +187,7 @@ export default function CounterSalesHistoryTable({
                   </td>
                 </tr>
               ) : (
-                filteredSales.map(sale => {
+                paginatedSales.map(sale => {
                   const total = Number(sale.totalAmount ?? (Number(sale.cashCollected || 0) + Number(sale.creditAmount || 0)));
                   const paid = Number(sale.amountPaid ?? Number(sale.cashCollected || 0));
                   const debt = Number(sale.debtAmount ?? Number(sale.creditAmount || 0));
@@ -271,6 +328,75 @@ export default function CounterSalesHistoryTable({
           </table>
         </div>
       </div>
+
+      {/* Strict Pagination Controls Bar */}
+      {!loading && filteredSales.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs shadow-2xs">
+          <div className="flex flex-wrap items-center gap-3 text-slate-600">
+            <span>
+              Showing <strong className="text-slate-900 font-mono">{startIndex + 1}</strong> to{' '}
+              <strong className="text-slate-900 font-mono">{endIndex}</strong> of{' '}
+              <strong className="text-slate-900 font-mono">{filteredSales.length}</strong> sales
+            </span>
+            <span className="text-slate-300 hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="select-base py-0.5 px-2 text-xs font-semibold cursor-pointer w-auto"
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-medium mr-1.5 font-mono text-[11px]">
+              Page {validCurrentPage} of {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={validCurrentPage <= 1}
+              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
+              title="First Page"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={validCurrentPage <= 1}
+              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
+              title="Previous Page"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={validCurrentPage >= totalPages}
+              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
+              title="Next Page"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={validCurrentPage >= totalPages}
+              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
+              title="Last Page"
+            >
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

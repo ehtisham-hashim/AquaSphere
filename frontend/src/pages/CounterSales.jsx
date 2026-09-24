@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Calendar } from 'lucide-react';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -32,7 +31,6 @@ export default function CounterSales() {
   const isOwner = userRole === 'OWNER';
   const canCreate = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(userRole);
 
-  const [activeTab, setActiveTab] = useState('new-sale');
   const [submitting, setSubmitting] = useState(false);
 
   const [liveSaleNumber, setLiveSaleNumber] = useState(generateSaleNumber());
@@ -206,43 +204,20 @@ export default function CounterSales() {
         hasSales={filteredSales.length > 0} 
       />
 
-      <CounterSalesStockBar items={finishedGoods} />
+      {/* Horizontal Finished Goods Stock Wrapper */}
+      <CounterSalesStockBar items={finishedGoods} loading={loading} />
 
+      {/* Realtime Counter Metrics */}
       <CounterSalesMetrics 
         todayTotalRevenue={todayRevenue}
         todayLitres={todayLitres}
         todayCash={todayPaid}
         todayCredit={todayDebt}
+        loading={loading}
       />
 
-      {/* Tabs Bar */}
-      <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 w-fit">
-        {canCreate && (
-          <button
-            onClick={() => setActiveTab('new-sale')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'new-sale'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Plus size={14} /> Retail Sale (POS)
-          </button>
-        )}
-
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 ${
-            activeTab === 'history'
-              ? 'bg-white text-slate-900 shadow-2xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Calendar size={14} /> Sales History ({sales.length})
-        </button>
-      </div>
-
-      {activeTab === 'new-sale' && canCreate && (
+      {/* POS Quick Sale Terminal */}
+      {canCreate && (
         <LogCounterSaleForm 
           liveSaleNumber={liveSaleNumber}
           user={user}
@@ -253,10 +228,22 @@ export default function CounterSales() {
           submitting={submitting}
           lastRecordedSale={lastRecordedSale}
           onPrintReceipt={setReceiptSale}
+          loading={loading}
         />
       )}
 
-      {activeTab === 'history' && (
+      {/* Counter Sales History & Audit Trail Directly Below */}
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Counter Sales History</h3>
+            <p className="text-xs text-slate-400">Audit trail of all spot sales and walk-in counter dispatches</p>
+          </div>
+          <span className="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs font-mono">
+            Total Records: <strong className="text-slate-900">{sales.length}</strong>
+          </span>
+        </div>
+
         <CounterSalesHistoryTable 
           search={search}
           setSearch={setSearch}
@@ -268,7 +255,7 @@ export default function CounterSales() {
           onDeleteSale={handleDeleteSale}
           userName={user?.name}
         />
-      )}
+      </div>
 
       <CounterSaleReceiptModal 
         receiptSale={receiptSale}
