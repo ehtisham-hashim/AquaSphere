@@ -6,8 +6,7 @@ import {
   copyTextToClipboard,
   formatCounterSaleWhatsApp,
   printReceiptElement,
-  renderReceiptToCanvas,
-  copyCanvasImageToClipboard
+  copyReceiptElementAsImage
 } from '../../utils/receiptFormatter';
 
 const nameMap = {
@@ -79,33 +78,12 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
 
   const handleCopyImage = async () => {
     try {
-      const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
-      const canvas = renderReceiptToCanvas({
-        title: company,
-        subtitle: 'Retail Sale Receipt • Counter Dispatch',
-        receiptNoLabel: 'RECEIPT NO',
-        receiptNo: saleId,
-        dateStr: new Date(receiptSale.createdAt).toLocaleString(),
-        customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
-        paymentMethod: receiptSale.paymentMethod || 'CASH',
-        servedBy: receiptSale.createdBy?.name || user?.name || 'Staff',
-        statusValue: debt > 0 ? `CREDIT (DUE: Rs. ${debt.toLocaleString()})` : 'PAID IN FULL',
-        items,
-        summaryRows: [
-          { label: 'TOTAL BILL', value: total },
-          { label: 'AMOUNT PAID', value: paid },
-          ...(debt > 0 ? [{ label: 'CUSTOMER DEBT', value: debt }] : [])
-        ],
-        netTotal: total,
-        footerNote: `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!`
-      });
-
-      await copyCanvasImageToClipboard(canvas);
+      await copyReceiptElementAsImage('printable-receipt');
       setCopiedImage(true);
       toast.success('Receipt image copied! Paste (Ctrl+V) directly into WhatsApp.');
       setTimeout(() => setCopiedImage(false), 2500);
     } catch (err) {
-      console.warn('Canvas image copy failed, falling back to text:', err);
+      console.warn('Receipt image copy failed, falling back to text:', err);
       handleCopyText();
     }
   };

@@ -6,8 +6,7 @@ import {
   copyTextToClipboard,
   formatOrderInvoiceWhatsApp,
   printReceiptElement,
-  renderReceiptToCanvas,
-  copyCanvasImageToClipboard
+  copyReceiptElementAsImage
 } from '../../utils/receiptFormatter';
 
 export default function OrderInvoiceModal({ order, onClose }) {
@@ -34,39 +33,12 @@ export default function OrderInvoiceModal({ order, onClose }) {
 
   const handleCopyImage = async () => {
     try {
-      const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
-      const canvas = renderReceiptToCanvas({
-        title: company,
-        subtitle: 'Commercial Sales Invoice',
-        receiptNoLabel: 'INVOICE NO',
-        receiptNo: `#${orderId}`,
-        dateStr: orderDate,
-        customerName: order.customer?.name || 'Walk-In Customer',
-        paymentMethod: order.customer?.phone || 'Cash / Delivery',
-        servedBy: order.deliveryStatus || 'Commercial',
-        statusValue: balanceDue > 0 ? `DUE (Rs. ${balanceDue.toLocaleString()})` : 'PAID IN FULL',
-        items: items.map(item => ({
-          name: item.item?.name || 'Item',
-          qty: Number(item.quantity || 0),
-          unitPrice: Number(item.price || 0),
-          lineTotal: Number(item.price || 0) * Number(item.quantity || 0)
-        })),
-        summaryRows: [
-          { label: 'SUBTOTAL', value: grandTotal },
-          { label: 'AMOUNT PAID', value: totalPaid },
-          ...(balanceDue > 0 ? [{ label: 'BALANCE DUE', value: balanceDue }] : [])
-        ],
-        netTotal: grandTotal,
-        remarks: order.remarks,
-        footerNote: `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!`
-      });
-
-      await copyCanvasImageToClipboard(canvas);
+      await copyReceiptElementAsImage('order-invoice-print');
       setCopiedImage(true);
       toast.success('Invoice image copied! Paste (Ctrl+V) directly into WhatsApp.');
       setTimeout(() => setCopiedImage(false), 2500);
     } catch (err) {
-      console.warn('Canvas image copy failed, falling back to text:', err);
+      console.warn('Invoice image copy failed, falling back to text:', err);
       handleCopyText();
     }
   };

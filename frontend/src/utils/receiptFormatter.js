@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas';
+
 /**
  * Reliably copies plain/rich text to the system clipboard across modern and legacy browsers.
  * @param {string} text - Plain text to copy.
@@ -75,7 +77,7 @@ export function printReceiptElement(elementId) {
         <style>
           @page {
             size: auto;
-            margin: 8mm;
+            margin: 10mm 15mm;
           }
           * {
             box-sizing: border-box;
@@ -92,19 +94,45 @@ export function printReceiptElement(elementId) {
             background: #ffffff !important;
             font-family: 'Times New Roman', Times, 'Tinos', serif !important;
             width: 100% !important;
+            font-size: 13pt;
           }
           .receipt-wrap {
             width: 100% !important;
-            max-width: 80mm !important;
+            max-width: 180mm !important;
             margin: 0 auto !important;
-            padding: 2mm 0 !important;
+            padding: 0 !important;
             font-family: 'Times New Roman', Times, 'Tinos', serif !important;
           }
-          /* Allow expanding nicely on standard desktop printers if preferred */
-          @media print and (min-width: 100mm) {
-            .receipt-wrap {
-              max-width: 105mm !important;
-            }
+          /* Ensure font sizes look proportional and crisp on A4 paper */
+          .receipt-wrap h2 {
+            font-size: 20pt !important;
+            margin-bottom: 4pt !important;
+          }
+          .receipt-wrap p {
+            font-size: 12pt !important;
+          }
+          .receipt-wrap table {
+            width: 100% !important;
+            font-size: 13pt !important;
+          }
+          .receipt-wrap th {
+            font-size: 12pt !important;
+            padding: 6pt 4pt !important;
+          }
+          .receipt-wrap td {
+            font-size: 13pt !important;
+            padding: 6pt 4pt !important;
+          }
+          .receipt-wrap .text-xs,
+          .receipt-wrap .text-sm {
+            font-size: 13pt !important;
+          }
+          .receipt-wrap .text-lg {
+            font-size: 20pt !important;
+          }
+          .receipt-wrap .text-\\[11px\\],
+          .receipt-wrap .text-\\[10px\\] {
+            font-size: 11pt !important;
           }
           .no-print {
             display: none !important;
@@ -133,6 +161,35 @@ export function printReceiptElement(elementId) {
       }, 2000);
     }
   }, 250);
+}
+
+/**
+ * Captures the exact DOM element of the receipt directly to a high-resolution PNG
+ * using html2canvas and copies it to the clipboard.
+ * Guaranteed 100% identical pattern to the on-screen receipt modal.
+ */
+export async function copyReceiptElementAsImage(elementId, fallbackData = null) {
+  const element = document.getElementById(elementId);
+  if (element && typeof html2canvas === 'function') {
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2.5,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+      return await copyCanvasImageToClipboard(canvas);
+    } catch (e) {
+      console.warn('html2canvas capture failed, trying fallback renderer:', e);
+    }
+  }
+
+  if (fallbackData) {
+    const canvas = renderReceiptToCanvas(fallbackData);
+    return await copyCanvasImageToClipboard(canvas);
+  }
+
+  throw new Error('Could not capture receipt image');
 }
 
 /**
@@ -199,71 +256,108 @@ export function renderReceiptToCanvas({
 
   // Header
   ctx.textAlign = 'center';
-  ctx.font = 'bold 18px "Times New Roman", Times, serif';
+  ctx.font = 'bold 19px "Times New Roman", Times, serif';
   ctx.fillText(title, width / 2, 36);
 
   ctx.font = 'bold 12px "Times New Roman", Times, serif';
   ctx.fillText(subtitle.toUpperCase(), width / 2, 54);
-  ctx.fillText('----------------------------------------------------', width / 2, 68);
 
-  let y = 84;
-  const drawRow = (leftText, rightText) => {
+  ctx.font = 'italic 11px "Times New Roman", Times, serif';
+  ctx.fillStyle = '#333333';
+  ctx.fillText('Pure Quality • Safe & Healthy Water', width / 2, 69);
+  ctx.fillStyle = '#000000';
+
+  let y = 78;
+  drawDashedLine(y);
+
+  y += 18;
+  const drawRow = (leftLabel, leftVal, rightLabel, rightVal) => {
     ctx.textAlign = 'left';
-    ctx.font = '13px "Times New Roman", Times, serif';
-    ctx.fillText(leftText, 20, y);
-    ctx.textAlign = 'right';
-    ctx.fillText(rightText, width - 20, y);
+    ctx.font = 'bold 12px "Times New Roman", Times, serif';
+    ctx.fillText(leftLabel, 20, y);
+    const leftLabelWidth = ctx.measureText(leftLabel).width;
+    ctx.font = '12px "Times New Roman", Times, serif';
+    ctx.fillText(' ' + leftVal, 20 + leftLabelWidth, y);
+
+    if (rightLabel !== undefined) {
+      ctx.textAlign = 'right';
+      if (rightVal) {
+        ctx.font = '12px "Times New Roman", Times, serif';
+        ctx.fillText(rightVal, width - 20, y);
+        const rightValWidth = ctx.measureText(rightVal).width;
+        ctx.font = 'bold 12px "Times New Roman", Times, serif';
+        ctx.fillText(rightLabel + ' ', width - 20 - rightValWidth, y);
+      } else {
+        ctx.font = 'bold 12px "Times New Roman", Times, serif';
+        ctx.fillText(rightLabel, width - 20, y);
+      }
+    }
     y += 18;
   };
 
-  drawRow(`${receiptNoLabel}: ${receiptNo}`, `DATE: ${dateStr}`);
-  drawRow(`CUSTOMER: ${customerName || 'Walk-In'}`, `METHOD: ${paymentMethod || 'CASH'}`);
-  drawRow(`STAFF: ${servedBy || 'Counter'}`, `STATUS: ${statusValue || 'PAID'}`);
+  drawRow('REC:', receiptNo, dateStr, '');
+  drawRow('CUST:', customerName || 'Walk-In Cash Customer');
+  drawRow('PAY:', paymentMethod || 'CASH', statusValue || 'PAID IN FULL', '');
+  
+  ctx.textAlign = 'left';
+  ctx.font = '11px "Times New Roman", Times, serif';
+  ctx.fillStyle = '#444444';
+  ctx.fillText(`STAFF: ${servedBy || 'Staff'}`, 20, y);
+  ctx.fillStyle = '#000000';
+  y += 14;
 
-  y += 2;
   drawDashedLine(y);
 
   // Table Headers
-  y += 14;
-  ctx.font = 'bold 13px "Times New Roman", Times, serif';
+  y += 16;
+  ctx.font = 'bold 11px "Times New Roman", Times, serif';
   ctx.textAlign = 'left';
   ctx.fillText('#', 20, y);
   ctx.fillText('ITEM', 42, y);
   ctx.textAlign = 'center';
   ctx.fillText('QTY', 310, y);
   ctx.textAlign = 'right';
-  ctx.fillText('RATE', 400, y);
-  ctx.fillText('TOTAL', width - 20, y);
+  ctx.fillText('RATE', 410, y);
+  ctx.fillText('AMOUNT', width - 20, y);
 
-  y += 8;
+  y += 6;
   drawDashedLine(y);
 
   // Table Rows
-  ctx.font = '13px "Times New Roman", Times, serif';
+  ctx.font = '12px "Times New Roman", Times, serif';
   items.forEach((item, idx) => {
     y += 18;
     ctx.textAlign = 'left';
     ctx.fillText(String(idx + 1), 20, y);
     const itemName = item.name.length > 28 ? item.name.slice(0, 28) + '..' : item.name;
+    ctx.font = 'bold 12px "Times New Roman", Times, serif';
     ctx.fillText(itemName, 42, y);
+    ctx.font = '12px "Times New Roman", Times, serif';
 
     ctx.textAlign = 'center';
+    ctx.font = 'bold 12px "Times New Roman", Times, serif';
     ctx.fillText(String(item.qty), 310, y);
+    ctx.font = '12px "Times New Roman", Times, serif';
 
     ctx.textAlign = 'right';
-    ctx.fillText(item.unitPrice > 0 ? `${item.unitPrice.toLocaleString()}` : '—', 400, y);
+    ctx.fillText(item.unitPrice > 0 ? `${item.unitPrice.toLocaleString()}` : '—', 410, y);
+    ctx.font = 'bold 12px "Times New Roman", Times, serif';
     ctx.fillText(`${item.lineTotal.toLocaleString()}`, width - 20, y);
+    ctx.font = '12px "Times New Roman", Times, serif';
   });
 
-  y += 10;
+  y += 8;
   drawDashedLine(y);
 
   // Summary Rows
   y += 16;
   summaryRows.forEach(row => {
+    ctx.textAlign = 'left';
+    ctx.font = '12px "Times New Roman", Times, serif';
+    ctx.fillText(`${row.label}:`, 20, y);
     ctx.textAlign = 'right';
-    ctx.font = '13px "Times New Roman", Times, serif';
-    ctx.fillText(`${row.label}: Rs. ${row.value.toLocaleString()}`, width - 20, y);
+    ctx.font = 'bold 12px "Times New Roman", Times, serif';
+    ctx.fillText(`Rs ${row.value.toLocaleString()}`, width - 20, y);
     y += 18;
   });
 
@@ -271,9 +365,11 @@ export function renderReceiptToCanvas({
   drawDoubleLine(y);
 
   y += 18;
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 14px "Times New Roman", Times, serif';
+  ctx.fillText('NET TOTAL:', 20, y);
   ctx.textAlign = 'right';
-  ctx.font = 'bold 15px "Times New Roman", Times, serif';
-  ctx.fillText(`NET TOTAL: Rs. ${netTotal.toLocaleString()}`, width - 20, y);
+  ctx.fillText(`Rs ${netTotal.toLocaleString()}`, width - 20, y);
 
   y += 6;
   drawDoubleLine(y);
@@ -281,17 +377,17 @@ export function renderReceiptToCanvas({
   if (remarks) {
     y += 20;
     ctx.textAlign = 'left';
-    ctx.font = '12px "Times New Roman", Times, serif';
-    ctx.fillText(`REMARKS: ${remarks}`, 20, y);
+    ctx.font = '11px "Times New Roman", Times, serif';
+    ctx.fillText(`Remarks: ${remarks}`, 20, y);
   }
 
   // Footer Note
-  y += 24;
+  y += 22;
   drawDashedLine(y);
   y += 14;
   ctx.textAlign = 'center';
-  ctx.font = 'italic 12px "Times New Roman", Times, serif';
-  ctx.fillText(footerNote || 'THANK YOU FOR YOUR VISIT!', width / 2, y);
+  ctx.font = 'italic 11px "Times New Roman", Times, serif';
+  ctx.fillText(footerNote || 'THANK YOU FOR CHOOSING AQUASPHERE!', width / 2, y);
 
   return canvas;
 }
