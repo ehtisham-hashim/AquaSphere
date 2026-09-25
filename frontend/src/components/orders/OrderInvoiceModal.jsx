@@ -33,13 +33,49 @@ export default function OrderInvoiceModal({ order, onClose }) {
 
   const handleCopyImage = async () => {
     try {
-      await copyReceiptElementAsImage('order-invoice-print');
-      setCopiedImage(true);
-      toast.success('Invoice image copied! Paste (Ctrl+V) directly into WhatsApp.');
-      setTimeout(() => setCopiedImage(false), 2500);
+      const invoiceData = {
+        title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+        subtitle: 'Commercial Sales Invoice',
+        tagline: 'Pure Quality • Safe & Healthy Water',
+        receiptNo: `#${orderId}`,
+        receiptNoLabel: 'INV:',
+        dateStr: orderDate,
+        customerName: order.customer?.name || 'Walk-In Customer',
+        customerPhone: order.customer?.phone || '',
+        paymentMethod: order.paymentStatus || 'UNPAID',
+        statusValue: balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL',
+        servedBy: `DELIVERY: ${order.deliveryStatus || 'PENDING'}`,
+        items: items.map(item => {
+          const qty = Number(item.quantity || 0);
+          const rate = Number(item.price || 0);
+          return {
+            name: item.item?.name || 'Item',
+            qty,
+            unitPrice: rate,
+            lineTotal: qty * rate
+          };
+        }),
+        summaryRows: [
+          { label: 'Subtotal', value: grandTotal },
+          { label: 'Amount Paid', value: totalPaid },
+          ...(balanceDue > 0 ? [{ label: 'Balance Due', value: balanceDue }] : [])
+        ],
+        netTotal: grandTotal,
+        remarks: order.remarks || '',
+        footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+      };
+
+      const res = await copyReceiptElementAsImage('order-invoice-print', invoiceData);
+      if (res && res.method === 'clipboard') {
+        setCopiedImage(true);
+        toast.success('Invoice image copied! Paste (Ctrl+V) directly into WhatsApp.');
+        setTimeout(() => setCopiedImage(false), 2500);
+      } else {
+        toast.info('Invoice image downloaded! You can attach it directly in WhatsApp.');
+      }
     } catch (err) {
-      console.warn('Invoice image copy failed, falling back to text:', err);
-      handleCopyText();
+      console.error('Invoice image copy failed:', err);
+      toast.error('Could not copy image. Try Print Invoice or Copy Text.');
     }
   };
 

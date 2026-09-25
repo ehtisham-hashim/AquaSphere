@@ -78,13 +78,42 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
 
   const handleCopyImage = async () => {
     try {
-      await copyReceiptElementAsImage('printable-receipt');
-      setCopiedImage(true);
-      toast.success('Receipt image copied! Paste (Ctrl+V) directly into WhatsApp.');
-      setTimeout(() => setCopiedImage(false), 2500);
+      const receiptData = {
+        title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+        subtitle: 'Retail Sale • Counter Dispatch',
+        tagline: 'Pure Quality • Safe & Healthy Water',
+        receiptNo: saleId,
+        dateStr: `${new Date(receiptSale.createdAt).toLocaleDateString()} ${new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
+        paymentMethod: receiptSale.paymentMethod || 'CASH',
+        statusValue: debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL',
+        servedBy: `STAFF: ${receiptSale.createdBy?.name || user?.name || 'Staff'} (${receiptSale.createdBy?.role || user?.role || 'POS'})`,
+        items: items.map(item => ({
+          name: item.name,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal
+        })),
+        summaryRows: [
+          { label: 'Total Bill', value: total },
+          { label: 'Amount Paid', value: paid },
+          ...(debt > 0 ? [{ label: 'Customer Debt', value: debt }] : [])
+        ],
+        netTotal: total,
+        footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+      };
+
+      const res = await copyReceiptElementAsImage('printable-receipt', receiptData);
+      if (res && res.method === 'clipboard') {
+        setCopiedImage(true);
+        toast.success('Receipt image copied! Paste (Ctrl+V) directly into WhatsApp.');
+        setTimeout(() => setCopiedImage(false), 2500);
+      } else {
+        toast.info('Receipt image downloaded! You can attach it directly in WhatsApp.');
+      }
     } catch (err) {
-      console.warn('Receipt image copy failed, falling back to text:', err);
-      handleCopyText();
+      console.error('Receipt image copy failed:', err);
+      toast.error('Could not copy image. Try Print Receipt or Copy Text.');
     }
   };
 
