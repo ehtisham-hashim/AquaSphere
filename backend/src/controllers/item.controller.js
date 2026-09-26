@@ -65,12 +65,16 @@ export const getItemById = asyncHandler(async (req, res) => {
 
 /** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0, recipe = [] } = req.body;
+  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [] } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
   const cleanName = name.trim();
-  const addQty = parseFloat(initialStock || quantityToAdd || 0);
+
+  const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
+  const initF = hasLocationStock ? Math.max(0, parseFloat(factoryStock) || 0) : Math.max(0, parseFloat(initialStock || quantityToAdd || 0));
+  const initW = hasLocationStock ? Math.max(0, parseFloat(warehouseStock) || 0) : 0;
+  const addQty = initF + initW;
 
   const existingItem = await prisma[`${prefix}Item`].findFirst({
     where: { name: { equals: cleanName, mode: 'insensitive' }, archivedAt: null }
@@ -78,9 +82,14 @@ export const createItem = asyncHandler(async (req, res) => {
 
   if (existingItem) {
     const updated = await prisma.$transaction(async (tx) => {
-      if (addQty > 0) {
+      if (initF > 0) {
         await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: existingItem.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: 'SYSTEM' }
+          data: { itemId: existingItem.id, quantity: initF, direction: 'IN', reason: 'STOCK_ADDED', location: 'FACTORY', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
+        });
+      }
+      if (initW > 0) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: { itemId: existingItem.id, quantity: initW, direction: 'IN', reason: 'STOCK_ADDED', location: 'WAREHOUSE', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
         });
       }
 
@@ -103,7 +112,8 @@ export const createItem = asyncHandler(async (req, res) => {
         where: { id: existingItem.id },
         data: {
           cachedQty: { increment: addQty > 0 ? addQty : 0 },
-          factoryQty: { increment: addQty > 0 ? addQty : 0 },
+          factoryQty: { increment: initF > 0 ? initF : 0 },
+          warehouseQty: { increment: initW > 0 ? initW : 0 },
           reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
           unit: unit || existingItem.unit
         },
@@ -122,13 +132,19 @@ export const createItem = asyncHandler(async (req, res) => {
         unit,
         reorderLevel: parseFloat(reorderLevel) || 0,
         cachedQty: addQty > 0 ? addQty : 0,
-        factoryQty: addQty > 0 ? addQty : 0
+        factoryQty: initF > 0 ? initF : 0,
+        warehouseQty: initW > 0 ? initW : 0
       }
     });
 
-    if (addQty > 0) {
+    if (initF > 0) {
       await tx[`${prefix}InventoryTransaction`].create({
-        data: { itemId: newItem.id, quantity: addQty, direction: 'IN', reason: 'INITIAL_STOCK', refType: 'MANUAL', refId: 'SYSTEM' }
+        data: { itemId: newItem.id, quantity: initF, direction: 'IN', reason: 'INITIAL_STOCK', location: 'FACTORY', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
+      });
+    }
+    if (initW > 0) {
+      await tx[`${prefix}InventoryTransaction`].create({
+        data: { itemId: newItem.id, quantity: initW, direction: 'IN', reason: 'INITIAL_STOCK', location: 'WAREHOUSE', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
       });
     }
 
@@ -158,10 +174,11 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, recipe } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
+  const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
   const hasDirectStock = currentStock !== undefined && currentStock !== null && currentStock !== '';
   const addQty = parseFloat(initialStock || quantityToAdd || 0);
 
@@ -175,7 +192,47 @@ export const updateItem = asyncHandler(async (req, res) => {
       reorderLevel: parseFloat(reorderLevel) || item.reorderLevel
     };
 
-    if (hasDirectStock) {
+    if (hasLocationStock) {
+      const currentF = Number(item.factoryQty || 0);
+      const currentW = Number(item.warehouseQty || 0);
+      const targetF = factoryStock !== undefined ? Math.max(0, parseFloat(factoryStock) || 0) : currentF;
+      const targetW = warehouseStock !== undefined ? Math.max(0, parseFloat(warehouseStock) || 0) : currentW;
+
+      const diffF = targetF - currentF;
+      const diffW = targetW - currentW;
+
+      if (Math.abs(diffF) > 0.000001) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: item.id,
+            quantity: Math.abs(diffF),
+            direction: diffF > 0 ? 'IN' : 'OUT',
+            reason: 'STOCK_ADJUSTMENT',
+            location: 'FACTORY',
+            refType: 'MANUAL',
+            refId: req.user?.id || 'SYSTEM'
+          }
+        });
+      }
+
+      if (Math.abs(diffW) > 0.000001) {
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: item.id,
+            quantity: Math.abs(diffW),
+            direction: diffW > 0 ? 'IN' : 'OUT',
+            reason: 'STOCK_ADJUSTMENT',
+            location: 'WAREHOUSE',
+            refType: 'MANUAL',
+            refId: req.user?.id || 'SYSTEM'
+          }
+        });
+      }
+
+      updateData.factoryQty = targetF;
+      updateData.warehouseQty = targetW;
+      updateData.cachedQty = targetF + targetW;
+    } else if (hasDirectStock) {
       const targetStock = Math.max(0, parseFloat(currentStock) || 0);
       const currentStockVal = Number(item.cachedQty || 0);
       const diff = targetStock - currentStockVal;
@@ -187,6 +244,7 @@ export const updateItem = asyncHandler(async (req, res) => {
             quantity: Math.abs(diff),
             direction: diff > 0 ? 'IN' : 'OUT',
             reason: 'STOCK_ADJUSTMENT',
+            location: 'FACTORY',
             refType: 'MANUAL',
             refId: req.user?.id || 'SYSTEM'
           }
@@ -194,11 +252,16 @@ export const updateItem = asyncHandler(async (req, res) => {
       }
       const currentWh = Number(item.warehouseQty || 0);
       updateData.cachedQty = targetStock;
-      updateData.factoryQty = Math.max(0, targetStock - currentWh);
+      if (targetStock >= currentWh) {
+        updateData.factoryQty = targetStock - currentWh;
+      } else {
+        updateData.factoryQty = 0;
+        updateData.warehouseQty = targetStock;
+      }
     } else {
       if (addQty > 0) {
         await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: item.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
+          data: { itemId: item.id, quantity: addQty, direction: 'IN', reason: 'STOCK_ADDED', location: 'FACTORY', refType: 'MANUAL', refId: req.user?.id || 'SYSTEM' }
         });
       }
       updateData.cachedQty = { increment: addQty > 0 ? addQty : 0 };

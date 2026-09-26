@@ -13,7 +13,8 @@ export default function AddEditFinishedGoodModal({
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('packs');
   const [reorderLevel, setReorderLevel] = useState(20);
-  const [initialStock, setInitialStock] = useState('');
+  const [factoryStock, setFactoryStock] = useState('0');
+  const [warehouseStock, setWarehouseStock] = useState('0');
 
   // Raw materials list: array of DB items
   const [rawMaterials, setRawMaterials] = useState([]);
@@ -42,7 +43,15 @@ export default function AddEditFinishedGoodModal({
           setName(itemToEdit.name || '');
           setUnit(itemToEdit.unit || 'packs');
           setReorderLevel(Number(itemToEdit.reorderLevel || 0));
-          setInitialStock('');
+
+          const fac = Number(itemToEdit.factoryQty || 0);
+          const wh = Number(itemToEdit.warehouseQty || 0);
+          const cached = Number(itemToEdit.cachedQty || 0);
+          const effectiveFac = (fac === 0 && wh === 0 && cached > 0) ? cached : fac;
+          const effectiveWh = (fac === 0 && wh === 0 && cached > 0) ? 0 : wh;
+
+          setFactoryStock(String(effectiveFac));
+          setWarehouseStock(String(effectiveWh));
 
           const qtyMap = {};
           (itemToEdit.recipeFinishedGoods || []).forEach(r => {
@@ -56,7 +65,8 @@ export default function AddEditFinishedGoodModal({
           setName('');
           setUnit('packs');
           setReorderLevel(20);
-          setInitialStock('');
+          setFactoryStock('0');
+          setWarehouseStock('0');
           setMaterialQuantities({});
         }
       } catch (err) {
@@ -112,7 +122,8 @@ export default function AddEditFinishedGoodModal({
           type: 'FINISHED_GOOD',
           unit: unit.trim() || 'packs',
           reorderLevel: parseFloat(reorderLevel) || 0,
-          initialStock: parseFloat(initialStock) || 0,
+          factoryStock: parseFloat(factoryStock) || 0,
+          warehouseStock: parseFloat(warehouseStock) || 0,
           recipe: validRecipe
         })
       });
@@ -132,6 +143,8 @@ export default function AddEditFinishedGoodModal({
       setSaving(false);
     }
   };
+
+  const totalCalculatedStock = (Math.max(0, parseFloat(factoryStock) || 0) + Math.max(0, parseFloat(warehouseStock) || 0));
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-[70] animate-in fade-in duration-150">
@@ -174,7 +187,7 @@ export default function AddEditFinishedGoodModal({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Unit</label>
                 <select
@@ -190,26 +203,80 @@ export default function AddEditFinishedGoodModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Reorder Level (Alert)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Reorder Level (Alert Threshold)</label>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   value={reorderLevel}
                   onChange={(e) => setReorderLevel(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Initial Stock</label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={initialStock}
-                  onChange={(e) => setInitialStock(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
+            {/* Location Stock Breakdown (Factory & Warehouse) & Live Total */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    {itemToEdit ? 'Adjust Stock by Location' : 'Initial Stock by Location'}
+                  </h5>
+                  <p className="text-[11px] text-slate-500">
+                    {itemToEdit 
+                      ? 'Update factory and warehouse balances directly. Both increases and decreases are recorded.' 
+                      : 'Assign opening stock to factory and warehouse locations.'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Available</span>
+                  <span className="text-sm font-mono font-black text-brand">
+                    {totalCalculatedStock.toLocaleString()}{' '}
+                    <span className="text-[11px] font-normal text-slate-500">{unit}</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>🏭 Factory Stock ({unit})</span>
+                    {itemToEdit && (
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        Prev: {Number(itemToEdit.factoryQty || 0).toLocaleString()}
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={factoryStock}
+                    onChange={(e) => setFactoryStock(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>🏢 Warehouse Stock ({unit})</span>
+                    {itemToEdit && (
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        Prev: {Number(itemToEdit.warehouseQty || 0).toLocaleString()}
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={warehouseStock}
+                    onChange={(e) => setWarehouseStock(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
               </div>
             </div>
           </div>
