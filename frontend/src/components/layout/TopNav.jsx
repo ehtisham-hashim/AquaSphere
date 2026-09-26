@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL, clearCache } from '../../utils/api';
-import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory } from 'lucide-react';
+import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut } from 'lucide-react';
 
 const PAGE_TITLES = {
   '/': { title: 'Dashboard', subtitle: 'Fast access to company operations and alerts' },
@@ -94,7 +94,7 @@ const formatAlertDetails = (log) => {
 
 export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapsed = false }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { tenant: currentTenant, isWadaana, setTenant } = useTenant();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
@@ -310,6 +310,16 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
             {user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}
           </div>
         </div>
+
+        {/* Mobile-only Sign Out — sidebar sign-out is hidden on mobile until drawer opens */}
+        <button
+          className="md:hidden p-1.5 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
+          onClick={logout}
+          aria-label="Sign out"
+          title="Sign Out"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   );

@@ -23,6 +23,25 @@ import {
   LogOut
 } from 'lucide-react';
 
+// ponytail: hover-prefetch — fires import() on mouse-enter so the JS chunk is already
+// downloaded when the user clicks. No lib, no state, browser handles dedup.
+const PREFETCH_MAP = {
+  '/': () => import('../../pages/Dashboard'),
+  '/orders': () => import('../../pages/Orders'),
+  '/customers': () => import('../../pages/Customers'),
+  '/production': () => import('../../pages/Production'),
+  '/inventory': () => import('../../pages/Inventory'),
+  '/raw-materials': () => import('../../pages/RawMaterials'),
+  '/purchases': () => import('../../pages/Purchases'),
+  '/vendors': () => import('../../pages/Vendors'),
+  '/expenses': () => import('../../pages/Expenses'),
+  '/counter-sales': () => import('../../pages/CounterSales'),
+  '/pricing': () => import('../../pages/ProductPricing'),
+  '/users': () => import('../../pages/Users'),
+  '/transport': () => import('../../pages/Transport'),
+  '/daily-close': () => import('../../pages/DailyClose'),
+};
+
 const navItems = [
   { icon: BarChart3, label: 'Dashboard', path: '/' },
   { icon: Truck, label: 'Orders', path: '/orders' },
@@ -97,6 +116,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
                   key={item.path}
                   to={item.path}
                   onClick={() => { if (isOpen) onClose(); }}
+                  onMouseEnter={() => PREFETCH_MAP[item.path]?.()}
+                  onFocus={() => PREFETCH_MAP[item.path]?.()}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl text-sm transition-all duration-150 ${

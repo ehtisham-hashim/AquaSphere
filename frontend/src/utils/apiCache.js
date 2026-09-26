@@ -96,7 +96,15 @@ export function setupApiCache() {
 
     // Invalidate cache on mutations (POST, PUT, PATCH, DELETE)
     if (isApiRequest && !isGet) {
-      clearCache();
+      // Invalidate only the affected resource, not the whole cache.
+      // e.g. POST /api/v1/orders/123/pay → clears keys containing "orders" only.
+      // ponytail: simple segment extraction — upgrade to fine-grained key map if needed.
+      const resourceSegment = url.split('/api/v1/').pop()?.split('/')[0] || '';
+      if (resourceSegment) {
+        clearCache(resourceSegment);
+      } else {
+        clearCache();
+      }
       return originalFetch.apply(this, arguments);
     }
 
