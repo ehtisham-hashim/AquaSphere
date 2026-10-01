@@ -1,6 +1,8 @@
 import { Search, Loader2, Calendar, CheckCircle, AlertCircle, UserCheck, Car } from 'lucide-react';
 import { EXPENSE_CATEGORIES, getExpenseCategoryColor } from '../../constants/expenses';
 import { useTenant } from '../../context/TenantContext';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function ExpensesTable({
   filteredExpenses = [],
@@ -13,6 +15,7 @@ export default function ExpensesTable({
   categories = EXPENSE_CATEGORIES
 }) {
   const { isWadaana } = useTenant();
+  const pagination = usePagination(filteredExpenses, 50, search);
 
   return (
     <div className="space-y-3">
@@ -79,7 +82,7 @@ export default function ExpensesTable({
                     Loading expenses...
                   </td>
                 </tr>
-              ) : filteredExpenses.map(ex => (
+              ) : pagination.paginatedItems.map(ex => (
                 <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="table-td text-slate-600 text-xs font-medium">
                     <div className="flex items-center gap-1.5">
@@ -145,6 +148,7 @@ export default function ExpensesTable({
             </tbody>
           </table>
         </div>
+        <TablePagination pagination={pagination} />
       </div>
     </div>
   );

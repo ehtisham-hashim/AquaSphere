@@ -5,10 +5,25 @@ import { uploadImage, UPLOAD_FOLDERS } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
+
+export const sanitizeGoogleMapsUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  let clean = url.trim();
+  if (!clean) return null;
+  if (/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(clean)) {
+    return `https://www.google.com/maps/search/?api=1&query=${clean.replace(/\s+/g, '')}`;
+  }
+  if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+    clean = `https://${clean}`;
+  }
+  return clean;
+};
 
 export const isValidGoogleMapsUrl = (url) => {
   if (!url) return true;
-  return ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'].some(d => url.includes(d));
+  const clean = sanitizeGoogleMapsUrl(url);
+  return ['maps.google.com', 'google.com/maps', 'goo.gl', 'maps.app.goo.gl'].some(d => clean.includes(d));
 };
 
 const extractTenantProductFields = (prefix, body) => {
@@ -117,7 +132,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     phone: phone.trim(),
     type,
     address: address || null,
-    mapLink: mapLink || null,
+    mapLink: mapLink ? sanitizeGoogleMapsUrl(mapLink) : null,
     deposit: securityDeposit ? parseInt(securityDeposit, 10) : 0,
     currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
     defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
@@ -148,6 +163,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
   });
 
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
   return sendSuccess(res, customer, 201);
 });
 
@@ -172,7 +188,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   }
   if (type !== undefined) updateData.type = type;
   if (address !== undefined) updateData.address = address;
-  if (mapLink !== undefined) updateData.mapLink = mapLink;
+  if (mapLink !== undefined) updateData.mapLink = mapLink ? sanitizeGoogleMapsUrl(mapLink) : null;
   if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit, 10) || 0;
   if (defaultPrice !== undefined) updateData.defaultPrice = parseFloat(defaultPrice) || 0.0;
   if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit) || 0;
@@ -211,6 +227,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     details: `Customer details updated for ${existing.name}`
   });
 
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
   return sendSuccess(res, customer);
 });
 
@@ -239,6 +256,7 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
     details: `Customer ${customer.name} (${customer.phone}) soft deleted`
   });
 
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: id });
   return sendSuccess(res, null, 200, { message: 'Customer deleted successfully' });
 });
 
@@ -265,6 +283,7 @@ export const restoreCustomer = asyncHandler(async (req, res) => {
     details: `Customer ${updated.name} restored from archive`
   });
 
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: id });
   return sendSuccess(res, updated, 200, { message: 'Customer unarchived successfully' });
 });
 

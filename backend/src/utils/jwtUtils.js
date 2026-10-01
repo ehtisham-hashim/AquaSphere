@@ -10,8 +10,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
  * @param {object} payload - Claims to encode in the token.
  * @returns {string} Signed JWT string.
  */
-export const generateToken = (payload) => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export const generateToken = (payload, expiresIn = JWT_EXPIRES_IN) => {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 };
 
 /**

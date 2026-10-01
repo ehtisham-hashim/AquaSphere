@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { 
   Search, 
   Calendar, 
@@ -6,12 +5,10 @@ import {
   ShieldAlert, 
   User, 
   ShoppingBag, 
-  Eye, 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight 
+  Eye
 } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 const getPaymentBadge = (cash, credit) => {
   if (credit > 0 && cash > 0) {
@@ -90,20 +87,7 @@ export default function CounterSalesHistoryTable({
   onPrintReceipt,
   onDeleteSale
 }) {
-  // Strict Pagination: default 50, options 50, 100, 500
-  const [pageSize, setPageSize] = useState(50);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reset to page 1 whenever search or pageSize changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, pageSize]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
-  const validCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (validCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, filteredSales.length);
-  const paginatedSales = filteredSales.slice(startIndex, endIndex);
+  const pagination = usePagination(filteredSales, 50, search);
 
   return (
     <div className="space-y-3">
@@ -187,7 +171,7 @@ export default function CounterSalesHistoryTable({
                   </td>
                 </tr>
               ) : (
-                paginatedSales.map(sale => {
+                pagination.paginatedItems.map(sale => {
                   const total = Number(sale.totalAmount ?? (Number(sale.cashCollected || 0) + Number(sale.creditAmount || 0)));
                   const paid = Number(sale.amountPaid ?? Number(sale.cashCollected || 0));
                   const debt = Number(sale.debtAmount ?? Number(sale.creditAmount || 0));
@@ -329,74 +313,8 @@ export default function CounterSalesHistoryTable({
         </div>
       </div>
 
-      {/* Strict Pagination Controls Bar */}
-      {!loading && filteredSales.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs shadow-2xs">
-          <div className="flex flex-wrap items-center gap-3 text-slate-600">
-            <span>
-              Showing <strong className="text-slate-900 font-mono">{startIndex + 1}</strong> to{' '}
-              <strong className="text-slate-900 font-mono">{endIndex}</strong> of{' '}
-              <strong className="text-slate-900 font-mono">{filteredSales.length}</strong> sales
-            </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Rows per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-                className="select-base py-0.5 px-2 text-xs font-semibold cursor-pointer w-auto"
-              >
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={500}>500</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 font-medium mr-1.5 font-mono text-[11px]">
-              Page {validCurrentPage} of {totalPages}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setCurrentPage(1)}
-              disabled={validCurrentPage <= 1}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
-              title="First Page"
-            >
-              <ChevronsLeft size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={validCurrentPage <= 1}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
-              title="Previous Page"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={validCurrentPage >= totalPages}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
-              title="Next Page"
-            >
-              <ChevronRight size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={validCurrentPage >= totalPages}
-              className="p-1 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 transition"
-              title="Last Page"
-            >
-              <ChevronsRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Standard Table Pagination */}
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

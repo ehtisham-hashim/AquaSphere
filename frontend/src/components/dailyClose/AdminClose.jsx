@@ -6,11 +6,14 @@ import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay } from '../../se
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
+import DrawerReconciliationCard from './DrawerReconciliationCard';
 
 export default function AdminClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
+  const [actualCash, setActualCash] = useState('');
+  const [notes, setNotes] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,7 +42,11 @@ export default function AdminClose() {
   const handleFinalize = async () => {
     setSubmitting(true);
     try {
-      const json = await finalizeDay(date, tenant);
+      const payload = {
+        actualCash: actualCash !== '' ? Number(actualCash) : undefined,
+        notes: notes.trim() || undefined
+      };
+      const json = await finalizeDay(date, tenant, payload);
       if (json.success) {
         toast.success('Day double-verified and locked successfully.');
         refreshStatus(false);
@@ -144,7 +151,17 @@ export default function AdminClose() {
             </div>
           </div>
 
-          {/* 3. Double-Verification & Daily Lock Action Card */}
+          {/* 3. Cash Drawer Physical Count & Reconciliation */}
+          <DrawerReconciliationCard
+            expectedCash={cashSummary?.netCash || 0}
+            actualCash={actualCash}
+            onActualCashChange={setActualCash}
+            notes={notes}
+            onNotesChange={setNotes}
+            disabled={submitting}
+          />
+
+          {/* 4. Double-Verification & Daily Lock Action Card */}
           <div className="card-surface p-6 border-2 border-indigo-100 bg-indigo-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-indigo-950 font-black text-base">

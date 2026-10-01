@@ -1,5 +1,7 @@
 import { Truck, CheckCircle, MessageCircle, Printer, CreditCard, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -48,6 +50,8 @@ export default function OrdersTable({
     }
   };
 
+  const pagination = usePagination(orders || [], 50);
+
   if (isLoading) {
     return (
       <div className="p-12 text-center text-slate-500">
@@ -84,7 +88,7 @@ export default function OrdersTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
-          {orders.map(o => {
+          {pagination.paginatedItems.map(o => {
             const total = o.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0;
             const totalQty = o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0;
             const isNineteen = o.type === 'NINETEEN_L' || o.type === 'PURE_BOTTLES' || o.type === 'MIX_BOTTLES';
@@ -233,6 +237,7 @@ export default function OrdersTable({
           })}
         </tbody>
       </table>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

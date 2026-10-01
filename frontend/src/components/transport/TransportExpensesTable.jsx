@@ -1,6 +1,8 @@
 import { Loader2, Calendar, Trash2, Car, Search } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function TransportExpensesTable({
   expenses = [],
@@ -17,6 +19,7 @@ export default function TransportExpensesTable({
   const { user } = useAuth();
   const { isWadaana } = useTenant();
   const canDelete = user?.role === 'TRANSPORT_MANAGER';
+  const pagination = usePagination(expenses || [], 50, search);
 
   const expenseTypes = ['ALL', 'DAILY', 'REPAIRS', 'OTHER'];
 
@@ -115,7 +118,7 @@ export default function TransportExpensesTable({
                   </td>
                 </tr>
               ) : (
-                expenses.map((ex) => (
+                pagination.paginatedItems.map((ex) => (
                   <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="table-td text-slate-600 text-xs font-medium">
                       <div className="flex items-center gap-1.5">
@@ -173,6 +176,7 @@ export default function TransportExpensesTable({
             </tbody>
           </table>
         </div>
+        <TablePagination pagination={pagination} />
       </div>
     </div>
   );

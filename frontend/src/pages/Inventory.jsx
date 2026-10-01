@@ -9,6 +9,7 @@ import {
 import { useTenant } from '../context/TenantContext';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -53,6 +54,8 @@ export default function Inventory() {
   useEffect(() => {
     fetchInventoryData();
   }, [fetchInventoryData]);
+
+  useLiveEvent('INVENTORY_CHANGED', fetchInventoryData);
 
   // Filter transactions by search
   const filteredTransactions = useMemo(() => {

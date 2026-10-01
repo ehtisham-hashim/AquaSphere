@@ -1,4 +1,6 @@
 import { Package, Edit2, Archive, RefreshCw, AlertTriangle, CheckCircle2, Flame } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function RawMaterialsTable({ 
   materials = [], 
@@ -10,6 +12,7 @@ export default function RawMaterialsTable({
   canArchive = false
 }) {
   const isWadaana = tenant === 'wadaana';
+  const pagination = usePagination(materials || [], 50);
 
   const getBadge = (name) => {
     if (isWadaana) {
@@ -69,7 +72,7 @@ export default function RawMaterialsTable({
                 </td>
               </tr>
             ) : (
-              materials.map((m) => {
+              pagination.paginatedItems.map((m) => {
                 const isLow = parseFloat(m.cachedQty) <= parseFloat(m.reorderLevel);
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition-colors text-xs">
@@ -152,6 +155,7 @@ export default function RawMaterialsTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

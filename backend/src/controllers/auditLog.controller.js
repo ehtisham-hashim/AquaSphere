@@ -35,7 +35,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 
   // Extract unique user IDs and lookup human user names
   const userIds = [...new Set(logs.map(l => l.performedBy).filter(Boolean))];
-  let userMap = {};
+  const userMap = {};
 
   if (userIds.length > 0) {
     try {

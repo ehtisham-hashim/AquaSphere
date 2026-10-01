@@ -55,8 +55,13 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
   const selectedCustomer = asyncCustomers.find(c => c.id === orderData.customerId) || customers.find(c => c.id === orderData.customerId);
 
-  // Map real database finished goods into organized categories
-  const finishedGoods = items.filter(dbItem => dbItem.type === 'FINISHED_GOOD' || !dbItem.type);
+  // Map real database finished goods into organized categories (strictly enforce full packs / PETs only, exclude loose single bottles)
+  const finishedGoods = items.filter(dbItem => {
+    if (dbItem.type !== 'FINISHED_GOOD' && dbItem.type) return false;
+    const nameLower = (dbItem.name || '').toLowerCase();
+    if (nameLower.includes('loose') || nameLower.includes('single')) return false;
+    return true;
+  });
 
   const availableItems = finishedGoods.map(dbItem => {
     const nameLower = (dbItem.name || '').toLowerCase();
@@ -84,14 +89,21 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       }
     }
 
+    const isPackItem = (dbItem.packSize && Number(dbItem.packSize) > 1) || category === '0.5L' || category === '1.5L';
+    const packSize = Number(dbItem.packSize) || (category === '0.5L' ? 12 : category === '1.5L' ? 6 : 1);
+    const unitLabel = isPackItem ? 'Pack' : (category === '19L' ? 'Bottle' : (dbItem.unit || 'Unit'));
+
     return {
       id: dbItem.id,
       dbItemId: dbItem.id,
-      name: dbItem.name,
+      name: isPackItem && !dbItem.name.toLowerCase().includes('pack') ? `${dbItem.name} Pack (${packSize} Btls)` : dbItem.name,
       category,
       categoryLabel,
+      isPackItem,
+      packSize,
+      unitLabel,
       defaultPrice: Number(dbItem.retailPrice || 0),
-      unit: dbItem.unit || 'units'
+      unit: isPackItem ? 'packs' : (dbItem.unit || 'units')
     };
   });
 
@@ -126,9 +138,11 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
+    const qty = parseInt(data.quantity) || 0;
+    if (qty <= 0) return sum;
     const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
     const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
-    return sum + (unitRate * (parseInt(data.quantity) || 0));
+    return sum + (unitRate * qty);
   }, 0);
 
   const handleChange = (e) => {
@@ -140,14 +154,21 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     const parsed = parseInt(valStr, 10);
     setSelectedItems(prev => {
       const next = { ...prev };
+      const currentPrice = next[itemId]?.price;
+      const item = availableItems.find(i => i.id === itemId);
+      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const priceToKeep = currentPrice !== undefined && currentPrice !== '' ? currentPrice : defaultRate;
+
       if (isNaN(parsed) || parsed <= 0) {
-        delete next[itemId];
+        if (currentPrice !== undefined) {
+          next[itemId] = { quantity: 0, price: currentPrice };
+        } else {
+          delete next[itemId];
+        }
       } else {
-        const item = availableItems.find(i => i.id === itemId);
-        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
         next[itemId] = {
           quantity: parsed,
-          price: next[itemId]?.price !== undefined ? next[itemId].price : defaultRate
+          price: priceToKeep
         };
       }
       return next;
@@ -155,16 +176,13 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   };
 
   const handleItemPriceChange = (itemId, valStr) => {
-    setSelectedItems(prev => {
-      if (!prev[itemId]) return prev;
-      return {
-        ...prev,
-        [itemId]: {
-          ...prev[itemId],
-          price: valStr
-        }
-      };
-    });
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemId]: {
+        quantity: prev[itemId]?.quantity || 0,
+        price: valStr
+      }
+    }));
   };
 
   const handleQtyAdjust = (itemId, delta) => {
@@ -172,14 +190,21 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       const next = { ...prev };
       const current = next[itemId]?.quantity || 0;
       const updated = current + delta;
+      const currentPrice = next[itemId]?.price;
+      const item = availableItems.find(i => i.id === itemId);
+      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const priceToKeep = currentPrice !== undefined && currentPrice !== '' ? currentPrice : defaultRate;
+
       if (updated <= 0) {
-        delete next[itemId];
+        if (currentPrice !== undefined) {
+          next[itemId] = { quantity: 0, price: currentPrice };
+        } else {
+          delete next[itemId];
+        }
       } else {
-        const item = availableItems.find(i => i.id === itemId);
-        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
         next[itemId] = {
           quantity: updated,
-          price: next[itemId]?.price !== undefined ? next[itemId].price : defaultRate
+          price: priceToKeep
         };
       }
       return next;
@@ -456,20 +481,21 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                                 </button>
                               </div>
 
-                              {hasQty && (
-                                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
-                                  <span className="text-[10px] font-bold text-slate-400">Rs.</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={currentPrice}
-                                    onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
-                                    className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
-                                    title="Custom Selling Rate (PKR)"
-                                  />
-                                </div>
-                              )}
+                              {/* Inline Editable Pack Price Input - Always editable */}
+                              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
+                                <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={currentPrice}
+                                  onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
+                                  className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
+                                  title={`Custom rate per ${item.unitLabel}`}
+                                  placeholder="Rate"
+                                />
+                                <span className="text-[10px] text-slate-400 font-sans">/{item.unitLabel}</span>
+                              </div>
 
                               <div className="w-24 text-right">
                                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>

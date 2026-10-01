@@ -33,8 +33,8 @@ export const confirmMM = (date, tenant) =>
 export const confirmTM = (date, tenant) =>
   fetch(`${API_URL}/daily-close/tm-confirm`, postOpts(tenant, { date })).then(r => r.json());
 
-export const finalizeDay = (date, tenant) =>
-  fetch(`${API_URL}/daily-close`, postOpts(tenant, { date })).then(r => r.json());
+export const finalizeDay = (date, tenant, payload = {}) =>
+  fetch(`${API_URL}/daily-close`, postOpts(tenant, { date, ...(typeof payload === 'object' ? payload : {}) })).then(r => r.json());
 
 export const reopenDay = (date, reason, tenant) =>
   fetch(`${API_URL}/daily-close/reopen`, postOpts(tenant, { date, reason })).then(r => r.json());

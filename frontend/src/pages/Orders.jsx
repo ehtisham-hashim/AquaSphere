@@ -16,6 +16,9 @@ import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
 import RecordPaymentModal from '../components/orders/RecordPaymentModal';
 import OrderSearch from '../components/orders/OrderSearch';
 import OrderDetail from '../components/orders/OrderDetail';
+import { usePagination } from '../hooks/usePagination';
+import TablePagination from '../components/common/TablePagination';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function Orders() {
   const { user } = useAuth();
@@ -53,6 +56,8 @@ export default function Orders() {
     if (itm.success) setItems(itm.data || []);
     setIsLoading(false);
   };
+
+  useLiveEvent('ORDER_UPDATED', fetchData);
 
   useEffect(() => { 
     fetchData(); 
@@ -137,6 +142,8 @@ export default function Orders() {
 
     return true;
   });
+
+  const pagination = usePagination(filteredOrders, 50, searchQuery);
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
@@ -254,7 +261,7 @@ export default function Orders() {
                     </td>
                   </tr>
                 ) : (
-                filteredOrders.map(o => {
+                pagination.paginatedItems.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
                   const canProcess = !isAdmin && !isTransportManager && o.deliveryStatus !== 'CANCELLED' && (
@@ -387,6 +394,7 @@ export default function Orders() {
               )}
             </tbody>
           </table>
+          <TablePagination pagination={pagination} />
         </div>
       )}
       </>

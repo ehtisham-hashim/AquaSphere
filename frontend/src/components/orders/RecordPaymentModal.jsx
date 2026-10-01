@@ -29,7 +29,7 @@ export default function RecordPaymentModal({ order, onClose, onSuccess }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API}/orders/${order.id}/deliver`, {
+      const res = await fetch(`${API}/orders/${order.id}/payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -37,8 +37,7 @@ export default function RecordPaymentModal({ order, onClose, onSuccess }) {
         },
         credentials: 'include',
         body: JSON.stringify({
-          qtyDelivered: 0,
-          cashReceived: amount,
+          amount,
           paymentMethod,
           remarks
         })

@@ -5,6 +5,7 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { invalidateDailyCloseLockCache } from '../middlewares/dailyClose.middleware.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 const parseDateRange = (dateStr) => {
   const start = new Date(dateStr);
@@ -16,22 +17,63 @@ const parseDateRange = (dateStr) => {
 
 /** Finalizes and locks daily operations by Admin or Owner */
 export const closeDay = asyncHandler(async (req, res) => {
-  const { date } = req.body;
+  const { date, actualCash, notes } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
   if (!['OWNER', 'ADMIN', 'ACCOUNTANT'].includes(req.user.role)) {
     throw new ApiError(403, 'Unauthorized to perform daily close');
   }
 
   const prefix = getTenantPrefix(req);
-  const { start: targetDate, dateKey } = parseDateRange(date);
+  const { start: targetDate, next: nextDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
   const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
   if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
 
+  // Verify Counter Audit Ledger has been submitted
+  const auditLedger = await prisma[`${prefix}CounterAuditLedger`].findUnique({
+    where: { date: targetDate }
+  });
+  if (!auditLedger) {
+    throw new ApiError(400, 'Counter Audit Ledger must be submitted and verified before daily close can be locked');
+  }
+
+  // Calculate expected cash in drawer
+  const [cashDeliveryPayments, spotSalesCashAgg, expensesAgg, vendorCashPayments] = await Promise.all([
+    prisma[`${prefix}Payment`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate }, type: 'CASH' }
+    }),
+    prisma[`${prefix}SpotSale`].aggregate({
+      _sum: { cashCollected: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
+    }),
+    prisma[`${prefix}Expense`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
+    }),
+    prisma[`${prefix}VendorPayment`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
+    })
+  ]);
+
+  const cashDeliveries = parseFloat(cashDeliveryPayments._sum.amount || 0);
+  const cashSpotSales = parseFloat(spotSalesCashAgg._sum.cashCollected || 0);
+  const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
+  const vendorCashPaid = parseFloat(vendorCashPayments._sum.amount || 0);
+
+  const expectedCash = Math.max(0, cashDeliveries + cashSpotSales - totalExpenses - vendorCashPaid);
+  const parsedActualCash = actualCash !== undefined && actualCash !== null && actualCash !== '' ? parseFloat(actualCash) : null;
+  const cashDifference = parsedActualCash !== null ? parsedActualCash - expectedCash : null;
+
   const now = new Date();
   const updateFields = {
     adminConfirmed: true,
+    actualCash: parsedActualCash,
+    expectedCash: expectedCash,
+    cashDifference: cashDifference,
+    notes: notes || null,
     closedAt: now,
     closedById: req.user.id,
     ...(!existing?.pmConfirmed ? { pmConfirmed: true, pmConfirmedAt: now, pmConfirmedById: req.user.id } : {}),
@@ -44,6 +86,10 @@ export const closeDay = asyncHandler(async (req, res) => {
     update: updateFields,
     create: {
       date: targetDate,
+      actualCash: parsedActualCash,
+      expectedCash: expectedCash,
+      cashDifference: cashDifference,
+      notes: notes || null,
       pmConfirmed: true,
       pmConfirmedAt: now,
       pmConfirmedById: req.user.id,
@@ -63,10 +109,11 @@ export const closeDay = asyncHandler(async (req, res) => {
     entityType: 'DailyClose',
     entityId: closedDay.id,
     performedBy: req.user.id,
-    details: `Day ${dateKey} closed`
+    details: `Day ${dateKey} closed (Expected: Rs. ${expectedCash}, Actual: Rs. ${parsedActualCash ?? 'N/A'}, Diff: Rs. ${cashDifference ?? 'N/A'})`
   });
 
   invalidateDailyCloseLockCache(prefix, dateKey);
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
   return sendSuccess(res, closedDay, 200, { message: 'Day closed successfully' });
 });
 
@@ -153,12 +200,22 @@ export const getDailyCloseStatus = asyncHandler(async (req, res) => {
   const totalCustomerBottles = customerBottleStats._sum.cachedBottleBalance || customerBottleStats._sum.qty19L || 0;
   const adminConfirmed = existing?.adminConfirmed || false;
 
+  const auditLedger = await prisma[`${prefix}CounterAuditLedger`].findUnique({
+    where: { date: targetDate },
+    include: { recordedBy: { select: { id: true, name: true, role: true } } }
+  });
+
   return sendSuccess(res, {
     isClosed: adminConfirmed,
     pmConfirmed: adminConfirmed || existing?.pmConfirmed || false,
     mmConfirmed: adminConfirmed || existing?.mmConfirmed || false,
     tmConfirmed: adminConfirmed || existing?.tmConfirmed || false,
     adminConfirmed,
+    actualCash: existing?.actualCash ?? null,
+    expectedCash: existing?.expectedCash ?? null,
+    cashDifference: existing?.cashDifference ?? null,
+    notes: existing?.notes ?? null,
+    auditLedger: auditLedger || null,
     closedAt: existing?.closedAt || null,
     pmConfirmedAt: existing?.pmConfirmedAt || null,
     mmConfirmedAt: existing?.mmConfirmedAt || null,
@@ -223,6 +280,7 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
     details: `PM confirmed production for Day ${dateKey}`
   });
 
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
   return sendSuccess(res, updatedDay, 200, { message: 'Production confirmed successfully' });
 });
 
@@ -255,6 +313,7 @@ export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
     details: `MM confirmed orders and customer bottle holdings for Day ${dateKey}`
   });
 
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
   return sendSuccess(res, updatedDay, 200, { message: 'MM daily close confirmed successfully' });
 });
 
@@ -287,6 +346,7 @@ export const tmConfirmDailyClose = asyncHandler(async (req, res) => {
     details: `TM confirmed vehicle fleet and transport expenses for Day ${dateKey}`
   });
 
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
   return sendSuccess(res, updatedDay, 200, { message: 'Transport daily close confirmed successfully' });
 });
 
@@ -396,6 +456,56 @@ export const reopenDay = asyncHandler(async (req, res) => {
     details: `Day ${dateKey} reopened. Reason: ${reason}`
   });
 
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
   return sendSuccess(res, null, 200, { message: 'Day reopened successfully' });
+});
+
+/** Retrieves Counter Audit Ledger for a given date */
+export const getCounterAuditLedger = asyncHandler(async (req, res) => {
+  const { date } = req.query;
+  if (!date) throw new ApiError(400, 'Date is required');
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate } = parseDateRange(date);
+
+  const ledger = await prisma[`${prefix}CounterAuditLedger`].findUnique({
+    where: { date: targetDate },
+    include: { recordedBy: { select: { id: true, name: true, role: true } } }
+  });
+
+  return sendSuccess(res, ledger);
+});
+
+/** Creates or updates Counter Audit Ledger before daily close */
+export const submitCounterAuditLedger = asyncHandler(async (req, res) => {
+  const { date, physicalCashInHand, recordedWaterLitres, countedBottles, countedCaps, cameraVerificationNotes, isVerified = true } = req.body;
+  if (!date) throw new ApiError(400, 'Date is required');
+  const prefix = getTenantPrefix(req);
+  const { start: targetDate, dateKey } = parseDateRange(date);
+
+  const ledger = await prisma[`${prefix}CounterAuditLedger`].upsert({
+    where: { date: targetDate },
+    update: {
+      recordedById: req.user.id,
+      physicalCashInHand: parseFloat(physicalCashInHand || 0),
+      recordedWaterLitres: parseFloat(recordedWaterLitres || 0),
+      countedBottles: parseInt(countedBottles || 0, 10),
+      countedCaps: parseInt(countedCaps || 0, 10),
+      cameraVerificationNotes: cameraVerificationNotes || null,
+      isVerified: Boolean(isVerified)
+    },
+    create: {
+      date: targetDate,
+      recordedById: req.user.id,
+      physicalCashInHand: parseFloat(physicalCashInHand || 0),
+      recordedWaterLitres: parseFloat(recordedWaterLitres || 0),
+      countedBottles: parseInt(countedBottles || 0, 10),
+      countedCaps: parseInt(countedCaps || 0, 10),
+      cameraVerificationNotes: cameraVerificationNotes || null,
+      isVerified: Boolean(isVerified)
+    }
+  });
+
+  broadcastEvent(prefix, 'DAILY_CLOSE_CHANGED', { date: dateKey });
+  return sendSuccess(res, ledger, 200, { message: 'Counter audit ledger saved successfully' });
 });
 

@@ -13,6 +13,7 @@ import { PageHeader } from '../components/ui';
 import ProductionBatchTable from '../components/production/ProductionBatchTable';
 import CreateBatchModal from '../components/production/CreateBatchModal';
 import CompleteBatchModal from '../components/production/CompleteBatchModal';
+import { useLiveEvent } from '../context/SSEContext';
 
 const API = API_URL;
 
@@ -63,6 +64,8 @@ export default function Production() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useLiveEvent('PRODUCTION_UPDATED', fetchData);
 
   const handleLogBatch = async (payload) => {
     setSubmitting(true);

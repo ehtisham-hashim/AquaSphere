@@ -21,7 +21,7 @@ export const getReportData = asyncHandler(async (req, res) => {
   const now = new Date();
 
   let start = startDate ? new Date(startDate) : null;
-  let end = endDate ? new Date(endDate) : new Date();
+  const end = endDate ? new Date(endDate) : new Date();
 
   if (!start) {
     if (period === 'daily') {

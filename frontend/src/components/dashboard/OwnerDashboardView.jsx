@@ -19,6 +19,7 @@ import ModernKpiCard from './ModernKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import UnprocessedOrdersModal from './UnprocessedOrdersModal';
+import BottleCustodyWidget from './BottleCustodyWidget';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
@@ -32,13 +33,22 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const { tenant, isWadaana } = useTenant();
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
-  const [timeframe, setTimeframe] = useState('MONTHLY');
+  const [timeframe, setTimeframe] = useState('1_MONTH');
   const [showUnprocessedModal, setShowUnprocessedModal] = useState(false);
 
   const activeData = useMemo(() => {
     if (!data) return {};
-    const tfKey = timeframe.toLowerCase();
-    const tf = data[tfKey] || {};
+    let tfKey;
+    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+      tfKey = 'daily';
+    } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+      tfKey = 'yearly';
+    } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+      tfKey = 'monthly';
+    } else {
+      tfKey = timeframe.toLowerCase();
+    }
+    const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
     return {
       sales: Number(tf.sales ?? data.sales ?? 0),
       deliveredSales: Number(tf.deliveredSales ?? data.deliveredSales ?? 0),
@@ -157,14 +167,20 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const totalRevenue = Number(activeData.cash || 0);
 
   const getPeriodLabel = () => {
-    if (timeframe === 'DAILY') return "Today's";
-    if (timeframe === 'YEARLY') return "This Year's";
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return "Today's";
+    if (timeframe === 'YESTERDAY') return "Yesterday's";
+    if (timeframe === 'LAST_3_DAYS') return "Last 3 Days'";
+    if (timeframe === '1_WEEK') return "This Week's";
+    if (timeframe === 'YEARLY' || timeframe === '1_YEAR') return "This Year's";
     return "This Month's";
   };
 
   const getPeriodText = () => {
-    if (timeframe === 'DAILY') return 'today';
-    if (timeframe === 'YEARLY') return 'this year';
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'today';
+    if (timeframe === 'YESTERDAY') return 'yesterday';
+    if (timeframe === 'LAST_3_DAYS') return 'past 3 days';
+    if (timeframe === '1_WEEK') return 'this week';
+    if (timeframe === 'YEARLY' || timeframe === '1_YEAR') return 'this year';
     return 'this month';
   };
 
@@ -219,7 +235,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <ModernKpiCard 
             icon={Wallet} 
-            title={timeframe === 'DAILY' ? "Today's Sales" : timeframe === 'YEARLY' ? "Yearly Sales" : "Monthly Sales"} 
+            title={`${getPeriodLabel()} Sales`} 
             value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`} 
             subtitle={
               activeData?.unprocessedOrdersCount > 0
@@ -238,7 +254,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           />
           <ModernKpiCard 
             icon={Receipt} 
-            title={timeframe === 'DAILY' ? "Expenses Today" : timeframe === 'YEARLY' ? "Yearly Expenses" : "Monthly Expenses"} 
+            title={`${getPeriodLabel()} Expenses`} 
             value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`} 
             subtitle="Logged operating cost" 
             variant="rose"
@@ -252,7 +268,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           />
           <ModernKpiCard 
             icon={ShoppingCart} 
-            title={timeframe === 'DAILY' ? "Today's Purchases" : timeframe === 'YEARLY' ? "Yearly Purchases" : "Monthly Purchases"} 
+            title={`${getPeriodLabel()} Purchases`} 
             value={`Rs. ${Number(activeData?.purchases || 0).toLocaleString()}`} 
             subtitle={`${activeData?.purchasesCount || 0} purchase logs`} 
             variant="neutral"
@@ -496,6 +512,9 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           )}
         </section>
       )}
+
+      {/* 19L Bottle Custody & Recovery Fleet Widget */}
+      <BottleCustodyWidget />
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal

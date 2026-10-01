@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
@@ -143,6 +144,7 @@ export const createExpense = asyncHandler(async (req, res) => {
   });
 
   broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'EXPENSE_LOGGED', { expenseId: expense.id, category, amount: expense.amount });
   return sendSuccess(res, expense, 201);
 });
 

@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
@@ -141,6 +142,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   // Calculate line items and total bill
   let totalBill = new Prisma.Decimal(0);
   let totalLitres = 0;
+  let totalBottles = 0;
+  let totalCaps = 0;
   const processedItems = [];
 
   for (const raw of inputItems) {
@@ -162,11 +165,26 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     const subtotal = new Prisma.Decimal(qty).times(unitPrice);
     totalBill = totalBill.plus(subtotal);
 
-    // Approximate litres from item name or size
+    const saleType = String(raw.saleType || (raw.unitType === 'PACK' ? 'PACK' : (raw.unitType === 'BOTTLE' ? 'BOTTLE' : 'FINISHED_GOOD'))).toUpperCase();
+    const isPack = saleType === 'PACK';
+    const isRefill = saleType === 'WATER_REFILL';
+    const isCap = saleType === 'EXTRA_CAP';
+
+    const packMultiplier = isPack ? Number(fgItem.packSize || 1) : 1;
+    const baseUnitsDeduct = isRefill || isCap ? 0 : (qty * packMultiplier);
+
+    if (!isCap && !isRefill) {
+      totalBottles += Math.round(baseUnitsDeduct);
+    }
+    if (isCap) {
+      totalCaps += Math.round(qty);
+    }
+
+    // Litres calculation
     const nameLower = fgItem.name.toLowerCase();
     let litresPerUnit;
-    if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = 9.0; // 12 btls x 0.75L
-    else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = 12.0; // 6 btls x 2L
+    if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
+    else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = isPack ? 12.0 : 2.0;
     else if (nameLower.includes('19')) litresPerUnit = 24.0;
     else litresPerUnit = 1.0;
 
@@ -174,7 +192,9 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     processedItems.push({
       fgItem,
+      saleType,
       quantity: qty,
+      baseUnitsDeduct,
       unitPrice,
       subtotal: Number(subtotal)
     });
@@ -209,7 +229,35 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   const spotSale = await prisma.$transaction(async (tx) => {
     // 1. Stock deduction and location validation
     for (const line of processedItems) {
-      const { fgItem, quantity } = line;
+      const { fgItem, baseUnitsDeduct, saleType, quantity } = line;
+
+      if (saleType === 'EXTRA_CAP') {
+        const capRaw = await tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
+        });
+        if (capRaw) {
+          await tx[`${prefix}Item`].update({
+            where: { id: capRaw.id },
+            data: { cachedQty: { decrement: quantity } }
+          });
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: capRaw.id,
+              quantity,
+              direction: 'OUT',
+              reason: 'SPOT_SALE_EXTRA_CAP',
+              refType: 'SPOT_SALE',
+              refId: saleNumber,
+              location: 'FACTORY'
+            }
+          });
+        }
+        continue;
+      }
+
+      if (baseUnitsDeduct <= 0) {
+        continue; // e.g. WATER_REFILL: bottle provided by customer
+      }
       
       // Re-read current stock inside transaction for consistency
       const currentItem = await tx[`${prefix}Item`].findUnique({
@@ -217,21 +265,20 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       });
 
       const totalAvail = Number(currentItem.cachedQty || 0);
-      if (totalAvail < quantity) {
-        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${quantity}, Available: ${totalAvail}.`);
+      if (totalAvail < baseUnitsDeduct) {
+        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${baseUnitsDeduct} bottles, Available: ${totalAvail}.`);
       }
 
       const currentFactory = Number(currentItem.factoryQty || 0);
       const currentWarehouse = Number(currentItem.warehouseQty || 0);
-      // Fallback: if locations are unallocated (0 and 0) but total stock exists, treat as factory stock
       const effectiveFactory = (currentFactory === 0 && currentWarehouse === 0) ? totalAvail : currentFactory;
       const effectiveWarehouse = (currentFactory === 0 && currentWarehouse === 0) ? 0 : currentWarehouse;
 
-      const factoryDeduct = effectiveFactory >= quantity ? quantity : (effectiveFactory > 0 ? effectiveFactory : 0);
-      const warehouseDeduct = quantity - factoryDeduct;
+      const factoryDeduct = effectiveFactory >= baseUnitsDeduct ? baseUnitsDeduct : (effectiveFactory > 0 ? effectiveFactory : 0);
+      const warehouseDeduct = baseUnitsDeduct - factoryDeduct;
 
       if (warehouseDeduct > 0 && effectiveWarehouse < warehouseDeduct) {
-        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${quantity}, Available: ${totalAvail}.`);
+        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${baseUnitsDeduct} bottles, Available: ${totalAvail}.`);
       }
 
       // Record factory inventory transaction if applicable
@@ -264,13 +311,13 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         });
       }
 
-      // Decrement item inventory atomically
+      // Decrement item inventory atomically in base units
       const newFactoryQty = Math.max(0, effectiveFactory - factoryDeduct);
       const newWarehouseQty = Math.max(0, effectiveWarehouse - warehouseDeduct);
       await tx[`${prefix}Item`].update({
         where: { id: currentItem.id },
         data: {
-          cachedQty: { decrement: quantity },
+          cachedQty: { decrement: baseUnitsDeduct },
           factoryQty: newFactoryQty,
           warehouseQty: newWarehouseQty
         }
@@ -282,7 +329,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         await tx[`${prefix}BottleTransaction`].create({
           data: {
             type: 'DELIVERED_TO_CUSTOMER',
-            quantity: Math.round(quantity),
+            quantity: Math.round(baseUnitsDeduct),
             customerId: customerId || null,
             reason: `Counter Sale 19L Refill (${saleNumber})`
           }
@@ -291,7 +338,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         if (customerId) {
           await tx[`${prefix}Customer`].update({
             where: { id: customerId },
-            data: { cachedBottleBalance: { increment: Math.round(quantity) } }
+            data: { cachedBottleBalance: { increment: Math.round(baseUnitsDeduct) } }
           });
         }
       }
@@ -299,7 +346,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     // 2. Summary string for legacy/receipt compatibility
     const summaryProductType = processedItems
-      .map(p => `${p.fgItem.name} (x${p.quantity})`)
+      .map(p => `${p.fgItem.name} ${p.saleType === 'PACK' ? '(Pack)' : (p.saleType === 'BOTTLE' ? '(Bottle)' : '')} (x${p.quantity})`)
       .join(', ');
     const totalQty = processedItems.reduce((acc, p) => acc + p.quantity, 0);
 
@@ -310,6 +357,9 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         productType: summaryProductType,
         productQty: totalQty,
         litresSold: totalLitres,
+        totalLitres: new Prisma.Decimal(totalLitres),
+        totalBottles,
+        totalCaps,
         totalAmount: numericTotalBill,
         amountPaid: numericAmountPaid,
         debtAmount: numericDebtAmount,
@@ -328,6 +378,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         data: {
           spotSaleId: sale.id,
           itemId: p.fgItem.id,
+          saleType: p.saleType,
           quantity: p.quantity,
           unitPrice: p.unitPrice,
           subtotal: p.subtotal
@@ -368,6 +419,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'COUNTER_SALE_CREATED', { saleId: spotSale.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, spotSale, 201);
 });
 

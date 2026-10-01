@@ -10,9 +10,17 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
     return { label: 'Normal', dot: 'bg-emerald-500', text: 'text-emerald-700' };
   };
 
+  const getPackSize = (item) => {
+    if (item.packSize && Number(item.packSize) > 1) return Number(item.packSize);
+    const name = (item.name || '').toLowerCase();
+    if (name.includes('0.5l') || name.includes('0.5 pet') || name.includes('500ml')) return 12;
+    if (name.includes('1.5l') || name.includes('1.5 pet') || name.includes('1500ml')) return 6;
+    return Number(item.packSize) || 1;
+  };
+
   return (
     <div className="space-y-4">
-      {/* Dynamic Finished Goods Cards with Location Breakdown */}
+      {/* Dynamic Finished Goods Cards with Vertical Pack Display & Location Breakdown */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {fgList.map((item, idx) => {
           const total = Number(item.cachedQty || 0);
@@ -23,6 +31,11 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
           const effectiveWarehouse = (fac === 0 && wh === 0) ? 0 : wh;
           const status = getBadge(total, reorder);
 
+          const packSize = getPackSize(item);
+          const isPackItem = packSize > 1;
+          const packs = isPackItem ? Math.floor(total / packSize) : 0;
+          const loose = isPackItem ? Math.round(total % packSize) : total;
+
           return (
             <div key={item.id || idx} className="card-surface p-4 space-y-2.5">
               <div className="flex justify-between items-start">
@@ -30,11 +43,24 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                   <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider block mb-0.5">
                     {item.name}
                   </span>
-                  <div className="text-2xl font-mono font-bold text-slate-900">
-                    {Math.round(total).toLocaleString()}{' '}
-                    <span className="text-xs font-normal text-slate-400 font-sans">{item.unit || 'units'}</span>
-                  </div>
+                  
+                  {isPackItem ? (
+                    <div className="space-y-0.5 mt-0.5">
+                      <div className="text-2xl font-mono font-black text-slate-900 tracking-tight">
+                        {packs} <span className="text-sm font-bold uppercase tracking-wider text-brand">PACKS</span>
+                      </div>
+                      <div className="text-sm font-bold text-slate-600 font-mono">
+                        {loose} {loose === 1 ? 'Bottle' : 'Bottles'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-mono font-bold text-slate-900 mt-0.5">
+                      {Math.round(total).toLocaleString()}{' '}
+                      <span className="text-xs font-normal text-slate-400 font-sans">{item.unit || 'Bottles'}</span>
+                    </div>
+                  )}
                 </div>
+
                 <div className="flex flex-col items-end gap-1">
                   <button
                     type="button"
@@ -52,7 +78,7 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                     {status.label}
                   </button>
                   <span className="text-[10px] text-slate-400 font-medium">
-                    Alert: {reorder.toLocaleString()} {item.unit || 'units'}
+                    Alert: {isPackItem ? `${Math.floor(reorder / packSize)} Pks` : `${reorder.toLocaleString()} ${item.unit || 'units'}`}
                   </span>
                 </div>
               </div>
@@ -63,14 +89,24 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                     <Factory size={13} className="text-slate-500" />
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Factory</span>
                   </div>
-                  <div className="text-sm sm:text-base font-mono font-bold text-slate-800">{Math.round(effectiveFactory).toLocaleString()}</div>
+                  <div className="text-sm sm:text-base font-mono font-bold text-slate-800">
+                    {isPackItem 
+                      ? `${Math.floor(effectiveFactory / packSize)} Pk${effectiveFactory % packSize !== 0 ? ` + ${Math.round(effectiveFactory % packSize)} Btl` : ''}`
+                      : Math.round(effectiveFactory).toLocaleString()
+                    }
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1 text-slate-400 mb-0.5">
                     <Warehouse size={13} className="text-brand" />
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-brand">Warehouse</span>
                   </div>
-                  <div className="text-sm sm:text-base font-mono font-bold text-slate-900">{Math.round(effectiveWarehouse).toLocaleString()}</div>
+                  <div className="text-sm sm:text-base font-mono font-bold text-slate-900">
+                    {isPackItem 
+                      ? `${Math.floor(effectiveWarehouse / packSize)} Pk${effectiveWarehouse % packSize !== 0 ? ` + ${Math.round(effectiveWarehouse % packSize)} Btl` : ''}`
+                      : Math.round(effectiveWarehouse).toLocaleString()
+                    }
+                  </div>
                 </div>
               </div>
             </div>

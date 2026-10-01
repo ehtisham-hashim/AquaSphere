@@ -56,7 +56,7 @@ export const consolidateDuplicateFinishedGoods = async (prefix = 'aquasphere') =
 
       if (matchingItems.length === 0) continue;
 
-      let canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
+      const canonicalItem = matchingItems.find(i => i.name === g.canonicalName) || matchingItems[0];
 
       await prisma[`${prefix}Item`].update({
         where: { id: canonicalItem.id },

@@ -5,18 +5,7 @@ import { calculateProductionBatch, calculateDynamicBatch } from '../utils/produc
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
-
-const WADAANA_PREFORMS = [
-  { key: 'qtyPure05L', brokenKey: 'brokenPure05L', weight: 0.015, primary: 'pure', volume: ['0.5l', '0.5', '500ml', '500'] },
-  { key: 'qtyPure15L', brokenKey: 'brokenPure15L', weight: 0.030, primary: 'pure', volume: ['1.5l', '1.5', '1500ml', '1500'] },
-  { key: 'qtyMix05L', brokenKey: 'brokenMix05L', weight: 0.013, primary: 'mix', volume: ['0.5l', '0.5', '500ml', '500'] },
-  { key: 'qtyMix15L', brokenKey: 'brokenMix15L', weight: 0.027, primary: 'mix', volume: ['1.5l', '1.5', '1500ml', '1500'] }
-];
-
-const matchWadaanaItem = (itemsList, type, primaryKW, volumeKW) => {
-  return itemsList.find(i => (!type || i.type === type) && i.name.toLowerCase().includes(primaryKW) && volumeKW.some(v => i.name.toLowerCase().includes(v)))
-    || itemsList.find(i => type && i.type === type && volumeKW.some(v => i.name.toLowerCase().includes(v)));
-};
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /** Retrieves paginated production batch runs */
 export const getProductionBatches = asyncHandler(async (req, res) => {
@@ -226,6 +215,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
       }
     });
 
+    broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: createdBatch.id });
     return sendSuccess(res, createdBatch, 201, {
       message: 'Unified production batch recorded successfully'
     });
@@ -384,6 +374,8 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       return pb;
     }, { maxWait: 10000, timeout: 30000 });
 
+    broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: updatedBatch.id });
+    broadcastEvent(prefix, 'INVENTORY_CHANGED');
     return sendSuccess(res, updatedBatch);
   }
 
@@ -614,6 +606,8 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       return pb;
     }, { maxWait: 10000, timeout: 30000 });
 
+    broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: updatedBatch.id });
+    broadcastEvent(prefix, 'INVENTORY_CHANGED');
     return sendSuccess(res, updatedBatch);
   }
 
@@ -781,6 +775,8 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     return pb;
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: updatedBatch.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updatedBatch);
 });
 
@@ -812,5 +808,7 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
     await tx[`${prefix}ProductionBatch`].delete({ where: { id } });
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, null, 200, { message: 'Production batch deleted successfully' });
 });

@@ -1,4 +1,6 @@
 import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2 } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function VendorTable({
   vendors,
@@ -10,6 +12,8 @@ export default function VendorTable({
   onEdit,
   onToggleArchive
 }) {
+  const pagination = usePagination(vendors || [], 50);
+
   return (
     <div className="table-container">
       <div className="overflow-x-auto">
@@ -34,7 +38,7 @@ export default function VendorTable({
                   Loading vendor records...
                 </td>
               </tr>
-            ) : vendors.map(v => (
+            ) : pagination.paginatedItems.map(v => (
               <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
                 <td className="table-td">
                   <div className="flex items-center gap-2.5">
@@ -160,6 +164,7 @@ export default function VendorTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

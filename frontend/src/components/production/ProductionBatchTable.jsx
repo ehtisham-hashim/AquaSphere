@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, UserCheck } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 function getColorClasses(color) {
   switch (color) {
@@ -118,6 +120,7 @@ export default function ProductionBatchTable({
   onDelete
 }) {
   const [viewingBatch, setViewingBatch] = useState(null);
+  const pagination = usePagination(batches || [], 50);
 
   return (
     <div className="table-container">
@@ -157,7 +160,7 @@ export default function ProductionBatchTable({
                 </td>
               </tr>
             ) : (
-              batches.map(b => {
+              pagination.paginatedItems.map(b => {
                 const products = getBatchProducts(b, isWadaana);
                 const visibleProducts = products.slice(0, 2);
                 const remainingCount = products.length - 2;
@@ -280,6 +283,7 @@ export default function ProductionBatchTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
 
       {/* Batch Details Modal (Opened by Eye Icon or "+X more") */}
       {viewingBatch && (

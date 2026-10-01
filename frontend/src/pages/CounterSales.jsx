@@ -14,6 +14,7 @@ import {
   CounterSalesHistoryTable,
   CounterSaleReceiptModal
 } from '../components/counterSales';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function CounterSales() {
   const { user } = useAuth();
@@ -81,6 +82,8 @@ export default function CounterSales() {
       setLoading(false);
     }
   }, []);
+
+  useLiveEvent(['COUNTER_SALE_CREATED', 'INVENTORY_CHANGED'], fetchData);
 
   useEffect(() => { 
     fetchData(); 

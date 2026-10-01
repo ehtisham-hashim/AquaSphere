@@ -6,11 +6,14 @@ import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay, reopenDay } fro
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
+import DrawerReconciliationCard from './DrawerReconciliationCard';
 
 export default function OwnerClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
+  const [actualCash, setActualCash] = useState('');
+  const [notes, setNotes] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
@@ -40,7 +43,11 @@ export default function OwnerClose() {
   const handleFinalize = async () => {
     setSubmitting(true);
     try {
-      const json = await finalizeDay(date, tenant);
+      const payload = {
+        actualCash: actualCash !== '' ? Number(actualCash) : undefined,
+        notes: notes.trim() || undefined
+      };
+      const json = await finalizeDay(date, tenant, payload);
       if (json.success) {
         toast.success('Day finalized and locked.');
         refreshStatus(false);
@@ -190,7 +197,19 @@ export default function OwnerClose() {
         </div>
       </div>
 
-      {/* 4. If open, Owner can also finalize */}
+      {/* 4. Cash Drawer Physical Count & Reconciliation */}
+      {!isClosed && (
+        <DrawerReconciliationCard
+          expectedCash={cashSummary?.netCash || 0}
+          actualCash={actualCash}
+          onActualCashChange={setActualCash}
+          notes={notes}
+          onNotesChange={setNotes}
+          disabled={submitting}
+        />
+      )}
+
+      {/* 5. If open, Owner can also finalize */}
       {!isClosed && (
         <div className="card-surface p-4 bg-slate-50 flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-600">Day is currently open for operations.</span>

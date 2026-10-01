@@ -6,6 +6,7 @@ import { paginationArgs } from '../utils/pagination.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /** Retrieves purchase orders with filtering */
 export const getPurchases = asyncHandler(async (req, res) => {
@@ -269,6 +270,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
     include: { vendor: true, items: { include: { item: true } } }
   });
 
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: purchase.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, fullPurchase, 201);
 });
 
@@ -461,6 +464,8 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     include: { vendor: true, items: { include: { item: true } } }
   });
 
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: updatedPurchase.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, result, 200, { message: 'Purchase updated successfully' });
 });
 
@@ -494,6 +499,7 @@ export const approvePurchase = asyncHandler(async (req, res) => {
     details: JSON.stringify({ invoiceNo: purchase.invoiceNo, verifiedBy: verifierName })
   });
 
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: id });
   return sendSuccess(res, updated, 200, { message: 'Purchase verified successfully' });
 });
 
@@ -554,6 +560,8 @@ export const deletePurchase = asyncHandler(async (req, res) => {
     });
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { deletedPurchaseId: id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, null, 200, { message: 'Purchase deleted and stock/ledger reversed successfully' });
 });
 
@@ -580,5 +588,6 @@ export const updatePurchaseStatus = asyncHandler(async (req, res) => {
     include: { vendor: true, items: { include: { item: true } } }
   });
 
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: id });
   return sendSuccess(res, updated);
 });

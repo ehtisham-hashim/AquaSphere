@@ -5,11 +5,14 @@ import { fetchDailySummary } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
+import DrawerReconciliationCard from './DrawerReconciliationCard';
 
 // ponytail: read-only dashboard, no confirm — schema has no accountantConfirmed field
 export default function AccountantClose() {
   const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [cash, setCash] = useState(null);
+  const [actualCash, setActualCash] = useState('');
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
     fetchDailySummary(date, tenant).then(json => {
@@ -75,6 +78,16 @@ export default function AccountantClose() {
               </div>
             </div>
           )}
+
+          {/* Drawer Reconciliation */}
+          <DrawerReconciliationCard
+            expectedCash={cash?.netCash || 0}
+            actualCash={actualCash}
+            onActualCashChange={setActualCash}
+            notes={notes}
+            onNotesChange={setNotes}
+            disabled={isClosed}
+          />
 
           {/* Close Status */}
           <div className="card-surface p-5 space-y-2.5">

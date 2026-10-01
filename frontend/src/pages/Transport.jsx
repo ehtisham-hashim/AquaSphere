@@ -11,6 +11,7 @@ import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 import {
   CarsTable,
   AddEditCarModal,
@@ -132,6 +133,11 @@ export default function Transport() {
     fetchVehicles();
     fetchExpenses();
   }, [fetchVehicles, fetchExpenses]);
+
+  useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED'], () => {
+    fetchVehicles();
+    fetchExpenses();
+  });
 
   // Filter transport-related expenses (strictly fuel and vehicle repairs)
   const transportExpenses = useMemo(() => {

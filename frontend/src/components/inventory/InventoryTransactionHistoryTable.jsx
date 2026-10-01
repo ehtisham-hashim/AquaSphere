@@ -1,9 +1,12 @@
 import { ArrowUpRight, ArrowDownRight, History, Package, ArrowLeftRight, Calendar } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function InventoryTransactionHistoryTable({ 
   transactions = [], 
   isLoading = false
 }) {
+  const pagination = usePagination(transactions || [], 50);
 
   return (
     <div className="table-container">
@@ -52,7 +55,7 @@ export default function InventoryTransactionHistoryTable({
                 </td>
               </tr>
             ) : (
-              transactions.map(t => {
+              pagination.paginatedItems.map(t => {
                 const isIN = t.direction === 'IN';
                 const isTransfer = (t.reason || '').toUpperCase().includes('TRANSFER');
                 const qty = Number(t.quantity || 0);
@@ -123,6 +126,7 @@ export default function InventoryTransactionHistoryTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

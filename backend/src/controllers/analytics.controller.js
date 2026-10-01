@@ -3,8 +3,8 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
 
-let cachedDashboardData = { aquasphere: null, wadaana: null };
-let sseClients = { aquasphere: [], wadaana: [] };
+const cachedDashboardData = { aquasphere: null, wadaana: null };
+const sseClients = { aquasphere: [], wadaana: [] };
 
 const computeDashboardAnalytics = async (prefix) => {
   const now = new Date();
@@ -15,7 +15,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
   const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
-  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials] = await Promise.all([
+  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: { 
         createdAt: { gte: minDate, lte: endOfDay },
@@ -59,6 +59,24 @@ const computeDashboardAnalytics = async (prefix) => {
     }),
     prisma[`${prefix}Item`].findMany({
       where: { type: 'RAW_MATERIAL', archivedAt: null }
+    }),
+    prisma[`${prefix}Customer`].findMany({
+      where: { cachedBottleBalance: { gt: 0 } },
+      orderBy: { cachedBottleBalance: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        customerType: true,
+        cachedBottleBalance: true,
+        depositAmount: true,
+        orders: {
+          where: { deliveryStatus: 'DELIVERED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true }
+        }
+      }
     })
   ]);
 
@@ -181,9 +199,36 @@ const computeDashboardAnalytics = async (prefix) => {
     if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; }
   }
 
+  daily.credit = Math.max(0, daily.deliveredSales - daily.cash);
+  monthly.credit = Math.max(0, monthly.deliveredSales - monthly.cash);
+  yearly.credit = Math.max(0, yearly.deliveredSales - yearly.cash);
+
   daily.netCash = daily.cash - daily.expenses;
   monthly.netCash = monthly.cash - monthly.expenses;
   yearly.netCash = yearly.cash - yearly.expenses;
+
+  const totalBottlesInCirculation = customersWithBottles.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
+  const bottleCustodyList = customersWithBottles.map(c => {
+    const lastDelivery = c.orders?.[0]?.createdAt || null;
+    const daysElapsed = lastDelivery 
+      ? Math.floor((now.getTime() - new Date(lastDelivery).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      customerType: c.customerType,
+      cachedBottleBalance: c.cachedBottleBalance,
+      depositAmount: parseFloat(c.depositAmount || 0),
+      lastDeliveryDate: lastDelivery,
+      daysElapsed
+    };
+  });
+
+  const bottleCustody = {
+    totalInCirculation: totalBottlesInCirculation,
+    customers: bottleCustodyList
+  };
 
   const dailySalesHistory = [];
   for (let i = 29; i >= 0; i--) {
@@ -240,6 +285,7 @@ const computeDashboardAnalytics = async (prefix) => {
     daily,
     monthly,
     yearly,
+    bottleCustody,
     unprocessedOrders,
     dailySalesHistory,
     monthlyTrend,
@@ -618,4 +664,52 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     }
   });
 });
+
+/** Dedicated endpoint for 19L Bottle Custody & Recovery feed */
+export const getBottleCustody = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const now = new Date();
+  const customersWithBottles = await prisma[`${prefix}Customer`].findMany({
+    where: { cachedBottleBalance: { gt: 0 } },
+    orderBy: { cachedBottleBalance: 'desc' },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      customerType: true,
+      cachedBottleBalance: true,
+      depositAmount: true,
+      orders: {
+        where: { deliveryStatus: 'DELIVERED' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { createdAt: true }
+      }
+    }
+  });
+
+  const totalBottlesInCirculation = customersWithBottles.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
+  const bottleCustodyList = customersWithBottles.map(c => {
+    const lastDelivery = c.orders?.[0]?.createdAt || null;
+    const daysElapsed = lastDelivery 
+      ? Math.floor((now.getTime() - new Date(lastDelivery).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone,
+      customerType: c.customerType,
+      cachedBottleBalance: c.cachedBottleBalance,
+      depositAmount: parseFloat(c.depositAmount || 0),
+      lastDeliveryDate: lastDelivery,
+      daysElapsed
+    };
+  });
+
+  return sendSuccess(res, {
+    totalInCirculation: totalBottlesInCirculation,
+    customers: bottleCustodyList
+  });
+});
+
 

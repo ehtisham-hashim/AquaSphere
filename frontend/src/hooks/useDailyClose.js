@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '../context/TenantContext';
 import { fetchDailyCloseStatus } from '../services/dailyCloseService';
 import { toast } from 'sonner';
+import { useLiveEvent } from '../context/SSEContext';
 
 /**
  * React hook to manage daily close reconciliation and submission state.
@@ -25,6 +26,8 @@ export function useDailyClose() {
   }, [date, tenant]);
 
   useEffect(() => { refreshStatus(); }, [refreshStatus]);
+
+  useLiveEvent('DAILY_CLOSE_CHANGED', () => refreshStatus(false));
 
   return {
     date, setDate, status, loading, refreshStatus, tenant,

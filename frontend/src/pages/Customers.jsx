@@ -7,6 +7,7 @@ import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function Customers() {
   const { user } = useAuth();
@@ -41,6 +42,8 @@ export default function Customers() {
     fetchCustomers(search, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tenant]);
+
+  useLiveEvent('CUSTOMER_UPDATED', () => fetchCustomers(search, activeTab));
 
   const handleSearchChange = (e) => {
     const val = e.target.value;

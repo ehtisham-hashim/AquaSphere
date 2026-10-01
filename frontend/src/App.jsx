@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { SSEProvider } from './context/SSEContext';
 import MainLayout from './components/layout/MainLayout';
 import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
 
@@ -104,10 +105,12 @@ export default function App() {
   return (
     <TenantProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Toaster position="top-right" richColors closeButton duration={3500} />
-          <AppRoutes />
-        </BrowserRouter>
+        <SSEProvider>
+          <BrowserRouter>
+            <Toaster position="top-right" richColors closeButton duration={3500} />
+            <AppRoutes />
+          </BrowserRouter>
+        </SSEProvider>
       </AuthProvider>
     </TenantProvider>
   );

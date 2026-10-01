@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { 
   ExpensesHeader, 
   ExpensesSummaryCards, 
@@ -9,11 +9,19 @@ import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
+const PurchasesPage = lazy(() => import('./Purchases'));
+
 const API = API_URL;
+
+const TABS = [
+  { key: 'general', label: 'General Operational Expenses' },
+  { key: 'rawmaterial', label: 'Raw Material Purchases & Expenses' },
+];
 
 export default function Expenses() {
   const { user } = useAuth();
   const { tenant } = useTenant();
+  const [activeTab, setActiveTab] = useState('general');
 
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,40 +109,67 @@ export default function Expenses() {
 
   return (
     <div className="space-y-4">
-      <ExpensesHeader 
-        timeRange={timeRange}
-        setTimeRange={setTimeRange}
-        onExportCSV={handleExportCSV}
-        onOpenModal={() => setIsModalOpen(true)}
-        hasExpenses={filteredExpenses.length > 0}
-        tenant={tenant}
-      />
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+              activeTab === tab.key
+                ? 'bg-white dark:bg-gray-800 border border-b-white dark:border-gray-700 dark:border-b-gray-800 text-blue-600 dark:text-blue-400 -mb-px'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      <ExpensesSummaryCards 
-        expenses={expenses}
-        filteredExpenses={filteredExpenses}
-        timeRange={timeRange}
-      />
+      {activeTab === 'general' && (
+        <>
+          <ExpensesHeader 
+            timeRange={timeRange}
+            setTimeRange={setTimeRange}
+            onExportCSV={handleExportCSV}
+            onOpenModal={() => setIsModalOpen(true)}
+            hasExpenses={filteredExpenses.length > 0}
+            tenant={tenant}
+          />
 
-      <ExpensesTable 
-        filteredExpenses={filteredExpenses}
-        loading={loading}
-        selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
-        search={search}
-        setSearch={setSearch}
-        userName={user?.name}
-      />
+          <ExpensesSummaryCards 
+            expenses={expenses}
+            filteredExpenses={filteredExpenses}
+            timeRange={timeRange}
+          />
 
-      <LogExpenseModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSaved={() => {
-          setIsModalOpen(false);
-          fetchExpenses();
-        }}
-        tenant={tenant}
-      />
+          <ExpensesTable 
+            filteredExpenses={filteredExpenses}
+            loading={loading}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            search={search}
+            setSearch={setSearch}
+            userName={user?.name}
+          />
+
+          <LogExpenseModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSaved={() => {
+              setIsModalOpen(false);
+              fetchExpenses();
+            }}
+            tenant={tenant}
+          />
+        </>
+      )}
+
+      {activeTab === 'rawmaterial' && (
+        <Suspense fallback={<div className="py-12 text-center text-gray-500 text-sm">Loading purchases...</div>}>
+          <PurchasesPage />
+        </Suspense>
+      )}
     </div>
   );
 }
