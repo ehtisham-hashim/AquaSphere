@@ -64,6 +64,8 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
   });
 
+  const custDefaultPrice = Number(order.customer?.defaultPrice || 0);
+
   // Initialize selected items from existing order.items
   const [selectedItems, setSelectedItems] = useState(() => {
     const initialItems = {};
@@ -78,7 +80,13 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
           ai.dbItemId === oi.itemId
         );
         const targetId = match ? match.id : oi.itemId;
-        initialItems[targetId] = { quantity: oi.quantity, dbItemId: oi.itemId };
+        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(match?.defaultPrice || 0);
+        const itemPrice = oi.price !== null && oi.price !== undefined ? Number(oi.price) : defaultRate;
+        initialItems[targetId] = { 
+          quantity: oi.quantity, 
+          dbItemId: oi.itemId,
+          price: itemPrice
+        };
       });
     }
     return initialItems;
@@ -88,8 +96,10 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
 
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
-    const price = item ? item.defaultPrice : 0;
-    return sum + (price * (parseInt(data.quantity) || 0));
+    if (!item) return sum;
+    const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+    const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
+    return sum + (unitRate * (parseInt(data.quantity) || 0));
   }, 0);
 
   const handleChange = (e) => {
@@ -104,10 +114,29 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
       if (isNaN(parsed) || parsed <= 0) {
         delete next[itemId];
       } else {
-        const existingDbId = prev[itemId]?.dbItemId || availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
-        next[itemId] = { quantity: parsed, dbItemId: existingDbId };
+        const item = availableItems.find(i => i.id === itemId);
+        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        const existingDbId = prev[itemId]?.dbItemId || item?.dbItemId || itemId;
+        next[itemId] = { 
+          quantity: parsed, 
+          dbItemId: existingDbId,
+          price: prev[itemId]?.price !== undefined ? prev[itemId].price : defaultRate
+        };
       }
       return next;
+    });
+  };
+
+  const handleItemPriceChange = (itemId, valStr) => {
+    setSelectedItems(prev => {
+      if (!prev[itemId]) return prev;
+      return {
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          price: valStr
+        }
+      };
     });
   };
 
@@ -119,8 +148,14 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
       if (updated <= 0) {
         delete next[itemId];
       } else {
-        const existingDbId = prev[itemId]?.dbItemId || availableItems.find(i => i.id === itemId)?.dbItemId || itemId;
-        next[itemId] = { quantity: updated, dbItemId: existingDbId };
+        const item = availableItems.find(i => i.id === itemId);
+        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        const existingDbId = prev[itemId]?.dbItemId || item?.dbItemId || itemId;
+        next[itemId] = { 
+          quantity: updated, 
+          dbItemId: existingDbId,
+          price: prev[itemId]?.price !== undefined ? prev[itemId].price : defaultRate
+        };
       }
       return next;
     });
@@ -148,12 +183,17 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
 
     const orderItemsPayload = selectedKeys.map(itemId => {
       const item = availableItems.find(i => i.id === itemId);
+      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const customPrice = selectedItems[itemId].price !== undefined && selectedItems[itemId].price !== ''
+        ? parseFloat(selectedItems[itemId].price)
+        : defaultRate;
+
       return {
         itemId: item?.dbItemId || itemId,
         catalogId: item?.id || itemId,
         productName: item?.name || 'Product',
         quantity: selectedItems[itemId].quantity,
-        price: item ? item.defaultPrice : 0
+        price: customPrice
       };
     });
 
@@ -239,8 +279,11 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                       {catItems.map(item => {
                         const qty = selectedItems[item.id]?.quantity || 0;
                         const hasQty = qty > 0;
-                        const price = Math.round(item.defaultPrice);
-                        const lineSubtotal = qty * price;
+                        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+                        const currentPrice = selectedItems[item.id]?.price !== undefined && selectedItems[item.id]?.price !== ''
+                          ? selectedItems[item.id].price
+                          : defaultRate;
+                        const lineSubtotal = qty * (parseFloat(currentPrice) || 0);
 
                         return (
                           <div 
@@ -257,13 +300,13 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                 <div className="font-bold text-slate-800 text-sm truncate">
                                   {item.name}
                                 </div>
-                                <div className="text-xs text-slate-400 font-mono">
-                                  Rs. {price.toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
+                                <div className="text-xs text-slate-500 font-mono">
+                                  Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Inline Stepper, Qty Input, and Line Total */}
+                            {/* Inline Stepper, Qty Input, Custom Rate, and Line Total */}
                             <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
                               <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs">
                                 <button
@@ -294,10 +337,25 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                 </button>
                               </div>
 
+                              {hasQty && (
+                                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
+                                  <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={currentPrice}
+                                    onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
+                                    className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
+                                    title="Custom Selling Rate (PKR)"
+                                  />
+                                </div>
+                              )}
+
                               <div className="w-24 text-right">
                                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
                                 <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
-                                  Rs. {lineSubtotal.toLocaleString()}
+                                  Rs. {Math.round(lineSubtotal).toLocaleString()}
                                 </span>
                               </div>
                             </div>

@@ -162,31 +162,21 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
         const nameLower = (fgItem?.name || '').toLowerCase();
         if (nameLower.includes('19l') || nameLower.includes('19 l')) {
           total19L += prod.quantity;
-        } else if ((nameLower.includes('1.5') && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        } else if ((nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
           total15L += prod.quantity;
-        } else if ((nameLower.includes('0.5') && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        } else if ((nameLower.includes('0.5') || nameLower.includes('500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
           total05L += prod.quantity;
         } else {
           customItems.push(prod);
         }
       }
 
-      // If it is ONLY a single custom finished good not matching standard lines
-      if (itemsToProduce.length === 1 && customItems.length === 1) {
-        batchData = {
-          outputItemId: customItems[0].outputItemId,
-          quantity: customItems[0].quantity,
-          packs05L: 0,
-          packs15L: 0
-        };
-      } else {
-        batchData = {
-          outputItemId: null,
-          quantity: total19L > 0 ? total19L : null,
-          packs05L: total05L,
-          packs15L: total15L
-        };
-      }
+      batchData = {
+        outputItemId: itemsToProduce.length === 1 ? itemsToProduce[0].outputItemId : null,
+        quantity: itemsToProduce.length === 1 ? itemsToProduce[0].quantity : (total19L > 0 ? total19L : null),
+        packs05L: total05L,
+        packs15L: total15L
+      };
     } else {
       // Wadaana
       let totalPure05L = 0;
@@ -211,25 +201,14 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
         }
       }
 
-      if (itemsToProduce.length === 1 && customItems.length === 1) {
-        batchData = {
-          outputItemId: customItems[0].outputItemId,
-          quantity: customItems[0].quantity,
-          qtyPure05L: 0,
-          qtyPure15L: 0,
-          qtyMix05L: 0,
-          qtyMix15L: 0
-        };
-      } else {
-        batchData = {
-          outputItemId: null,
-          quantity: null,
-          qtyPure05L: totalPure05L,
-          qtyPure15L: totalPure15L,
-          qtyMix05L: totalMix05L,
-          qtyMix15L: totalMix15L
-        };
-      }
+      batchData = {
+        outputItemId: itemsToProduce.length === 1 ? itemsToProduce[0].outputItemId : null,
+        quantity: itemsToProduce.length === 1 ? itemsToProduce[0].quantity : null,
+        qtyPure05L: totalPure05L,
+        qtyPure15L: totalPure15L,
+        qtyMix05L: totalMix05L,
+        qtyMix15L: totalMix15L
+      };
     }
 
     const createdBatch = await prisma[`${prefix}ProductionBatch`].create({
@@ -435,72 +414,119 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     if (brPure15L > batch.qtyPure15L) throw new ApiError(400, `Broken 1.5L Pure bottles (${brPure15L}) exceed produced amount`);
     if (brMix05L > batch.qtyMix05L) throw new ApiError(400, `Broken 0.5L Mix bottles (${brMix05L}) exceed produced amount`);
     if (brMix15L > batch.qtyMix15L) throw new ApiError(400, `Broken 1.5L Mix bottles (${brMix15L}) exceed produced amount`);
-
-    // Detect any custom finished goods in Wadaana unified batch
-    const isStandardWadaanaItem = (name = '') => {
-      const n = name.toLowerCase();
-      return (n.includes('pure') || n.includes('mix')) && (n.includes('0.5') || n.includes('500') || n.includes('1.5') || n.includes('1500') || n.includes('13g') || n.includes('15g') || n.includes('27g') || n.includes('30g'));
-    };
-    const customWadaanaItems = remarksProducedItems.filter(p => !isStandardWadaanaItem(p.name));
-
-    const customDeductions = [];
-    const customFinishedGoods = [];
-    let customWasteTotal = 0;
-
-    if (customWadaanaItems.length > 0) {
-      const customItemIds = customWadaanaItems.map(c => c.itemId);
-      const recipes = await prisma.wadaanaRecipeItem.findMany({
-        where: { finishedGoodId: { in: customItemIds } },
-        include: { rawMaterial: true }
-      });
-
-      for (const c of customWadaanaItems) {
-        const fgItem = allItems.find(i => i.id === c.itemId);
-        const prodQty = Number(c.quantity || 0);
-        const breakage = parseInt(itemBreakages[c.itemId] || 0, 10);
-        if (breakage < 0) throw new ApiError(400, `Waste for ${c.name} cannot be negative`);
-        if (breakage > prodQty) throw new ApiError(400, `Waste for ${c.name} (${breakage}) cannot exceed produced amount (${prodQty})`);
-        customWasteTotal += breakage;
-
-        const netGood = Math.max(0, prodQty - breakage);
-        if (netGood > 0 && fgItem) {
-          customFinishedGoods.push({
-            itemId: fgItem.id,
-            name: fgItem.name,
-            quantityAdded: netGood,
-            unit: fgItem.unit || 'units'
-          });
+    // Universal dynamic recipe deduction for Wadaana batches
+    let producedList = [];
+    if (remarksProducedItems.length > 0) {
+      producedList = remarksProducedItems.map(p => ({
+        itemId: p.itemId || p.outputItemId,
+        name: p.name,
+        quantity: Number(p.quantity || 0)
+      }));
+    } else if (batch.outputItemId && batch.quantity > 0) {
+      const fg = allItems.find(i => i.id === batch.outputItemId);
+      producedList = [{
+        itemId: batch.outputItemId,
+        name: fg?.name || 'Finished Good',
+        quantity: Number(batch.quantity)
+      }];
+    } else {
+      // Legacy column fallback
+      const colMappings = [
+        { key: 'qtyPure05L', name: 'pure', vol: ['0.5', '500'], brokenKey: 'brokenPure05L' },
+        { key: 'qtyPure15L', name: 'pure', vol: ['1.5', '1500'], brokenKey: 'brokenPure15L' },
+        { key: 'qtyMix05L', name: 'mix', vol: ['0.5', '500'], brokenKey: 'brokenMix05L' },
+        { key: 'qtyMix15L', name: 'mix', vol: ['1.5', '1500'], brokenKey: 'brokenMix15L' }
+      ];
+      for (const cm of colMappings) {
+        const q = batch[cm.key] || 0;
+        if (q > 0) {
+          const fg = allItems.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes(cm.name) && cm.vol.some(v => i.name.toLowerCase().includes(v)));
+          if (fg) {
+            producedList.push({ itemId: fg.id, name: fg.name, quantity: q, legacyKey: cm.brokenKey });
+          }
         }
+      }
+    }
 
-        const itemRecipes = recipes.filter(r => r.finishedGoodId === c.itemId);
+    const fgIds = producedList.map(p => p.itemId).filter(Boolean);
+    const recipes = await prisma.wadaanaRecipeItem.findMany({
+      where: { finishedGoodId: { in: fgIds } },
+      include: { rawMaterial: true }
+    });
+
+    const deductionsMap = new Map();
+    const finishedGoodsToAdd = [];
+    let totalWaste = 0;
+
+    for (const prod of producedList) {
+      const fgItem = allItems.find(i => i.id === prod.itemId);
+      const prodQty = prod.quantity;
+      
+      let breakage = 0;
+      if (itemBreakages[prod.itemId] !== undefined) {
+        breakage = parseInt(itemBreakages[prod.itemId], 10) || 0;
+      } else if (prod.legacyKey && req.body[prod.legacyKey] !== undefined) {
+        breakage = parseInt(req.body[prod.legacyKey], 10) || 0;
+      }
+      
+      if (breakage < 0) throw new ApiError(400, `Breakage for ${prod.name} cannot be negative`);
+      if (breakage > prodQty) throw new ApiError(400, `Breakage for ${prod.name} (${breakage}) cannot exceed produced amount (${prodQty})`);
+      totalWaste += breakage;
+
+      const netGood = Math.max(0, prodQty - breakage);
+      if (netGood > 0 && fgItem) {
+        finishedGoodsToAdd.push({
+          itemId: fgItem.id,
+          name: fgItem.name,
+          quantityAdded: netGood,
+          unit: fgItem.unit || 'pcs'
+        });
+      }
+
+      // Check explicit database recipes
+      const itemRecipes = recipes.filter(r => r.finishedGoodId === prod.itemId);
+      if (itemRecipes.length > 0) {
         for (const r of itemRecipes) {
-          const rawItem = r.rawMaterial || allItems.find(i => i.id === r.rawMaterialId);
-          if (!rawItem) continue;
+          const rmItem = r.rawMaterial || allItems.find(i => i.id === r.rawMaterialId);
+          if (!rmItem) continue;
           const qtyUsed = Number(r.quantityPerUnit) * prodQty;
-          customDeductions.push({
-            itemId: rawItem.id,
-            name: rawItem.name,
-            quantityUsed: qtyUsed,
-            unit: rawItem.unit || 'pcs'
-          });
+          const current = deductionsMap.get(rmItem.id) || { itemId: rmItem.id, name: rmItem.name, quantityUsed: 0, unit: rmItem.unit || 'kg' };
+          current.quantityUsed += qtyUsed;
+          deductionsMap.set(rmItem.id, current);
+        }
+      } else {
+        // Fallback for known Wadaana standard bottle weights if recipe not configured
+        const nLower = (prod.name || '').toLowerCase();
+        let fallbackWeight = 0;
+        let prefKeyword = '';
+        let volKeyword = [];
+
+        if (nLower.includes('pure') && (nLower.includes('0.5') || nLower.includes('500'))) {
+          fallbackWeight = 0.015; prefKeyword = 'pure'; volKeyword = ['0.5', '500'];
+        } else if (nLower.includes('pure') && (nLower.includes('1.5') || nLower.includes('1500'))) {
+          fallbackWeight = 0.030; prefKeyword = 'pure'; volKeyword = ['1.5', '1500'];
+        } else if (nLower.includes('mix') && (nLower.includes('0.5') || nLower.includes('500'))) {
+          fallbackWeight = 0.013; prefKeyword = 'mix'; volKeyword = ['0.5', '500'];
+        } else if (nLower.includes('mix') && (nLower.includes('1.5') || nLower.includes('1500'))) {
+          fallbackWeight = 0.027; prefKeyword = 'mix'; volKeyword = ['1.5', '1500'];
+        }
+
+        if (fallbackWeight > 0) {
+          const rmItem = allItems.find(i => i.type === 'RAW_MATERIAL' && i.name.toLowerCase().includes(prefKeyword) && volKeyword.some(v => i.name.toLowerCase().includes(v)));
+          if (rmItem) {
+            const qtyUsed = fallbackWeight * prodQty;
+            const current = deductionsMap.get(rmItem.id) || { itemId: rmItem.id, name: rmItem.name, quantityUsed: 0, unit: rmItem.unit || 'kg' };
+            current.quantityUsed += qtyUsed;
+            deductionsMap.set(rmItem.id, current);
+          }
         }
       }
     }
 
-    // Validate Preform Stock
-    for (const pref of WADAANA_PREFORMS) {
-      const producedQty = batch[pref.key] || 0;
-      if (producedQty > 0) {
-        const kgUsed = producedQty * pref.weight;
-        const rmItem = matchWadaanaItem(allItems, 'RAW_MATERIAL', pref.primary, pref.volume);
-        if (rmItem && Number(rmItem.cachedQty || 0) < kgUsed) {
-          throw new ApiError(400, `❌ Insufficient preform stock for ${rmItem.name}`);
-        }
-      }
-    }
+    const deductions = Array.from(deductionsMap.values());
 
-    // Validate Custom Raw Material Stock
-    for (const d of customDeductions) {
+    // Validate Raw Material Stock
+    for (const d of deductions) {
       const item = allItems.find(i => i.id === d.itemId);
       const availableQty = item ? Number(item.cachedQty || 0) : 0;
       if (availableQty < d.quantityUsed) {
@@ -513,76 +539,62 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
         where: { id },
         data: {
           status: 'COMPLETED',
-          brokenPure05L: brPure05L,
-          brokenPure15L: brPure15L,
-          brokenMix05L: brMix05L,
-          brokenMix15L: brMix15L,
-          wasteQuantity: customWasteTotal
+          brokenPure05L: parseInt(req.body.brokenPure05L || 0, 10),
+          brokenPure15L: parseInt(req.body.brokenPure15L || 0, 10),
+          brokenMix05L: parseInt(req.body.brokenMix05L || 0, 10),
+          brokenMix15L: parseInt(req.body.brokenMix15L || 0, 10),
+          wasteQuantity: totalWaste
         }
       });
 
-      // Update Wadaana finished goods stock
-      for (const pref of WADAANA_PREFORMS) {
-        const produced = pb[pref.key] || 0;
-        const broken = pb[pref.brokenKey] || 0;
-        const netGood = Math.max(0, produced - broken);
-        if (netGood > 0) {
-          const item = matchWadaanaItem(allItems, 'FINISHED_GOOD', pref.primary, pref.volume);
-          if (item) {
-            await tx.wadaanaInventoryTransaction.create({
-              data: { itemId: item.id, quantity: netGood, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
-            });
-            await tx.wadaanaItem.update({
-              where: { id: item.id },
-              data: { cachedQty: { increment: netGood }, factoryQty: { increment: netGood } }
-            });
-          }
-        }
-      }
-
-      // Update custom finished goods stock
-      for (const fg of customFinishedGoods) {
+      // Update Wadaana finished goods stock (both cachedQty and factoryQty)
+      for (const fg of finishedGoodsToAdd) {
         await tx.wadaanaInventoryTransaction.create({
-          data: { itemId: fg.itemId, quantity: fg.quantityAdded, direction: 'IN', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
+          data: {
+            itemId: fg.itemId,
+            quantity: fg.quantityAdded,
+            direction: 'IN',
+            reason: 'PRODUCTION',
+            refType: 'BATCH',
+            refId: pb.id,
+            location: 'FACTORY'
+          }
         });
         await tx.wadaanaItem.update({
           where: { id: fg.itemId },
-          data: { cachedQty: { increment: fg.quantityAdded }, factoryQty: { increment: fg.quantityAdded } }
+          data: {
+            cachedQty: { increment: fg.quantityAdded },
+            factoryQty: { increment: fg.quantityAdded }
+          }
         });
       }
 
-      // Deduct Wadaana preform raw materials
-      for (const pref of WADAANA_PREFORMS) {
-        const producedQty = batch[pref.key] || 0;
-        if (producedQty > 0) {
-          const kgUsed = producedQty * pref.weight;
-          const rmItem = matchWadaanaItem(allItems, 'RAW_MATERIAL', pref.primary, pref.volume);
-          if (rmItem) {
-            await tx.wadaanaProductionBatchConsumption.create({
-              data: { batchId: pb.id, itemId: rmItem.id, quantityUsed: kgUsed }
-            });
-            await tx.wadaanaInventoryTransaction.create({
-              data: { itemId: rmItem.id, quantity: kgUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
-            });
-            await tx.wadaanaItem.update({
-              where: { id: rmItem.id },
-              data: { cachedQty: { decrement: kgUsed } }
-            });
-          }
-        }
-      }
-
-      // Deduct custom recipe raw materials
-      for (const d of customDeductions) {
+      // Deduct Wadaana raw materials (both cachedQty and factoryQty)
+      for (const d of deductions) {
         await tx.wadaanaProductionBatchConsumption.create({
-          data: { batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed }
+          data: {
+            batchId: pb.id,
+            itemId: d.itemId,
+            quantityUsed: d.quantityUsed
+          }
         });
         await tx.wadaanaInventoryTransaction.create({
-          data: { itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id }
+          data: {
+            itemId: d.itemId,
+            quantity: d.quantityUsed,
+            direction: 'OUT',
+            reason: 'PRODUCTION',
+            refType: 'BATCH',
+            refId: pb.id,
+            location: 'FACTORY'
+          }
         });
         await tx.wadaanaItem.update({
           where: { id: d.itemId },
-          data: { cachedQty: { decrement: d.quantityUsed } }
+          data: {
+            cachedQty: { decrement: d.quantityUsed },
+            factoryQty: { decrement: d.quantityUsed }
+          }
         });
       }
 
@@ -591,7 +603,12 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
         entityType: 'PRODUCTION_BATCH',
         entityId: pb.id,
         performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ status: 'COMPLETED', qtyPure05L: pb.qtyPure05L, brPure05L, qtyPure15L: pb.qtyPure15L, brPure15L, qtyMix05L: pb.qtyMix05L, brMix05L, qtyMix15L: pb.qtyMix15L, brMix15L, customWasteTotal })
+        details: JSON.stringify({
+          status: 'COMPLETED',
+          producedGoods: finishedGoodsToAdd.map(f => `${f.name}: +${f.quantityAdded}`),
+          deductedMaterials: deductions.map(d => `${d.name}: -${d.quantityUsed.toFixed(3)} ${d.unit}`),
+          wasteQuantity: totalWaste
+        })
       });
 
       return pb;
@@ -738,7 +755,13 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
         data: allDeductions.map(d => ({ itemId: d.itemId, quantity: d.quantityUsed, direction: 'OUT', reason: 'PRODUCTION', refType: 'BATCH', refId: pb.id, location: 'FACTORY' }))
       });
       for (const d of allDeductions) {
-        await tx.aquasphereItem.update({ where: { id: d.itemId }, data: { cachedQty: { decrement: d.quantityUsed } } });
+        await tx.aquasphereItem.update({
+          where: { id: d.itemId },
+          data: {
+            cachedQty: { decrement: d.quantityUsed },
+            factoryQty: { decrement: d.quantityUsed }
+          }
+        });
       }
     }
 

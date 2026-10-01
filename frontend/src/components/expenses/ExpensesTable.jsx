@@ -9,7 +9,8 @@ export default function ExpensesTable({
   setSelectedCategory,
   search = '',
   setSearch,
-  userName = ''
+  userName = '',
+  categories = EXPENSE_CATEGORIES
 }) {
   const { isWadaana } = useTenant();
 
@@ -28,7 +29,7 @@ export default function ExpensesTable({
           >
             All
           </button>
-          {EXPENSE_CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}

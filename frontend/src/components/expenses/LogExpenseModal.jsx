@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Receipt, Upload, CheckCircle, Loader2, AlertCircle, Car } from 'lucide-react';
 import { API_URL } from '../../utils/api';
-import { EXPENSE_CATEGORIES } from '../../constants/expenses';
+import { EXPENSE_CATEGORIES, TRANSPORT_EXPENSE_CATEGORIES } from '../../constants/expenses';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
 
 const API = API_URL;
-const TM_CATEGORIES = ['Fuel / Transport', 'Vehicle Repairs', 'Maintenance', 'Miscellaneous'];
+const TM_CATEGORIES = TRANSPORT_EXPENSE_CATEGORIES;
 
 export default function LogExpenseModal({ isOpen, onClose, onSaved, defaultVehicleId = '', lockVehicle = false }) {
   const { user } = useAuth();

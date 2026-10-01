@@ -39,11 +39,6 @@ export const getCustomers = asyncHandler(async (req, res) => {
   const { search, status } = req.query;
   const prefix = getTenantPrefix(req);
 
-  // Security / Anti-poaching protection: MARKETING_MANAGER can only search customers by name/phone, cannot dump entire customer list
-  if (req.user?.role === 'MARKETING_MANAGER' && (!search || !search.trim())) {
-    return sendSuccess(res, []);
-  }
-
   let archivedFilter = { archivedAt: null };
   if (status === 'archived') archivedFilter = { archivedAt: { not: null } };
   else if (status === 'all') archivedFilter = {};
@@ -110,7 +105,7 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
 /** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
 
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
@@ -125,6 +120,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     mapLink: mapLink || null,
     deposit: securityDeposit ? parseInt(securityDeposit, 10) : 0,
     currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
+    defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
     creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
     creditDuration: creditDuration ? parseInt(creditDuration, 10) : 1,
     remarks: remarks || null,
@@ -159,7 +155,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
 
   const existing = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!existing) throw new ApiError(404, 'Customer not found');
@@ -178,6 +174,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (address !== undefined) updateData.address = address;
   if (mapLink !== undefined) updateData.mapLink = mapLink;
   if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit, 10) || 0;
+  if (defaultPrice !== undefined) updateData.defaultPrice = parseFloat(defaultPrice) || 0.0;
   if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit) || 0;
   if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration, 10) || 1;
   if (remarks !== undefined) updateData.remarks = remarks;

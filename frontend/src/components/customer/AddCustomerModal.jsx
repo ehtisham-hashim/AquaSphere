@@ -13,6 +13,7 @@ const initialFormData = {
   mapLink: '',
   securityDeposit: 0,
   currentBalance: 0,
+  defaultPrice: 0,
   creditLimit: 0,
   creditDuration: 1,
   remarks: '',
@@ -134,6 +135,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
           homePictureUrl: uploadedImageUrl,
           securityDeposit: formData.securityDeposit ? parseInt(formData.securityDeposit) : 0,
           currentBalance: formData.currentBalance ? parseFloat(formData.currentBalance) : 0,
+          defaultPrice: formData.defaultPrice ? parseFloat(formData.defaultPrice) : 0,
           creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
           creditDuration: formData.creditDuration ? parseInt(formData.creditDuration) : 1
         }),

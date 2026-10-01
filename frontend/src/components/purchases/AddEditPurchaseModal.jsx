@@ -30,7 +30,7 @@ export default function AddEditPurchaseModal({
   const [status, setStatus] = useState('RECEIVED');
   const [paymentStatus, setPaymentStatus] = useState('CREDIT');
   const [remarks, setRemarks] = useState('');
-  const [items, setItems] = useState([{ itemId: '', quantity: '', unitPrice: '' }]);
+  const [items, setItems] = useState([{ itemId: '', quantity: '', unitPrice: '', totalPrice: '' }]);
 
   // Receipt upload state
   const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState('');
@@ -68,14 +68,20 @@ export default function AddEditPurchaseModal({
 
       if (initialData.items && initialData.items.length > 0) {
         setItems(
-          initialData.items.map(it => ({
-            itemId: it.itemId || '',
-            quantity: String(it.quantity || ''),
-            unitPrice: String(it.unitPrice || '')
-          }))
+          initialData.items.map(it => {
+            const q = parseFloat(it.quantity) || 0;
+            const up = parseFloat(it.unitPrice) || 0;
+            const tot = q > 0 && up > 0 ? (q * up).toFixed(2).replace(/\.?0+$/, '') : '';
+            return {
+              itemId: it.itemId || '',
+              quantity: String(it.quantity || ''),
+              unitPrice: String(it.unitPrice || ''),
+              totalPrice: tot
+            };
+          })
         );
       } else {
-        setItems([{ itemId: '', quantity: '', unitPrice: '' }]);
+        setItems([{ itemId: '', quantity: '', unitPrice: '', totalPrice: '' }]);
       }
 
       setUploadedReceiptUrl(initialData.receiptUrl || '');
@@ -91,7 +97,7 @@ export default function AddEditPurchaseModal({
       setStatus('RECEIVED');
       setPaymentStatus('CREDIT');
       setRemarks('');
-      setItems([{ itemId: '', quantity: '', unitPrice: '' }]);
+      setItems([{ itemId: '', quantity: '', unitPrice: '', totalPrice: '' }]);
       setUploadedReceiptUrl('');
       setUploadError('');
       setError('');
@@ -101,7 +107,7 @@ export default function AddEditPurchaseModal({
   if (!isOpen) return null;
 
   const handleAddItemRow = () => {
-    setItems(prev => [...prev, { itemId: '', quantity: '', unitPrice: '' }]);
+    setItems(prev => [...prev, { itemId: '', quantity: '', unitPrice: '', totalPrice: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -113,12 +119,45 @@ export default function AddEditPurchaseModal({
   const handleItemChange = (idx, field, value) => {
     setItems(prevItems => {
       const updated = [...prevItems];
-      updated[idx] = { ...updated[idx], [field]: value };
+      const row = { ...updated[idx], [field]: value };
+
+      if (field === 'quantity') {
+        const qty = parseFloat(value);
+        if (!isNaN(qty) && qty > 0) {
+          const tot = parseFloat(row.totalPrice);
+          const up = parseFloat(row.unitPrice);
+          if (!isNaN(tot) && tot > 0) {
+            row.unitPrice = (tot / qty).toFixed(4).replace(/\.?0+$/, '');
+          } else if (!isNaN(up) && up > 0) {
+            row.totalPrice = (qty * up).toFixed(2).replace(/\.?0+$/, '');
+          }
+        }
+      } else if (field === 'unitPrice') {
+        const up = parseFloat(value);
+        const qty = parseFloat(row.quantity);
+        if (!isNaN(up) && !isNaN(qty) && qty > 0) {
+          row.totalPrice = (qty * up).toFixed(2).replace(/\.?0+$/, '');
+        } else if (!value) {
+          row.totalPrice = '';
+        }
+      } else if (field === 'totalPrice') {
+        const tot = parseFloat(value);
+        const qty = parseFloat(row.quantity);
+        if (!isNaN(tot) && !isNaN(qty) && qty > 0) {
+          row.unitPrice = (tot / qty).toFixed(4).replace(/\.?0+$/, '');
+        } else if (!value) {
+          row.unitPrice = '';
+        }
+      }
+
+      updated[idx] = row;
       return updated;
     });
   };
 
   const grandTotal = items.reduce((acc, row) => {
+    const tot = parseFloat(row.totalPrice);
+    if (!isNaN(tot) && tot > 0) return acc + tot;
     const qty = parseFloat(row.quantity) || 0;
     const price = parseFloat(row.unitPrice) || 0;
     return acc + (qty * price);
@@ -158,11 +197,26 @@ export default function AddEditPurchaseModal({
     setError('');
 
     if (!vendorId) return setError('Please select a vendor / supplier');
-    if (items.some(i => !i.itemId || !i.quantity || isNaN(parseFloat(i.quantity)) || parseFloat(i.quantity) <= 0)) {
+
+    const processedItems = items.map(i => {
+      const qty = parseFloat(i.quantity) || 0;
+      let up = parseFloat(i.unitPrice);
+      const tot = parseFloat(i.totalPrice);
+      if ((isNaN(up) || up <= 0) && !isNaN(tot) && tot > 0 && qty > 0) {
+        up = tot / qty;
+      }
+      return {
+        itemId: i.itemId,
+        quantity: qty,
+        unitPrice: isNaN(up) ? 0 : up
+      };
+    });
+
+    if (processedItems.some(i => !i.itemId || !i.quantity || i.quantity <= 0)) {
       return setError('Please provide valid materials and quantities (> 0) for all rows');
     }
-    if (items.some(i => i.unitPrice === '' || isNaN(parseFloat(i.unitPrice)) || parseFloat(i.unitPrice) < 0)) {
-      return setError('Please provide valid unit prices (>= 0) for all rows');
+    if (processedItems.some(i => i.unitPrice < 0 || isNaN(i.unitPrice))) {
+      return setError('Please provide valid unit rates or total prices (>= 0) for all rows');
     }
 
     setSubmitting(true);
@@ -181,11 +235,7 @@ export default function AddEditPurchaseModal({
         paymentStatus,
         receiptUrl: uploadedReceiptUrl || null,
         remarks,
-        items: items.map(i => ({
-          itemId: i.itemId,
-          quantity: parseFloat(i.quantity),
-          unitPrice: parseFloat(i.unitPrice)
-        }))
+        items: processedItems
       };
 
       const res = await fetch(endpoint, {
@@ -381,11 +431,10 @@ export default function AddEditPurchaseModal({
 
             {items.map((row, idx) => {
               const selectedMat = materials.find(m => m.id === row.itemId);
-              const lineTotal = (parseFloat(row.quantity) || 0) * (parseFloat(row.unitPrice) || 0);
 
               return (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200/80">
-                  <div className="col-span-5">
+                  <div className="col-span-12 sm:col-span-4">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">Raw Material *</label>
                     <select
                       className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-medium text-slate-800"
@@ -400,7 +449,7 @@ export default function AddEditPurchaseModal({
                     </select>
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-4 sm:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">
                       Qty {selectedMat ? `(${selectedMat.unit || 'units'})` : ''} *
                     </label>
@@ -408,7 +457,7 @@ export default function AddEditPurchaseModal({
                       type="number"
                       step="any"
                       min="0.001"
-                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800"
+                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800 font-mono"
                       value={row.quantity}
                       onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
                       placeholder="0"
@@ -416,26 +465,37 @@ export default function AddEditPurchaseModal({
                     />
                   </div>
 
-                  <div className="col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Unit Rate (PKR) *</label>
+                  <div className="col-span-4 sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1" title="Unit rate (auto-syncs with Total Price)">
+                      Unit Rate (PKR)
+                    </label>
                     <input
                       type="number"
                       step="any"
                       min="0"
-                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800"
+                      className="w-full border border-slate-200 rounded-lg p-2 focus:border-brand outline-none text-sm bg-white font-bold text-slate-800 font-mono"
                       value={row.unitPrice}
                       onChange={e => handleItemChange(idx, 'unitPrice', e.target.value)}
                       placeholder="0.00"
-                      required
                     />
                   </div>
 
-                  <div className="col-span-2 text-right">
-                    <span className="block text-[11px] font-bold text-slate-400 mb-1">Total</span>
-                    <span className="text-xs font-black text-slate-800">Rs. {lineTotal.toLocaleString()}</span>
+                  <div className="col-span-3 sm:col-span-3">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1" title="Bulk / overall price (auto-calculates Unit Rate)">
+                      Total Price (PKR)
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="w-full border border-brand/40 bg-brand/5 rounded-lg p-2 focus:border-brand outline-none text-sm font-bold text-slate-900 font-mono"
+                      value={row.totalPrice}
+                      onChange={e => handleItemChange(idx, 'totalPrice', e.target.value)}
+                      placeholder="0.00"
+                    />
                   </div>
 
-                  <div className="col-span-1 text-right">
+                  <div className="col-span-1 text-right flex justify-end">
                     {items.length > 1 && (
                       <button
                         type="button"

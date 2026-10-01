@@ -39,17 +39,20 @@ export const getExpenses = asyncHandler(async (req, res) => {
     where.vehicleId = vehicleId;
   }
 
-  if (category && category !== 'ALL') {
-    where.category = category;
-  }
+  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'];
 
-  // TM only sees transport-related expenses
   if (req.user?.role === 'TRANSPORT_MANAGER') {
-    where.OR = [
-      { vehicleId: { not: null } },
-      { category: { in: ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'] } },
-      { createdById: req.user.id }
-    ];
+    if (category && category !== 'ALL') {
+      if (!TM_ALLOWED_CATEGORIES.includes(category)) {
+        where.category = '__BLOCKED__';
+      } else {
+        where.category = category;
+      }
+    } else {
+      where.category = { in: TM_ALLOWED_CATEGORIES };
+    }
+  } else if (category && category !== 'ALL') {
+    where.category = category;
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -91,8 +94,14 @@ export const createExpense = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
   }
 
-  if (req.user?.role === 'TRANSPORT_MANAGER' && !vehicleId) {
-    throw new ApiError(400, 'Please select a car/vehicle for transport expenses');
+  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'];
+  if (req.user?.role === 'TRANSPORT_MANAGER') {
+    if (!TM_ALLOWED_CATEGORIES.includes(category)) {
+      throw new ApiError(403, 'Transport managers are only permitted to log vehicle expenses (Fuel, Vehicle Repairs).');
+    }
+    if (!vehicleId) {
+      throw new ApiError(400, 'Please select a car/vehicle for transport expenses');
+    }
   }
 
   if (vehicleId) {

@@ -314,10 +314,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
           {/* Purchasing Preferences Section */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <ShoppingBag size={16} className={theme.iconColor} />
-              <span>Purchased Products ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere Delivery'})</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <ShoppingBag size={16} className={theme.iconColor} />
+                <span>Purchased Products ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere Delivery'})</span>
+              </h3>
+              {Number(c.defaultPrice || 0) > 0 && (
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-mono">
+                  Custom Rate: Rs. {Number(c.defaultPrice).toLocaleString()}
+                </span>
+              )}
+            </div>
             
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
               {!isWadaana ? (

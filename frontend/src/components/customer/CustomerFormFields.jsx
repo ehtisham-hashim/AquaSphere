@@ -132,7 +132,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
           <DollarSign size={14} className="text-slate-500" /> Credit & Security Terms
         </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label htmlFor="customer-creditLimit" className="block text-xs font-semibold text-slate-700 mb-1">Credit Limit (Rs)</label>
             <input
@@ -172,6 +172,22 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               onChange={handleChange}
               placeholder="0"
               className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-semibold"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer-defaultPrice" className="block text-xs font-semibold text-slate-700 mb-1">Custom Rate (Rs)</label>
+            <input
+              id="customer-defaultPrice"
+              type="number"
+              name="defaultPrice"
+              min="0"
+              step="any"
+              value={formData.defaultPrice || ''}
+              onChange={handleChange}
+              placeholder="0 (Catalog default)"
+              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-semibold"
+              title="Custom default selling rate per unit/pack for this customer"
             />
           </div>
         </div>

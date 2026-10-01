@@ -156,17 +156,7 @@ export default function Customers() {
             </div>
           </div>
 
-          {isMarketingManager && !search.trim() ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-xs">
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-500">
-                <Search size={22} />
-              </div>
-              <h3 className="text-base font-bold text-slate-800 mb-1">Search Customer by Name or Phone</h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Type a customer&apos;s name or contact number in the search bar above to look up their account, check credit status, or view orders.
-              </p>
-            </div>
-          ) : isLoading && customers.length === 0 ? (
+          {isLoading && customers.length === 0 ? (
             <TableSkeleton rows={6} cols={6} />
           ) : (
             <CustomersTable

@@ -21,6 +21,7 @@ import {
   ExpensesTable,
   LogExpenseModal
 } from '../components/expenses';
+import { TRANSPORT_EXPENSE_CATEGORIES } from '../constants/expenses';
 
 // ponytail: unified transport page - tab 1 fleet, tab 2 vehicle expenses
 export default function Transport() {
@@ -132,13 +133,11 @@ export default function Transport() {
     fetchExpenses();
   }, [fetchVehicles, fetchExpenses]);
 
-  // Filter transport-related expenses (attached vehicle or transport categories)
+  // Filter transport-related expenses (strictly fuel and vehicle repairs)
   const transportExpenses = useMemo(() => {
     return expenses.filter(ex => {
       return (
-        ex.vehicleId ||
-        ex.vehicle ||
-        ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'].includes(ex.category)
+        ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'].includes(ex.category)
       );
     });
   }, [expenses]);
@@ -369,6 +368,7 @@ export default function Transport() {
             search={expenseSearch}
             setSearch={setExpenseSearch}
             userName={user?.name}
+            categories={TRANSPORT_EXPENSE_CATEGORIES}
           />
 
           {/* Log Expense Modal (Full support for receipts, TM mandatory car selection) */}

@@ -121,11 +121,14 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const custDefaultPrice = Number(selectedCustomer?.defaultPrice || 0);
+
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
-    const price = Math.round(item.defaultPrice);
-    return sum + (price * (parseInt(data.quantity) || 0));
+    const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+    const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
+    return sum + (unitRate * (parseInt(data.quantity) || 0));
   }, 0);
 
   const handleChange = (e) => {
@@ -140,9 +143,27 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       if (isNaN(parsed) || parsed <= 0) {
         delete next[itemId];
       } else {
-        next[itemId] = { quantity: parsed };
+        const item = availableItems.find(i => i.id === itemId);
+        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        next[itemId] = {
+          quantity: parsed,
+          price: next[itemId]?.price !== undefined ? next[itemId].price : defaultRate
+        };
       }
       return next;
+    });
+  };
+
+  const handleItemPriceChange = (itemId, valStr) => {
+    setSelectedItems(prev => {
+      if (!prev[itemId]) return prev;
+      return {
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          price: valStr
+        }
+      };
     });
   };
 
@@ -154,7 +175,12 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       if (updated <= 0) {
         delete next[itemId];
       } else {
-        next[itemId] = { quantity: updated };
+        const item = availableItems.find(i => i.id === itemId);
+        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        next[itemId] = {
+          quantity: updated,
+          price: next[itemId]?.price !== undefined ? next[itemId].price : defaultRate
+        };
       }
       return next;
     });
@@ -186,13 +212,16 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
     const orderItemsPayload = selectedKeys.map(itemId => {
       const item = availableItems.find(i => i.id === itemId);
-      const price = Math.round(item.defaultPrice);
+      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+      const customPrice = selectedItems[itemId].price !== undefined && selectedItems[itemId].price !== ''
+        ? (parseFloat(selectedItems[itemId].price) || 0)
+        : defaultRate;
       return {
         itemId: item.dbItemId || item.id,
         catalogId: item.id,
         productName: item.name,
         quantity: selectedItems[itemId].quantity,
-        price
+        price: customPrice
       };
     });
 
@@ -369,8 +398,11 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                       {catItems.map(item => {
                         const qty = selectedItems[item.id]?.quantity || 0;
                         const hasQty = qty > 0;
-                        const price = Math.round(item.defaultPrice);
-                        const lineSubtotal = qty * price;
+                        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+                        const currentPrice = selectedItems[item.id]?.price !== undefined && selectedItems[item.id]?.price !== ''
+                          ? selectedItems[item.id].price
+                          : defaultRate;
+                        const lineSubtotal = qty * (parseFloat(currentPrice) || 0);
 
                         return (
                           <div 
@@ -388,12 +420,12 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                                   {item.name}
                                 </div>
                                 <div className="text-xs text-slate-500 font-mono">
-                                  Rs. {price.toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
+                                  Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Inline Stepper, Qty Input, and Line Total */}
+                            {/* Inline Stepper, Rate Input, and Line Total */}
                             <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
                               <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs">
                                 <button
@@ -424,10 +456,25 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                                 </button>
                               </div>
 
+                              {hasQty && (
+                                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
+                                  <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={currentPrice}
+                                    onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
+                                    className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
+                                    title="Custom Selling Rate (PKR)"
+                                  />
+                                </div>
+                              )}
+
                               <div className="w-24 text-right">
                                 <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
                                 <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
-                                  Rs. {lineSubtotal.toLocaleString()}
+                                  Rs. {Math.round(lineSubtotal).toLocaleString()}
                                 </span>
                               </div>
                             </div>

@@ -24,6 +24,7 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
         mapLink: customer.mapLink || '',
         securityDeposit: customer.deposit !== undefined ? parseInt(customer.deposit) : (customer.securityDeposit !== undefined ? parseInt(customer.securityDeposit) : 0),
         currentBalance: customer.currentBalance !== undefined ? parseFloat(customer.currentBalance) : 0,
+        defaultPrice: customer.defaultPrice !== undefined && customer.defaultPrice !== null ? parseFloat(customer.defaultPrice) : '',
         creditLimit: customer.creditLimit ? parseFloat(customer.creditLimit) : 0,
         creditDuration: customer.creditDuration || 1,
         remarks: customer.remarks || '',
@@ -71,6 +72,7 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
           ...formData,
           securityDeposit: formData.securityDeposit !== undefined && formData.securityDeposit !== '' ? parseInt(formData.securityDeposit) : 0,
           currentBalance: formData.currentBalance !== undefined && formData.currentBalance !== '' ? parseFloat(formData.currentBalance) : 0,
+          defaultPrice: formData.defaultPrice !== undefined && formData.defaultPrice !== '' ? parseFloat(formData.defaultPrice) : 0,
           creditLimit: formData.creditLimit !== undefined && formData.creditLimit !== '' ? parseFloat(formData.creditLimit) : 0,
           creditDuration: formData.creditDuration ? parseInt(formData.creditDuration) : 1
         }),
