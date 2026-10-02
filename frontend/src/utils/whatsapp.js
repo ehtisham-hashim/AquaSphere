@@ -27,8 +27,8 @@ export function openWhatsAppWeb(phone, text = '') {
   const normPhone = normalizeWhatsAppPhone(phone);
   const encodedText = text ? encodeURIComponent(text) : '';
   const url = normPhone 
-    ? `https://wa.me/${normPhone}${encodedText ? `?text=${encodedText}` : ''}`
-    : `https://wa.me/?text=${encodedText}`;
+    ? `https://api.whatsapp.com/send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
   window.open(url, '_blank');
 }
 

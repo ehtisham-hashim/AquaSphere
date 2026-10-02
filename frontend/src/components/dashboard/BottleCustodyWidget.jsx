@@ -83,8 +83,8 @@ export default function BottleCustodyWidget({ className = '' }) {
     const bottles = Number(c.cachedBottleBalance || 0);
     const deposit = Number(c.deposit || 0);
     const text = `Assalam-o-Alaikum *${c.name}*,\nThis is a friendly reminder from *${companyName}* regarding *${bottles} unreturned 19L empty bottles* under your account.${deposit > 0 ? ` (Security Deposit on record: Rs. ${deposit.toLocaleString()})` : ''}\n\nPlease have the empty bottles ready for our retrieval vehicle on our next delivery run. Thank you!`;
-    const cleanPhone = c.phone.replace(/[^0-9]/g, '');
-    const url = `https://wa.me/${cleanPhone.startsWith('92') ? cleanPhone : cleanPhone.startsWith('0') ? '92' + cleanPhone.slice(1) : cleanPhone}?text=${encodeURIComponent(text)}`;
+    const phoneParam = cleanPhone.startsWith('92') ? cleanPhone : cleanPhone.startsWith('0') ? '92' + cleanPhone.slice(1) : cleanPhone;
+    const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 

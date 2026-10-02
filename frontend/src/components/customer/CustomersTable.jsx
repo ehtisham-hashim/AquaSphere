@@ -16,7 +16,7 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
     const msg = encodeURIComponent(
       `*Assalam-o-Alaikum / Hello ${c.name},*\n\nWe wanted to check in from AquaSphere to see if you need your pure water bottles replenished!\nIf you have any feedback or require assistance, please let us know.\n\nWould you like us to schedule a delivery for you today?\n\nWarm regards,\n*AquaSphere Team*`
     );
-    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_blank');
   };
 
   return (

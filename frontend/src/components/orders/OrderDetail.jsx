@@ -88,7 +88,7 @@ export default function OrderDetail({ order, onClose }) {
       return `  • ${name}: ${qty} ${i.item?.unit || 'Bottles'} @ Rs. ${rate.toLocaleString()}`;
     }).join('\n');
 
-    const cleanMapLink = sanitizeMapLink(customer.mapLink);
+    const cleanMapLink = sanitizeMapLink(customer.mapLink) || (customer.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}` : null);
 
     return [
       `📦 *DELIVERY ORDER — ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}*`,
@@ -117,14 +117,14 @@ export default function OrderDetail({ order, onClose }) {
 
   // Customer-only details text (same as CustomerDetails)
   const buildCustomerText = () => {
-    const cleanMapLink = sanitizeMapLink(customer.mapLink);
+    const cleanMapLink = sanitizeMapLink(customer.mapLink) || (customer.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}` : null);
     return [
       `📋 *Customer Details*`,
       `👤 Name: ${customer.name || 'N/A'}`,
       `📞 Phone: ${customer.phone || 'N/A'}`,
       customer.address ? `📍 Address: ${customer.address}` : null,
-      cleanMapLink ? `🗺️ Map: ${cleanMapLink}` : null,
-      customer.homePictureUrl ? `\n🖼️ Photo:\n${customer.homePictureUrl}` : null,
+      cleanMapLink ? `🗺️ Location: ${cleanMapLink}` : null,
+      customer.homePictureUrl ? `\n📸 Photo:\n${customer.homePictureUrl}` : null,
     ].filter(Boolean).join('\n');
   };
 
@@ -137,7 +137,7 @@ export default function OrderDetail({ order, onClose }) {
 
   const handleShareWhatsAppDriver = () => {
     const text = encodeURIComponent(buildDriverMessage());
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   return (
@@ -200,7 +200,7 @@ export default function OrderDetail({ order, onClose }) {
                   <Copy size={15} />
                 </button>
                 <button
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(buildCustomerText())}`, '_blank')}
+                  onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(buildCustomerText())}`, '_blank')}
                   className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                   title="Share customer info via WhatsApp"
                 >

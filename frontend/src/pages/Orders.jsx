@@ -435,7 +435,10 @@ export default function Orders() {
                               <button
                                 onClick={() => {
                                   const cust = o.customer || {};
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  const mapLink = cust.mapLink?.trim()
+                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
+                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
                                   navigator.clipboard.writeText(text);
                                   toast.success('Order summary copied for driver!');
                                 }}
@@ -447,8 +450,11 @@ export default function Orders() {
                               <button
                                 onClick={() => {
                                   const cust = o.customer || {};
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
-                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                  const mapLink = cust.mapLink?.trim()
+                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
+                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                                 }}
                                 className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                                 title="Share to driver via WhatsApp"
