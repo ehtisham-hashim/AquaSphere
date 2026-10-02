@@ -7,6 +7,7 @@ import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
 import DrawerReconciliationCard from './DrawerReconciliationCard';
+import CounterAuditLedgerCard from './CounterAuditLedgerCard';
 
 export default function OwnerClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
@@ -209,7 +210,15 @@ export default function OwnerClose() {
         />
       )}
 
-      {/* 5. If open, Owner can also finalize */}
+      {/* 5. Counter Audit Ledger Pre-Close Verification */}
+      <CounterAuditLedgerCard
+        date={date}
+        tenant={tenant}
+        isClosed={isClosed}
+        onLedgerSaved={loadData}
+      />
+
+      {/* 6. If open, Owner can also finalize */}
       {!isClosed && (
         <div className="card-surface p-4 bg-slate-50 flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-600">Day is currently open for operations.</span>

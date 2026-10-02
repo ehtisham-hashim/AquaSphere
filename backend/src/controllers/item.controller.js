@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /** Retrieves catalog items with recipe relations */
 export const getItems = asyncHandler(async (req, res) => {
@@ -22,6 +23,7 @@ export const getItems = asyncHandler(async (req, res) => {
       name: true,
       type: true,
       unit: true,
+      packSize: true,
       cachedQty: true,
       factoryQty: true,
       warehouseQty: true,
@@ -39,14 +41,9 @@ export const getItems = asyncHandler(async (req, res) => {
       const nameLower = (item.name || '').toLowerCase();
       if (nameLower.includes('water') || nameLower.includes('bulk') || (item.unit && item.unit.toLowerCase() === 'litres')) {
         item.unit = 'Litres';
-      } else if (prefix === 'aquasphere') {
-        if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
-          item.unit = 'packs';
-        } else if (nameLower.includes('19')) {
-          item.unit = 'bottles';
-        }
       } else {
-        item.unit = item.unit || 'bottles';
+        // Base Unit Storage Law: finished goods are stored in base bottles
+        item.unit = item.unit || 'bottle';
       }
     }
     return item;
@@ -344,6 +341,8 @@ export const adjustInventory = asyncHandler(async (req, res) => {
     });
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+
   return sendSuccess(res, updatedItem);
 });
 
@@ -422,6 +421,8 @@ export const transferStock = asyncHandler(async (req, res) => {
     return updated;
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+
   return sendSuccess(res, updatedItem, 200, { message: 'Stock transferred successfully' });
 });
 
@@ -493,6 +494,8 @@ export const reconcileInventory = asyncHandler(async (req, res) => {
 
     return reconciled;
   });
+
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
 
   return sendSuccess(res, {
     item: updated,

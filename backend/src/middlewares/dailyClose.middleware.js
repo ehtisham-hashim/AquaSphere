@@ -34,8 +34,8 @@ export function invalidateDailyCloseLockCache(prefix, dateStr) {
  * @returns {Promise<void>}
  */
 export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
-  // Owner and Admin are always exempt from daily close locks
-  if (req.user?.role === 'OWNER' || req.user?.role === 'ADMIN') {
+  // Owner is strictly exempt from daily close locks
+  if (req.user?.role === 'OWNER') {
     return next();
   }
 
@@ -109,8 +109,8 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     isLocked = { value: lockedBool };
   }
 
-  if (isLocked.value && !['OWNER', 'ADMIN'].includes(req.user?.role)) {
-    throw new ApiError(403, 'Date is closed for editing. Contact Admin or Owner for adjustments.');
+  if (isLocked.value && req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Date is closed for editing. Contact Owner for adjustments.');
   }
 
   next();

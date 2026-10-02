@@ -24,6 +24,8 @@ router.get('/history', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'PRODUCTION_
 // Counter Audit Ledger: OWNER, ADMIN, ACCOUNTANT
 router.get('/counter-audit', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), getCounterAuditLedger);
 router.post('/counter-audit', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), submitCounterAuditLedger);
+router.get('/audit-ledger', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), getCounterAuditLedger);
+router.post('/audit-ledger', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), submitCounterAuditLedger);
 
 // Confirmation & Final Close: Restricted to authorized operating roles
 router.post('/pm-confirm', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER'), pmConfirmDailyClose);

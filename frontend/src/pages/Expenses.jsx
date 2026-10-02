@@ -8,6 +8,7 @@ import {
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 const PurchasesPage = lazy(() => import('./Purchases'));
 
@@ -49,6 +50,8 @@ export default function Expenses() {
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
+
+  useLiveEvent('EXPENSE_LOGGED', fetchExpenses);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(ex => {

@@ -532,7 +532,8 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, 'Order not found');
 
   const { generateInvoicePDF } = await import('../utils/pdfGenerator.js');
-  const pdfBuffer = await generateInvoicePDF(order, prefix);
+  const withGst = req.query.gst === 'true' || req.query.gst === '1' || Boolean(order.withGst);
+  const pdfBuffer = await generateInvoicePDF(order, prefix, { withGst });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="invoice-${id.substring(0, 8)}.pdf"`);

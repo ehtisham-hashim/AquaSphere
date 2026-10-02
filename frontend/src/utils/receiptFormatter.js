@@ -290,7 +290,10 @@ export function renderReceiptToCanvas({
   summaryRows = [],
   netTotal = 0,
   remarks = '',
-  footerNote = 'THANK YOU FOR CHOOSING AQUASPHERE!'
+  footerNote = 'THANK YOU FOR CHOOSING AQUASPHERE!',
+  withGst = false,
+  strn = 'E208741-4',
+  contactInfo = '051-5454438 / 0300-9149143'
 }) {
   const scale = 2.5;
   const width = 400;
@@ -301,6 +304,12 @@ export function renderReceiptToCanvas({
   let calcHeight = 24; // top padding
   calcHeight += 22; // title
   calcHeight += 18; // subtitle
+  if (withGst) {
+    calcHeight += 16; // STRN
+    calcHeight += 16; // Contacts
+  } else {
+    calcHeight += 16; // Customer Care
+  }
   calcHeight += 16; // tagline
   calcHeight += 12; // gap & dashed line
   calcHeight += 18; // REC / date
@@ -369,6 +378,23 @@ export function renderReceiptToCanvas({
   ctx.font = 'bold 11px "Times New Roman", Times, "Tinos", serif';
   ctx.fillText(subtitle.toUpperCase(), width / 2, y + 10);
   y += 18;
+
+  if (withGst) {
+    ctx.font = 'bold 10px "Times New Roman", Times, "Tinos", serif';
+    ctx.fillText(`STRN #: ${strn}`, width / 2, y + 9);
+    y += 16;
+    ctx.font = '10px "Times New Roman", Times, "Tinos", serif';
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(`Tel: ${contactInfo}`, width / 2, y + 9);
+    ctx.fillStyle = '#000000';
+    y += 16;
+  } else {
+    ctx.font = 'bold 10px "Times New Roman", Times, "Tinos", serif';
+    ctx.fillStyle = '#059669';
+    ctx.fillText('Customer Care', width / 2, y + 9);
+    ctx.fillStyle = '#000000';
+    y += 16;
+  }
 
   // Tagline
   ctx.font = 'italic 11px "Times New Roman", Times, "Tinos", serif';
@@ -582,7 +608,7 @@ export function renderReceiptToCanvas({
 /**
  * Formats a Counter Sale receipt for instant WhatsApp sharing (Text fallback).
  */
-export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWadaana, user) {
+export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWadaana, user, withGst = false) {
   const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
   const saleId = sale.saleNumber || sale.id?.substring(0, 8) || 'Receipt';
   const dateStr = new Date(sale.createdAt).toLocaleString();
@@ -590,7 +616,12 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
   const cashier = sale.createdBy?.name || user?.name || 'Staff';
 
   let msg = `*${company}*\n`;
-  msg += `Retail & Counter Dispatch Receipt\n`;
+  if (withGst) {
+    msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
+    msg += `Retail & Counter Dispatch (With 18% GST)\n`;
+  } else {
+    msg += `Customer Care | Retail & Counter Dispatch\n`;
+  }
   msg += `----------------------------------------\n`;
   msg += `*Receipt No:* ${saleId}\n`;
   msg += `*Date:* ${dateStr}\n`;
@@ -605,7 +636,15 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
     msg += ` = *Rs. ${item.lineTotal.toLocaleString()}*\n`;
   });
   msg += `----------------------------------------\n`;
-  msg += `*Total Bill:* Rs. ${total.toLocaleString()}\n`;
+  if (withGst) {
+    const gstVal = Math.round(total * 0.18);
+    const netTotal = total + gstVal;
+    msg += `*Subtotal:* Rs. ${total.toLocaleString()}\n`;
+    msg += `*GST (18%):* Rs. ${gstVal.toLocaleString()}\n`;
+    msg += `*Net Total:* Rs. ${netTotal.toLocaleString()}\n`;
+  } else {
+    msg += `*Total Bill:* Rs. ${total.toLocaleString()}\n`;
+  }
   msg += `*Amount Paid:* Rs. ${paid.toLocaleString()}\n`;
   if (debt > 0) {
     msg += `*Customer Debt:* Rs. ${debt.toLocaleString()}\n`;
@@ -618,7 +657,7 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
 /**
  * Formats an Order Invoice for instant WhatsApp sharing (Text fallback).
  */
-export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana) {
+export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana, withGst = false) {
   const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
   const orderId = order.id ? order.id.substring(0, 8).toUpperCase() : 'Invoice';
   const orderDate = new Date(order.createdAt).toLocaleDateString('en-GB', {
@@ -628,7 +667,12 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
   const phone = order.customer?.phone || '—';
 
   let msg = `*${company}*\n`;
-  msg += `Sales Invoice\n`;
+  if (withGst) {
+    msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
+    msg += `Sales Invoice (With 18% GST)\n`;
+  } else {
+    msg += `Customer Care | Sales Invoice\n`;
+  }
   msg += `----------------------------------------\n`;
   msg += `*Order ID:* #${orderId}\n`;
   msg += `*Date:* ${orderDate}\n`;
@@ -645,9 +689,20 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
     msg += `${idx + 1}. *${item.item?.name || 'Item'}* × ${qty} @ Rs. ${rate.toLocaleString()} = *Rs. ${lineTotal.toLocaleString()}*\n`;
   });
   msg += `----------------------------------------\n`;
-  msg += `*Subtotal:* Rs. ${grandTotal.toLocaleString()}\n`;
-  msg += `*Amount Paid:* Rs. ${totalPaid.toLocaleString()}\n`;
-  msg += `*Balance Due:* Rs. ${balanceDue.toLocaleString()}\n`;
+  if (withGst) {
+    const gstVal = Math.round(grandTotal * 0.18);
+    const netTotal = grandTotal + gstVal;
+    const netDue = netTotal - totalPaid;
+    msg += `*Subtotal:* Rs. ${grandTotal.toLocaleString()}\n`;
+    msg += `*GST (18%):* Rs. ${gstVal.toLocaleString()}\n`;
+    msg += `*Net Total:* Rs. ${netTotal.toLocaleString()}\n`;
+    msg += `*Amount Paid:* Rs. ${totalPaid.toLocaleString()}\n`;
+    msg += `*Balance Due:* Rs. ${netDue.toLocaleString()}\n`;
+  } else {
+    msg += `*Subtotal:* Rs. ${grandTotal.toLocaleString()}\n`;
+    msg += `*Amount Paid:* Rs. ${totalPaid.toLocaleString()}\n`;
+    msg += `*Balance Due:* Rs. ${balanceDue.toLocaleString()}\n`;
+  }
   if (order.remarks) msg += `*Remarks:* ${order.remarks}\n`;
   msg += `----------------------------------------\n`;
   msg += `Thank you for your business!`;

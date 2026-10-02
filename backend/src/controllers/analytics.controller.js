@@ -67,9 +67,9 @@ const computeDashboardAnalytics = async (prefix) => {
         id: true,
         name: true,
         phone: true,
-        customerType: true,
+        type: true,
         cachedBottleBalance: true,
-        depositAmount: true,
+        deposit: true,
         orders: {
           where: { deliveryStatus: 'DELIVERED' },
           orderBy: { createdAt: 'desc' },
@@ -217,9 +217,9 @@ const computeDashboardAnalytics = async (prefix) => {
       id: c.id,
       name: c.name,
       phone: c.phone,
-      customerType: c.customerType,
+      customerType: c.type,
       cachedBottleBalance: c.cachedBottleBalance,
-      depositAmount: parseFloat(c.depositAmount || 0),
+      depositAmount: parseFloat(c.deposit || 0),
       lastDeliveryDate: lastDelivery,
       daysElapsed
     };
@@ -438,14 +438,14 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const nextDate = new Date(targetDate);
   nextDate.setDate(nextDate.getDate() + 1);
 
-  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg] = await Promise.all([
+  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate } }
+      where: { createdAt: { gte: targetDate, lt: nextDate }, type: 'CASH' }
     }),
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { cashCollected: true, creditAmount: true, litresSold: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate } }
+      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
     }),
     prisma[`${prefix}Expense`].aggregate({
       _sum: { amount: true },
@@ -454,6 +454,10 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { creditAmount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate }, creditAmount: { gt: 0 } }
+    }),
+    prisma[`${prefix}VendorPayment`].aggregate({
+      _sum: { amount: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
     })
   ]);
 
@@ -461,14 +465,16 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const totalSpotSales = parseFloat(spotSalesAgg._sum.cashCollected || 0);
   const totalCreditSales = parseFloat(creditSalesAgg._sum.creditAmount || 0);
   const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
+  const totalVendorCash = parseFloat(vendorCashPayments._sum.amount || 0);
   const totalLitres = parseFloat(spotSalesAgg._sum.litresSold || 0);
-  const netCash = totalDeliveryAmount + totalSpotSales - totalExpenses;
+  const netCash = Math.max(0, totalDeliveryAmount + totalSpotSales - totalExpenses - totalVendorCash);
 
   return sendSuccess(res, {
     totalDeliveryAmount,
     totalSpotSales,
     totalCreditSales,
     totalExpenses,
+    totalVendorCash,
     totalLitres,
     netCash,
     date: targetDate.toISOString().split('T')[0]
@@ -676,9 +682,9 @@ export const getBottleCustody = asyncHandler(async (req, res) => {
       id: true,
       name: true,
       phone: true,
-      customerType: true,
+      type: true,
       cachedBottleBalance: true,
-      depositAmount: true,
+      deposit: true,
       orders: {
         where: { deliveryStatus: 'DELIVERED' },
         orderBy: { createdAt: 'desc' },
@@ -698,9 +704,9 @@ export const getBottleCustody = asyncHandler(async (req, res) => {
       id: c.id,
       name: c.name,
       phone: c.phone,
-      customerType: c.customerType,
+      customerType: c.type,
       cachedBottleBalance: c.cachedBottleBalance,
-      depositAmount: parseFloat(c.depositAmount || 0),
+      depositAmount: parseFloat(c.deposit || 0),
       lastDeliveryDate: lastDelivery,
       daysElapsed
     };

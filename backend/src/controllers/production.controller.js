@@ -668,7 +668,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
           itemId: fgItem.id,
           name: fgItem.name,
           quantityAdded: netGood,
-          unit: fgItem.unit || 'packs'
+          unit: fgItem.unit || 'bottle'
         });
       }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Printer, Eye, Copy, Check, Image as ImageIcon } from 'lucide-react';
+import { X, Printer, Eye, Copy, Check, Image as ImageIcon, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
 import {
@@ -8,6 +8,7 @@ import {
   printReceiptElement,
   copyReceiptElementAsImage
 } from '../../utils/receiptFormatter';
+import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 const nameMap = {
   'PACK_05L': '0.5L Full Pack (12 Btls)',
@@ -31,6 +32,7 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   const { isWadaana } = useTenant();
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [withGst, setWithGst] = useState(false);
 
   if (!receiptSale) return null;
 
@@ -68,7 +70,10 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
         }];
   }
 
-  const total = Number(receiptSale.totalAmount ?? (Number(receiptSale.cashCollected || 0) + Number(receiptSale.creditAmount || 0)));
+  const subtotal = Number(receiptSale.totalAmount ?? (Number(receiptSale.cashCollected || 0) + Number(receiptSale.creditAmount || 0)));
+  const gstAmount = withGst ? Math.round(subtotal * 0.18) : 0;
+  const netTotal = subtotal + gstAmount;
+
   const paid = Number(receiptSale.amountPaid ?? Number(receiptSale.cashCollected || 0));
   const debt = Number(receiptSale.debtAmount ?? Number(receiptSale.creditAmount || 0));
 
@@ -76,33 +81,38 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
     printReceiptElement('printable-receipt');
   };
 
+  const getReceiptData = () => ({
+    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    subtitle: withGst ? 'Retail Sale • Counter Dispatch (Tax Invoice)' : 'Retail Sale • Counter Dispatch',
+    tagline: 'Pure Quality • Safe & Healthy Water',
+    withGst,
+    strn: 'E208741-4',
+    contactInfo: '051-5454438 / 0300-9149143',
+    receiptNo: saleId,
+    dateStr: `${new Date(receiptSale.createdAt).toLocaleDateString()} ${new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+    customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
+    paymentMethod: receiptSale.paymentMethod || 'CASH',
+    statusValue: debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL',
+    servedBy: `STAFF: ${receiptSale.createdBy?.name || user?.name || 'Staff'} (${receiptSale.createdBy?.role || user?.role || 'POS'})`,
+    items: items.map(item => ({
+      name: item.name,
+      qty: item.qty,
+      unitPrice: item.unitPrice,
+      lineTotal: item.lineTotal
+    })),
+    summaryRows: [
+      { label: 'Subtotal', value: subtotal },
+      ...(withGst ? [{ label: 'GST (18%)', value: gstAmount }] : []),
+      { label: 'Amount Paid', value: paid },
+      ...(debt > 0 ? [{ label: 'Customer Debt', value: debt }] : [])
+    ],
+    netTotal: netTotal,
+    footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+  });
+
   const handleCopyImage = async () => {
     try {
-      const receiptData = {
-        title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
-        subtitle: 'Retail Sale • Counter Dispatch',
-        tagline: 'Pure Quality • Safe & Healthy Water',
-        receiptNo: saleId,
-        dateStr: `${new Date(receiptSale.createdAt).toLocaleDateString()} ${new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
-        paymentMethod: receiptSale.paymentMethod || 'CASH',
-        statusValue: debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL',
-        servedBy: `STAFF: ${receiptSale.createdBy?.name || user?.name || 'Staff'} (${receiptSale.createdBy?.role || user?.role || 'POS'})`,
-        items: items.map(item => ({
-          name: item.name,
-          qty: item.qty,
-          unitPrice: item.unitPrice,
-          lineTotal: item.lineTotal
-        })),
-        summaryRows: [
-          { label: 'Total Bill', value: total },
-          { label: 'Amount Paid', value: paid },
-          ...(debt > 0 ? [{ label: 'Customer Debt', value: debt }] : [])
-        ],
-        netTotal: total,
-        footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
-      };
-
+      const receiptData = getReceiptData();
       const res = await copyReceiptElementAsImage('printable-receipt', receiptData);
       if (res && res.method === 'clipboard') {
         setCopiedImage(true);
@@ -119,7 +129,7 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
 
   const handleCopyText = async () => {
     try {
-      const text = formatCounterSaleWhatsApp(receiptSale, items, total, paid, debt, isWadaana, user);
+      const text = formatCounterSaleWhatsApp(receiptSale, items, subtotal, paid, debt, isWadaana, user, withGst);
       const ok = await copyTextToClipboard(text);
       if (ok) {
         setCopiedText(true);
@@ -139,9 +149,32 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-150">
         {/* Modal Header */}
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 shrink-0">
-          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <Eye size={18} className="text-slate-800" /> Counter Sale Receipt
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <Eye size={18} className="text-slate-800" /> Counter Sale Receipt
+            </h3>
+            {/* Dual GST Toggle */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => setWithGst(false)}
+                className={`px-2 py-1 rounded-md transition-all ${
+                  !withGst ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Customer Care
+              </button>
+              <button
+                type="button"
+                onClick={() => setWithGst(true)}
+                className={`px-2 py-1 rounded-md transition-all ${
+                  withGst ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                With 18% GST & STRN
+              </button>
+            </div>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X size={18}/>
           </button>
@@ -159,8 +192,16 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
             <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
-              Retail Sale • Counter Dispatch
+              {withGst ? 'Retail Sale • Counter Dispatch (Tax Invoice)' : 'Retail Sale • Counter Dispatch'}
             </p>
+            {withGst ? (
+              <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
+                <p>STRN #: E208741-4</p>
+                <p className="text-slate-700 font-normal">Tel: 051-5454438 | Cell: 0300-9149143</p>
+              </div>
+            ) : (
+              <p className="text-[11px] font-bold text-emerald-700 mt-1">Customer Care</p>
+            )}
             <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
             <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>
@@ -215,8 +256,18 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           {/* Totals Section */}
           <div className="pt-2.5 space-y-1.5 text-xs">
             <div className="flex justify-between">
-              <span>Total Bill:</span>
-              <span className="font-bold">₨ {total.toLocaleString()}</span>
+              <span>Subtotal:</span>
+              <span className="font-bold">₨ {subtotal.toLocaleString()}</span>
+            </div>
+            {withGst && (
+              <div className="flex justify-between">
+                <span>GST (18%):</span>
+                <span className="font-bold">₨ {gstAmount.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
+              <span>NET TOTAL:</span>
+              <span>₨ {netTotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span>Amount Paid:</span>
@@ -228,10 +279,6 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
                 <span className="font-bold">₨ {debt.toLocaleString()}</span>
               </div>
             )}
-            <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
-              <span>NET TOTAL:</span>
-              <span>₨ {total.toLocaleString()}</span>
-            </div>
           </div>
 
           {/* Footer Notice */}
@@ -274,9 +321,22 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           <button
             type="button"
             onClick={handlePrint}
-            className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
+            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
           >
-            <Printer size={14} /> Print Receipt
+            <Printer size={14} /> Print
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              await handleCopyImage();
+              const text = formatCounterSaleWhatsApp(receiptSale, items, subtotal, paid, debt, isWadaana, user, withGst);
+              openWhatsAppWeb(receiptSale.customer?.phone, text);
+              toast.success('Opening WhatsApp! Paste the receipt image (Ctrl+V) into chat.');
+            }}
+            className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-xs"
+            title="Copy receipt image to clipboard & open WhatsApp"
+          >
+            <Send size={14} /> Send Receipt (WhatsApp)
           </button>
         </div>
       </div>

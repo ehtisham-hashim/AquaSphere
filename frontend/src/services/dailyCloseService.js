@@ -38,3 +38,9 @@ export const finalizeDay = (date, tenant, payload = {}) =>
 
 export const reopenDay = (date, reason, tenant) =>
   fetch(`${API_URL}/daily-close/reopen`, postOpts(tenant, { date, reason })).then(r => r.json());
+
+export const fetchCounterAuditLedger = (date, tenant) =>
+  fetch(`${API_URL}/daily-close/counter-audit?date=${date}`, opts(tenant)).then(r => r.json());
+
+export const submitCounterAuditLedger = (payload, tenant) =>
+  fetch(`${API_URL}/daily-close/counter-audit`, postOpts(tenant, payload)).then(r => r.json());

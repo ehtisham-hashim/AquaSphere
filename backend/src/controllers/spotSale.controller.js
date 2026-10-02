@@ -466,6 +466,10 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
     performedBy: req.user?.name || req.user?.id || 'System'
   });
 
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'COUNTER_SALE_CREATED', { saleId: id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+
   return sendSuccess(res, updated);
 });
 
@@ -486,23 +490,53 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
   if (userRole !== 'OWNER') throw new ApiError(403, 'Deleting counter sales is strictly restricted to Owner.');
 
   await prisma.$transaction(async (tx) => {
-    // 1. Restore finished goods stock for each child line item
+    // 1. Restore finished goods stock and raw caps for each child line item
     if (Array.isArray(existing.items) && existing.items.length > 0) {
       for (const line of existing.items) {
-        const returnQty = Number(line.quantity || 0);
-        if (returnQty > 0) {
+        const lineQty = Number(line.quantity || 0);
+        if (lineQty <= 0) continue;
+
+        if (line.saleType === 'EXTRA_CAP') {
+          const capRaw = await tx[`${prefix}Item`].findFirst({
+            where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
+          });
+          if (capRaw) {
+            await tx[`${prefix}Item`].update({
+              where: { id: capRaw.id },
+              data: { cachedQty: { increment: lineQty } }
+            });
+            await tx[`${prefix}InventoryTransaction`].create({
+              data: {
+                itemId: capRaw.id,
+                quantity: lineQty,
+                direction: 'IN',
+                reason: 'SPOT_SALE_DELETED_EXTRA_CAP',
+                refType: 'SPOT_SALE',
+                refId: existing.saleNumber || existing.id,
+                location: 'FACTORY'
+              }
+            });
+          }
+          continue;
+        }
+
+        const returnBaseUnits = line.saleType === 'PACK' 
+          ? lineQty * Number(line.item?.packSize || 1) 
+          : lineQty;
+
+        if (returnBaseUnits > 0 && line.itemId) {
           await tx[`${prefix}Item`].update({
             where: { id: line.itemId },
             data: {
-              cachedQty: { increment: returnQty },
-              factoryQty: { increment: returnQty }
+              cachedQty: { increment: returnBaseUnits },
+              factoryQty: { increment: returnBaseUnits }
             }
           });
 
           await tx[`${prefix}InventoryTransaction`].create({
             data: {
               itemId: line.itemId,
-              quantity: returnQty,
+              quantity: returnBaseUnits,
               direction: 'IN',
               reason: 'SPOT_SALE_DELETED',
               refType: 'SPOT_SALE',
@@ -511,12 +545,12 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             }
           });
 
-          // Revert 19L bottle transaction if applicable
+          // Revert customer bottle balance if 19L bottle
           if (line.item?.name?.toLowerCase().includes('19')) {
             await tx[`${prefix}BottleTransaction`].create({
               data: {
                 type: 'RETURNED_GOOD',
-                quantity: Math.round(returnQty),
+                quantity: Math.round(returnBaseUnits),
                 customerId: existing.customerId || null,
                 reason: `Reversal of deleted Counter Sale (${existing.saleNumber || existing.id})`
               }
@@ -525,7 +559,7 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             if (existing.customerId) {
               await tx[`${prefix}Customer`].update({
                 where: { id: existing.customerId },
-                data: { cachedBottleBalance: { decrement: Math.round(returnQty) } }
+                data: { cachedBottleBalance: { decrement: Math.round(returnBaseUnits) } }
               });
             }
           }
@@ -556,6 +590,8 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'COUNTER_SALE_CREATED', { saleId: id, deleted: true });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, null, 200, { message: 'Counter sale deleted and inventory restored successfully.' });
 });
 

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   AlertTriangle, Clock, Truck, Receipt, 
-  Package, ShieldAlert, PhoneCall, RefreshCw, XCircle
+  Package, ShieldAlert, PhoneCall, RefreshCw, XCircle, MessageSquare
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function AlertsSection() {
   const tenant = getCompanyFromCookie();
@@ -139,9 +140,25 @@ export default function AlertsSection() {
                   <span className="font-bold text-slate-800 block">{c.name}</span>
                   <span className="text-[10px] text-slate-400 block">{c.phone}</span>
                 </div>
-                <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md">
-                  {c.daysSinceLastOrder}d inactive
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-md">
+                    {c.daysSinceLastOrder}d inactive
+                  </span>
+                  {c.phone && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isWadaana = tenant === 'wadaana';
+                        const text = WhatsAppTemplates.inactivityReengagement(c, isWadaana);
+                        openWhatsAppWeb(c.phone, text);
+                      }}
+                      className="p-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
+                      title="Send WhatsApp Re-engagement"
+                    >
+                      <MessageSquare size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] font-semibold text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200 mt-1">
                 📞 {c.recommendation}
@@ -164,9 +181,25 @@ export default function AlertsSection() {
                   <span className="font-bold text-slate-800 block">{c.name}</span>
                   <span className="text-[10px] text-slate-400 block">{c.phone}</span>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono font-bold text-slate-900 block text-xs">Rs. {Number(c.currentBalance || c.unpaidAmount || 0).toLocaleString()}</span>
-                  {c.creditLimit > 0 && <span className="text-[10px] text-slate-400">Limit: Rs. {Number(c.creditLimit).toLocaleString()}</span>}
+                <div className="text-right flex items-center gap-2">
+                  <div>
+                    <span className="font-mono font-bold text-slate-900 block text-xs">Rs. {Number(c.currentBalance || c.unpaidAmount || 0).toLocaleString()}</span>
+                    {c.creditLimit > 0 && <span className="text-[10px] text-slate-400">Limit: Rs. {Number(c.creditLimit).toLocaleString()}</span>}
+                  </div>
+                  {c.phone && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isWadaana = tenant === 'wadaana';
+                        const text = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
+                        openWhatsAppWeb(c.phone, text);
+                      }}
+                      className="p-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
+                      title="Send WhatsApp Overdue Bill Reminder"
+                    >
+                      <MessageSquare size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
               <p className="text-[10px] font-semibold text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200 mt-1">

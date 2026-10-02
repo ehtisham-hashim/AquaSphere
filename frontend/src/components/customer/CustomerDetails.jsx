@@ -13,6 +13,7 @@ import BottleAdjustmentModal from './BottleAdjustmentModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 // ponytail: two-column flat layout eliminates container fatigue; inline image placeholder uses lucide User icon
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted }) {
@@ -267,6 +268,20 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">
                   {limitVal > 0 ? `Limit: Rs. ${limitVal.toLocaleString()}` : 'No Limit'}
                 </span>
+                {currentBalance > 0 && c.phone && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
+                      openWhatsAppWeb(c.phone, msg);
+                    }}
+                    className="mt-1.5 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
+                    title="Send Overdue Bill Reminder via WhatsApp"
+                  >
+                    <Share2 size={10} />
+                    <span>WhatsApp Reminder</span>
+                  </button>
+                )}
               </div>
 
               <div className="p-2">

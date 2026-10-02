@@ -7,6 +7,7 @@ import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
 import DrawerReconciliationCard from './DrawerReconciliationCard';
+import CounterAuditLedgerCard from './CounterAuditLedgerCard';
 
 export default function AdminClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
@@ -161,7 +162,15 @@ export default function AdminClose() {
             disabled={submitting}
           />
 
-          {/* 4. Double-Verification & Daily Lock Action Card */}
+          {/* 4. Counter Audit Ledger Pre-Close Verification */}
+          <CounterAuditLedgerCard
+            date={date}
+            tenant={tenant}
+            isClosed={isClosed}
+            onLedgerSaved={loadData}
+          />
+
+          {/* 5. Double-Verification & Daily Lock Action Card */}
           <div className="card-surface p-6 border-2 border-indigo-100 bg-indigo-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-indigo-950 font-black text-base">

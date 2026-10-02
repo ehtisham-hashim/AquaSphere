@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 
-export const generateInvoicePDF = (order, tenant = 'aquasphere') => {
+export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) => {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 50 });
@@ -13,21 +13,34 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere') => {
       });
 
       const isWadaana = tenant.toLowerCase() === 'wadaana';
+      const withGst = options.withGst !== undefined ? Boolean(options.withGst) : Boolean(order.withGst);
+
       const companyName = isWadaana ? 'WADAANA INDUSTRIES B2B' : 'AQUASPHERE WATER PURIFICATION';
       const companySub = isWadaana ? 'PET Bottle Blowing & B2B Distribution' : '19L & PET Mineral Water Supply';
 
       // Header
       doc.fillColor('#0f172a').fontSize(20).text(companyName, { align: 'left' });
       doc.fillColor('#64748b').fontSize(10).text(companySub, { align: 'left' });
-      doc.moveDown(1.5);
+
+      if (withGst) {
+        doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold');
+        doc.text('STRN #: E208741-4', { align: 'left' });
+        doc.font('Helvetica').fontSize(9).text('Tel: 051-5454438 | Cell: 0300-9149143', { align: 'left' });
+      } else {
+        doc.fillColor('#059669').fontSize(10).font('Helvetica-Bold');
+        doc.text('Customer Care', { align: 'left' });
+        doc.font('Helvetica');
+      }
+
+      doc.moveDown(1);
 
       // Divider
       doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#e2e8f0').stroke();
       doc.moveDown(1);
 
       // Order Info
-      doc.fillColor('#0f172a').fontSize(14).text(`INVOICE / ORDER #${order.id.substring(0, 8).toUpperCase()}`);
-      doc.fillColor('#475569').fontSize(10).text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
+      doc.fillColor('#0f172a').fontSize(14).font('Helvetica-Bold').text(`INVOICE / ORDER #${order.id.substring(0, 8).toUpperCase()}`);
+      doc.fillColor('#475569').fontSize(10).font('Helvetica').text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
       doc.text(`Customer: ${order.customer?.name || 'Walk-in'}`);
       doc.text(`Phone: ${order.customer?.phone || 'N/A'}`);
       doc.text(`Delivery Status: ${order.deliveryStatus}`);
@@ -72,9 +85,27 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere') => {
       doc.moveTo(50, position + 5).lineTo(550, position + 5).strokeColor('#cbd5e1').stroke();
       position += 15;
 
-      doc.font('Helvetica-Bold').fontSize(12);
-      doc.text('Grand Total:', 360, position, { width: 90, align: 'right' });
-      doc.text(`Rs. ${grandTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+      if (withGst) {
+        const gstAmount = Math.round(grandTotal * 0.18);
+        const netTotal = grandTotal + gstAmount;
+
+        doc.font('Helvetica').fontSize(10);
+        doc.text('Subtotal:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${grandTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+        position += 18;
+
+        doc.text('GST (18%):', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${gstAmount.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+        position += 18;
+
+        doc.font('Helvetica-Bold').fontSize(12);
+        doc.text('Net Total:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${netTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+      } else {
+        doc.font('Helvetica-Bold').fontSize(12);
+        doc.text('Grand Total:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${grandTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+      }
 
       doc.moveDown(3);
       doc.font('Helvetica-Oblique').fontSize(9).fillColor('#94a3b8').text('Thank you for your business! AQUA Sphere OS Automated Billing.', 50, doc.y, { align: 'center' });

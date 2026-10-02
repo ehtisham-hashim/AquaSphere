@@ -10,7 +10,6 @@ export default function BottleCustodyWidget({ className = '' }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [nowTime] = useState(() => Date.now());
 
   const companyName = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
