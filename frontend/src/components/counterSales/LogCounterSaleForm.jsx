@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DollarSign, CheckCircle2, User, Loader2, ShoppingBag, Zap, Printer, Plus, Minus, Trash2, AlertCircle, Package } from 'lucide-react';
+import { DollarSign, CheckCircle2, User, Loader2, ShoppingBag, Zap, Printer, Plus, Minus, Trash2, AlertCircle, Package, Droplets, Info, Shield } from 'lucide-react';
 import { PAYMENT_METHODS } from '../../constants/counterSale';
 
 const getPackSize = (item) => {
@@ -37,6 +37,54 @@ export default function LogCounterSaleForm({
   // Map of cartKey -> overridden price: e.g. "itemId_PACK" -> 360, "itemId_BOTTLE" -> 35
   const [customPrices, setCustomPrices] = useState({});
 
+  // Per-item sale mode: 'NORMAL' | 'REFILL'
+  const [itemSaleMode, setItemSaleModeState] = useState({});
+  const setItemSaleMode = (itemId, mode) => {
+    setItemSaleModeState(prev => ({
+      ...prev,
+      [itemId]: mode
+    }));
+  };
+
+  // Standalone extra items (Caps, Delivery, Custom charges)
+  const [extraItems, setExtraItems] = useState({});
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+
+  const [extraSeq, setExtraSeq] = useState(0);
+
+  const addExtraItem = (type, name, price) => {
+    // If an extra item of same type and name already exists, increment its quantity
+    const existingKey = Object.keys(extraItems).find(k => extraItems[k]?.type === type && extraItems[k]?.name === name);
+    if (existingKey && cartMap[existingKey]) {
+      updateItemQty(existingKey, 1);
+      return;
+    }
+    const nextSeq = extraSeq + 1;
+    setExtraSeq(nextSeq);
+    const extraKey = `EXTRA_${nextSeq}`;
+    setCartMap(prev => ({
+      ...prev,
+      [extraKey]: 1
+    }));
+    setCustomPrices(prev => ({
+      ...prev,
+      [extraKey]: price
+    }));
+    setExtraItems(prev => ({
+      ...prev,
+      [extraKey]: { type, name, isExtra: true }
+    }));
+  };
+
+  const addCustomExtraItem = () => {
+    if (!customItemName.trim()) return;
+    const price = Math.max(0, parseFloat(customItemPrice) || 0);
+    addExtraItem('EXTRA_CHARGE', customItemName.trim(), price);
+    setCustomItemName('');
+    setCustomItemPrice('');
+  };
+
   const [amountPaid, setAmountPaid] = useState('');
   const [isAmountPaidManual, setIsAmountPaidManual] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -65,6 +113,32 @@ export default function LogCounterSaleForm({
       const numQty = Number(qty);
       if (numQty <= 0) return;
 
+      if (extraItems[cartKey]) {
+        const extra = extraItems[cartKey];
+        const customRate = customPrices[cartKey];
+        const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : 0;
+        const unitPrice = isNaN(parsedRate) ? 0 : parsedRate;
+        const saleType = extra.type === 'EXTRA_CAP' ? 'EXTRA_CAP' : 'EXTRA_CHARGE';
+
+        list.push({
+          cartKey,
+          itemId: null,
+          name: extra.name,
+          rawItemName: extra.name,
+          type: 'EXTRA',
+          saleType,
+          packSize: 1,
+          quantity: numQty,
+          unitPrice,
+          lineTotal: numQty * unitPrice,
+          baseUnitsPerUnit: 0,
+          totalBaseUnits: 0,
+          availableStock: 999999,
+          isExtra: true
+        });
+        return;
+      }
+
       const separatorIndex = cartKey.lastIndexOf('_');
       const itemId = cartKey.substring(0, separatorIndex);
       const type = cartKey.substring(separatorIndex + 1);
@@ -74,19 +148,24 @@ export default function LogCounterSaleForm({
 
       const packSize = getPackSize(item);
       const isPack = type === 'PACK';
+      const isRefill = itemSaleMode[item.id] === 'REFILL';
+      const saleType = isRefill ? 'WATER_REFILL' : (isPack ? 'PACK' : 'BOTTLE');
+
       const defaultRate = getDefaultPrice(item, type);
       const customRate = customPrices[cartKey];
       const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : defaultRate;
       const unitPrice = isNaN(parsedRate) ? defaultRate : parsedRate;
 
-      const baseUnitsPerUnit = isPack ? packSize : 1;
-      const totalBaseUnits = numQty * baseUnitsPerUnit;
+      const baseUnitsPerUnit = isRefill ? 0 : (isPack ? packSize : 1);
+      const totalBaseUnits = isRefill ? 0 : (numQty * (isPack ? packSize : 1));
 
-      const displayName = type === 'PACK' 
-        ? `${item.name} (Pack of ${packSize})` 
-        : type === 'BOTTLE' && packSize > 1 
-          ? `${item.name} (Loose Bottle)` 
-          : item.name;
+      const displayName = isRefill
+        ? `${item.name} (Refill)`
+        : type === 'PACK' 
+          ? `${item.name} (Pack of ${packSize})` 
+          : type === 'BOTTLE' && packSize > 1 
+            ? `${item.name} (Loose Bottle)` 
+            : item.name;
 
       list.push({
         cartKey,
@@ -94,18 +173,19 @@ export default function LogCounterSaleForm({
         name: displayName,
         rawItemName: item.name,
         type, // 'PACK' | 'BOTTLE' | 'UNIT'
-        saleType: isPack ? 'PACK' : 'BOTTLE',
+        saleType,
         packSize,
         quantity: numQty,
         unitPrice,
         lineTotal: numQty * unitPrice,
         baseUnitsPerUnit,
         totalBaseUnits,
-        availableStock: Number(item.cachedQty || 0)
+        availableStock: Number(item.cachedQty || 0),
+        isRefill
       });
     });
     return list;
-  }, [cartMap, customPrices, finishedGoods]);
+  }, [cartMap, customPrices, finishedGoods, extraItems, itemSaleMode]);
 
   const cartTotal = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -125,6 +205,13 @@ export default function LogCounterSaleForm({
       const updated = current + delta;
       if (updated <= 0) {
         delete next[cartKey];
+        if (extraItems[cartKey]) {
+          setExtraItems(ePrev => {
+            const eNext = { ...ePrev };
+            delete eNext[cartKey];
+            return eNext;
+          });
+        }
       } else {
         next[cartKey] = updated;
       }
@@ -156,6 +243,7 @@ export default function LogCounterSaleForm({
   // Stock check by base units across both packs and bottles
   const getStockWarning = (item) => {
     if (!item) return null;
+    if (itemSaleMode[item.id] === 'REFILL') return null;
     const packSize = getPackSize(item);
     const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
     const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || (packSize <= 1 ? (cartMap[`${item.id}_UNIT`] || 0) : 0));
@@ -170,13 +258,14 @@ export default function LogCounterSaleForm({
 
   const hasStockError = useMemo(() => {
     return finishedGoods.some(item => {
+      if (itemSaleMode[item.id] === 'REFILL') return false;
       const packSize = getPackSize(item);
       const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
       const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || (packSize <= 1 ? (cartMap[`${item.id}_UNIT`] || 0) : 0));
       const requested = (packQty * packSize) + bottleQty;
       return requested > Number(item.cachedQty || 0);
     });
-  }, [cartMap, finishedGoods]);
+  }, [cartMap, finishedGoods, itemSaleMode]);
 
   // Financial & Debt Calculations
   const numericAmountPaid = parseFloat(amountPaid || 0);
@@ -214,6 +303,8 @@ export default function LogCounterSaleForm({
     // Reset fields for next transaction
     setCartMap({});
     setCustomPrices({});
+    setExtraItems({});
+    setItemSaleModeState({});
     setIsAmountPaidManual(false);
     setRemarks('');
   };
@@ -551,6 +642,43 @@ export default function LogCounterSaleForm({
                       </div>
                     )}
 
+                    {/* ADD THIS NEW SECTION - appears below existing controls */}
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <span className="text-slate-600 font-semibold">Sale Type:</span>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setItemSaleMode(item.id, 'NORMAL')}
+                          className={`px-2 py-1 rounded-md border text-xs font-semibold transition ${
+                            itemSaleMode[item.id] !== 'REFILL' && itemSaleMode[item.id] !== 'CAP_ONLY'
+                              ? 'bg-brand text-white border-brand'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          Regular Sale
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setItemSaleMode(item.id, 'REFILL')}
+                          className={`px-2 py-1 rounded-md border text-xs font-semibold transition flex items-center gap-1 ${
+                            itemSaleMode[item.id] === 'REFILL'
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <Droplets size={12} /> Water Refill (Customer Bottle)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* When REFILL mode is active, show info badge */}
+                    {itemSaleMode[item.id] === 'REFILL' && (
+                      <div className="mt-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 flex items-center gap-1">
+                        <Info size={10} />
+                        <span>Customer brings bottle • Only water charged • No bottle deduction</span>
+                      </div>
+                    )}
+
                     {/* Stock Alert Warning */}
                     {warning && (
                       <div className="mt-2 text-[11px] font-bold text-red-600 flex items-center gap-1 bg-red-50 p-1.5 rounded-lg border border-red-100">
@@ -563,6 +691,57 @@ export default function LogCounterSaleForm({
               })}
             </div>
           )}
+
+          {/* NEW SECTION - Add after finished goods list */}
+          <div className="mt-3 p-3 bg-amber-50/50 border border-amber-200 rounded-xl">
+            <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
+              <Shield size={14} /> Extra Items (Caps, Delivery, etc.)
+            </h4>
+
+            <div className="flex flex-wrap gap-2">
+              {/* Pre-defined quick add buttons */}
+              <button
+                type="button"
+                onClick={() => addExtraItem('EXTRA_CAP', 'Extra Cap', 10)}
+                className="px-3 py-1.5 text-xs font-semibold bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-100 transition flex items-center gap-1"
+              >
+                <Plus size={12} /> Add Cap (Rs. 10)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addExtraItem('DELIVERY', 'Delivery Charge', 100)}
+                className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 transition flex items-center gap-1"
+              >
+                <Plus size={12} /> Delivery Fee (Rs. 100)
+              </button>
+
+              {/* Custom item input */}
+              <div className="flex gap-1.5 items-center">
+                <input
+                  type="text"
+                  placeholder="Custom item name"
+                  className="input-base text-xs py-1 px-2 w-32"
+                  value={customItemName}
+                  onChange={(e) => setCustomItemName(e.target.value)}
+                />
+                <input
+                  type="number"
+                  placeholder="Price"
+                  className="input-base text-xs py-1 px-2 w-20"
+                  value={customItemPrice}
+                  onChange={(e) => setCustomItemPrice(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => addCustomExtraItem()}
+                  className="btn-primary text-xs py-1 px-2"
+                >
+                  <Plus size={12} /> Add
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Live Bill & Streamlined Payment Panel (5 Cols) */}
@@ -585,7 +764,30 @@ export default function LogCounterSaleForm({
                 <div className="flex-1 min-w-0 pr-2">
                   <span className="font-semibold text-slate-800 block truncate text-xs">{item.name}</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[11px] font-mono text-slate-500">{item.quantity} × Rs.</span>
+                    {item.isExtra ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateItemQty(item.cartKey, -1)}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+                          title="Decrease quantity"
+                        >
+                          <Minus size={10} />
+                        </button>
+                        <span className="font-mono font-bold text-xs min-w-4 text-center">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateItemQty(item.cartKey, 1)}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+                          title="Increase quantity"
+                        >
+                          <Plus size={10} />
+                        </button>
+                        <span className="text-[11px] font-mono text-slate-500">× Rs.</span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-mono text-slate-500">{item.quantity} × Rs.</span>
+                    )}
                     <input
                       type="number"
                       min="0"

@@ -75,7 +75,10 @@ export const getTodaySpotSalesSummary = asyncHandler(async (req, res) => {
       debtAmount: true,
       cashCollected: true,
       creditAmount: true,
-      litresSold: true
+      litresSold: true,
+      totalLitres: true,
+      totalBottles: true,
+      totalCaps: true
     }
   });
 
@@ -83,17 +86,21 @@ export const getTodaySpotSalesSummary = asyncHandler(async (req, res) => {
   let todayPaid = 0;
   let todayDebt = 0;
   let todayLitres = 0;
+  let todayBottles = 0;
+  let todayCaps = 0;
 
   for (const s of todaySales) {
     const rev = Number(s.totalAmount) || (Number(s.cashCollected || 0) + Number(s.creditAmount || 0));
     const paid = Number(s.amountPaid) || Number(s.cashCollected || 0);
     const debt = Number(s.debtAmount) || Number(s.creditAmount || 0);
-    const lit = Number(s.litresSold || 0);
+    const lit = Number(s.totalLitres || s.litresSold || 0);
 
     todayRevenue += rev;
     todayPaid += paid;
     todayDebt += debt;
     todayLitres += lit;
+    todayBottles += Number(s.totalBottles || 0);
+    todayCaps += Number(s.totalCaps || 0);
   }
 
   return sendSuccess(res, {
@@ -101,6 +108,8 @@ export const getTodaySpotSalesSummary = asyncHandler(async (req, res) => {
     todayPaid,
     todayDebt,
     todayLitres,
+    todayBottles,
+    todayCaps,
     todayCount: todaySales.length
   });
 });
@@ -118,7 +127,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (!Array.isArray(inputItems) || inputItems.length === 0) {
-    throw new ApiError(400, 'At least one finished good item must be selected for the sale.');
+    throw new ApiError(400, 'At least one item must be selected for the sale.');
   }
 
   // Pre-validate customer if provided
@@ -129,13 +138,13 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
   // Fetch all finished goods referenced in the sale
   const itemIds = inputItems.map(i => i.itemId).filter(Boolean);
-  const dbItems = await prisma[`${prefix}Item`].findMany({
+  const dbItems = itemIds.length > 0 ? await prisma[`${prefix}Item`].findMany({
     where: {
       id: { in: itemIds },
       type: 'FINISHED_GOOD',
       archivedAt: null
     }
-  });
+  }) : [];
 
   const dbItemMap = new Map(dbItems.map(i => [i.id, i]));
 
@@ -147,51 +156,56 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   const processedItems = [];
 
   for (const raw of inputItems) {
-    const fgItem = dbItemMap.get(raw.itemId);
-    if (!fgItem) {
+    const saleType = String(raw.saleType || (raw.unitType === 'PACK' ? 'PACK' : (raw.unitType === 'BOTTLE' ? 'BOTTLE' : 'FINISHED_GOOD'))).toUpperCase();
+    const isPack = saleType === 'PACK';
+    const isRefill = saleType === 'WATER_REFILL';
+    const isCap = saleType === 'EXTRA_CAP';
+    const isExtraCharge = saleType === 'EXTRA_CHARGE';
+    const isExtra = isCap || isExtraCharge;
+
+    const fgItem = raw.itemId ? dbItemMap.get(raw.itemId) : null;
+    if (!fgItem && !isExtra) {
       throw new ApiError(400, `Item "${raw.name || raw.itemId}" is either invalid or not an active finished good.`);
     }
 
     const qty = parseFloat(raw.quantity);
     if (isNaN(qty) || qty <= 0) {
-      throw new ApiError(400, `Invalid quantity for "${fgItem.name}". Must be greater than 0.`);
+      throw new ApiError(400, `Invalid quantity for "${raw.name || fgItem?.name || 'item'}". Must be greater than 0.`);
     }
 
-    const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (fgItem.retailPrice || 0));
+    const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (fgItem?.retailPrice || 0));
     if (isNaN(unitPrice) || unitPrice < 0) {
-      throw new ApiError(400, `Invalid unit price for "${fgItem.name}".`);
+      throw new ApiError(400, `Invalid unit price for "${raw.name || fgItem?.name || 'item'}".`);
     }
 
     const subtotal = new Prisma.Decimal(qty).times(unitPrice);
     totalBill = totalBill.plus(subtotal);
 
-    const saleType = String(raw.saleType || (raw.unitType === 'PACK' ? 'PACK' : (raw.unitType === 'BOTTLE' ? 'BOTTLE' : 'FINISHED_GOOD'))).toUpperCase();
-    const isPack = saleType === 'PACK';
-    const isRefill = saleType === 'WATER_REFILL';
-    const isCap = saleType === 'EXTRA_CAP';
+    const packMultiplier = (isPack && fgItem) ? Number(fgItem.packSize || 1) : 1;
+    const baseUnitsDeduct = (isRefill || isExtra) ? 0 : (qty * packMultiplier);
 
-    const packMultiplier = isPack ? Number(fgItem.packSize || 1) : 1;
-    const baseUnitsDeduct = isRefill || isCap ? 0 : (qty * packMultiplier);
-
-    if (!isCap && !isRefill) {
+    if (!isExtra && !isRefill) {
       totalBottles += Math.round(baseUnitsDeduct);
     }
     if (isCap) {
       totalCaps += Math.round(qty);
     }
 
-    // Litres calculation
-    const nameLower = fgItem.name.toLowerCase();
-    let litresPerUnit;
-    if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
-    else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = isPack ? 12.0 : 2.0;
-    else if (nameLower.includes('19')) litresPerUnit = 24.0;
-    else litresPerUnit = 1.0;
+    // Litres calculation (only for physical finished goods/refills)
+    if (!isExtra && fgItem) {
+      const nameLower = (fgItem.name || '').toLowerCase();
+      let litresPerUnit;
+      if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
+      else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = isPack ? 12.0 : 2.0;
+      else if (nameLower.includes('19')) litresPerUnit = 24.0;
+      else litresPerUnit = 1.0;
 
-    totalLitres += litresPerUnit * qty;
+      totalLitres += litresPerUnit * qty;
+    }
 
     processedItems.push({
       fgItem,
+      name: raw.name || fgItem?.name || (isCap ? 'Extra Cap' : 'Extra Item'),
       saleType,
       quantity: qty,
       baseUnitsDeduct,
@@ -236,6 +250,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
           where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
         });
         if (capRaw) {
+          line.itemId = capRaw.id;
           await tx[`${prefix}Item`].update({
             where: { id: capRaw.id },
             data: { cachedQty: { decrement: quantity } }
@@ -346,7 +361,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     // 2. Summary string for legacy/receipt compatibility
     const summaryProductType = processedItems
-      .map(p => `${p.fgItem.name} ${p.saleType === 'PACK' ? '(Pack)' : (p.saleType === 'BOTTLE' ? '(Bottle)' : '')} (x${p.quantity})`)
+      .map(p => `${p.name || p.fgItem?.name} ${p.saleType === 'PACK' ? '(Pack)' : (p.saleType === 'BOTTLE' ? '(Bottle)' : (p.saleType === 'WATER_REFILL' ? '(Refill)' : ''))} (x${p.quantity})`)
       .join(', ');
     const totalQty = processedItems.reduce((acc, p) => acc + p.quantity, 0);
 
@@ -374,16 +389,19 @@ export const createSpotSale = asyncHandler(async (req, res) => {
 
     // 4. Create child SpotSaleItem records
     for (const p of processedItems) {
-      await tx[`${prefix}SpotSaleItem`].create({
-        data: {
-          spotSaleId: sale.id,
-          itemId: p.fgItem.id,
-          saleType: p.saleType,
-          quantity: p.quantity,
-          unitPrice: p.unitPrice,
-          subtotal: p.subtotal
-        }
-      });
+      const targetItemId = p.fgItem?.id || p.itemId;
+      if (targetItemId) {
+        await tx[`${prefix}SpotSaleItem`].create({
+          data: {
+            spotSaleId: sale.id,
+            itemId: targetItemId,
+            saleType: p.saleType,
+            quantity: p.quantity,
+            unitPrice: p.unitPrice,
+            subtotal: p.subtotal
+          }
+        });
+      }
     }
 
     // 5. Update customer balance if debt occurred
@@ -496,10 +514,16 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
         const lineQty = Number(line.quantity || 0);
         if (lineQty <= 0) continue;
 
+        if (line.saleType === 'WATER_REFILL' || line.saleType === 'EXTRA_CHARGE') {
+          continue; // Refills and extra charges never deducted container stock
+        }
+
         if (line.saleType === 'EXTRA_CAP') {
-          const capRaw = await tx[`${prefix}Item`].findFirst({
-            where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
-          });
+          const capRaw = line.itemId 
+            ? await tx[`${prefix}Item`].findUnique({ where: { id: line.itemId } })
+            : await tx[`${prefix}Item`].findFirst({
+                where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
+              });
           if (capRaw) {
             await tx[`${prefix}Item`].update({
               where: { id: capRaw.id },

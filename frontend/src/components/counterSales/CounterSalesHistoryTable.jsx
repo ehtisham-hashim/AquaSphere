@@ -5,7 +5,10 @@ import {
   ShieldAlert, 
   User, 
   ShoppingBag, 
-  Eye
+  Eye,
+  Droplets,
+  Package,
+  Shield
 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
@@ -237,6 +240,25 @@ export default function CounterSalesHistoryTable({
                             </button>
                           )}
                         </div>
+                        {(sale.totalLitres > 0 || sale.totalBottles > 0 || sale.totalCaps > 0) && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            {sale.totalLitres > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                <Droplets size={10} /> {Number(sale.totalLitres).toFixed(1)}L
+                              </span>
+                            )}
+                            {sale.totalBottles > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                <Package size={10} /> {sale.totalBottles} btl
+                              </span>
+                            )}
+                            {sale.totalCaps > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                <Shield size={10} /> {sale.totalCaps} caps
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {sale.remarks && (
                           <span className="text-[10px] text-slate-400 block mt-1 truncate max-w-[200px]">
                             {sale.remarks}

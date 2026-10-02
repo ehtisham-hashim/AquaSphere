@@ -12,7 +12,7 @@ import { useLiveEvent } from '../context/SSEContext';
 export default function Customers() {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
+  const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'].includes(user?.role);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'

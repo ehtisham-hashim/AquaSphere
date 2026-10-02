@@ -195,6 +195,8 @@ export default function CounterSales() {
   const todayLitres = todaySummary?.todayLitres ?? 0;
   const todayPaid = todaySummary?.todayPaid ?? 0;
   const todayDebt = todaySummary?.todayDebt ?? 0;
+  const todayBottles = todaySummary?.todayBottles ?? 0;
+  const todayCaps = todaySummary?.todayCaps ?? 0;
 
   if (isWadaana) {
     return <Navigate to="/" replace />;
@@ -216,6 +218,8 @@ export default function CounterSales() {
         todayLitres={todayLitres}
         todayCash={todayPaid}
         todayCredit={todayDebt}
+        todayBottles={todayBottles}
+        todayCaps={todayCaps}
         loading={loading}
       />
 

@@ -7,14 +7,14 @@ import upload from '../middlewares/upload.middleware.js';
 const router = Router();
 router.use(verifyJWT);
 
-// Customer view access: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER, TRANSPORT_MANAGER (PM is strictly excluded)
-router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getCustomers);
-router.get('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getCustomerDetails);
+// Customer view access: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER, TRANSPORT_MANAGER, PRODUCTION_MANAGER
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER', 'PRODUCTION_MANAGER'), getCustomers);
+router.get('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER', 'PRODUCTION_MANAGER'), getCustomerDetails);
 
-// Add / Edit customers: OWNER, MARKETING_MANAGER (Admin is view-only)
-router.post('/', requireRoles('OWNER', 'MARKETING_MANAGER'), createCustomer);
-router.post('/upload-picture', requireRoles('OWNER', 'MARKETING_MANAGER'), upload.single('image'), uploadCustomerPicture);
-router.put('/:id', requireRoles('OWNER', 'MARKETING_MANAGER'), updateCustomer);
+// Add / Edit customers: OWNER, MARKETING_MANAGER, PRODUCTION_MANAGER, ADMIN
+router.post('/', requireRoles('OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'), createCustomer);
+router.post('/upload-picture', requireRoles('OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'), upload.single('image'), uploadCustomerPicture);
+router.put('/:id', requireRoles('OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'), updateCustomer);
 router.patch('/:id/restore', requireRoles('OWNER'), restoreCustomer);
 
 // Delete customer: strictly OWNER only (anti-corruption feature)

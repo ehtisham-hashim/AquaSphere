@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon
+  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2
 } from 'lucide-react';
 import { Badge } from '../ui';
 import ImagePreviewModal from '../ui/ImagePreviewModal';
@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
-// ponytail: two-column flat layout eliminates container fatigue; inline image placeholder uses lucide User icon
+// ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted }) {
   const { user } = useAuth();
   const { tenant } = useTenant();
@@ -26,6 +26,14 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const [previewImage, setPreviewImage] = useState(null);
 
   const isWadaana = tenant === 'wadaana';
+
+  // Role permissions:
+  // OWNER side has: Edit, Delete, and Close/Cancel
+  // Other sides (PM, MM, ADMIN, ACCOUNTANT, etc.): Edit and Close/Cancel, but strictly NO Delete
+  const userRole = (user?.role || '').toUpperCase();
+  const isOwner = userRole === 'OWNER';
+  const canDelete = isOwner;
+  const canEdit = isOwner || ['MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER', 'MM', 'PM'].includes(userRole) || Boolean(user);
 
   // Fetch full customer details with history
   useEffect(() => {
@@ -96,8 +104,6 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
     }
   };
 
-  // tenant and isWadaana already declared above (lines 19-20)
-
   // Tenant-aware theme classes
   const theme = {
     primaryText: isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600',
@@ -115,21 +121,54 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
       {/* Left Column: Profile Card & Image Placeholder */}
       <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
         
-        {/* Profile Image */}
-        <div
-          className={`w-36 h-36 rounded-2xl ${theme.accentBg} border-2 ${c.homePictureUrl ? 'border-solid' : 'border-dashed'} ${theme.avatarBorder} flex items-center justify-center mb-4 shadow-inner overflow-hidden ${c.homePictureUrl ? 'cursor-pointer' : ''}`}
-          onClick={() => c.homePictureUrl && setPreviewImage(c.homePictureUrl)}
-          title={c.homePictureUrl ? 'Click to view full image' : ''}
-        >
-          {c.homePictureUrl ? (
-            <img 
-              src={c.homePictureUrl} 
-              alt={c.name} 
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-              onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'block'; }} 
-            />
-          ) : null}
-          <User size={64} className={`${theme.iconColor} opacity-80 ${c.homePictureUrl ? 'hidden' : ''}`} />
+        {/* Profile Image - Elegant Circular Frame */}
+        <div className="relative group mb-4">
+          {/* Circular Frame Outer Gradient Border */}
+          <div
+            className={`w-36 h-36 rounded-full p-1 bg-gradient-to-tr ${
+              isWadaana 
+                ? 'from-sky-400 via-blue-500 to-indigo-500 shadow-sky-500/20 ring-sky-100/70' 
+                : 'from-emerald-400 via-teal-500 to-cyan-500 shadow-emerald-500/20 ring-emerald-100/70'
+            } shadow-lg ring-4 transition-all duration-300 group-hover:scale-105`}
+          >
+            {/* Inner White Ring */}
+            <div className="w-full h-full rounded-full bg-white p-1 overflow-hidden flex items-center justify-center">
+              <div
+                className={`w-full h-full rounded-full ${theme.accentBg} flex items-center justify-center overflow-hidden relative ${c.homePictureUrl ? 'cursor-pointer' : ''}`}
+                onClick={() => c.homePictureUrl && setPreviewImage(c.homePictureUrl)}
+                title={c.homePictureUrl ? 'Click to view full image' : ''}
+              >
+                {c.homePictureUrl ? (
+                  <>
+                    <img 
+                      src={c.homePictureUrl} 
+                      alt={c.name} 
+                      className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-110"
+                      onError={(e) => { 
+                        e.currentTarget.style.display = 'none'; 
+                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex'; 
+                      }} 
+                    />
+                    <div className="hidden w-full h-full items-center justify-center">
+                      <User size={56} className={`${theme.iconColor} opacity-75`} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center">
+                    <User size={56} className={`${theme.iconColor} opacity-75`} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Active status indicator badge */}
+          <div 
+            className="absolute bottom-1 right-2 w-6 h-6 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center shadow-md text-xs font-bold"
+            title="Active Customer Profile"
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          </div>
         </div>
 
         {/* Name & Badges */}
@@ -218,40 +257,59 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
       <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
         <div className="space-y-6">
           
-          {/* Header & Prominent Close Button */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          {/* Header & Polished Action Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Customer Overview</h2>
-              <p className="text-slate-500 text-xs">Complete financial, credit, and product profiles</p>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Customer Overview</h2>
+                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                  Profile Details
+                </span>
+              </div>
+              <p className="text-slate-500 text-xs mt-0.5">Complete financial, credit, and product profiles</p>
             </div>
-            <div className="flex items-center gap-2">
-              {['OWNER', 'MARKETING_MANAGER'].includes(user?.role) && (
+
+            {/* Action Buttons Toolbar */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Edit Customer Button - Accessible to OWNER, PM, MM, ADMIN, etc. */}
+              {canEdit && (
                 <button
+                  type="button"
                   onClick={() => setIsEditOpen(true)}
-                  className={`inline-flex items-center gap-1.5 px-4 py-2 ${
-                    isWadaana ? 'bg-sky-50 text-[#0ea5e9] hover:bg-sky-100 border-sky-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'
-                  } border rounded-xl font-medium text-sm transition-colors shadow-sm`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold text-xs sm:text-sm tracking-wide shadow-sm transition-all duration-200 active:scale-95 ${
+                    isWadaana 
+                      ? 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-sky-500/25 hover:shadow-md hover:shadow-sky-500/35' 
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/25 hover:shadow-md hover:shadow-emerald-600/35'
+                  }`}
+                  title="Edit Customer Details"
                 >
-                  <Edit3 size={16} />
+                  <Edit3 size={15} className="text-white/90" />
                   <span>Edit Customer</span>
                 </button>
               )}
-              {user?.role === 'OWNER' && (
+
+              {/* Delete Button - Strictly OWNER ONLY */}
+              {canDelete && (
                 <button
+                  type="button"
                   onClick={handleDelete}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-medium text-sm transition-colors shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100/90 text-rose-600 hover:text-rose-700 border border-rose-200/80 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 shadow-sm hover:shadow active:scale-95 group"
+                  title="Delete Customer (Owner Only)"
                 >
-                  <X size={16} />
+                  <Trash2 size={15} className="text-rose-500 group-hover:text-rose-700 transition-colors" />
                   <span>Delete</span>
                 </button>
               )}
+
+              {/* Close Button - For all roles */}
               <button
+                type="button"
                 onClick={onClose}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-colors shadow-sm"
-                title="Close Details"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/90 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 shadow-sm hover:shadow active:scale-95 group"
+                title="Close Overview"
               >
                 <span>Close</span>
-                <X size={18} />
+                <X size={15} className="text-slate-400 group-hover:text-slate-700 transition-colors" />
               </button>
             </div>
           </div>

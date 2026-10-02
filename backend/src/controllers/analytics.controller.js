@@ -438,7 +438,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const nextDate = new Date(targetDate);
   nextDate.setDate(nextDate.getDate() + 1);
 
-  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments] = await Promise.all([
+  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments, spotSalesTotalAgg] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate }, type: 'CASH' }
@@ -458,6 +458,10 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     prisma[`${prefix}VendorPayment`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
+    }),
+    prisma[`${prefix}SpotSale`].aggregate({
+      _sum: { totalLitres: true, litresSold: true, totalBottles: true, totalCaps: true },
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
     })
   ]);
 
@@ -466,7 +470,9 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const totalCreditSales = parseFloat(creditSalesAgg._sum.creditAmount || 0);
   const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
   const totalVendorCash = parseFloat(vendorCashPayments._sum.amount || 0);
-  const totalLitres = parseFloat(spotSalesAgg._sum.litresSold || 0);
+  const totalLitres = parseFloat(spotSalesTotalAgg._sum.totalLitres || spotSalesTotalAgg._sum.litresSold || spotSalesAgg._sum.litresSold || 0);
+  const totalBottles = parseInt(spotSalesTotalAgg._sum.totalBottles || 0, 10);
+  const totalCaps = parseInt(spotSalesTotalAgg._sum.totalCaps || 0, 10);
   const netCash = Math.max(0, totalDeliveryAmount + totalSpotSales - totalExpenses - totalVendorCash);
 
   return sendSuccess(res, {
@@ -476,6 +482,11 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     totalExpenses,
     totalVendorCash,
     totalLitres,
+    counterSales: {
+      totalLitres,
+      totalBottles,
+      totalCaps
+    },
     netCash,
     date: targetDate.toISOString().split('T')[0]
   });
