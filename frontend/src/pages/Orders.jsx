@@ -20,6 +20,74 @@ import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
 import { useLiveEvent } from '../context/SSEContext';
 
+const DATE_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Time' },
+  { value: 'TODAY', label: 'Today' },
+  { value: 'YESTERDAY', label: 'Yesterday' },
+  { value: 'LAST_3_DAYS', label: 'Last 3 Days' },
+  { value: '1_WEEK', label: '1 Week' },
+  { value: '1_MONTH', label: '1 Month' },
+  { value: '1_YEAR', label: '1 Year' },
+];
+
+const parseOrderDate = (d) => {
+  if (!d) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+  if (typeof d === 'string') {
+    const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match && (d.length === 10 || d.includes('T00:00:00'))) {
+      const [, y, m, day] = match;
+      return new Date(Number(y), Number(m) - 1, Number(day), 12, 0, 0);
+    }
+  }
+  const dateObj = new Date(d);
+  return isNaN(dateObj.getTime()) ? null : dateObj;
+};
+
+const checkDateMatch = (rawDate, filter, now) => {
+  if (!rawDate || filter === 'ALL') return filter === 'ALL';
+  const d = parseOrderDate(rawDate);
+  if (!d) return false;
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  switch (filter) {
+    case 'TODAY':
+      return d >= startOfToday && d <= endOfToday;
+    case 'YESTERDAY': {
+      const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+      return d >= startOfYesterday && d <= endOfYesterday;
+    }
+    case 'LAST_3_DAYS': {
+      const startOf3Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0);
+      return d >= startOf3Days && d <= endOfToday;
+    }
+    case '1_WEEK': {
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
+      return d >= startOfWeek && d <= endOfToday;
+    }
+    case '1_MONTH': {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
+      return d >= startOfMonth && d <= endOfToday;
+    }
+    case '1_YEAR': {
+      const startOfYear = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 365, 0, 0, 0, 0);
+      return d >= startOfYear && d <= endOfToday;
+    }
+    default:
+      return true;
+  }
+};
+
+const orderMatchesDate = (o, filter) => {
+  if (!filter || filter === 'ALL') return true;
+  const rawDate = o.expectedDelivery || o.createdAt;
+  if (!rawDate) return false;
+  return checkDateMatch(rawDate, filter, new Date());
+};
+
 export default function Orders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -30,6 +98,7 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('All Clients');
+  const [dateFilter, setDateFilter] = useState('ALL');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
@@ -127,6 +196,9 @@ export default function Orders() {
     
     // Client type filtering
     if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
+
+    // Date filtering
+    if (dateFilter !== 'ALL' && !orderMatchesDate(o, dateFilter)) return false;
     
     // Search query: Order ID, Customer Name, Phone Number
     if (searchQuery) {
@@ -143,7 +215,7 @@ export default function Orders() {
     return true;
   });
 
-  const pagination = usePagination(filteredOrders, 50, searchQuery);
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${activeTab}_${dateFilter}`);
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
@@ -203,8 +275,8 @@ export default function Orders() {
 
       {/* Tab Filter & Search Toolbar */}
       <div className="card-surface p-3 flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="w-full sm:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div className="w-full lg:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
             <div className="inline-flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 min-w-max">
               {tabs.map(tab => (
                 <button 
@@ -222,14 +294,30 @@ export default function Orders() {
             </div>
           </div>
 
-          <div className="shrink-0 w-full sm:w-48">
-            <select 
-              className="select-base text-xs py-1.5 px-2.5 w-full"
-              value={clientFilter}
-              onChange={e => setClientFilter(e.target.value)}
-            >
-              {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full lg:w-auto">
+            <div className="w-full sm:w-36">
+              <select 
+                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value)}
+                aria-label="Filter orders by date"
+              >
+                {DATE_FILTER_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full sm:w-44">
+              <select 
+                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+                value={clientFilter}
+                onChange={e => setClientFilter(e.target.value)}
+                aria-label="Filter orders by client"
+              >
+                {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -257,7 +345,21 @@ export default function Orders() {
                 {filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="p-12 text-center text-slate-500">
-                      No orders found.
+                      <p>No orders found.</p>
+                      {(dateFilter !== 'ALL' || clientFilter !== 'All Clients' || searchQuery) && (
+                        <div className="mt-2">
+                          <button
+                            onClick={() => {
+                              setDateFilter('ALL');
+                              setClientFilter('All Clients');
+                              setSearchQuery('');
+                            }}
+                            className="text-xs text-brand hover:underline font-semibold"
+                          >
+                            Clear filters
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -307,7 +409,7 @@ export default function Orders() {
                       </td>
                       <td className="table-td text-xs text-slate-600">
                         {o.expectedDelivery ? (
-                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
+                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {parseOrderDate(o.expectedDelivery)?.toLocaleDateString()}</div>
                         ) : <span className="text-slate-400 text-xs">Not set</span>}
                       </td>
                       <td className="table-td">
