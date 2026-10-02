@@ -120,11 +120,11 @@ export default function CompleteBatchModal({
     if (isWadaana) {
       const list = [];
       if (batchToComplete.qtyPure05L > 0) {
-        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('pure') && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('pure') || i.name.toLowerCase().includes('aquasphere')) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
         list.push({
           itemId: fg?.id,
           key: 'brokenPure05L',
-          name: fg?.name || '0.5L Pure Bottled Water',
+          name: fg?.name || 'Empty Bottle (AquaSphere 0.5L)',
           unit: fg?.unit || 'bottles',
           qty: batchToComplete.qtyPure05L,
           maxBreakage: batchToComplete.qtyPure05L,
@@ -133,11 +133,11 @@ export default function CompleteBatchModal({
         });
       }
       if (batchToComplete.qtyPure15L > 0) {
-        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('pure') && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('pure') || i.name.toLowerCase().includes('aquasphere')) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
         list.push({
           itemId: fg?.id,
           key: 'brokenPure15L',
-          name: fg?.name || '1.5L Pure Bottled Water',
+          name: fg?.name || 'Empty Bottle (AquaSphere 1.5L)',
           unit: fg?.unit || 'bottles',
           qty: batchToComplete.qtyPure15L,
           maxBreakage: batchToComplete.qtyPure15L,
@@ -146,11 +146,11 @@ export default function CompleteBatchModal({
         });
       }
       if (batchToComplete.qtyMix05L > 0) {
-        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('mix') && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('mix') || i.name.toLowerCase().includes('dasani')) && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
         list.push({
           itemId: fg?.id,
           key: 'brokenMix05L',
-          name: fg?.name || '0.5L Mix Bottled Water',
+          name: fg?.name || 'Dasani 0.5L Bottle',
           unit: fg?.unit || 'bottles',
           qty: batchToComplete.qtyMix05L,
           maxBreakage: batchToComplete.qtyMix05L,
@@ -159,11 +159,11 @@ export default function CompleteBatchModal({
         });
       }
       if (batchToComplete.qtyMix15L > 0) {
-        const fg = items.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes('mix') && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+        const fg = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('mix') || i.name.toLowerCase().includes('dasani')) && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
         list.push({
           itemId: fg?.id,
           key: 'brokenMix15L',
-          name: fg?.name || '1.5L Mix Bottled Water',
+          name: fg?.name || 'Dasani 1.5L Bottle',
           unit: fg?.unit || 'bottles',
           qty: batchToComplete.qtyMix15L,
           maxBreakage: batchToComplete.qtyMix15L,

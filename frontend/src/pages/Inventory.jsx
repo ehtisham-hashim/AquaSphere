@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { toast } from 'sonner';
 import { 
   InventoryHeader, 
   FinishedGoodsSummaryCards, 
@@ -40,12 +41,17 @@ export default function Inventory() {
 
       if (itemsJson.success || results[0].ok) {
         setItems(itemsJson.data || []);
+      } else {
+        toast.error(itemsJson.message || 'Failed to load inventory items');
       }
       if (txnsJson.success || results[1].ok) {
         setTransactions(txnsJson.data || []);
+      } else {
+        toast.error(txnsJson.message || 'Failed to load inventory transactions');
       }
     } catch (err) {
       console.error('Failed to fetch finished goods inventory:', err);
+      toast.error('Failed to load inventory');
     } finally {
       setIsLoading(false);
     }

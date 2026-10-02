@@ -48,8 +48,8 @@ const WADAANA_RAW_MATERIALS = [
 
 const WADAANA_FINISHED_GOODS = [
   {
-    name: 'AquaSphere 0.5L Bottle',
-    aliases: ['Bottle 0.5 Pure', '0.5L Pure Preform Bottle (15g)', '0.5L Pure Blown Bottle (15g)'],
+    name: 'Empty Bottle (AquaSphere 0.5L)',
+    aliases: ['AquaSphere 0.5L Bottle', 'Bottle 0.5 Pure', '0.5L Pure Preform Bottle (15g)', '0.5L Pure Blown Bottle (15g)'],
     unit: 'bottle',
     packSize: 1,
     reorderLevel: 1250,
@@ -57,8 +57,8 @@ const WADAANA_FINISHED_GOODS = [
     recipe: [{ rmName: 'Pure Preform 0.5L (Blue)', qty: 0.015 }],
   },
   {
-    name: 'AquaSphere 1.5L Bottle',
-    aliases: ['Bottle 1.5 Pure', '1.5L Pure Preform Bottle (30g)', '1.5L Pure Blown Bottle (30g)'],
+    name: 'Empty Bottle (AquaSphere 1.5L)',
+    aliases: ['AquaSphere 1.5L Bottle', 'Bottle 1.5 Pure', '1.5L Pure Preform Bottle (30g)', '1.5L Pure Blown Bottle (30g)'],
     unit: 'bottle',
     packSize: 1,
     reorderLevel: 1250,

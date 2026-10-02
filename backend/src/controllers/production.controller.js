@@ -424,15 +424,15 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     } else {
       // Legacy column fallback
       const colMappings = [
-        { key: 'qtyPure05L', name: 'pure', vol: ['0.5', '500'], brokenKey: 'brokenPure05L' },
-        { key: 'qtyPure15L', name: 'pure', vol: ['1.5', '1500'], brokenKey: 'brokenPure15L' },
-        { key: 'qtyMix05L', name: 'mix', vol: ['0.5', '500'], brokenKey: 'brokenMix05L' },
-        { key: 'qtyMix15L', name: 'mix', vol: ['1.5', '1500'], brokenKey: 'brokenMix15L' }
+        { key: 'qtyPure05L', keywords: ['aquasphere', 'pure'], vol: ['0.5', '500'], brokenKey: 'brokenPure05L' },
+        { key: 'qtyPure15L', keywords: ['aquasphere', 'pure'], vol: ['1.5', '1500'], brokenKey: 'brokenPure15L' },
+        { key: 'qtyMix05L', keywords: ['dasani', 'mix'], vol: ['0.5', '500'], brokenKey: 'brokenMix05L' },
+        { key: 'qtyMix15L', keywords: ['dasani', 'mix'], vol: ['1.5', '1500'], brokenKey: 'brokenMix15L' }
       ];
       for (const cm of colMappings) {
         const q = batch[cm.key] || 0;
         if (q > 0) {
-          const fg = allItems.find(i => i.type === 'FINISHED_GOOD' && i.name.toLowerCase().includes(cm.name) && cm.vol.some(v => i.name.toLowerCase().includes(v)));
+          const fg = allItems.find(i => i.type === 'FINISHED_GOOD' && cm.keywords.some(k => i.name.toLowerCase().includes(k)) && cm.vol.some(v => i.name.toLowerCase().includes(v)));
           if (fg) {
             producedList.push({ itemId: fg.id, name: fg.name, quantity: q, legacyKey: cm.brokenKey });
           }

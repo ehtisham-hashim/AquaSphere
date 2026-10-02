@@ -18,20 +18,7 @@ export const getItems = asyncHandler(async (req, res) => {
   const items = await prisma[`${prefix}Item`].findMany({
     where,
     orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      unit: true,
-      packSize: true,
-      cachedQty: true,
-      factoryQty: true,
-      warehouseQty: true,
-      reorderLevel: true,
-      retailPrice: true,
-      archivedAt: true,
-      createdAt: true,
-      updatedAt: true,
+    include: {
       recipeFinishedGoods: { include: { rawMaterial: true } }
     }
   });
@@ -55,18 +42,24 @@ export const getItems = asyncHandler(async (req, res) => {
 /** Retrieves a single inventory item by ID */
 export const getItemById = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const item = await prisma[`${prefix}Item`].findUnique({ where: { id: req.params.id } });
+  const item = await prisma[`${prefix}Item`].findUnique({
+    where: { id: req.params.id },
+    include: {
+      recipeFinishedGoods: { include: { rawMaterial: true } }
+    }
+  });
   if (!item) throw new ApiError(404, 'Item not found');
   return sendSuccess(res, item);
 });
 
 /** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [] } = req.body;
+  const { name, type = 'RAW_MATERIAL', unit = 'kg', packSize = 1, reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [] } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
   const cleanName = name.trim();
+  const parsedPackSize = Math.max(1, parseInt(packSize, 10) || 1);
 
   const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
   const initF = hasLocationStock ? Math.max(0, parseFloat(factoryStock) || 0) : Math.max(0, parseFloat(initialStock || quantityToAdd || 0));
@@ -112,12 +105,14 @@ export const createItem = asyncHandler(async (req, res) => {
           factoryQty: { increment: initF > 0 ? initF : 0 },
           warehouseQty: { increment: initW > 0 ? initW : 0 },
           reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
-          unit: unit || existingItem.unit
+          unit: unit || existingItem.unit,
+          ...(req.body.packSize !== undefined ? { packSize: parsedPackSize } : {})
         },
         include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
       });
     });
 
+    broadcastEvent(prefix, 'INVENTORY_CHANGED');
     return sendSuccess(res, updated, 200, { message: 'Stock appended to existing item' });
   }
 
@@ -127,6 +122,7 @@ export const createItem = asyncHandler(async (req, res) => {
         name: cleanName,
         type,
         unit,
+        packSize: parsedPackSize,
         reorderLevel: parseFloat(reorderLevel) || 0,
         cachedQty: addQty > 0 ? addQty : 0,
         factoryQty: initF > 0 ? initF : 0,
@@ -165,6 +161,7 @@ export const createItem = asyncHandler(async (req, res) => {
     });
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, item, 201);
 });
 
