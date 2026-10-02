@@ -43,12 +43,70 @@ export function AuthProvider({ children }) {
       const data = await response.json();
 
       if (response.ok) {
+        if (data.data?.require2FA) {
+          return {
+            success: true,
+            require2FA: true,
+            tempToken: data.data.tempToken,
+            emailMask: data.data.emailMask,
+            resendCooldown: data.data.resendCooldown || 60
+          };
+        }
         setCompanyCookie(tenant);
         clearCache();
         setUser(data.data.user);
         return { success: true };
       } else {
         return { success: false, message: data.message };
+      }
+    } catch (error) {
+      return { success: false, message: 'Network error. Please try again later.' };
+    }
+  };
+
+  const verifyOwnerOtp = async (tempToken, otp, tenant = 'aquasphere') => {
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-owner-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, otp }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setCompanyCookie(tenant);
+        clearCache();
+        setUser(data.data.user);
+        return { success: true, user: data.data.user };
+      } else {
+        return { success: false, message: data.message || 'Verification failed' };
+      }
+    } catch (error) {
+      return { success: false, message: 'Network error. Please try again later.' };
+    }
+  };
+
+  const resendOwnerOtp = async (tempToken) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/resend-owner-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return { 
+          success: true, 
+          resendCooldown: data.data?.resendCooldown || 60,
+          tempToken: data.data?.tempToken 
+        };
+      } else {
+        return { success: false, message: data.message || 'Failed to resend code' };
       }
     } catch (error) {
       return { success: false, message: 'Network error. Please try again later.' };
@@ -67,7 +125,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, verifyOwnerOtp, resendOwnerOtp }}>
       {!loading && children}
     </AuthContext.Provider>
   );

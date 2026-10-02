@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { generateToken, verifyToken } from '../utils/jwtUtils.js';
 import { prisma } from '../config/db.js';
+import { sendOwner2FAEmail } from '../utils/mailer.js';
 
 /**
  * Authenticates a user by email, password, and tenant, generating a JWT token and HTTP-only cookie.
@@ -36,7 +37,7 @@ export const login = asyncHandler(async (req, res) => {
 
   if (process.env.ENFORCE_OWNER_2FA === 'true' && user.role === 'OWNER') {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 120 * 1000); // 120s validity
+    const expiresAt = new Date(Date.now() + 300 * 1000); // 5 minutes validity
     await prisma[`${prefix}User`].update({
       where: { id: user.id },
       data: { otpCode: otp, otpExpiresAt: expiresAt }
@@ -44,9 +45,14 @@ export const login = asyncHandler(async (req, res) => {
 
     const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL || user.email;
     const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL || null;
-    console.log(`[2FA OTP] Code generated for Owner (${primaryEmail}${secondaryEmail ? `, ${secondaryEmail}` : ''}): ${otp}`);
+    const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
 
-    const tempToken = generateToken({ id: user.id, role: user.role, tenant: prefix, is2FA: true }, '5m');
+    // Send 2FA email via ZeptoMail
+    sendOwner2FAEmail({ to: recipients, otp, tenant: prefix });
+
+    console.log(`[2FA OTP] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
+
+    const tempToken = generateToken({ id: user.id, role: user.role, tenant: prefix, is2FA: true }, '15m');
 
     return res.status(200).json(new ApiResponse(200, {
       require2FA: true,
@@ -185,7 +191,7 @@ export const resendOwnerOtp = asyncHandler(async (req, res) => {
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 120 * 1000);
+  const expiresAt = new Date(Date.now() + 300 * 1000); // 5 minutes validity
   await prisma[`${prefix}User`].update({
     where: { id: user.id },
     data: { otpCode: otp, otpExpiresAt: expiresAt }
@@ -193,9 +199,17 @@ export const resendOwnerOtp = asyncHandler(async (req, res) => {
 
   const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL || user.email;
   const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL || null;
-  console.log(`[2FA OTP Resend] Code generated for Owner (${primaryEmail}${secondaryEmail ? `, ${secondaryEmail}` : ''}): ${otp}`);
+  const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
+
+  // Send 2FA email via ZeptoMail
+  sendOwner2FAEmail({ to: recipients, otp, tenant: prefix });
+
+  console.log(`[2FA OTP Resend] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
+
+  const newTempToken = generateToken({ id: user.id, role: user.role, tenant: prefix, is2FA: true }, '15m');
 
   return res.status(200).json(new ApiResponse(200, {
-    resendCooldown: 60
+    resendCooldown: 60,
+    tempToken: newTempToken
   }, 'New OTP sent successfully'));
 });

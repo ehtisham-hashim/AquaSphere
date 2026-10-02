@@ -70,11 +70,12 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
         }];
   }
 
-  const subtotal = Number(receiptSale.totalAmount ?? (Number(receiptSale.cashCollected || 0) + Number(receiptSale.creditAmount || 0)));
-  const gstAmount = withGst ? Math.round(subtotal * 0.18) : 0;
-  const netTotal = subtotal + gstAmount;
+  const totalAmount = Number(receiptSale.totalAmount ?? (Number(receiptSale.cashCollected || 0) + Number(receiptSale.creditAmount || 0)));
+  const subtotal = totalAmount;
+  const gstAmount = withGst ? Math.round(totalAmount * 0.18) : 0;
+  const netTotal = withGst ? Math.round(totalAmount * 1.18) : totalAmount;
 
-  const paid = Number(receiptSale.amountPaid ?? Number(receiptSale.cashCollected || 0));
+  const paid = Number(receiptSale.amountPaid ?? (withGst ? netTotal : totalAmount));
   const debt = Number(receiptSale.debtAmount ?? Number(receiptSale.creditAmount || 0));
 
   const handlePrint = () => {
@@ -82,17 +83,17 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
   };
 
   const getReceiptData = () => ({
-    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    title: withGst ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') : 'CUSTOMER CARE',
     subtitle: withGst ? 'Retail Sale • Counter Dispatch (Tax Invoice)' : 'Retail Sale • Counter Dispatch',
-    tagline: 'Pure Quality • Safe & Healthy Water',
+    tagline: 'Premium Drinking Water • Reverse Osmosis Treated',
     withGst,
     strn: 'E208741-4',
-    contactInfo: '051-5454438 / 0300-9149143',
+    contactInfo: 'Tel: 051-5454438 | Cell: 0300-9149143',
     receiptNo: saleId,
-    dateStr: `${new Date(receiptSale.createdAt).toLocaleDateString()} ${new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-    customerName: receiptSale.customer?.name || 'Walk-In Cash Customer',
+    dateStr: new Date(receiptSale.createdAt).toLocaleDateString('en-GB'),
+    customerName: receiptSale.customer?.name || 'Walk-In',
     paymentMethod: receiptSale.paymentMethod || 'CASH',
-    statusValue: debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL',
+    statusValue: debt > 0 ? `DUE: Rs. ${debt.toLocaleString()}` : 'PAID IN FULL',
     servedBy: `STAFF: ${receiptSale.createdBy?.name || user?.name || 'Staff'} (${receiptSale.createdBy?.role || user?.role || 'POS'})`,
     items: items.map(item => ({
       name: item.name,
@@ -101,13 +102,13 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
       lineTotal: item.lineTotal
     })),
     summaryRows: [
-      { label: 'Subtotal', value: subtotal },
+      { label: 'Subtotal', value: totalAmount },
       ...(withGst ? [{ label: 'GST (18%)', value: gstAmount }] : []),
-      { label: 'Amount Paid', value: paid },
+      { label: 'Amount Paid', value: withGst ? netTotal : totalAmount },
       ...(debt > 0 ? [{ label: 'Customer Debt', value: debt }] : [])
     ],
     netTotal: netTotal,
-    footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+    footerNote: withGst ? (isWadaana ? 'THANK YOU FOR CHOOSING WADAANA' : 'THANK YOU FOR CHOOSING AQUASPHERE') : 'THANK YOU FOR CHOOSING US'
   });
 
   const handleCopyImage = async () => {
@@ -153,71 +154,81 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
               <Eye size={18} className="text-slate-800" /> Counter Sale Receipt
             </h3>
-            {/* Dual GST Toggle */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-[11px] font-bold">
-              <button
-                type="button"
-                onClick={() => setWithGst(false)}
-                className={`px-2 py-1 rounded-md transition-all ${
-                  !withGst ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                Customer Care
-              </button>
-              <button
-                type="button"
-                onClick={() => setWithGst(true)}
-                className={`px-2 py-1 rounded-md transition-all ${
-                  withGst ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                With 18% GST & STRN
-              </button>
-            </div>
+            {/* GST Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setWithGst(!withGst)}
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                withGst
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'
+              }`}
+            >
+              {withGst ? '✓ With 18% GST & STRN' : 'Customer Care (No GST)'}
+            </button>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X size={18}/>
           </button>
         </div>
 
-        {/* Printable Receipt Body - Professional Times New Roman Layout */}
+        {/* Printable Receipt Body */}
         <div 
           id="printable-receipt" 
           className="p-5 overflow-y-auto flex-1 bg-white text-black leading-normal selection:bg-slate-200"
           style={{ fontFamily: '"Times New Roman", Times, "Tinos", serif' }}
         >
-          {/* Header */}
-          <div className="text-center pb-2">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-black">
-              {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
-            </h2>
-            <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
-              {withGst ? 'Retail Sale • Counter Dispatch (Tax Invoice)' : 'Retail Sale • Counter Dispatch'}
-            </p>
-            {withGst ? (
-              <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
-                <p>STRN #: E208741-4</p>
-                <p className="text-slate-700 font-normal">Tel: 051-5454438 | Cell: 0300-9149143</p>
+          {/* HEADER */}
+          <div className="text-center border-b-2 border-slate-800 pb-3 mb-3">
+            <h1 className="text-xl font-black tracking-wide">
+              {withGst ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') : 'CUSTOMER CARE'}
+            </h1>
+
+            <div className="text-xs text-slate-600 mt-1">
+              Tel: 051-5454438 | Cell: 0300-9149143
+            </div>
+
+            <div className="text-[10px] text-slate-500 italic mt-0.5">
+              Premium Drinking Water • Reverse Osmosis Treated
+            </div>
+
+            {/* STRN - Only show if withGst is true */}
+            {withGst && (
+              <div className="text-xs font-bold text-slate-900 mt-1 font-mono">
+                STRN #: E208741-4
               </div>
-            ) : (
-              <p className="text-[11px] font-bold text-emerald-700 mt-1">Customer Care</p>
             )}
-            <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
-            <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>
 
-          {/* Meta Details */}
-          <div className="text-xs space-y-1.5 py-1 border-b border-dashed border-black/80">
-            <div className="flex justify-between items-center">
-              <span><strong>REC:</strong> {saleId}</span>
-              <span className="text-slate-800">{new Date(receiptSale.createdAt).toLocaleDateString()} {new Date(receiptSale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          {/* Customer Info */}
+          <div className="grid grid-cols-2 gap-2 text-xs border-b border-slate-200 pb-3 mb-3">
+            <div>
+              <span className="text-slate-500">REC:</span>{' '}
+              <span className="font-mono font-bold">{saleId}</span>
             </div>
-            <div><strong>CUST:</strong> {receiptSale.customer?.name || 'Walk-In Cash Customer'}</div>
-            <div className="flex justify-between items-center">
-              <span><strong>PAY:</strong> {receiptSale.paymentMethod || 'CASH'}</span>
-              <span className="font-bold">{debt > 0 ? `DUE: ₨ ${debt.toLocaleString()}` : 'PAID IN FULL'}</span>
+            <div className="text-right">
+              <span className="text-slate-500">DATE:</span>{' '}
+              <span className="font-bold">
+                {new Date(receiptSale.createdAt).toLocaleDateString('en-GB')}
+              </span>
             </div>
-            <div className="text-slate-700 text-[11px]">STAFF: {receiptSale.createdBy?.name || user?.name || 'Staff'} ({receiptSale.createdBy?.role || user?.role || 'POS'})</div>
+            <div>
+              <span className="text-slate-500">CUST:</span>{' '}
+              <span className="font-bold">{receiptSale.customer?.name || 'Walk-In'}</span>
+              {/* Show customer STRN if withGst and customer exists */}
+              {withGst && receiptSale.customer?.name && (
+                <span className="text-[10px] text-slate-600 block font-mono">
+                  STRN: E208741-4
+                </span>
+              )}
+            </div>
+            <div className="text-right">
+              <span className="text-slate-500">PAY:</span>{' '}
+              <span className="font-bold uppercase">{receiptSale.paymentMethod || 'CASH'}</span>
+              <span className="text-[10px] text-emerald-600 block font-semibold">
+                PAID IN FULL
+              </span>
+            </div>
           </div>
 
           {/* Itemized Table */}
@@ -253,37 +264,59 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <div className="border-b border-dashed border-black/80 mt-2"></div>
           </div>
 
-          {/* Totals Section */}
-          <div className="pt-2.5 space-y-1.5 text-xs">
+          {/* TOTALS */}
+          <div className="border-t-2 border-slate-800 pt-3 mb-4 space-y-1.5 text-xs">
+            {/* Subtotal (Before GST) */}
             <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span className="font-bold">₨ {subtotal.toLocaleString()}</span>
+              <span className="text-slate-600">Subtotal:</span>
+              <span className="font-mono font-bold">Rs. {totalAmount.toLocaleString()}</span>
             </div>
+
+            {/* GST Row - Only if withGst is true */}
             {withGst && (
-              <div className="flex justify-between">
+              <div className="flex justify-between text-slate-700">
                 <span>GST (18%):</span>
-                <span className="font-bold">₨ {gstAmount.toLocaleString()}</span>
+                <span className="font-mono font-bold">
+                  Rs. {Math.round(totalAmount * 0.18).toLocaleString()}
+                </span>
               </div>
             )}
-            <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
-              <span>NET TOTAL:</span>
-              <span>₨ {netTotal.toLocaleString()}</span>
+
+            {/* Net Total */}
+            <div className="flex justify-between text-base font-black border-t border-slate-300 pt-1.5">
+              <span>Net Total:</span>
+              <span className="font-mono">
+                Rs. {withGst 
+                  ? Math.round(totalAmount * 1.18).toLocaleString() 
+                  : totalAmount.toLocaleString()}
+              </span>
             </div>
-            <div className="flex justify-between">
+
+            {/* Amount Paid */}
+            <div className="flex justify-between text-emerald-600 font-bold">
               <span>Amount Paid:</span>
-              <span className="font-bold">₨ {paid.toLocaleString()}</span>
+              <span className="font-mono">
+                Rs. {withGst 
+                  ? Math.round(totalAmount * 1.18).toLocaleString() 
+                  : totalAmount.toLocaleString()}
+              </span>
             </div>
             {debt > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between text-amber-700 font-bold">
                 <span>Customer Debt:</span>
-                <span className="font-bold">₨ {debt.toLocaleString()}</span>
+                <span className="font-mono">Rs. {debt.toLocaleString()}</span>
               </div>
             )}
           </div>
 
-          {/* Footer Notice */}
-          <div className="text-center pt-3 border-t border-dashed border-black/80 text-[11px] italic text-slate-700 mt-3">
-            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}!
+          {/* FOOTER */}
+          <div className="text-center text-[10px] text-slate-500 border-t border-slate-200 pt-3">
+            <p className="font-bold">
+              {withGst 
+                ? (isWadaana ? 'THANK YOU FOR CHOOSING WADAANA' : 'THANK YOU FOR CHOOSING AQUASPHERE') 
+                : 'THANK YOU FOR CHOOSING US'}
+            </p>
+            <p className="mt-0.5">This is a computer generated receipt</p>
           </div>
         </div>
 
