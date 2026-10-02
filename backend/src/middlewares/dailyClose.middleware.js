@@ -62,7 +62,7 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
       selectFields = { createdAt: true, batchDate: true };
     } else if (url.includes('/expenses')) {
       modelName = `${prefix}Expense`;
-      selectFields = { createdAt: true, date: true };
+      selectFields = { createdAt: true };
     } else if (url.includes('/spot-sales')) {
       modelName = `${prefix}SpotSale`;
       selectFields = { createdAt: true };

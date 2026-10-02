@@ -23,7 +23,7 @@ const VALID_CATEGORIES = [
 // ponytail: include vehicle info and filter for transport expenses
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { startDate, endDate, page, limit, vehicleId, category } = req.query;
+  const { startDate, endDate, page, limit, vehicleId, category, cursor } = req.query;
 
   const where = {};
   if (startDate || endDate) {
@@ -36,51 +36,85 @@ export const getExpenses = asyncHandler(async (req, res) => {
     }
   }
 
-  if (vehicleId) {
-    where.vehicleId = vehicleId;
+  if (vehicleId && vehicleId.trim()) {
+    where.vehicleId = vehicleId.trim();
   }
 
-  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'];
+  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
 
-  if (req.user?.role === 'TRANSPORT_MANAGER') {
-    if (category && category !== 'ALL') {
-      if (!TM_ALLOWED_CATEGORIES.includes(category)) {
-        where.category = '__BLOCKED__';
-      } else {
-        where.category = category;
-      }
+  if (category && category !== 'ALL') {
+    if (req.user?.role === 'TRANSPORT_MANAGER' && !TM_ALLOWED_CATEGORIES.includes(category)) {
+      where.category = '__BLOCKED__';
     } else {
-      where.category = { in: TM_ALLOWED_CATEGORIES };
+      where.category = category;
     }
-  } else if (category && category !== 'ALL') {
-    where.category = category;
+  } else if (req.user?.role === 'TRANSPORT_MANAGER' && !where.vehicleId) {
+    where.category = { in: TM_ALLOWED_CATEGORIES };
   }
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
-  const skip = (pageNum - 1) * pageSize;
 
-  const [totalCount, expenses] = await Promise.all([
-    prisma[`${prefix}Expense`].count({ where }),
-    prisma[`${prefix}Expense`].findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        createdBy: { select: { id: true, name: true, role: true } },
-        vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
-      },
-      skip,
-      take: pageSize
-    })
-  ]);
+  let totalCount;
+  let expenses;
+  let hasMore;
+  let nextCursor;
+
+  if (cursor) {
+    try {
+      const rawExpenses = await prisma[`${prefix}Expense`].findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: {
+          createdBy: { select: { id: true, name: true, role: true } },
+          vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+        },
+        take: pageSize + 1,
+        skip: 1,
+        cursor: { id: cursor }
+      });
+      hasMore = rawExpenses.length > pageSize;
+      expenses = hasMore ? rawExpenses.slice(0, pageSize) : rawExpenses;
+      nextCursor = hasMore && expenses.length > 0 ? expenses[expenses.length - 1].id : null;
+    } catch (err) {
+      if (err.code === 'P2025') {
+        expenses = [];
+        hasMore = false;
+        nextCursor = null;
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    const skip = (pageNum - 1) * pageSize;
+    const [count, rawExpenses] = await Promise.all([
+      prisma[`${prefix}Expense`].count({ where }),
+      prisma[`${prefix}Expense`].findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: {
+          createdBy: { select: { id: true, name: true, role: true } },
+          vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+        },
+        skip,
+        take: pageSize
+      })
+    ]);
+    totalCount = count;
+    expenses = rawExpenses;
+    hasMore = skip + expenses.length < totalCount;
+    nextCursor = hasMore && expenses.length > 0 ? expenses[expenses.length - 1].id : null;
+  }
 
   return sendSuccess(res, expenses, 200, {
+    nextCursor,
+    hasMore,
     pagination: {
       page: pageNum,
       limit: pageSize,
-      totalCount,
-      totalPages: Math.ceil(totalCount / pageSize) || 1,
-      hasMore: skip + expenses.length < totalCount
+      totalCount: totalCount ?? expenses.length,
+      totalPages: totalCount ? (Math.ceil(totalCount / pageSize) || 1) : 1,
+      hasMore
     }
   });
 });
@@ -154,4 +188,55 @@ export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { secure_url } = await uploadImage(req.file, `${prefix}/expenses`);
   return sendSuccess(res, { receiptUrl: secure_url }, 200, { receiptUrl: secure_url });
+});
+
+/** Deletes an expense record */
+export const deleteExpense = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  const existing = await prisma[`${prefix}Expense`].findUnique({
+    where: { id }
+  });
+
+  if (existing) {
+    if (req.user?.role === 'TRANSPORT_MANAGER' && !existing.vehicleId) {
+      throw new ApiError(403, 'Transport managers are only permitted to delete vehicle expenses.');
+    }
+    await prisma[`${prefix}Expense`].delete({
+      where: { id }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'EXPENSE_DELETED',
+      entityType: 'EXPENSE',
+      entityId: id,
+      details: { category: existing.category, amount: existing.amount, vehicleId: existing.vehicleId },
+      performedBy: req.user?.id || 'SYSTEM'
+    });
+
+    broadcastDashboardUpdate(prefix);
+    broadcastEvent(prefix, 'EXPENSE_LOGGED', { deletedExpenseId: id });
+    return sendSuccess(res, { message: 'Expense deleted successfully' }, 200);
+  }
+
+  // Fallback to legacy TransportExpense if exists
+  if (prisma[`${prefix}TransportExpense`]) {
+    const legacyExpense = await prisma[`${prefix}TransportExpense`].findUnique({ where: { id } });
+    if (legacyExpense) {
+      await prisma[`${prefix}TransportExpense`].delete({ where: { id } });
+      await createAuditLog(prefix, {
+        action: 'EXPENSE_DELETED',
+        entityType: 'EXPENSE',
+        entityId: id,
+        details: { category: legacyExpense.type, amount: legacyExpense.amount, vehicleId: legacyExpense.vehicleId },
+        performedBy: req.user?.id || 'SYSTEM'
+      });
+      broadcastDashboardUpdate(prefix);
+      broadcastEvent(prefix, 'EXPENSE_LOGGED', { deletedExpenseId: id });
+      return sendSuccess(res, { message: 'Expense deleted successfully' }, 200);
+    }
+  }
+
+  throw new ApiError(404, 'Expense not found');
 });
