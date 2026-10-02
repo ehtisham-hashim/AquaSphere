@@ -16,6 +16,8 @@ export default function ExpensesSummaryCards({ expenses = [], filteredExpenses =
 
   const getTimeRangeLabel = () => {
     switch (timeRange) {
+      case 'YESTERDAY': return "Yesterday's Total";
+      case 'LAST3DAYS': return "Last 3 Days Total";
       case 'DAILY': return "Today's Total";
       case 'WEEKLY': return "This Week's Total";
       case 'MONTHLY': return "This Month's Total";

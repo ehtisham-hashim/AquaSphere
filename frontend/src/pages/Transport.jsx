@@ -164,6 +164,15 @@ export default function Transport() {
       let matchesTime = true;
       if (timeRange === 'DAILY') {
         matchesTime = exDate.toDateString() === now.toDateString();
+      } else if (timeRange === 'YESTERDAY') {
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        matchesTime = exDate.toDateString() === yesterday.toDateString();
+      } else if (timeRange === 'LAST3DAYS') {
+        const threeDaysAgo = new Date(now);
+        threeDaysAgo.setDate(now.getDate() - 2);
+        threeDaysAgo.setHours(0, 0, 0, 0);
+        matchesTime = exDate >= threeDaysAgo;
       } else if (timeRange === 'WEEKLY') {
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay());
@@ -324,7 +333,7 @@ export default function Transport() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-600">Time Horizon:</span>
               <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
-                {['DAILY', 'WEEKLY', 'MONTHLY', 'LIFETIME'].map((r) => (
+                {['YESTERDAY', 'LAST3DAYS', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'LIFETIME'].map((r) => (
                   <button
                     key={r}
                     onClick={() => setTimeRange(r)}
@@ -334,7 +343,7 @@ export default function Transport() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    {r.charAt(0) + r.slice(1).toLowerCase()}
+                    {r === 'LAST3DAYS' ? 'Last 3 Days' : r.charAt(0) + r.slice(1).toLowerCase()}
                   </button>
                 ))}
               </div>
