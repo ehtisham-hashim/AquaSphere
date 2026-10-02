@@ -127,6 +127,7 @@ export default function Orders() {
   };
 
   useLiveEvent('ORDER_UPDATED', fetchData);
+  useLiveEvent('INVENTORY_CHANGED', fetchData);
 
   useEffect(() => { 
     fetchData(); 

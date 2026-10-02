@@ -44,6 +44,7 @@ export default function Customers() {
   }, [activeTab, tenant]);
 
   useLiveEvent('CUSTOMER_UPDATED', () => fetchCustomers(search, activeTab));
+  useLiveEvent('ORDER_UPDATED', () => fetchCustomers(search, activeTab));
 
   const handleSearchChange = (e) => {
     const val = e.target.value;

@@ -119,6 +119,13 @@ const AQUASPHERE_RAW_MATERIALS = [
   { name: 'Calcium', aliases: ['Ca'], unit: 'kg', packSize: 1, reorderLevel: 10 },
   { name: 'Magnesium', aliases: ['Mg'], unit: 'kg', packSize: 1, reorderLevel: 5 },
   { name: 'Sodium', aliases: ['Na'], unit: 'kg', packSize: 1, reorderLevel: 3 },
+  {
+    name: 'Antiscalant',
+    aliases: ['Anti-scalant', 'Scale Inhibitor', 'Anti Scalant'],
+    unit: 'kg',
+    packSize: 1,
+    reorderLevel: 10
+  },
 ];
 
 // Single bottle consumption (unit = bottle)

@@ -1,7 +1,8 @@
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useLiveEvent } from '../context/SSEContext';
 import {
   OwnerDashboardView,
   AccountantDashboardView,
@@ -32,27 +33,46 @@ export default function Dashboard() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
-  // 1. Initial REST Dashboard Fetch (Immediate Data Load)
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/analytics/dashboard?tenant=${tenant}`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setData(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard REST analytics:', err);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [tenant]);
+
+  const fetchSummary = useCallback(async () => {
+    const role = user?.role;
+    if (role !== 'OWNER' && role !== 'ADMIN' && role !== 'ACCOUNTANT') {
+      setSummaryLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/analytics/purchasing-summary?tenant=${tenant}`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) setSummary(json.data);
+    } catch (err) {
+      console.error('Error fetching purchasing summary:', err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [tenant, user?.role]);
+
+  // 1. Initial REST Dashboard Fetch & Live SSE Stream
   useEffect(() => {
     let isMounted = true;
-    const fetchDashboard = async () => {
-      setDashboardLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/analytics/dashboard?tenant=${tenant}`, {
-          headers: { 'x-tenant': tenant },
-          credentials: 'include'
-        });
-        const json = await res.json();
-        if (isMounted && json.success && json.data) {
-          setData(json.data);
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard REST analytics:', err);
-      } finally {
-        if (isMounted) setDashboardLoading(false);
-      }
-    };
-
     fetchDashboard();
 
     // 2. Real-time Dashboard SSE Stream with tenant query param
@@ -79,35 +99,25 @@ export default function Dashboard() {
       isMounted = false;
       sse.close();
     };
-  }, [tenant]);
+  }, [tenant, fetchDashboard]);
 
   // Purchasing & Vendor Summary Data (only for roles that use it)
   useEffect(() => {
-    const role = user?.role;
-    if (role !== 'OWNER' && role !== 'ADMIN' && role !== 'ACCOUNTANT') {
-      setSummaryLoading(false);
-      return;
-    }
-    let isMounted = true;
-    const fetchSummary = async () => {
-      setSummaryLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/analytics/purchasing-summary?tenant=${tenant}`, {
-          headers: { 'x-tenant': tenant },
-          credentials: 'include'
-        });
-        const json = await res.json();
-        if (isMounted && json.success) setSummary(json.data);
-      } catch (err) {
-        console.error('Error fetching purchasing summary:', err);
-      } finally {
-        if (isMounted) setSummaryLoading(false);
-      }
-    };
     fetchSummary();
+  }, [fetchSummary]);
 
-    return () => { isMounted = false; };
-  }, [tenant, user?.role]);
+  useLiveEvent([
+    'ORDER_UPDATED',
+    'COUNTER_SALE_CREATED',
+    'PRODUCTION_UPDATED',
+    'EXPENSE_LOGGED',
+    'DAILY_CLOSE_CHANGED',
+    'PURCHASE_CREATED',
+    'INVENTORY_CHANGED'
+  ], () => {
+    fetchDashboard();
+    fetchSummary();
+  });
 
   const role = user?.role;
 

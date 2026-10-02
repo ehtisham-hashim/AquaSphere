@@ -67,6 +67,7 @@ export default function Production() {
   }, []);
 
   useLiveEvent('PRODUCTION_UPDATED', fetchData);
+  useLiveEvent('INVENTORY_CHANGED', fetchData);
 
   const handleLogBatch = async (payload) => {
     setSubmitting(true);
