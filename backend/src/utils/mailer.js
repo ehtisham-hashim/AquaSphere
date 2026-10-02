@@ -205,16 +205,24 @@ export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere' }) {
   const fromName = process.env.MAIL_FROM_NAME || companyName;
 
   const html = build2FAEmailHtml({ otp, tenant });
-  const subject = `${companyName} Security Code: ${otp}`;
-  const text = `Your ${companyName} verification code is: ${otp}. It expires in 2 minutes. Do not share this code with anyone.`;
+  const subject = `${companyName} Verification Code: ${otp}`;
+  const text = `Your ${companyName} verification code is: ${otp}. It expires in 5 minutes.\n\nSecurity Notice: Never share this code with anyone. If you did not request this login, please secure your account immediately.`;
 
   try {
     const info = await mailer.sendMail({
       from: `"${fromName}" <${fromAddress}>`,
       to: validRecipients.join(', '),
+      replyTo: fromAddress,
       subject,
       text,
       html,
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'All',
+        'Priority': 'Urgent',
+        'Importance': 'high',
+        'X-Priority': '1'
+      }
     });
 
     console.log(`[2FA Mailer] Verification email sent to ${validRecipients.join(', ')} (Message ID: ${info.messageId})`);

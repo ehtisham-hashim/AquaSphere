@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Package, Calendar, RefreshCw, CheckCircle2, Factory, Hash } from 'lucide-react';
+import { X, Package, Calendar, RefreshCw, CheckCircle2, Factory, Hash, Flame } from 'lucide-react';
 import { toast } from 'sonner';
+import { parsePreformInfo } from '../../utils/preformHelper';
 
 export default function CreateBatchModal({
   isOpen,
@@ -20,6 +21,69 @@ export default function CreateBatchModal({
     () => items.filter(i => i.type === 'FINISHED_GOOD' && !i.archivedAt),
     [items]
   );
+
+  // Calculate total preform consumption in grams for preview
+  const preformConsumption = useMemo(() => {
+    const consumption = {};
+    
+    finishedGoods.forEach(fg => {
+      const qty = parseInt(quantities[fg.id] || 0, 10);
+      if (qty > 0) {
+        if (fg.recipe && Array.isArray(fg.recipe) && fg.recipe.length > 0) {
+          fg.recipe.forEach(ingredient => {
+            const rawName = ingredient.rawMaterialName || ingredient.rmName || ingredient.item?.name || 'Raw Material';
+            const qtyPerUnit = Number(ingredient.quantity || ingredient.qty || 0);
+            const info = parsePreformInfo(rawName);
+            
+            // Convert KG to grams (multiply by 1000)
+            const gramsPerBottle = qtyPerUnit > 0 ? qtyPerUnit * 1000 : info.gramsPerBottle;
+            const totalGrams = gramsPerBottle * qty;
+            const totalKg = totalGrams / 1000;
+            
+            if (!consumption[info.name]) {
+              consumption[info.name] = { 
+                name: info.name,
+                type: info.type,
+                size: info.size,
+                color: info.color,
+                bgClass: info.bgClass,
+                badgeTypeClass: info.badgeTypeClass,
+                badgeColorClass: info.badgeColorClass,
+                grams: 0, 
+                kg: 0 
+              };
+            }
+            
+            consumption[info.name].grams += totalGrams;
+            consumption[info.name].kg += totalKg;
+          });
+        } else if (isWadaana) {
+          const info = parsePreformInfo(fg.name);
+          const totalGrams = info.gramsPerBottle * qty;
+          const totalKg = totalGrams / 1000;
+
+          if (!consumption[info.name]) {
+            consumption[info.name] = {
+              name: info.name,
+              type: info.type,
+              size: info.size,
+              color: info.color,
+              bgClass: info.bgClass,
+              badgeTypeClass: info.badgeTypeClass,
+              badgeColorClass: info.badgeColorClass,
+              grams: 0,
+              kg: 0
+            };
+          }
+
+          consumption[info.name].grams += totalGrams;
+          consumption[info.name].kg += totalKg;
+        }
+      }
+    });
+    
+    return consumption;
+  }, [finishedGoods, quantities, isWadaana]);
 
   // Reset form whenever modal opens
   useEffect(() => {
@@ -262,6 +326,61 @@ export default function CreateBatchModal({
                     {e.name.split('(')[0].trim()}: {e.qty}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 5: Preform Consumption Preview (Wadaana Only) */}
+          {isWadaana && Object.keys(preformConsumption).length > 0 && (
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Flame size={15} className="text-orange-500" /> 
+                Preform Consumption Preview (Grams)
+              </h4>
+              <div className="space-y-2">
+                {Object.entries(preformConsumption).map(([preformName, data]) => {
+                  return (
+                    <div
+                      key={preformName}
+                      className={`p-3.5 rounded-xl border shadow-xs ${data.bgClass || 'bg-slate-50 border-slate-300'}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-slate-900 flex items-center gap-2 flex-wrap">
+                            <span>{data.name || preformName}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${data.badgeTypeClass}`}>
+                                {data.type}
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                {data.size}
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                {data.color}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-xs text-slate-600 mt-1">
+                            Will consume from inventory
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-black text-base sm:text-lg text-slate-900">
+                            {data.grams.toLocaleString()}g{' '}
+                            <span className="text-xs text-slate-500 font-mono font-normal">
+                              ({data.kg.toFixed(3).replace(/\.?0+$/, '')} kg)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs">
+                <p className="text-amber-900 font-semibold">
+                  ⚠️ These preform quantities will be automatically deducted from inventory
+                </p>
               </div>
             </div>
           )}

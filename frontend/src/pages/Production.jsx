@@ -13,6 +13,7 @@ import { PageHeader } from '../components/ui';
 import ProductionBatchTable from '../components/production/ProductionBatchTable';
 import CreateBatchModal from '../components/production/CreateBatchModal';
 import CompleteBatchModal from '../components/production/CompleteBatchModal';
+import PreformConsumptionSummary from '../components/production/PreformConsumptionSummary';
 import { useLiveEvent } from '../context/SSEContext';
 
 const API = API_URL;
@@ -209,6 +210,9 @@ export default function Production() {
           </div>
         </div>
       )}
+
+      {/* Preform Consumption Summary (Wadaana Only) */}
+      {isWadaana && <PreformConsumptionSummary batches={batches} isWadaana={isWadaana} />}
 
       {/* Production History & Batch Audit Trail Table */}
       <ProductionBatchTable
