@@ -25,7 +25,6 @@ export default function Production() {
 
   const [batches, setBatches] = useState([]);
   const [items, setItems] = useState([]);
-  const [, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,19 +40,15 @@ export default function Production() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, batchesRes, statsRes] = await Promise.all([
+      const [itemsRes, batchesRes] = await Promise.all([
         fetch(`${API}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API}/production/stats`, { headers: { 'x-tenant': tenant }, credentials: 'include' }).catch(() => ({ json: () => ({ success: true, data: null }) }))
+        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
 
-      const itemsData = await itemsRes.json();
-      const batchesData = await batchesRes.json();
-      const statsData = await statsRes.json();
+      const [itemsData, batchesData] = await Promise.all([itemsRes.json(), batchesRes.json()]);
 
       if (itemsData.success) setItems(itemsData.data || []);
       if (batchesData.success) setBatches(batchesData.data || []);
-      if (statsData.success) setStats(statsData.data);
     } catch (err) {
       console.error('Error fetching PM production data:', err);
     } finally {
@@ -66,8 +61,7 @@ export default function Production() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useLiveEvent('PRODUCTION_UPDATED', fetchData);
-  useLiveEvent('INVENTORY_CHANGED', fetchData);
+  useLiveEvent(['PRODUCTION_UPDATED', 'INVENTORY_CHANGED'], fetchData);
 
   const handleLogBatch = async (payload) => {
     setSubmitting(true);

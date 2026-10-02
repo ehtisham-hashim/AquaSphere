@@ -161,36 +161,14 @@ export default function Transport() {
       const exDate = new Date(ex.createdAt);
       const now = new Date();
 
-      let matchesTime = true;
-      if (timeRange === 'DAILY') {
-        matchesTime = exDate.toDateString() === now.toDateString();
-      } else if (timeRange === 'YESTERDAY') {
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        matchesTime = exDate.toDateString() === yesterday.toDateString();
-      } else if (timeRange === 'LAST3DAYS') {
-        const threeDaysAgo = new Date(now);
-        threeDaysAgo.setDate(now.getDate() - 2);
-        threeDaysAgo.setHours(0, 0, 0, 0);
-        matchesTime = exDate >= threeDaysAgo;
-      } else if (timeRange === 'WEEKLY') {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        matchesTime = exDate >= startOfWeek;
-      } else if (timeRange === 'MONTHLY') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        matchesTime = exDate >= startOfMonth;
-      } else if (timeRange === 'QUARTERLY') {
-        const currentQuarterMonth = Math.floor(now.getMonth() / 3) * 3;
-        const startOfQuarter = new Date(now.getFullYear(), currentQuarterMonth, 1);
-        matchesTime = exDate >= startOfQuarter;
-      } else if (timeRange === 'YEARLY') {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        matchesTime = exDate >= startOfYear;
-      } else if (timeRange === 'LIFETIME') {
-        matchesTime = true;
-      }
+      const matchesTime = timeRange === 'DAILY' ? exDate.toDateString() === now.toDateString()
+        : timeRange === 'YESTERDAY' ? exDate.toDateString() === new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toDateString()
+        : timeRange === 'LAST3DAYS' ? exDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0)
+        : timeRange === 'WEEKLY' ? exDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0)
+        : timeRange === 'MONTHLY' ? exDate >= new Date(now.getFullYear(), now.getMonth(), 1)
+        : timeRange === 'QUARTERLY' ? exDate >= new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+        : timeRange === 'YEARLY' ? exDate >= new Date(now.getFullYear(), 0, 1)
+        : true;
 
       return matchesCategory && matchesSearch && matchesTime;
     });

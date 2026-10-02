@@ -43,8 +43,7 @@ export default function Customers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tenant]);
 
-  useLiveEvent('CUSTOMER_UPDATED', () => fetchCustomers(search, activeTab));
-  useLiveEvent('ORDER_UPDATED', () => fetchCustomers(search, activeTab));
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED'], () => fetchCustomers(search, activeTab));
 
   const handleSearchChange = (e) => {
     const val = e.target.value;

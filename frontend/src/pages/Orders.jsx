@@ -45,40 +45,17 @@ const parseOrderDate = (d) => {
 };
 
 const checkDateMatch = (rawDate, filter, now) => {
-  if (!rawDate || filter === 'ALL') return filter === 'ALL';
+  if (!rawDate || filter === 'ALL') return true;
   const d = parseOrderDate(rawDate);
   if (!d) return false;
 
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const startOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 0, 0, 0, 0);
+  const endOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
 
-  switch (filter) {
-    case 'TODAY':
-      return d >= startOfToday && d <= endOfToday;
-    case 'YESTERDAY': {
-      const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
-      const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
-      return d >= startOfYesterday && d <= endOfYesterday;
-    }
-    case 'LAST_3_DAYS': {
-      const startOf3Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0);
-      return d >= startOf3Days && d <= endOfToday;
-    }
-    case '1_WEEK': {
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0, 0);
-      return d >= startOfWeek && d <= endOfToday;
-    }
-    case '1_MONTH': {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30, 0, 0, 0, 0);
-      return d >= startOfMonth && d <= endOfToday;
-    }
-    case '1_YEAR': {
-      const startOfYear = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 365, 0, 0, 0, 0);
-      return d >= startOfYear && d <= endOfToday;
-    }
-    default:
-      return true;
-  }
+  if (filter === 'TODAY') return d >= startOfDay(0) && d <= endOfDay(0);
+  if (filter === 'YESTERDAY') return d >= startOfDay(1) && d <= endOfDay(1);
+  const spanMap = { LAST_3_DAYS: 2, '1_WEEK': 7, '1_MONTH': 30, '1_YEAR': 365 };
+  return spanMap[filter] ? (d >= startOfDay(spanMap[filter]) && d <= endOfDay(0)) : true;
 };
 
 const orderMatchesDate = (o, filter) => {
@@ -126,8 +103,7 @@ export default function Orders() {
     setIsLoading(false);
   };
 
-  useLiveEvent('ORDER_UPDATED', fetchData);
-  useLiveEvent('INVENTORY_CHANGED', fetchData);
+  useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], fetchData);
 
   useEffect(() => { 
     fetchData(); 

@@ -61,9 +61,7 @@ export default function Inventory() {
     fetchInventoryData();
   }, [fetchInventoryData]);
 
-  useLiveEvent('INVENTORY_CHANGED', fetchInventoryData);
-  useLiveEvent('PRODUCTION_UPDATED', fetchInventoryData);
-  useLiveEvent('PURCHASE_CREATED', fetchInventoryData);
+  useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED'], fetchInventoryData);
 
   // Filter transactions by search
   const filteredTransactions = useMemo(() => {
