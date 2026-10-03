@@ -57,6 +57,7 @@ const DEFAULT_SETTINGS = {
   company_title: "Certified Pure Water & Bottling Facility",
   company_intro: "Aqua Sphere Mineral Water, established in 2019, provides 100% pure, clean, and affordable drinking water and durable empty bottles tailored for residences, corporate offices, restaurants, and distributors.",
   company_image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005628/aqua-project-machine.png",
+  technology_image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005781/wadana-machine-hero.png",
   technology_title: "Advanced Reverse Osmosis & Purification",
   technology_text: "Aqua Sphere – Purity in Every Drop with state-of-the-art multi-stage reverse osmosis (RO), micron filtration, UV sterilisation, and automated hygienic bottling ensuring zero contamination in every pure water bottle.",
   commitment_title: "Pure Water, Healthy Life.",
@@ -474,7 +475,7 @@ export default function LandingPage() {
             <div className="order-2 lg:order-1 relative rounded-2xl overflow-hidden border border-sky-100 shadow-xl bg-white p-2">
               <img 
                 src={optImg(settings.technology_image, 700)} 
-                alt="Wadaana Automatic Bottling Machine" 
+                alt="Aqua Sphere Automatic Bottling Machine" 
                 className="w-full h-80 sm:h-96 object-cover rounded-xl"
                 loading="lazy"
                 decoding="async"

@@ -738,6 +738,38 @@ export default function WebsiteAdmin() {
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500"
               ></textarea>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">Company / Plant Image URL</label>
+                <input 
+                  type="text" 
+                  value={settings?.company_image || ''} 
+                  onChange={(e) => handleGeneralChange('company_image', e.target.value)} 
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 mb-2"
+                />
+                {settings?.company_image && (
+                  <div className="w-full h-36 rounded-xl overflow-hidden border border-slate-800 bg-slate-900 flex items-center justify-center">
+                    <img src={optImg(settings.company_image, 400)} alt="Company preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">Purification Machine Image URL</label>
+                <input 
+                  type="text" 
+                  value={settings?.technology_image || ''} 
+                  onChange={(e) => handleGeneralChange('technology_image', e.target.value)} 
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 mb-2"
+                />
+                {settings?.technology_image && (
+                  <div className="w-full h-36 rounded-xl overflow-hidden border border-slate-800 bg-slate-900 flex items-center justify-center">
+                    <img src={optImg(settings.technology_image, 400)} alt="Technology preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
