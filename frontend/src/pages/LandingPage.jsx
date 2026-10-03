@@ -17,7 +17,11 @@ import {
   LogIn,
   ExternalLink,
   ChevronRight,
-  Truck
+  ChevronDown,
+  Truck,
+  Package,
+  Layers,
+  HelpCircle
 } from 'lucide-react';
 
 // Official WhatsApp icon SVG in pure React
@@ -40,67 +44,66 @@ const DEFAULT_SETTINGS = {
   site_name: "Aqua Sphere",
   phone: "051-545-443-8",
   opening_hours: "Monday to Saturday - 8AM to 5PM",
-  location: "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi",
+  location: "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt",
   whatsapp: "923015072233",
   logo_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005735/logo.png",
   hero_bg_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005808/hero-bg.jpg",
-  hero_title: "Always want safe",
-  hero_subtitle: "and good water for healthy life",
-  hero_text: "Clean, safe and refreshing hydration for modern living. Infused with naturally occurring electrolytes, processed under strict hygienic standards.",
-  hero_button: "Explore Products",
+  hero_title: "100% Pure Drinking Water",
+  hero_subtitle: "19L Water Refills & Wholesale Empty Bottles",
+  hero_text: "Certified pure drinking water and food-grade empty bottles delivered to your doorstep across Rawalpindi and Islamabad. Multi-stage RO and UV purified water for healthy homes, corporate offices, and wholesale supply.",
+  hero_button: "Order Pure Water",
   about_title: "About Aqua Sphere",
-  about_intro: "Welcome to Aqua Sphere, where naturally occurring electrolytes meet premium hydration for everyone.",
-  company_title: "Company Introduction",
-  company_intro: "Aqua Sphere Mineral Water, established in 2019, provides pure, clean, and affordable drinking water tailored for residences, corporate offices, and institutions.",
+  about_intro: "Welcome to Aqua Sphere, your trusted mineral water plant and wholesale empty bottles supplier. Where naturally occurring electrolytes meet premium pure water hydration for everyone.",
+  company_title: "Certified Pure Water & Bottling Facility",
+  company_intro: "Aqua Sphere Mineral Water, established in 2019, provides 100% pure, clean, and affordable drinking water and durable empty bottles tailored for residences, corporate offices, restaurants, and distributors.",
   company_image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005628/aqua-project-machine.png",
-  technology_title: "Purity in Every Drop",
-  technology_text: "State-of-the-art reverse osmosis, multi-stage micron filtration, UV disinfection, and automated bottling ensuring zero contamination.",
-  technology_image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005781/wadana-machine-hero.png",
-  commitment_title: "Clean Water, Healthy Life.",
-  commitment_text: "Aqua Sphere – Trusted Water, Trusted Choice. Delivering consistent purity straight to your doorstep across Rawalpindi & Islamabad.",
-  location_title: "Our Plant Location",
+  technology_title: "Advanced Reverse Osmosis & Purification",
+  technology_text: "Aqua Sphere – Purity in Every Drop with state-of-the-art multi-stage reverse osmosis (RO), micron filtration, UV sterilisation, and automated hygienic bottling ensuring zero contamination in every pure water bottle.",
+  commitment_title: "Pure Water, Healthy Life.",
+  commitment_text: "Aqua Sphere – Trusted Water, Trusted Choice. Delivering consistent pure water refills, empty bottles, and dispensers straight to your doorstep across Rawalpindi & Islamabad.",
+  location_title: "Our Water Plant Location",
   map_embed: "https://www.google.com/maps?q=AQUA%20SPHERE%2C%2033.6104649%2C72.9818914&output=embed",
   map_link: "https://www.google.com/maps/place/AQUA+SPHERE/@33.6104612,72.9819,599m/data=!3m1!1e3!4m6!3m5!1s0x38df970024408d31:0xa9c9cb0ebd2d1923!8m2!3d33.6104649!4d72.9818914!16s%2Fg%2F11xg3w12kj?hl=en&entry=ttu",
   products: [
     {
       id: "p1",
-      name: "19L Bottle",
-      desc: "Security Fee / Per Refill PKR 280",
+      name: "19L Pure Water Bottle & Refill",
+      desc: "RO & UV Purified Mineral Water Refill (PKR 280) / New Bottle Security Deposit (PKR 1,000)",
       price: "PKR 1,000",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777146556_7174.png"
     },
     {
       id: "p2",
-      name: "1.5L Bottle Pack",
-      desc: "Daily hydration for home & travel (Pack of 6)",
+      name: "1.5L Pure Water Pack (Pack of 6)",
+      desc: "Daily hydration mineral drinking water pack for dining, travel, and events",
       price: "PKR 100",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005473/product_1777198208_4752.jpg"
     },
     {
       id: "p3",
-      name: "500ml Bottle Pack",
-      desc: "Portable and convenient pocket hydration (Pack of 12)",
+      name: "500ml Pure Drinking Water (Pack of 12)",
+      desc: "Portable on-the-go pure water bottles for conferences, schools, and offices",
       price: "PKR 50",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777145702_1235.png"
     },
     {
       id: "p4",
-      name: "Water Dispenser",
-      desc: "Hot & Cold instant purification dispenser unit",
+      name: "Instant Hot & Cold Water Dispenser",
+      desc: "Heavy-duty electric pure water dispenser with instant hot & cold taps for 19L bottles",
       price: "PKR 35,000",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005468/product_1777146854_7886.png"
     },
     {
       id: "p5",
-      name: "Table Top Dispenser",
-      desc: "Compact Design, Pure Hydration for desks and counters",
+      name: "Table Top Water Dispenser",
+      desc: "Compact counter dispenser for pure water hydration in apartments & office desks",
       price: "PKR 2,500",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005489/product_1777147220_8492.png"
     },
     {
       id: "p6",
-      name: "Tap & Stand",
-      desc: "Simple setup, convenient manual pouring for 19L bottles",
+      name: "Tap & Stand for 19L Empty Bottles",
+      desc: "Ergonomic manual pouring tap & durable metal stand for 19L pure water bottles",
       price: "PKR 1,500",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005490/product_1777147740_9305.png"
     }
@@ -116,9 +119,33 @@ const BOTTLE_GALLERY = [
   { id: 6, url: 'https://res.cloudinary.com/wgstyulb/image/upload/v1791005719/bottle-design-6.png' }
 ];
 
+const SEO_FAQS = [
+  {
+    q: "How can I order 19L pure drinking water delivery in Rawalpindi & Islamabad?",
+    a: "You can easily order 19L pure drinking water delivery by messaging us directly on WhatsApp at +92 301 5072233 or calling our plant helpline at 051-545-443-8. Our distribution vans deliver fresh pure water daily to homes, corporate offices, universities, and commercial facilities."
+  },
+  {
+    q: "Can I purchase empty 19L water bottles in wholesale or retail?",
+    a: "Yes! AquaSphere is a premier manufacturer and distributor of food-grade, BPA-free empty water bottles. We supply 19L polycarbonate empty bottles, 500ml/1.5L PET bottles, leakproof caps, and ergonomic handles for both individual home use and bulk wholesale distribution."
+  },
+  {
+    q: "What purification process is used to make AquaSphere pure water?",
+    a: "Our drinking water goes through advanced 7-stage purification including multi-micron sediment filtration, high-pressure Reverse Osmosis (RO), activated carbon absorption, UV sterilisation, and balanced re-mineralisation with Calcium, Magnesium, and Sodium to ensure optimal health, crisp taste, and zero biological contaminants."
+  },
+  {
+    q: "What is the price of 19L pure water refill vs a new empty bottle?",
+    a: "A 19L pure water refill is only PKR 280 (when you provide an empty bottle for exchange). If you need a brand-new, sterile 19L food-grade empty bottle, the one-time security deposit is PKR 1,000. Corporate bulk discounts are available for recurring commercial accounts."
+  },
+  {
+    q: "Do you supply water dispensers and accessories for offices and homes?",
+    a: "Yes, we provide instant hot & cold electric water dispensers, compact table-top dispensers, and manual pouring tap-and-stand units, complete with maintenance support and regular pure water delivery."
+  }
+];
+
 export default function LandingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeFaq, setActiveFaq] = useState(null);
 
   useEffect(() => {
     fetch('/api/landing-page')
@@ -174,12 +201,14 @@ export default function LandingPage() {
           </a>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-semibold text-slate-600">
             <a href="#hero" className="hover:text-cyan-600 transition-colors">Home</a>
             <a href="#products" className="hover:text-cyan-600 transition-colors">Products</a>
+            <a href="#services" className="hover:text-cyan-600 transition-colors">Services</a>
             <a href="#about" className="hover:text-cyan-600 transition-colors">About Us</a>
             <a href="#technology" className="hover:text-cyan-600 transition-colors">Purification</a>
             <a href="#gallery" className="hover:text-cyan-600 transition-colors">Designs</a>
+            <a href="#faq" className="hover:text-cyan-600 transition-colors">FAQs</a>
             <a href="#location" className="hover:text-cyan-600 transition-colors">Location</a>
             <a href="#contact" className="hover:text-cyan-600 transition-colors">Contact</a>
           </nav>
@@ -218,9 +247,11 @@ export default function LandingPage() {
           <div className="lg:hidden bg-white border-b border-sky-100 px-6 py-5 flex flex-col gap-4 text-sm font-semibold text-slate-700 shadow-lg">
             <a href="#hero" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Home</a>
             <a href="#products" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Products</a>
+            <a href="#services" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Services & Supply</a>
             <a href="#about" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">About Us</a>
             <a href="#technology" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Purification</a>
             <a href="#gallery" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Bottle Designs</a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">FAQs</a>
             <a href="#location" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Location</a>
             <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-600 py-1">Contact</a>
             
@@ -317,6 +348,36 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* 3b. SEO KEYWORDS & VALUE TICKER STRIP */}
+      <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-cyan-950 text-white border-y border-sky-800/80 py-4 px-4 overflow-hidden shadow-inner">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm font-semibold text-center">
+          <span className="flex items-center gap-1.5 text-cyan-300">
+            <Droplets className="w-4 h-4 text-cyan-400 shrink-0" />
+            100% Pure Drinking Water
+          </span>
+          <span className="text-sky-700 hidden sm:inline">•</span>
+          <span className="flex items-center gap-1.5 text-sky-100">
+            <Truck className="w-4 h-4 text-cyan-400 shrink-0" />
+            19L Water Bottle Doorstep Delivery
+          </span>
+          <span className="text-sky-700 hidden sm:inline">•</span>
+          <span className="flex items-center gap-1.5 text-cyan-300">
+            <Package className="w-4 h-4 text-cyan-400 shrink-0" />
+            Wholesale Empty Bottles & Cans
+          </span>
+          <span className="text-sky-700 hidden sm:inline">•</span>
+          <span className="flex items-center gap-1.5 text-sky-100">
+            <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+            BPA-Free Food-Grade Certified
+          </span>
+          <span className="text-sky-700 hidden sm:inline">•</span>
+          <span className="flex items-center gap-1.5 text-cyan-300">
+            <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+            Rawalpindi & Islamabad Supply
+          </span>
+        </div>
+      </div>
 
       {/* 4. PRODUCTS CATALOG SECTION */}
       <section id="products" className="py-24 px-4 sm:px-6 bg-white">
@@ -493,6 +554,167 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 6B. HIGH-RANKING SERVICES & SUPPLY (SEO TARGETED) */}
+      <section id="services" className="py-20 px-4 sm:px-6 bg-gradient-to-b from-white to-sky-50/50 border-t border-sky-100">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="text-cyan-600 text-xs font-bold uppercase tracking-wider bg-sky-50 px-3 py-1 rounded-full border border-sky-200">
+              Complete Water Solutions
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-3 tracking-tight">
+              Pure Water Supply & Empty Bottles Manufacturing
+            </h2>
+            <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
+              Serving residential neighborhoods, commercial business towers, and industrial clients across Rawalpindi and Islamabad with certified RO-purified drinking water and premium food-grade empty bottles.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1 */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-sm hover:shadow-md hover:border-cyan-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 mb-4">
+                  <Droplets className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">100% Pure Drinking Water</h3>
+                <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                  7-stage Reverse Osmosis, micron sediment filtration, and ultraviolet sterilisation ensuring optimal mineral balance and pure, crisp taste.
+                </p>
+              </div>
+              <ul className="text-xs text-slate-500 space-y-1.5 pt-4 border-t border-slate-100">
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Zero Chemical Odor</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Lab-Tested Quality</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Doorstep Delivery</li>
+              </ul>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-sm hover:shadow-md hover:border-cyan-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-4">
+                  <Truck className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">19L Pure Water Bottle Refills</h3>
+                <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                  Fast doorstep bottle exchange service for homes and corporate offices. Just swap your empty 19L bottle for an ice-sealed, hygienically refilled bottle.
+                </p>
+              </div>
+              <ul className="text-xs text-slate-500 space-y-1.5 pt-4 border-t border-slate-100">
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> PKR 280 / Refill</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Sealed Dust Caps</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Scheduled Deliveries</li>
+              </ul>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-sm hover:shadow-md hover:border-cyan-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-4">
+                  <Package className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Food-Grade Empty Bottles</h3>
+                <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                  Wholesale supplier of durable polycarbonate 19-litre empty bottles, PET bottled water packs (500ml, 1.5L), caps, neck sleeves, and handles.
+                </p>
+              </div>
+              <ul className="text-xs text-slate-500 space-y-1.5 pt-4 border-t border-slate-100">
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> 100% BPA-Free Materials</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> High Impact Resistance</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Bulk Factory Discounts</li>
+              </ul>
+            </div>
+
+            {/* Card 4 */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-sm hover:shadow-md hover:border-cyan-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Corporate & Bulk Supply</h3>
+                <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                  Tailored recurring pure water delivery plans for companies, banks, embassies, hospitals, and educational institutions with hot & cold water dispensers.
+                </p>
+              </div>
+              <ul className="text-xs text-slate-500 space-y-1.5 pt-4 border-t border-slate-100">
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Monthly Invoicing</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Dispenser Maintenance</li>
+                <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" /> Priority Emergency Routes</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6C. INTERACTIVE FAQ ACCORDION (SEO RICH SNIPPETS) */}
+      <section id="faq" className="py-20 px-4 sm:px-6 bg-white border-t border-sky-100">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-1.5 text-cyan-600 text-xs font-bold uppercase tracking-wider bg-sky-50 px-3 py-1 rounded-full border border-sky-200">
+              <HelpCircle className="w-3.5 h-3.5" />
+              Frequently Asked Questions
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-3 tracking-tight">
+              Everything You Need to Know About Pure Water & Bottle Refills
+            </h2>
+            <p className="text-slate-500 text-sm mt-3 max-w-2xl mx-auto">
+              Clear answers regarding water purity standards, 19L bottle security deposits, refill delivery schedules, and wholesale empty bottle supply.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {SEO_FAQS.map((faq, idx) => {
+              const isOpen = activeFaq === idx;
+              return (
+                <div 
+                  key={idx} 
+                  className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                    isOpen 
+                      ? 'border-cyan-300 bg-sky-50/40 shadow-sm' 
+                      : 'border-slate-200 bg-white hover:border-sky-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveFaq(isOpen ? null : idx)}
+                    className="w-full px-6 py-4 sm:py-5 flex items-center justify-between text-left gap-4"
+                    aria-expanded={isOpen}
+                  >
+                    <span className="text-sm sm:text-base font-bold text-slate-900">
+                      {faq.q}
+                    </span>
+                    <span className={`p-1.5 rounded-full shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 bg-cyan-100 text-cyan-700' : 'text-slate-400 bg-slate-100'}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-6 pb-5 pt-1 text-slate-600 text-xs sm:text-sm leading-relaxed border-t border-sky-100/60">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Direct CTA box */}
+          <div className="mt-12 bg-gradient-to-r from-sky-900 to-cyan-800 rounded-2xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-lg">
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold">Have questions or need bulk empty bottles?</h3>
+              <p className="text-sky-100 text-xs sm:text-sm mt-1">Our customer dispatch team is ready to assist you on WhatsApp 24/7.</p>
+            </div>
+            <a
+              href={getWhatsAppLink()}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 text-xs font-bold text-sky-900 bg-white hover:bg-cyan-50 rounded-xl transition-all shadow-md shrink-0"
+            >
+              <WhatsAppIcon className="w-4 h-4 text-emerald-600" />
+              <span>Contact via WhatsApp</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* 7. LOCATION & MAP */}
       <section id="location" className="py-24 px-4 sm:px-6 bg-sky-50/40 border-t border-sky-100">
         <div className="max-w-7xl mx-auto">
@@ -593,6 +815,11 @@ export default function LandingPage() {
                   </a>
                 </li>
                 <li>
+                  <a href="#services" className="hover:text-cyan-400 transition-all duration-300 ease-out hover:translate-x-1.5 inline-block">
+                    Services & Wholesale Supply
+                  </a>
+                </li>
+                <li>
                   <a href="#about" className="hover:text-cyan-400 transition-all duration-300 ease-out hover:translate-x-1.5 inline-block">
                     About Our Facility
                   </a>
@@ -600,6 +827,11 @@ export default function LandingPage() {
                 <li>
                   <a href="#technology" className="hover:text-cyan-400 transition-all duration-300 ease-out hover:translate-x-1.5 inline-block">
                     Purification Process
+                  </a>
+                </li>
+                <li>
+                  <a href="#faq" className="hover:text-cyan-400 transition-all duration-300 ease-out hover:translate-x-1.5 inline-block">
+                    Frequently Asked Questions
                   </a>
                 </li>
                 <li>
