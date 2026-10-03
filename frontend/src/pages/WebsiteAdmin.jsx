@@ -45,7 +45,6 @@ export default function WebsiteAdmin() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loginTenant, setLoginTenant] = useState('aquasphere');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -102,7 +101,7 @@ export default function WebsiteAdmin() {
     setLoginLoading(true);
 
     try {
-      const res = await login(loginEmail, loginPassword, loginTenant);
+      const res = await login(loginEmail.trim(), loginPassword, 'aquasphere');
       if (res.success && res.require2FA) {
         setTempToken(res.tempToken);
         setEmailMask(res.emailMask || 'your email');
@@ -127,7 +126,7 @@ export default function WebsiteAdmin() {
     setLoginError('');
     setLoginLoading(true);
     try {
-      const res = await verifyOwnerOtp(tempToken, otpCode, loginTenant);
+      const res = await verifyOwnerOtp(tempToken, otpCode, 'aquasphere');
       if (!res.success) {
         setLoginError(res.message || 'Invalid verification code');
       }
@@ -334,37 +333,6 @@ export default function WebsiteAdmin() {
               </form>
             ) : (
               <form onSubmit={handleAdminLogin} className="space-y-4">
-                {/* Facility Pill Toggle */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Company Facility
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setLoginTenant('aquasphere')}
-                      className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        loginTenant === 'aquasphere'
-                          ? 'bg-cyan-500 text-slate-950 shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      Aqua Sphere
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLoginTenant('wadaana')}
-                      className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        loginTenant === 'wadaana'
-                          ? 'bg-cyan-500 text-slate-950 shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      Wadaana ERP
-                    </button>
-                  </div>
-                </div>
-
                 {/* Email Input */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -376,7 +344,7 @@ export default function WebsiteAdmin() {
                       type="email"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="admin@aquasphere.pk"
+                      placeholder="admin@aquasphere.com"
                       required
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
                     />
