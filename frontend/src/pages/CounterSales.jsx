@@ -24,6 +24,7 @@ export default function CounterSales() {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [finishedGoods, setFinishedGoods] = useState([]);
+  const [counterRawMaterials, setCounterRawMaterials] = useState([]);
   const [dailyCloses, setDailyCloses] = useState([]);
   const [todaySummary, setTodaySummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,10 +52,11 @@ export default function CounterSales() {
     try {
       const reqHeaders = { 'x-tenant': tenant };
       const reqOpts = { headers: reqHeaders, credentials: 'include' };
-      const [salesRes, customersRes, itemsRes, closesRes, summaryRes] = await Promise.all([
+      const [salesRes, customersRes, itemsRes, rawRes, closesRes, summaryRes] = await Promise.all([
         fetch(`${API_URL}/spot-sales`, reqOpts).catch(() => null),
         fetch(`${API_URL}/customers`, reqOpts).catch(() => null),
         fetch(`${API_URL}/items?type=FINISHED_GOOD`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/items?type=RAW_MATERIAL&sellableOnCounter=true`, reqOpts).catch(() => null),
         fetch(`${API_URL}/daily-close/history?light=true`, reqOpts).catch(() => null),
         fetch(`${API_URL}/spot-sales/summary/today`, reqOpts).catch(() => null)
       ]);
@@ -70,6 +72,10 @@ export default function CounterSales() {
       if (itemsRes?.ok) {
         const iJson = await itemsRes.json();
         if (iJson.success) setFinishedGoods(iJson.data || []);
+      }
+      if (rawRes?.ok) {
+        const rJson = await rawRes.json();
+        if (rJson.success) setCounterRawMaterials(rJson.data || []);
       }
       if (closesRes?.ok) {
         const dcJson = await closesRes.json();
@@ -253,6 +259,7 @@ export default function CounterSales() {
           user={user}
           liveDateTime={liveDateTime}
           finishedGoods={finishedGoods}
+          counterRawMaterials={counterRawMaterials}
           customers={customers}
           handleMultiItemSubmit={handleMultiItemSubmit}
           submitting={submitting}

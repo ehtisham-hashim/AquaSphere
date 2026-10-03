@@ -19,6 +19,8 @@ export default function AddEditRawMaterialModal({
   const [unit, setUnit] = useState(defaultUnit);
   const [reorderLevel, setReorderLevel] = useState('100');
   const [stock, setStock] = useState('');
+  const [sellableOnCounter, setSellableOnCounter] = useState(false);
+  const [retailPrice, setRetailPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,11 +32,15 @@ export default function AddEditRawMaterialModal({
       setUnit(editingItem.unit || defaultUnit);
       setReorderLevel(String(editingItem.reorderLevel ?? 100));
       setStock(editingItem.cachedQty !== undefined && editingItem.cachedQty !== null ? String(editingItem.cachedQty) : '0');
+      setSellableOnCounter(Boolean(editingItem.sellableOnCounter));
+      setRetailPrice(editingItem.retailPrice !== undefined && editingItem.retailPrice !== null ? String(editingItem.retailPrice) : '');
     } else {
       setName('');
       setUnit(defaultUnit);
       setReorderLevel('100');
       setStock('');
+      setSellableOnCounter(false);
+      setRetailPrice('');
     }
   }, [isOpen, editingItem, defaultUnit]);
 
@@ -62,6 +68,8 @@ export default function AddEditRawMaterialModal({
             unit,
             reorderLevel: parseFloat(reorderLevel || 0),
             currentStock: parseFloat(stock || 0),
+            retailPrice: parseFloat(retailPrice || 0),
+            sellableOnCounter,
             type: 'RAW_MATERIAL'
           })
         });
@@ -80,6 +88,8 @@ export default function AddEditRawMaterialModal({
             unit,
             reorderLevel: parseFloat(reorderLevel || 0),
             initialStock: parseFloat(stock || 0),
+            retailPrice: parseFloat(retailPrice || 0),
+            sellableOnCounter,
             type: 'RAW_MATERIAL'
           })
         });
@@ -222,6 +232,47 @@ export default function AddEditRawMaterialModal({
                 <p className="text-[10px] text-slate-400 font-medium">Opening stock balance (optional).</p>
               )}
             </div>
+          </div>
+
+          {/* Walk-in Counter (POS) Availability */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sellableOnCounter}
+                    onChange={(e) => setSellableOnCounter(e.target.checked)}
+                    className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-brand"
+                  />
+                  <span>Sellable on Walk-In Counter (POS)</span>
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5 ml-6">
+                  Allows cashiers to sell this item (e.g. caps, handles) directly at the walk-in counter.
+                </p>
+              </div>
+            </div>
+
+            {sellableOnCounter && (
+              <div className="pt-2 border-t border-slate-200/60 ml-6 space-y-1.5 animate-in fade-in duration-150">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  Counter Selling Price (Rs. per {unit || 'unit'}) <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex items-center gap-1.5 max-w-xs">
+                  <span className="text-xs font-mono font-bold text-slate-500">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    required={sellableOnCounter}
+                    value={retailPrice}
+                    onChange={(e) => setRetailPrice(e.target.value)}
+                    placeholder="e.g. 10"
+                    className="flex-1 text-xs font-mono font-bold border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Buttons */}

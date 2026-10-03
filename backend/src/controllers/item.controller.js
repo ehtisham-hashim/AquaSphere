@@ -13,6 +13,7 @@ export const getItems = asyncHandler(async (req, res) => {
 
   const where = {};
   if (type) where.type = type;
+  if (req.query.sellableOnCounter === 'true') where.sellableOnCounter = true;
   if (includeArchived !== 'true') where.archivedAt = null;
 
   const items = await prisma[`${prefix}Item`].findMany({
@@ -54,7 +55,7 @@ export const getItemById = asyncHandler(async (req, res) => {
 
 /** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', packSize = 1, reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [] } = req.body;
+  const { name, type = 'RAW_MATERIAL', unit = 'kg', packSize = 1, reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [], retailPrice = 0, sellableOnCounter = false } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
@@ -106,7 +107,9 @@ export const createItem = asyncHandler(async (req, res) => {
           warehouseQty: { increment: initW > 0 ? initW : 0 },
           reorderLevel: parseFloat(reorderLevel) || existingItem.reorderLevel,
           unit: unit || existingItem.unit,
-          ...(req.body.packSize !== undefined ? { packSize: parsedPackSize } : {})
+          ...(req.body.packSize !== undefined ? { packSize: parsedPackSize } : {}),
+          ...(req.body.retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(req.body.retailPrice) || 0) } : {}),
+          ...(req.body.sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(req.body.sellableOnCounter) } : {})
         },
         include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
       });
@@ -124,6 +127,8 @@ export const createItem = asyncHandler(async (req, res) => {
         unit,
         packSize: parsedPackSize,
         reorderLevel: parseFloat(reorderLevel) || 0,
+        retailPrice: Math.max(0, parseFloat(retailPrice) || 0),
+        sellableOnCounter: Boolean(sellableOnCounter),
         cachedQty: addQty > 0 ? addQty : 0,
         factoryQty: initF > 0 ? initF : 0,
         warehouseQty: initW > 0 ? initW : 0
@@ -168,7 +173,7 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
@@ -183,7 +188,9 @@ export const updateItem = asyncHandler(async (req, res) => {
     const updateData = {
       name: name.trim(),
       unit: unit || item.unit,
-      reorderLevel: parseFloat(reorderLevel) || item.reorderLevel
+      reorderLevel: parseFloat(reorderLevel) || item.reorderLevel,
+      ...(retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(retailPrice) || 0) } : {}),
+      ...(sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(sellableOnCounter) } : {})
     };
 
     if (hasLocationStock) {

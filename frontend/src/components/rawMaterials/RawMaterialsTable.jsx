@@ -42,6 +42,7 @@ export default function RawMaterialsTable({
               <th className="table-th">Category / Type</th>
               <th className="table-th">Current Stock</th>
               <th className="table-th">Reorder Level</th>
+              <th className="table-th">Counter Sale</th>
               <th className="table-th">Status</th>
               {showActions && <th className="table-th text-right">Actions</th>}
             </tr>
@@ -49,7 +50,7 @@ export default function RawMaterialsTable({
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan={showActions ? 6 : 5} className="p-10 text-center">
+                <td colSpan={showActions ? 7 : 6} className="p-10 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-slate-500 font-medium text-xs">Loading inventory master...</p>
@@ -58,7 +59,7 @@ export default function RawMaterialsTable({
               </tr>
             ) : materials.length === 0 ? (
               <tr>
-                <td colSpan={showActions ? 6 : 5} className="p-12 text-center text-slate-500">
+                <td colSpan={showActions ? 7 : 6} className="p-12 text-center text-slate-500">
                   <div className="max-w-md mx-auto flex flex-col items-center">
                     <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
                       <Package size={24} />
@@ -107,6 +108,15 @@ export default function RawMaterialsTable({
                     </td>
                     <td className="table-td font-mono text-slate-600">
                       {m.reorderLevel} <span className="text-[10px] text-slate-400 font-sans">{m.unit}</span>
+                    </td>
+                    <td className="table-td">
+                      {m.sellableOnCounter ? (
+                        <span className="inline-flex items-center gap-1 font-mono font-bold text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Rs. {Number(m.retailPrice || 0).toLocaleString()} <span className="font-sans font-normal text-[10px] text-slate-500">/{m.unit}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-medium">—</span>
+                      )}
                     </td>
                     <td className="table-td">
                       {m.archivedAt ? (

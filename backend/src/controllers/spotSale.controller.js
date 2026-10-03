@@ -136,12 +136,11 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     if (!customerObj) throw new ApiError(404, 'Selected customer not found');
   }
 
-  // Fetch all finished goods referenced in the sale
+  // Fetch all items referenced in the sale (finished goods or raw materials)
   const itemIds = inputItems.map(i => i.itemId).filter(Boolean);
   const dbItems = itemIds.length > 0 ? await prisma[`${prefix}Item`].findMany({
     where: {
       id: { in: itemIds },
-      type: 'FINISHED_GOOD',
       archivedAt: null
     }
   }) : [];
@@ -162,33 +161,35 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     const isRefill = saleType === 'WATER_REFILL';
     const isCustomWater = saleType === 'CUSTOM_WATER';
     const isWater = isRefill || isCustomWater;
-    const isCap = saleType === 'EXTRA_CAP';
+    const dbItem = raw.itemId ? dbItemMap.get(raw.itemId) : null;
+    const isRawMaterial = saleType === 'RAW_MATERIAL' || (dbItem && dbItem.type === 'RAW_MATERIAL');
+    const isCap = saleType === 'EXTRA_CAP' || (isRawMaterial && (raw.name || dbItem?.name || '').toLowerCase().includes('cap'));
     const isExtraCharge = saleType === 'EXTRA_CHARGE';
-    const isExtra = isCap || isExtraCharge;
+    const isExtra = isExtraCharge;
 
-    const fgItem = raw.itemId ? dbItemMap.get(raw.itemId) : null;
-    if (!fgItem && !isExtra && !isWater) {
-      throw new ApiError(400, `Item "${raw.name || raw.itemId}" is either invalid or not an active finished good.`);
+    if (!dbItem && !isExtra && !isWater && saleType !== 'EXTRA_CAP') {
+      throw new ApiError(400, `Item "${raw.name || raw.itemId}" is either invalid or archived.`);
     }
 
     const qty = parseFloat(raw.quantity);
     if (isNaN(qty) || qty <= 0) {
-      throw new ApiError(400, `Invalid quantity for "${raw.name || fgItem?.name || 'item'}". Must be greater than 0.`);
+      throw new ApiError(400, `Invalid quantity for "${raw.name || dbItem?.name || 'item'}". Must be greater than 0.`);
     }
 
-    const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (fgItem?.retailPrice || 0));
+    const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (dbItem?.retailPrice || 0));
     if (isNaN(unitPrice) || unitPrice < 0) {
-      throw new ApiError(400, `Invalid unit price for "${raw.name || fgItem?.name || 'item'}".`);
+      throw new ApiError(400, `Invalid unit price for "${raw.name || dbItem?.name || 'item'}".`);
     }
 
     const subtotal = new Prisma.Decimal(qty).times(unitPrice);
     totalBill = totalBill.plus(subtotal);
 
-    const packMultiplier = (isPack && fgItem) ? Number(fgItem.packSize || 1) : 1;
+    const packMultiplier = (isPack && dbItem) ? Number(dbItem.packSize || 1) : 1;
     // Water has no shortage in Pakistan — NEVER deduct finished good bottle/water stock for bulk/custom water or customer refills
-    const baseUnitsDeduct = (isWater || isExtra) ? 0 : (qty * packMultiplier);
+    // Raw materials deduct qty directly (1:1 physical units)
+    const baseUnitsDeduct = (isWater || isExtra) ? 0 : (isRawMaterial ? qty : (qty * packMultiplier));
 
-    if (!isExtra && !isWater) {
+    if (!isExtra && !isWater && !isRawMaterial) {
       totalBottles += Math.round(baseUnitsDeduct);
     }
     if (isCap) {
@@ -204,8 +205,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       const refillLitres = (raw.litres ? parseFloat(raw.litres) : (qty * 24.0));
       totalRefillLitres += refillLitres;
       totalLitres += refillLitres;
-    } else if (!isExtra && fgItem) {
-      const nameLower = (fgItem.name || '').toLowerCase();
+    } else if (!isExtra && !isRawMaterial && dbItem) {
+      const nameLower = (dbItem.name || '').toLowerCase();
       let litresPerUnit;
       if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
       else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = isPack ? 12.0 : 2.0;
@@ -216,10 +217,12 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     }
 
     processedItems.push({
-      fgItem: fgItem || (isWater ? dbItems.find(i => (i.name || '').toLowerCase().includes('19') || (i.name || '').toLowerCase().includes('water')) : null),
+      item: dbItem,
+      fgItem: dbItem?.type === 'FINISHED_GOOD' ? dbItem : (isWater ? dbItems.find(i => (i.name || '').toLowerCase().includes('19') || (i.name || '').toLowerCase().includes('water')) : null),
       itemId: raw.itemId,
-      name: raw.name || fgItem?.name || (isCustomWater ? `Custom Water (${qty}L)` : (isRefill ? '19L Water Refill (Customer Bottle)' : (isCap ? 'Extra Cap' : 'Extra Item'))),
-      saleType,
+      name: raw.name || dbItem?.name || (isCustomWater ? `Custom Water (${qty}L)` : (isRefill ? '19L Water Refill (Customer Bottle)' : (isCap ? 'Extra Cap' : 'Extra Item'))),
+      saleType: isRawMaterial ? 'RAW_MATERIAL' : saleType,
+      isRawMaterial,
       quantity: qty,
       baseUnitsDeduct,
       unitPrice,
@@ -259,6 +262,34 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     for (const line of processedItems) {
       const { fgItem, baseUnitsDeduct, saleType, quantity } = line;
 
+      if (saleType === 'RAW_MATERIAL' || line.isRawMaterial) {
+        const rawItem = await tx[`${prefix}Item`].findUnique({ where: { id: line.itemId } });
+        if (!rawItem) throw new ApiError(404, `Raw material "${line.name}" not found`);
+        const totalAvail = Number(rawItem.cachedQty || 0);
+        if (totalAvail < quantity) {
+          throw new ApiError(400, `❌ Insufficient stock for "${rawItem.name}". Required: ${quantity} ${rawItem.unit || 'units'}, Available: ${totalAvail}.`);
+        }
+        await tx[`${prefix}Item`].update({
+          where: { id: rawItem.id },
+          data: {
+            cachedQty: { decrement: quantity },
+            factoryQty: { decrement: quantity }
+          }
+        });
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: rawItem.id,
+            quantity,
+            direction: 'OUT',
+            reason: 'SPOT_SALE_RAW_MATERIAL',
+            refType: 'SPOT_SALE',
+            refId: saleNumber,
+            location: 'FACTORY'
+          }
+        });
+        continue;
+      }
+
       if (saleType === 'EXTRA_CAP') {
         const capRaw = await tx[`${prefix}Item`].findFirst({
           where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
@@ -267,7 +298,10 @@ export const createSpotSale = asyncHandler(async (req, res) => {
           line.itemId = capRaw.id;
           await tx[`${prefix}Item`].update({
             where: { id: capRaw.id },
-            data: { cachedQty: { decrement: quantity } }
+            data: { 
+              cachedQty: { decrement: quantity },
+              factoryQty: { decrement: quantity }
+            }
           });
           await tx[`${prefix}InventoryTransaction`].create({
             data: {
@@ -453,7 +487,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     // 4. Create child SpotSaleItem records (all items persisted)
     let genericFallbackItem = null;
     for (const p of processedItems) {
-      let targetItemId = p.fgItem?.id || p.itemId;
+      let targetItemId = p.itemId || p.fgItem?.id;
       if (!targetItemId) {
         if (!genericFallbackItem) {
           genericFallbackItem = await tx[`${prefix}Item`].findFirst({ where: { archivedAt: null } });
