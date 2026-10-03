@@ -468,18 +468,24 @@ export default function LandingPage() {
               fadeOutColor="#ffffff"
               ariaLabel="Bottle design showcase"
               renderItem={(b) => (
-                <div className="logoloop-card w-44 sm:w-52 bg-sky-50/40 rounded-xl p-4 border border-sky-100 hover:border-cyan-400 hover:bg-white transition-all flex flex-col items-center shadow-sm my-2">
-                  <div className="h-44 w-full flex items-center justify-center">
+                <div className="logoloop-card group w-44 sm:w-52 bg-white rounded-2xl overflow-hidden border border-slate-200/80 shadow-[0_4px_20px_-6px_rgba(14,116,144,0.18)] hover:shadow-[0_10px_30px_-8px_rgba(14,116,144,0.35)] hover:-translate-y-1 hover:border-cyan-300 transition-all duration-300 my-3 text-left">
+                  <div className="h-52 sm:h-60 w-full overflow-hidden bg-sky-50">
                     <img
-                      src={optImg(b.url, 250)}
+                      src={optImg(b.url, 300)}
                       alt={`Bottle Design ${b.id}`}
-                      className="object-contain hover:scale-110 transition-transform duration-300"
+                      className="group-hover:scale-105 transition-transform duration-500"
                       loading="lazy"
                       decoding="async"
                       draggable={false}
                     />
                   </div>
-                  <span className="text-xs font-bold text-slate-600 mt-2">Design #{b.id}</span>
+                  <div className="px-3 py-2.5 flex items-center justify-between">
+                    <div className="leading-tight">
+                      <p className="text-[11px] font-semibold text-slate-800">Design {String(b.id).padStart(2, '0')}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">PET Bottle</p>
+                    </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                  </div>
                 </div>
               )}
             />
