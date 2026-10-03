@@ -78,7 +78,9 @@ const allowedOrigins = [
   ...configuredOrigins,
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://aqua-sphere-testing.vercel.app'
+  'https://aqua-sphere-testing.vercel.app',
+  'https://theaquasphere.org',
+  'https://www.theaquasphere.org'
 ];
 
 app.use(cors({
