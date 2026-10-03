@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -90,9 +90,10 @@ export default function Orders() {
   const [invoiceOrder, setInvoiceOrder] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const ordersLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (isBackground = false) => {
-    if (!isBackground && orders.length === 0) {
+    if (!isBackground && !ordersLoadedRef.current) {
       setIsLoading(true);
     }
     try {
@@ -102,7 +103,10 @@ export default function Orders() {
         fetch(`${API_URL}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
       const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
-      if (ord.success) setOrders(ord.data);
+      if (ord.success) {
+        setOrders(ord.data);
+        ordersLoadedRef.current = true;
+      }
       if (cust.success) setCustomers(cust.data);
       if (itm.success) setItems(itm.data || []);
     } catch (err) {
@@ -110,7 +114,7 @@ export default function Orders() {
     } finally {
       setIsLoading(false);
     }
-  }, [tenant, orders.length]);
+  }, [tenant]);
 
   useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], () => fetchData(true));
 

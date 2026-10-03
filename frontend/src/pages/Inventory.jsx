@@ -29,19 +29,17 @@ export default function Inventory() {
   const hasLoadedRef = useRef(false);
 
   const fetchInventoryData = useCallback(async (isBackground = false) => {
-    if (!isBackground && !hasLoadedRef.current) {
+    if (!isBackground && items.length === 0) {
       setIsLoading(true);
     }
     try {
       const promises = [
         fetch(`${API}/items?type=FINISHED_GOOD`, { 
-          headers: { 'x-tenant': tenant, 'x-no-cache': '1' }, 
-          cache: 'no-store',
+          headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         }),
         fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { 
-          headers: { 'x-tenant': tenant, 'x-no-cache': '1' }, 
-          cache: 'no-store',
+          headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         })
       ];

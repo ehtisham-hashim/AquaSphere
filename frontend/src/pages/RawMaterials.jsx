@@ -25,13 +25,12 @@ export default function RawMaterials() {
   const hasLoadedRef = useRef(false);
 
   const fetchMaterials = useCallback(async (isBackground = false) => {
-    if (!isBackground && !hasLoadedRef.current) {
+    if (!isBackground && materials.length === 0) {
       setIsLoading(true);
     }
     try {
       const res = await fetch(`${API}/items?type=RAW_MATERIAL&includeArchived=${includeArchived}`, {
-        headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
-        cache: 'no-store',
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();

@@ -47,15 +47,15 @@ export default function CounterSales() {
   }, []);
 
   const fetchData = useCallback(async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
+    if (!isBackground && sales.length === 0) setLoading(true);
     try {
-      const reqHeaders = { 'x-tenant': tenant, 'x-no-cache': '1' };
-      const reqOpts = { headers: reqHeaders, cache: 'no-store', credentials: 'include' };
+      const reqHeaders = { 'x-tenant': tenant };
+      const reqOpts = { headers: reqHeaders, credentials: 'include' };
       const [salesRes, customersRes, itemsRes, closesRes, summaryRes] = await Promise.all([
         fetch(`${API_URL}/spot-sales`, reqOpts).catch(() => null),
         fetch(`${API_URL}/customers`, reqOpts).catch(() => null),
         fetch(`${API_URL}/items?type=FINISHED_GOOD`, reqOpts).catch(() => null),
-        fetch(`${API_URL}/daily-close/history`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/daily-close/history?light=true`, reqOpts).catch(() => null),
         fetch(`${API_URL}/spot-sales/summary/today`, reqOpts).catch(() => null)
       ]);
 

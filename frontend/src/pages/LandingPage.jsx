@@ -671,8 +671,17 @@ export default function LandingPage() {
 
           </div>
 
+          {/* Developer Credits */}
+          <div className="pt-6 pb-1 text-center text-xs text-slate-400 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            <span>Software Developers</span>
+            <span className="text-slate-600">|</span>
+            <a href="mailto:Abdullahsiddique.dev.ai@gmail.com" className="hover:text-cyan-400 transition-colors">Abdullahsiddique.dev.ai@gmail.com</a>
+            <span className="text-slate-600">|</span>
+            <a href="mailto:Ehtisham.dev.ai@gmail.com" className="hover:text-cyan-400 transition-colors">Ehtisham.dev.ai@gmail.com</a>
+          </div>
+
           {/* Bottom Copyright & Sub-links */}
-          <div className="pt-5 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          <div className="pt-4 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
             <p>© {new Date().getFullYear()} {settings.site_name} Mineral Water. All rights reserved.</p>
             <div className="flex gap-6">
               <Link to="/website-admin" className="hover:text-cyan-400 transition-colors duration-200">Website Admin</Link>

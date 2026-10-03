@@ -31,8 +31,8 @@ export default function Expenses() {
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchExpenses = useCallback(async () => {
-    setLoading(true);
+  const fetchExpenses = useCallback(async (isBackground = false) => {
+    if (!isBackground && expenses.length === 0) setLoading(true);
     try {
       const res = await fetch(`${API}/expenses`, {
         headers: { 'x-tenant': tenant },
@@ -51,7 +51,7 @@ export default function Expenses() {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  useLiveEvent('EXPENSE_LOGGED', fetchExpenses);
+  useLiveEvent('EXPENSE_LOGGED', () => fetchExpenses(true));
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(ex => {

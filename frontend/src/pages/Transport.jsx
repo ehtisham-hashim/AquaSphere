@@ -48,8 +48,8 @@ export default function Transport() {
   const [isCarModalOpen, setIsCarModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
 
-  const fetchVehicles = useCallback(async () => {
-    setLoadingVehicles(true);
+  const fetchVehicles = useCallback(async (isBackground = false) => {
+    if (!isBackground && vehicles.length === 0) setLoadingVehicles(true);
     try {
       const res = await fetch(`${API_URL}/vehicles`, {
         headers: { 'x-tenant': tenant },
@@ -110,8 +110,8 @@ export default function Transport() {
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
-  const fetchExpenses = useCallback(async () => {
-    setLoadingExpenses(true);
+  const fetchExpenses = useCallback(async (isBackground = false) => {
+    if (!isBackground && expenses.length === 0) setLoadingExpenses(true);
     try {
       const res = await fetch(`${API_URL}/expenses?limit=200`, {
         headers: { 'x-tenant': tenant },
@@ -135,8 +135,8 @@ export default function Transport() {
   }, [fetchVehicles, fetchExpenses]);
 
   useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED'], () => {
-    fetchVehicles();
-    fetchExpenses();
+    fetchVehicles(true);
+    fetchExpenses(true);
   });
 
   // Filter transport-related expenses (strictly fuel and vehicle repairs)

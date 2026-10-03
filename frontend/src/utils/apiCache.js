@@ -27,14 +27,18 @@ function isVolatile(keyOrUrl) {
   return VOLATILE_ENDPOINTS.some((endpoint) => keyOrUrl.includes(endpoint));
 }
 
-// Helper to load cache entry from sessionStorage
+// Helper to load cache entry from sessionStorage with TTL check
 function loadFromStorage(key) {
   if (typeof window === 'undefined' || !window.sessionStorage) return null;
-  if (isVolatile(key)) return null;
   try {
     const raw = window.sessionStorage.getItem(`${STORAGE_PREFIX}${key}`);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.timestamp || (Date.now() - parsed.timestamp > DEFAULT_TTL)) {
+      window.sessionStorage.removeItem(`${STORAGE_PREFIX}${key}`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -43,7 +47,6 @@ function loadFromStorage(key) {
 // Helper to save cache entry to sessionStorage
 function saveToStorage(key, data) {
   if (typeof window === 'undefined' || !window.sessionStorage) return;
-  if (isVolatile(key)) return;
   try {
     window.sessionStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
   } catch {
@@ -199,8 +202,8 @@ export function setupApiCache() {
       }
 
       if (cached && now - cached.timestamp < ttl) {
-        // Stale-While-Revalidate: If data is older than 10s, refresh in background without blocking UI
-        if (now - cached.timestamp > 10000 && !inFlight.has(cacheKey)) {
+        // Stale-While-Revalidate: If data is older than 3s, refresh in background without blocking UI
+        if (now - cached.timestamp > 3000 && !inFlight.has(cacheKey)) {
           const bgPromise = (async () => {
             try {
               const response = await originalFetch.apply(this, arguments);

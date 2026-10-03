@@ -110,6 +110,7 @@ model AquasphereInventoryTransaction {
   createdAt      DateTime                       @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("inventory_transactions")
   @@schema("aquasphere")
 }
@@ -748,6 +749,7 @@ model WadaanaInventoryTransaction {
   createdAt      DateTime                    @default(now()) @map("created_at")
 
   @@index([itemId, createdAt])
+  @@index([createdAt(sort: Desc)])
   @@map("inventory_transactions")
   @@schema("wadaana")
 }

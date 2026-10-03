@@ -365,7 +365,9 @@ export const getDailyCloseHistory = asyncHandler(async (req, res) => {
     take: 30
   });
 
-  if (history.length === 0) return sendSuccess(res, [], 200, { message: 'Daily close history retrieved' });
+  if (history.length === 0 || req.query.light === 'true') {
+    return sendSuccess(res, history, 200, { message: 'Daily close history retrieved' });
+  }
 
   const minDate = new Date(history[history.length - 1].date);
   const maxDate = new Date(history[0].date);
