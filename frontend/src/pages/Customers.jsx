@@ -21,8 +21,10 @@ export default function Customers() {
   const [isLoading, setIsLoading] = useState(true);
   const debounceTimerRef = useRef(null);
 
-  const fetchCustomers = async (q = search, tab = activeTab) => {
-    setIsLoading(true);
+  const fetchCustomers = async (q = search, tab = activeTab, isBackground = false) => {
+    if (!isBackground && customers.length === 0) {
+      setIsLoading(true);
+    }
     try {
       const statusParam = tab === 'Archived' ? 'archived' : 'active';
       const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(q)}&status=${statusParam}`, {
@@ -43,7 +45,7 @@ export default function Customers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tenant]);
 
-  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED'], () => fetchCustomers(search, activeTab));
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED'], () => fetchCustomers(search, activeTab, true));
 
   const handleSearchChange = (e) => {
     const val = e.target.value;

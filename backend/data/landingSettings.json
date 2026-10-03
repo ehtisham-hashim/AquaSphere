@@ -1,0 +1,71 @@
+{
+  "site_name": "Aqua Sphere",
+  "phone": "051-545-443-8",
+  "opening_hours": "Monday to Saturday - 8AM to 5PM",
+  "location": "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt",
+  "whatsapp": "923015072233",
+  "logo_url": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005735/logo.png",
+  "hero_bg_url": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005808/hero-bg.jpg",
+  "hero_title": "Always want safe",
+  "hero_subtitle": "and good water for healthy life",
+  "hero_text": "Clean, safe and refreshing hydration for modern living.",
+  "hero_button": "Explore Products",
+  "about_title": "About Aqua Sphere",
+  "about_intro": "Welcome to Aqua Sphere, where naturally occurring electrolytes meet premium hydration for everyone.",
+  "company_title": "Company Introduction",
+  "company_intro": "Aqua Sphere Mineral Water, established in 2019, provides pure, clean, and affordable drinking water.",
+  "company_image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005628/aqua-project-machine.png",
+  "technology_title": "Advanced Purification Technology",
+  "technology_text": "Aqua Sphere – Purity in Every Drop with state-of-the-art reverse osmosis, multi-stage micron filtration, and automated bottling.",
+  "technology_image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005781/wadana-machine-hero.png",
+  "commitment_title": "Clean Water, Healthy Life.",
+  "commitment_text": "Aqua Sphere – Trusted Water, Trusted Choice. Serving homes, corporate offices, and institutions.",
+  "location_title": "Our Location",
+  "map_embed": "https://www.google.com/maps?q=AQUA%20SPHERE%2C%2033.6104649%2C72.9818914&output=embed",
+  "map_link": "https://www.google.com/maps/place/AQUA+SPHERE/@33.6104612,72.9819,599m/data=!3m1!1e3!4m6!3m5!1s0x38df970024408d31:0xa9c9cb0ebd2d1923!8m2!3d33.6104649!4d72.9818914!16s%2Fg%2F11xg3w12kj?hl=en&entry=ttu",
+  "contact_title": "Contact Us",
+  "products": [
+    {
+      "id": "p1",
+      "name": "19L Bottle",
+      "desc": "Security Fee / Per Refill PKR 280",
+      "price": "PKR 1000",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777146556_7174.png"
+    },
+    {
+      "id": "p2",
+      "name": "1.5L Bottle",
+      "desc": "Daily hydration pack",
+      "price": "PKR 100",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005473/product_1777198208_4752.jpg"
+    },
+    {
+      "id": "p3",
+      "name": "500ml Bottle",
+      "desc": "Portable and convenient",
+      "price": "PKR 50",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777145702_1235.png"
+    },
+    {
+      "id": "p4",
+      "name": "Dispenser",
+      "desc": "Instant hot & cold water access",
+      "price": "PKR 35000",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005468/product_1777146854_7886.png"
+    },
+    {
+      "id": "p_1777147220_8711_4",
+      "name": "Table Top Dispenser",
+      "desc": "Compact Design, Pure Hydration.",
+      "price": "PKR 2500",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005489/product_1777147220_8492.png"
+    },
+    {
+      "id": "p_1777147740_3370_5",
+      "name": "Tap & Stand",
+      "desc": "Simple Setup, Pure Water",
+      "price": "PKR 1500",
+      "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005490/product_1777147740_9305.png"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { 
   InventoryHeader, 
@@ -26,13 +26,24 @@ export default function Inventory() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
+  const hasLoadedRef = useRef(false);
 
-  const fetchInventoryData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchInventoryData = useCallback(async (isBackground = false) => {
+    if (!isBackground && !hasLoadedRef.current) {
+      setIsLoading(true);
+    }
     try {
       const promises = [
-        fetch(`${API}/items?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+        fetch(`${API}/items?type=FINISHED_GOOD`, { 
+          headers: { 'x-tenant': tenant, 'x-no-cache': '1' }, 
+          cache: 'no-store',
+          credentials: 'include' 
+        }),
+        fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { 
+          headers: { 'x-tenant': tenant, 'x-no-cache': '1' }, 
+          cache: 'no-store',
+          credentials: 'include' 
+        })
       ];
 
       const results = await Promise.all(promises);
@@ -41,6 +52,7 @@ export default function Inventory() {
 
       if (itemsJson.success || results[0].ok) {
         setItems(itemsJson.data || []);
+        hasLoadedRef.current = true;
       } else {
         toast.error(itemsJson.message || 'Failed to load inventory items');
       }
@@ -61,7 +73,7 @@ export default function Inventory() {
     fetchInventoryData();
   }, [fetchInventoryData]);
 
-  useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED'], fetchInventoryData);
+  useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED', 'COUNTER_SALE_CREATED'], () => fetchInventoryData(true));
 
   // Filter transactions by search
   const filteredTransactions = useMemo(() => {

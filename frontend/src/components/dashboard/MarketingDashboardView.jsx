@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3 } from 'lucide-react';
+import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3, Droplets, Users } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -23,6 +23,8 @@ export default function MarketingDashboardView({ data }) {
   const companyTitle = isWadaana ? 'Wadaana Ind.' : 'AquaSphere';
 
   const [selectedDays, setSelectedDays] = useState('7');
+  const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
+  const waterMetrics = data?.waterMetrics || {};
 
   const chartData = useMemo(() => {
     const rawHistory = data?.dailySalesHistory || [];
@@ -60,8 +62,8 @@ export default function MarketingDashboardView({ data }) {
         </div>
       </div>
 
-      {/* 1. Sales KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      {/* 1. Sales & Commercial KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <ModernKpiCard
           icon={Wallet}
           title="Today's Sales"
@@ -82,6 +84,20 @@ export default function MarketingDashboardView({ data }) {
           value={`Rs. ${Number(data?.credit || 0).toLocaleString()}`}
           subtitle="Billed on credit today"
           variant="amber"
+        />
+        <ModernKpiCard
+          icon={CreditCard}
+          title="Customer Receivables"
+          value={`Rs. ${totalReceivables.toLocaleString()}`}
+          subtitle="All-time customer credit debt"
+          variant="amber"
+        />
+        <ModernKpiCard
+          icon={Droplets}
+          title="Water Dispensed"
+          value={`${Number(waterMetrics?.dailyLitres || data?.daily?.waterLitres || 0).toLocaleString()} L`}
+          subtitle="Total volume today"
+          variant="sky"
         />
       </div>
 

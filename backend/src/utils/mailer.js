@@ -1,4 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let transporter = null;
 
@@ -30,141 +36,155 @@ function getTransporter() {
 }
 
 /**
- * Generates an elegant, high-end HTML email template for 2FA OTP.
- * Colors: Emerald Green for AquaSphere, Sky Blue for Wadaana.
+ * Generates an elegant, high-end HTML email template for 2FA OTP verification,
+ * patterned directly after modern enterprise confirmation emails (Cloudinary style).
+ * Features:
+ * - Brand green top header banner with crisp logo
+ * - Overlaid clean white card with subtle rounded corners and soft elevation
+ * - Central security cloud & padlock emblem
+ * - Bold, unadorned, high-readability plain black OTP text
+ * - Professional salutation, instructions, security disclaimer, and team signature
+ * - Minimalist footer with brand icon, copyright, and support link
  *
  * @param {object} params
- * @param {string} params.otp - 6-digit OTP code
- * @param {string} params.tenant - 'aquasphere' | 'wadaana'
+ * @param {string} params.otp - OTP verification code
+ * @param {string} [params.tenant='aquasphere'] - 'aquasphere' | 'wadaana'
+ * @param {string} [params.userName=''] - Recipient's display name
  * @returns {string} HTML string
  */
-export function build2FAEmailHtml({ otp, tenant = 'aquasphere' }) {
-  const isWadaana = tenant.toLowerCase() === 'wadaana';
+export function build2FAEmailHtml({ otp, tenant = 'aquasphere', userName = '' }) {
+  const isWadaana = String(tenant).toLowerCase() === 'wadaana';
 
   // Company theme tokens
   const companyName = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
-  const companySubtitle = isWadaana ? 'Industrial Preforms & Blow Molding OS' : 'Beverage & Water Plant OS';
-  const primaryColor = isWadaana ? '#0284c7' : '#059669'; // Sky-600 vs Emerald-600
-  const accentColor = isWadaana ? '#0ea5e9' : '#10b981'; // Sky-500 vs Emerald-500
-  const bgLight = isWadaana ? '#f0f9ff' : '#ecfdf5'; // Sky-50 vs Emerald-50
-  const borderColor = isWadaana ? '#bae6fd' : '#a7f3d0'; // Sky-200 vs Emerald-200
-  const badgeTextColor = isWadaana ? '#0369a1' : '#047857';
+  const teamName = `The ${companyName} Team`;
+  const contactUrl = isWadaana ? 'mailto:support@wadaanaindustries.com' : 'mailto:support@theaquasphere.org';
+  const year = new Date().getFullYear();
 
-  // Format OTP into "123 456" for readability
-  const formattedOtp = otp.length === 6 ? `${otp.slice(0, 3)} ${otp.slice(3)}` : otp;
+  // Clean greeting name (fallback gracefully)
+  const greetingName = userName && userName.trim() ? userName.trim() : 'there';
 
   return `
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${companyName} Security Verification</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>${companyName} Confirmation Code</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td, p, a, span { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1e293b;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 16px;">
+<body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; color: #1e293b;">
+  <!-- Main Outer Wrapper -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width: 100%; background-color: #f4f6f8; margin: 0; padding: 0;">
+    
+    <!-- Top Royal Blue Header Banner -->
     <tr>
-      <td align="center">
-        <!-- Main Card Container -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01); border: 1px solid #e2e8f0;">
+      <td align="center" bgcolor="#0062ff" style="background-color: #0062ff; padding: 36px 20px 80px 20px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px;">
+          <tr>
+            <td align="center">
+              <img src="cid:companylogowhite" alt="${companyName}" height="90" style="display: block; max-height: 90px; height: 90px; width: auto; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Card Container (overlaid directly below banner) -->
+    <tr>
+      <td align="center" style="padding: 0 16px 40px 16px;">
+        <!--[if mso]>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="540" align="center" style="margin-top: -46px;">
+        <tr>
+        <td>
+        <![endif]-->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; margin-top: -46px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06); border: 1px solid #e2e8f0;">
           
-          <!-- Top Accent Bar -->
+          <!-- Inner Card Body -->
           <tr>
-            <td height="6" style="background: linear-gradient(90deg, ${primaryColor} 0%, ${accentColor} 100%);"></td>
-          </tr>
+            <td style="padding: 44px 44px 38px 44px;">
 
-          <!-- Header / Brand -->
-          <tr>
-            <td align="center" style="padding: 36px 36px 12px 36px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+              <!-- Security Cloud + Padlock Graphic -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td align="center" style="vertical-align: middle;">
-                    <div style="font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">
-                      ${companyName}
-                    </div>
-                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-top: 4px;">
-                      ${companySubtitle}
-                    </div>
+                  <td align="center" style="padding-bottom: 28px;">
+                    <img src="cid:securitybadge" alt="Security Verification" width="80" height="60" style="display: block; margin: 0 auto; border: 0; outline: none;" />
                   </td>
                 </tr>
               </table>
-            </td>
-          </tr>
 
-          <!-- Security Pill Badge -->
-          <tr>
-            <td align="center" style="padding: 12px 36px 0 36px;">
-              <div style="display: inline-block; padding: 6px 14px; background-color: ${bgLight}; border: 1px solid ${borderColor}; border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: ${badgeTextColor};">
-                Account Verification
+              <!-- Greeting -->
+              <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #1e293b; line-height: 1.5;">
+                Hi ${greetingName},
+              </p>
+
+              <!-- Instructions -->
+              <p style="margin: 0 0 20px 0; font-size: 15px; color: #334155; line-height: 1.5;">
+                Here&apos;s the confirmation code you requested:
+              </p>
+
+              <!-- OTP Code: Simple, Large, Bold Text -->
+              <div style="font-size: 36px; font-weight: 800; color: #0f172a; letter-spacing: 4px; line-height: 1.2; margin: 0 0 22px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                ${otp}
               </div>
-            </td>
-          </tr>
 
-          <!-- Heading -->
-          <tr>
-            <td align="center" style="padding: 18px 36px 8px 36px;">
-              <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.25; letter-spacing: -0.5px;">
-                Confirm Your Login to<br><span style="color: ${primaryColor};">Secure Your Account</span>
-              </h1>
-            </td>
-          </tr>
-
-          <!-- Subtitle / Explanation -->
-          <tr>
-            <td align="center" style="padding: 0 40px 24px 40px;">
-              <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #64748b; text-align: center;">
-                An Owner login attempt was detected on your management console. Please confirm your authorization using the 6-digit verification code below.
+              <!-- Security Advice -->
+              <p style="margin: 0 0 32px 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+                If you didn&apos;t request this, you can ignore this email or let us know.
               </p>
-            </td>
-          </tr>
 
-          <!-- OTP Box -->
-          <tr>
-            <td align="center" style="padding: 0 40px 28px 40px;">
-              <div style="background-color: ${bgLight}; border: 2px dashed ${borderColor}; border-radius: 18px; padding: 22px 28px; text-align: center;">
-                <div style="font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 38px; font-weight: 800; letter-spacing: 8px; color: ${primaryColor}; text-indent: 8px;">
-                  ${formattedOtp}
-                </div>
-                <div style="margin-top: 10px; font-size: 12px; font-weight: 600; color: #64748b;">
-                  ⏱️ Code expires in <strong style="color: #0f172a;">5 minutes</strong>
-                </div>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Security Notice -->
-          <tr>
-            <td style="padding: 0 40px 32px 40px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border-radius: 12px; padding: 14px 18px; border: 1px solid #f1f5f9;">
-                <tr>
-                  <td style="font-size: 12px; line-height: 1.5; color: #475569;">
-                    🔒 <strong>Security Warning:</strong> Never share this code with anyone. ${companyName} administrators will never request this OTP over call or messaging apps.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Divider -->
-          <tr>
-            <td style="border-top: 1px solid #f1f5f9; padding: 0;"></td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="padding: 24px 40px 32px 40px; background-color: #fcfdfd;">
-              <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                ${companyName} OS • Automated Security System
+              <!-- Sign-off -->
+              <p style="margin: 0; font-size: 15px; color: #1e293b; line-height: 1.6;">
+                Thanks,<br />
+                <strong style="font-weight: 600; color: #0f172a;">${teamName}</strong>
               </p>
-              <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.4;">
-                If you did not initiate this sign-in attempt, please reset your password immediately.
-              </p>
+
             </td>
           </tr>
 
         </table>
+        <!--[if mso]>
+        </td>
+        </tr>
+        </table>
+        <![endif]-->
+
+        <!-- Footer Section -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; margin-top: 32px;">
+          <!-- Centered Footer Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 14px;">
+              <img src="cid:companylogofooter" alt="${companyName}" height="64" style="display: block; margin: 0 auto; max-height: 64px; height: 64px; width: auto; border: 0; outline: none;" />
+            </td>
+          </tr>
+
+          <!-- Copyright -->
+          <tr>
+            <td align="center" style="padding-bottom: 6px;">
+              <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5; font-weight: 400;">
+                &copy; ${year} ${companyName}. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Contact Us Link -->
+          <tr>
+            <td align="center">
+              <a href="${contactUrl}" style="font-size: 12px; color: #0062ff; text-decoration: underline; font-weight: 600;">
+                Contact Us
+              </a>
+            </td>
+          </tr>
+        </table>
+
       </td>
     </tr>
+
   </table>
 </body>
 </html>
@@ -177,9 +197,10 @@ export function build2FAEmailHtml({ otp, tenant = 'aquasphere' }) {
  * @param {object} params
  * @param {string|string[]} [params.to] - Target email(s). If omitted, falls back to .env settings.
  * @param {string} params.otp - 6-digit OTP code
- * @param {string} [params.tenant] - 'aquasphere' | 'wadaana'
+ * @param {string} [params.tenant='aquasphere'] - 'aquasphere' | 'wadaana'
+ * @param {string} [params.userName=''] - Name of recipient user
  */
-export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere' }) {
+export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere', userName = '' }) {
   const mailer = getTransporter();
 
   // Resolve recipients
@@ -199,14 +220,47 @@ export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere' }) {
     return { success: false, error: 'No recipient email configured' };
   }
 
-  const isWadaana = tenant.toLowerCase() === 'wadaana';
-  const companyName = isWadaana ? 'Wadaana Industries' : 'Aquasphere';
+  const isWadaana = String(tenant).toLowerCase() === 'wadaana';
+  const companyName = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
   const fromAddress = process.env.MAIL_FROM_ADDRESS || 'noreply@theaquasphere.org';
   const fromName = process.env.MAIL_FROM_NAME || companyName;
 
-  const html = build2FAEmailHtml({ otp, tenant });
-  const subject = `${companyName} Verification Code: ${otp}`;
-  const text = `Your ${companyName} verification code is: ${otp}. It expires in 5 minutes.\n\nSecurity Notice: Never share this code with anyone. If you did not request this login, please secure your account immediately.`;
+  // Resolve user display name
+  const resolvedUserName = userName && userName.trim()
+    ? userName.trim()
+    : (validRecipients[0] ? validRecipients[0].split('@')[0] : 'there');
+
+  const html = build2FAEmailHtml({ otp, tenant, userName: resolvedUserName });
+  const subject = `${companyName} Confirmation Code: ${otp}`;
+  const text = `Hi ${resolvedUserName},\n\nHere's the confirmation code you requested:\n\n${otp}\n\nIf you didn't request this, you can ignore this email or let us know.\n\nThanks,\nThe ${companyName} Team`;
+
+  // Attach brand & security graphics with Content-ID for instant, unblocked rendering
+  const logoWhitePath = path.resolve(__dirname, '../assets/logo-white.png');
+  const logoFooterPath = path.resolve(__dirname, '../assets/logo.png');
+  const securityBadgePath = path.resolve(__dirname, '../assets/security-badge.png');
+
+  const attachments = [];
+  if (fs.existsSync(logoWhitePath)) {
+    attachments.push({
+      filename: 'logo-white.png',
+      path: logoWhitePath,
+      cid: 'companylogowhite',
+    });
+  }
+  if (fs.existsSync(logoFooterPath)) {
+    attachments.push({
+      filename: 'logo.png',
+      path: logoFooterPath,
+      cid: 'companylogofooter',
+    });
+  }
+  if (fs.existsSync(securityBadgePath)) {
+    attachments.push({
+      filename: 'security-badge.png',
+      path: securityBadgePath,
+      cid: 'securitybadge',
+    });
+  }
 
   try {
     const info = await mailer.sendMail({
@@ -216,13 +270,14 @@ export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere' }) {
       subject,
       text,
       html,
+      attachments,
       headers: {
         'Auto-Submitted': 'auto-generated',
         'X-Auto-Response-Suppress': 'All',
         'Priority': 'Urgent',
         'Importance': 'high',
-        'X-Priority': '1'
-      }
+        'X-Priority': '1',
+      },
     });
 
     console.log(`[2FA Mailer] Verification email sent to ${validRecipients.join(', ')} (Message ID: ${info.messageId})`);

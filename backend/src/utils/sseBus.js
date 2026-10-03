@@ -19,6 +19,9 @@ export function streamEvents(req, res) {
 
   // Initial connection acknowledgement
   res.write(`event: CONNECTED\ndata: ${JSON.stringify({ tenant, timestamp: Date.now() })}\n\n`);
+  if (typeof res.flush === 'function') {
+    res.flush();
+  }
 
   clients[tenant].add(res);
 
@@ -26,6 +29,9 @@ export function streamEvents(req, res) {
   const heartbeatTimer = setInterval(() => {
     try {
       res.write(': heartbeat\n\n');
+      if (typeof res.flush === 'function') {
+        res.flush();
+      }
     } catch (_err) {
       clearInterval(heartbeatTimer);
     }
@@ -54,6 +60,9 @@ export function broadcastEvent(tenant = 'aquasphere', eventType = 'MESSAGE', dat
   for (const client of activeClients) {
     try {
       client.write(payload);
+      if (typeof client.flush === 'function') {
+        client.flush();
+      }
     } catch (_err) {
       activeClients.delete(client);
     }

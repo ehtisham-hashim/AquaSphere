@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { API_URL } from '../utils/api';
+import { clearCache } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { toast } from 'sonner';
@@ -18,7 +19,7 @@ import { useLiveEvent } from '../context/SSEContext';
 
 export default function CounterSales() {
   const { user } = useAuth();
-  const { isWadaana } = useTenant();
+  const { tenant, isWadaana } = useTenant();
 
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -45,15 +46,17 @@ export default function CounterSales() {
     return () => clearInterval(timer);
   }, []);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
+      const reqHeaders = { 'x-tenant': tenant, 'x-no-cache': '1' };
+      const reqOpts = { headers: reqHeaders, cache: 'no-store', credentials: 'include' };
       const [salesRes, customersRes, itemsRes, closesRes, summaryRes] = await Promise.all([
-        fetch(`${API_URL}/spot-sales`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/customers`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/items?type=FINISHED_GOOD`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/daily-close/history`, { credentials: 'include' }).catch(() => null),
-        fetch(`${API_URL}/spot-sales/summary/today`, { credentials: 'include' }).catch(() => null)
+        fetch(`${API_URL}/spot-sales`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/customers`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/items?type=FINISHED_GOOD`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/daily-close/history`, reqOpts).catch(() => null),
+        fetch(`${API_URL}/spot-sales/summary/today`, reqOpts).catch(() => null)
       ]);
 
       if (salesRes?.ok) {
@@ -79,11 +82,17 @@ export default function CounterSales() {
     } catch (err) {
       console.error('Error fetching counter sales:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
-  }, []);
+  }, [tenant]);
 
-  useLiveEvent(['COUNTER_SALE_CREATED', 'INVENTORY_CHANGED'], fetchData);
+  useLiveEvent(['COUNTER_SALE_CREATED', 'INVENTORY_CHANGED'], () => {
+    clearCache('spot-sales');
+    clearCache('items');
+    clearCache('customers');
+    clearCache('daily-close');
+    fetchData(true);
+  });
 
   useEffect(() => { 
     fetchData(); 
@@ -94,7 +103,10 @@ export default function CounterSales() {
     try {
       const res = await fetch(`${API_URL}/spot-sales`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
         body: JSON.stringify(payload),
         credentials: 'include'
       });
@@ -109,7 +121,11 @@ export default function CounterSales() {
       
       setLastRecordedSale(createdSale);
       setLiveSaleNumber(generateSaleNumber());
-      fetchData();
+      clearCache('spot-sales');
+      clearCache('items');
+      clearCache('customers');
+      clearCache('daily-close');
+      fetchData(true);
     } catch (err) {
       toast.error('Error recording sale');
     } finally {
@@ -127,6 +143,9 @@ export default function CounterSales() {
     try {
       const res = await fetch(`${API_URL}/spot-sales/${sale.id}`, {
         method: 'DELETE',
+        headers: {
+          'x-tenant': tenant
+        },
         credentials: 'include'
       });
       const json = await res.json();
@@ -135,7 +154,11 @@ export default function CounterSales() {
         return;
       }
       toast.success('Sale deleted and inventory stock restored.');
-      fetchData();
+      clearCache('spot-sales');
+      clearCache('items');
+      clearCache('customers');
+      clearCache('daily-close');
+      fetchData(true);
     } catch (err) {
       toast.error('Failed to delete sale record');
     }

@@ -337,7 +337,7 @@ export default function CompleteBatchModal({
                 if (prod.isPacks && prod.perPack) {
                   const netBottles = Math.max(0, prod.bottlesTotal - breakageVal);
                   const netPacks = (netBottles / prod.perPack).toFixed(1);
-                  netText = `${netPacks} packs (${netBottles} bottles)`;
+                  netText = `${netPacks} PETs (${netBottles} bottles)`;
                 } else {
                   const net = Math.max(0, prod.qty - breakageVal);
                   netText = `${net.toLocaleString()} ${prod.unit}`;
@@ -357,7 +357,7 @@ export default function CompleteBatchModal({
                         <p className="text-xs text-slate-500">
                           Produced:{' '}
                           <strong className="text-slate-800 font-mono">
-                            {prod.qty.toLocaleString()} {prod.unit}
+                            {prod.qty.toLocaleString()} {prod.isPacks ? 'PETs' : prod.unit}
                           </strong>
                           {prod.bottlesTotal && (
                             <span className="text-slate-400 font-normal ml-1">

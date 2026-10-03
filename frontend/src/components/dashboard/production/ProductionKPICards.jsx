@@ -1,4 +1,4 @@
-import { Factory, Building, AlertTriangle, Lock, CheckCircle2, ShieldCheck, Clock } from 'lucide-react';
+import { Factory, Building, AlertTriangle, Lock, CheckCircle2, ShieldCheck, Clock, Droplets } from 'lucide-react';
 
 export default function ProductionKPICards({
   todaysProduction,
@@ -6,10 +6,11 @@ export default function ProductionKPICards({
   lowStockCount,
   dailyClose,
   pendingBatchesCount,
-  isWadaana
+  isWadaana,
+  mineralMetrics = {}
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Today's Output */}
       <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
@@ -69,6 +70,23 @@ export default function ProductionKPICards({
         </div>
         <div className="text-[11px] font-medium text-slate-500 mt-1.5">
           {lowStockCount > 0 ? `${lowStockCount} raw material(s) need refill` : 'All materials above reorder level'}
+        </div>
+      </div>
+
+      {/* Mineral Plant Dosing Capacity */}
+      <div className="card-surface p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mineral Capacity</span>
+          <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+            <Droplets size={16} />
+          </div>
+        </div>
+        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
+          {Number(mineralMetrics?.mineralCapacityLitres || 0).toLocaleString()}
+          <span className="text-xs font-semibold text-slate-500 ml-1">L</span>
+        </div>
+        <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+          {mineralMetrics?.batchesAvailable || 0} mineral batch sets remaining
         </div>
       </div>
 

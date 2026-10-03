@@ -26,6 +26,7 @@ import {
 // ponytail: hover-prefetch — fires import() on mouse-enter so the JS chunk is already
 // downloaded when the user clicks. No lib, no state, browser handles dedup.
 const PREFETCH_MAP = {
+  '/dashboard': () => import('../../pages/Dashboard'),
   '/': () => import('../../pages/Dashboard'),
   '/orders': () => import('../../pages/Orders'),
   '/customers': () => import('../../pages/Customers'),
@@ -43,7 +44,7 @@ const PREFETCH_MAP = {
 };
 
 const navItems = [
-  { icon: BarChart3, label: 'Dashboard', path: '/' },
+  { icon: BarChart3, label: 'Dashboard', path: '/dashboard' },
   { icon: Truck, label: 'Orders', path: '/orders' },
   { icon: UserSquare2, label: 'Customers', path: '/customers' },
   { icon: Factory, label: 'Production', path: '/production' },

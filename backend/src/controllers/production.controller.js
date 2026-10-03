@@ -130,11 +130,19 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
 
     const producedItems = itemsToProduce.map(prod => {
       const fg = itemMap.get(prod.outputItemId);
+      const nameLower = (fg?.name || '').toLowerCase();
+      const packSize = Number(fg?.packSize) > 1 
+        ? Number(fg.packSize) 
+        : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+      const isPack = !isWadaana && packSize > 1;
+
       return {
         itemId: prod.outputItemId,
         name: fg?.name || 'Finished Good',
-        unit: fg?.unit || 'units',
-        quantity: prod.quantity
+        unit: isPack ? 'PETs' : (fg?.unit || 'bottles'),
+        quantity: prod.quantity,
+        packSize,
+        totalBottles: prod.quantity * packSize
       };
     });
 

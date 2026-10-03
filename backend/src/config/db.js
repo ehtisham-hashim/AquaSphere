@@ -7,13 +7,14 @@ const { PrismaClient } = pkg;
 const { Pool } = pg;
 const connectionString = process.env.DATABASE_URL;
 
-// Neon-optimised pool settings — prevents "Connection terminated unexpectedly"
+// Neon-optimised pool settings — keeps connections warm and avoids reconnection penalty
 const pool = new Pool({
   connectionString,
-  max: parseInt(process.env.DATABASE_POOL_SIZE || '5', 10), // keep low for Neon free tier
-  idleTimeoutMillis: 10000, // close idle connections after 10s
-  connectionTimeoutMillis: 10000, // fail fast if can't connect in 10s
-  allowExitOnIdle: true     // allow process to exit when pool is idle
+  max: parseInt(process.env.DATABASE_POOL_SIZE || '15', 10), // Allow up to 15 concurrent connections
+  idleTimeoutMillis: 60000, // Keep idle connections alive for 60s to prevent constant SSL cold-starts
+  connectionTimeoutMillis: 10000, // 10s connection timeout
+  allowExitOnIdle: false,
+  keepAlive: true
 });
 
 // Reconnect on unexpected termination

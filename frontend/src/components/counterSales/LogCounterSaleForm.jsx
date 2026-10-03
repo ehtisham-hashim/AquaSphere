@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DollarSign, CheckCircle2, User, Loader2, ShoppingBag, Zap, Printer, Plus, Minus, Trash2, AlertCircle, Package, Droplets, Info, Shield } from 'lucide-react';
+import { DollarSign, CheckCircle2, User, Loader2, ShoppingBag, Zap, Printer, Plus, Minus, Trash2, AlertCircle, Package, Droplets, Shield } from 'lucide-react';
 import { PAYMENT_METHODS } from '../../constants/counterSale';
 
 const getPackSize = (item) => {
@@ -37,14 +37,13 @@ export default function LogCounterSaleForm({
   // Map of cartKey -> overridden price: e.g. "itemId_PACK" -> 360, "itemId_BOTTLE" -> 35
   const [customPrices, setCustomPrices] = useState({});
 
-  // Per-item sale mode: 'NORMAL' | 'REFILL'
-  const [itemSaleMode, setItemSaleModeState] = useState({});
-  const setItemSaleMode = (itemId, mode) => {
-    setItemSaleModeState(prev => ({
-      ...prev,
-      [itemId]: mode
-    }));
-  };
+  // Dedicated Pure Water Refill (Customer Bottle) state
+  const [refillQty, setRefillQty] = useState(0);
+  const [refillPrice, setRefillPrice] = useState(80); // Default Rs 80 per 19L refill
+
+  // Dedicated Custom Litres / Bulk Water state (unlimited water, 0 water inventory deduction)
+  const [customWaterLitres, setCustomWaterLitres] = useState(0);
+  const [customWaterRate, setCustomWaterRate] = useState(10); // Default Rs 10 per Litre
 
   // Standalone extra items (Caps, Delivery, Custom charges)
   const [extraItems, setExtraItems] = useState({});
@@ -52,6 +51,14 @@ export default function LogCounterSaleForm({
   const [customItemPrice, setCustomItemPrice] = useState('');
 
   const [extraSeq, setExtraSeq] = useState(0);
+
+  // Set default refill price from finished goods catalog if available
+  useEffect(() => {
+    const defaultRefillItem = finishedGoods.find(i => (i.name || '').toLowerCase().includes('19') || (i.name || '').toLowerCase().includes('refill'));
+    if (defaultRefillItem && Number(defaultRefillItem.retailPrice) > 0) {
+      setRefillPrice(prev => (prev === 80 ? Number(defaultRefillItem.retailPrice) : prev));
+    }
+  }, [finishedGoods]);
 
   const addExtraItem = (type, name, price) => {
     // If an extra item of same type and name already exists, increment its quantity
@@ -91,6 +98,16 @@ export default function LogCounterSaleForm({
   const [customerId, setCustomerId] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  // Auto-populate customer-specific custom refill rate when customer changes
+  const handleCustomerChange = (newCustId) => {
+    setCustomerId(newCustId);
+    if (!newCustId) return;
+    const cust = customers.find(c => c.id === newCustId);
+    if (cust && Number(cust.defaultPrice) > 0) {
+      setRefillPrice(Number(cust.defaultPrice));
+    }
+  };
+
   const getItemPrice = (item, type) => {
     const key = `${item.id}_${type}`;
     if (customPrices[key] !== undefined && customPrices[key] !== '') {
@@ -100,6 +117,14 @@ export default function LogCounterSaleForm({
   };
 
   const handlePriceChange = (cartKey, val) => {
+    if (cartKey === 'WATER_REFILL') {
+      setRefillPrice(val);
+      return;
+    }
+    if (cartKey === 'CUSTOM_WATER') {
+      setCustomWaterRate(val);
+      return;
+    }
     setCustomPrices(prev => ({
       ...prev,
       [cartKey]: val
@@ -109,6 +134,54 @@ export default function LogCounterSaleForm({
   // Calculate cart items & total
   const cartItems = useMemo(() => {
     const list = [];
+
+    // 1. Water Refill line item (Customer Bottle - 0 bottle stock deduction)
+    if (refillQty > 0) {
+      const refill19LItem = finishedGoods.find(i => (i.name || '').toLowerCase().includes('19') || (i.name || '').toLowerCase().includes('refill')) || finishedGoods[0];
+      const parsedRefillPrice = Number(refillPrice) >= 0 ? Number(refillPrice) : 80;
+      list.push({
+        cartKey: 'WATER_REFILL',
+        itemId: refill19LItem ? refill19LItem.id : null,
+        name: `Pure Water Refill (${refillQty}x 19L)`,
+        rawItemName: 'Pure Water Refill',
+        type: 'REFILL',
+        saleType: 'WATER_REFILL',
+        packSize: 1,
+        quantity: refillQty,
+        unitPrice: parsedRefillPrice,
+        lineTotal: refillQty * parsedRefillPrice,
+        baseUnitsPerUnit: 0,
+        totalBaseUnits: 0,
+        availableStock: 999999,
+        isRefill: true,
+        litres: refillQty * 24
+      });
+    }
+
+    // 1b. Custom Water Litres line item (Customer Container / Bulk Water - 0 water inventory deduction)
+    if (customWaterLitres > 0) {
+      const waterItem = finishedGoods.find(i => (i.name || '').toLowerCase().includes('water') || (i.name || '').toLowerCase().includes('bulk')) || finishedGoods[0];
+      const parsedRate = Number(customWaterRate) >= 0 ? Number(customWaterRate) : 10;
+      list.push({
+        cartKey: 'CUSTOM_WATER',
+        itemId: waterItem ? waterItem.id : null,
+        name: `Custom Water (${customWaterLitres}L)`,
+        rawItemName: 'Custom Water',
+        type: 'WATER',
+        saleType: 'CUSTOM_WATER',
+        packSize: 1,
+        quantity: customWaterLitres,
+        unitPrice: parsedRate,
+        lineTotal: customWaterLitres * parsedRate,
+        baseUnitsPerUnit: 0,
+        totalBaseUnits: 0,
+        availableStock: 999999,
+        isCustomWater: true,
+        litres: customWaterLitres
+      });
+    }
+
+    // 2. Finished goods & extra items
     Object.entries(cartMap).forEach(([cartKey, qty]) => {
       const numQty = Number(qty);
       if (numQty <= 0) return;
@@ -148,24 +221,21 @@ export default function LogCounterSaleForm({
 
       const packSize = getPackSize(item);
       const isPack = type === 'PACK';
-      const isRefill = itemSaleMode[item.id] === 'REFILL';
-      const saleType = isRefill ? 'WATER_REFILL' : (isPack ? 'PACK' : 'BOTTLE');
+      const saleType = isPack ? 'PACK' : 'BOTTLE';
 
       const defaultRate = getDefaultPrice(item, type);
       const customRate = customPrices[cartKey];
       const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : defaultRate;
       const unitPrice = isNaN(parsedRate) ? defaultRate : parsedRate;
 
-      const baseUnitsPerUnit = isRefill ? 0 : (isPack ? packSize : 1);
-      const totalBaseUnits = isRefill ? 0 : (numQty * (isPack ? packSize : 1));
+      const baseUnitsPerUnit = isPack ? packSize : 1;
+      const totalBaseUnits = numQty * (isPack ? packSize : 1);
 
-      const displayName = isRefill
-        ? `${item.name} (Refill)`
-        : type === 'PACK' 
-          ? `${item.name} (Pack of ${packSize})` 
-          : type === 'BOTTLE' && packSize > 1 
-            ? `${item.name} (Loose Bottle)` 
-            : item.name;
+      const displayName = type === 'PACK' 
+        ? `${item.name} (Pack of ${packSize})` 
+        : type === 'BOTTLE' && packSize > 1 
+          ? `${item.name} (Loose Bottle)` 
+          : item.name;
 
       list.push({
         cartKey,
@@ -181,11 +251,11 @@ export default function LogCounterSaleForm({
         baseUnitsPerUnit,
         totalBaseUnits,
         availableStock: Number(item.cachedQty || 0),
-        isRefill
+        isRefill: false
       });
     });
     return list;
-  }, [cartMap, customPrices, finishedGoods, extraItems, itemSaleMode]);
+  }, [cartMap, customPrices, finishedGoods, extraItems, refillQty, refillPrice, customWaterLitres, customWaterRate]);
 
   const cartTotal = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -199,6 +269,14 @@ export default function LogCounterSaleForm({
   }, [cartTotal, isAmountPaidManual]);
 
   const updateItemQty = (cartKey, delta) => {
+    if (cartKey === 'WATER_REFILL') {
+      setRefillQty(prev => Math.max(0, prev + delta));
+      return;
+    }
+    if (cartKey === 'CUSTOM_WATER') {
+      setCustomWaterLitres(prev => Math.max(0, Math.round((prev + delta) * 10) / 10));
+      return;
+    }
     setCartMap(prev => {
       const next = { ...prev };
       const current = Number(next[cartKey] || 0);
@@ -243,7 +321,6 @@ export default function LogCounterSaleForm({
   // Stock check by base units across both packs and bottles
   const getStockWarning = (item) => {
     if (!item) return null;
-    if (itemSaleMode[item.id] === 'REFILL') return null;
     const packSize = getPackSize(item);
     const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
     const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || (packSize <= 1 ? (cartMap[`${item.id}_UNIT`] || 0) : 0));
@@ -258,14 +335,13 @@ export default function LogCounterSaleForm({
 
   const hasStockError = useMemo(() => {
     return finishedGoods.some(item => {
-      if (itemSaleMode[item.id] === 'REFILL') return false;
       const packSize = getPackSize(item);
       const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
       const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || (packSize <= 1 ? (cartMap[`${item.id}_UNIT`] || 0) : 0));
       const requested = (packQty * packSize) + bottleQty;
       return requested > Number(item.cachedQty || 0);
     });
-  }, [cartMap, finishedGoods, itemSaleMode]);
+  }, [cartMap, finishedGoods]);
 
   // Financial & Debt Calculations
   const numericAmountPaid = parseFloat(amountPaid || 0);
@@ -292,7 +368,8 @@ export default function LogCounterSaleForm({
         name: i.name,
         saleType: i.saleType,
         quantity: i.quantity,
-        unitPrice: i.unitPrice
+        unitPrice: i.unitPrice,
+        litres: i.litres
       })),
       amountPaid: numericAmountPaid,
       paymentMethod,
@@ -304,7 +381,8 @@ export default function LogCounterSaleForm({
     setCartMap({});
     setCustomPrices({});
     setExtraItems({});
-    setItemSaleModeState({});
+    setRefillQty(0);
+    setCustomWaterLitres(0);
     setIsAmountPaidManual(false);
     setRemarks('');
   };
@@ -642,43 +720,6 @@ export default function LogCounterSaleForm({
                       </div>
                     )}
 
-                    {/* ADD THIS NEW SECTION - appears below existing controls */}
-                    <div className="mt-2 flex items-center gap-2 text-xs">
-                      <span className="text-slate-600 font-semibold">Sale Type:</span>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setItemSaleMode(item.id, 'NORMAL')}
-                          className={`px-2 py-1 rounded-md border text-xs font-semibold transition ${
-                            itemSaleMode[item.id] !== 'REFILL' && itemSaleMode[item.id] !== 'CAP_ONLY'
-                              ? 'bg-brand text-white border-brand'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          Regular Sale
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setItemSaleMode(item.id, 'REFILL')}
-                          className={`px-2 py-1 rounded-md border text-xs font-semibold transition flex items-center gap-1 ${
-                            itemSaleMode[item.id] === 'REFILL'
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <Droplets size={12} /> Water Refill (Customer Bottle)
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* When REFILL mode is active, show info badge */}
-                    {itemSaleMode[item.id] === 'REFILL' && (
-                      <div className="mt-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 flex items-center gap-1">
-                        <Info size={10} />
-                        <span>Customer brings bottle • Only water charged • No bottle deduction</span>
-                      </div>
-                    )}
-
                     {/* Stock Alert Warning */}
                     {warning && (
                       <div className="mt-2 text-[11px] font-bold text-red-600 flex items-center gap-1 bg-red-50 p-1.5 rounded-lg border border-red-100">
@@ -692,10 +733,248 @@ export default function LogCounterSaleForm({
             </div>
           )}
 
-          {/* NEW SECTION - Add after finished goods list */}
+          {/* SECTION 2: DEDICATED PURE WATER REFILL (CUSTOMER BOTTLE) */}
+          <div className="mt-3 p-3 bg-gradient-to-r from-blue-50/70 to-sky-50/70 border border-blue-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <Droplets size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    Pure Water Refill (Customer Bottle)
+                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                      0 Bottle Stock Deducted
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Customer brings bottle • Auto-deducts raw minerals (Ca, Mg, Na) from inventory
+                  </p>
+                </div>
+              </div>
+
+              {selectedCustomer && Number(selectedCustomer.defaultPrice) > 0 && (
+                <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">
+                  Custom Rate: Rs. {Number(selectedCustomer.defaultPrice)}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 p-2 bg-white/90 rounded-lg border border-blue-100">
+              {/* Rate input */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 shrink-0">Refill Rate:</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-mono text-slate-500">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-white text-slate-800 text-center focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+                    value={refillPrice}
+                    onChange={(e) => setRefillPrice(e.target.value)}
+                    title="19L Water Refill Rate"
+                  />
+                  <span className="text-[10px] text-slate-400">/19L</span>
+                </div>
+              </div>
+
+              {/* Stepper & Quick buttons */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setRefillQty(prev => Math.max(0, prev - 1))}
+                    disabled={refillQty <= 0}
+                    className="w-6 h-6 rounded-md bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                    title="Decrease refills"
+                  >
+                    <Minus size={11} />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    className={`w-12 text-center font-mono font-bold text-xs border rounded-md p-0.5 ${
+                      refillQty > 0 ? 'border-blue-600 bg-white text-blue-700' : 'border-slate-200 bg-white text-slate-800'
+                    }`}
+                    value={refillQty > 0 ? refillQty : ''}
+                    onChange={(e) => setRefillQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRefillQty(prev => prev + 1)}
+                    className="w-6 h-6 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                    title="Add 1 refill"
+                  >
+                    <Plus size={11} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {[1, 5, 10].map(q => (
+                    <button
+                      type="button"
+                      key={q}
+                      onClick={() => setRefillQty(prev => prev + q)}
+                      className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-blue-50 text-blue-700 border-blue-200 transition"
+                      title={`Add +${q} Refill(s)`}
+                    >
+                      +{q}
+                    </button>
+                  ))}
+                  {refillQty > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setRefillQty(0)}
+                      className="px-1.5 py-0.5 text-[10px] font-semibold rounded text-red-600 hover:bg-red-50"
+                      title="Clear refills"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mineral Deduction Live Calculation (2 decimal points) */}
+            {refillQty > 0 && (
+              <div className="p-2 bg-blue-100/70 rounded-lg border border-blue-200 text-xs text-blue-900 space-y-1">
+                <div className="flex items-center justify-between font-semibold text-[11px]">
+                  <span>🌊 Total Water Dispensed:</span>
+                  <span className="font-mono font-bold">{refillQty * 24} Litres ({refillQty} × 24L incl. flush)</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-0.5 border-t border-blue-200 font-mono">
+                  <span className="text-slate-600">🧪 Minerals Deducted:</span>
+                  <span className="font-bold text-blue-950">
+                    Ca: {(((refillQty * 24) / 15141) * 2).toFixed(2)} kg • Mg: {(((refillQty * 24) / 15141) * 1).toFixed(2)} kg • Na: {(((refillQty * 24) / 15141) * 0.5).toFixed(2)} kg
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 2b: DEDICATED CUSTOM LITRES / BULK WATER */}
+          <div className="mt-3 p-3 bg-gradient-to-r from-teal-50/70 to-emerald-50/70 border border-teal-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <Droplets size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    Custom Litres / Bulk Water Dispenser
+                    <span className="text-[10px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full">
+                      0 Water Stock Deducted (No Shortage)
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Custom volume / bulk water • Exact litres tracked • Auto-deducts mineral set (Ca, Mg, Na)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 p-2 bg-white/90 rounded-lg border border-teal-100">
+              {/* Rate per litre */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 shrink-0">Rate / Litre:</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-mono text-slate-500">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-white text-slate-800 text-center focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30"
+                    value={customWaterRate}
+                    onChange={(e) => setCustomWaterRate(e.target.value)}
+                    title="Rate per Litre"
+                  />
+                  <span className="text-[10px] text-slate-400">/L</span>
+                </div>
+              </div>
+
+              {/* Litres input & Presets */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomWaterLitres(prev => Math.max(0, Math.round((prev - 1) * 10) / 10))}
+                    disabled={customWaterLitres <= 0}
+                    className="w-6 h-6 rounded-md bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                    title="Decrease litres"
+                  >
+                    <Minus size={11} />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    className={`w-14 text-center font-mono font-bold text-xs border rounded-md p-0.5 ${
+                      customWaterLitres > 0 ? 'border-teal-600 bg-white text-teal-800 ring-1 ring-teal-200' : 'border-slate-200 bg-white text-slate-800'
+                    }`}
+                    value={customWaterLitres > 0 ? customWaterLitres : ''}
+                    onChange={(e) => setCustomWaterLitres(Math.max(0, parseFloat(e.target.value) || 0))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCustomWaterLitres(prev => Math.round((prev + 1) * 10) / 10)}
+                    className="w-6 h-6 rounded-md bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                    title="Add 1 litre"
+                  >
+                    <Plus size={11} />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {[5, 10, 19, 50, 100].map(l => (
+                    <button
+                      type="button"
+                      key={l}
+                      onClick={() => setCustomWaterLitres(prev => Math.round((prev + l) * 10) / 10)}
+                      className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-teal-50 text-teal-700 border-teal-200 transition"
+                      title={`Add +${l} Litre(s)`}
+                    >
+                      +{l}L
+                    </button>
+                  ))}
+                  {customWaterLitres > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomWaterLitres(0)}
+                      className="px-1.5 py-0.5 text-[10px] font-semibold rounded text-red-600 hover:bg-red-50"
+                      title="Clear custom water"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mineral Deduction Live Calculation */}
+            {customWaterLitres > 0 && (
+              <div className="p-2 bg-teal-100/70 rounded-lg border border-teal-200 text-xs text-teal-900 space-y-1">
+                <div className="flex items-center justify-between font-semibold text-[11px]">
+                  <span>💧 Custom Water Selected:</span>
+                  <span className="font-mono font-bold">{customWaterLitres} Litres (Rs. {(customWaterLitres * (parseFloat(customWaterRate) || 0)).toLocaleString()})</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-0.5 border-t border-teal-200 font-mono">
+                  <span className="text-slate-600">🧪 Minerals Deducted:</span>
+                  <span className="font-bold text-teal-950">
+                    Ca: {(((customWaterLitres) / 15141) * 2).toFixed(3)} kg • Mg: {(((customWaterLitres) / 15141) * 1).toFixed(3)} kg • Na: {(((customWaterLitres) / 15141) * 0.5).toFixed(3)} kg
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: EXTRA ITEMS (CAPS, DELIVERY, CUSTOM CHARGES) */}
           <div className="mt-3 p-3 bg-amber-50/50 border border-amber-200 rounded-xl">
             <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
-              <Shield size={14} /> Extra Items (Caps, Delivery, etc.)
+              <Shield size={14} /> Extra Items (Caps, Delivery, Custom Charges)
             </h4>
 
             <div className="flex flex-wrap gap-2">
@@ -764,7 +1043,7 @@ export default function LogCounterSaleForm({
                 <div className="flex-1 min-w-0 pr-2">
                   <span className="font-semibold text-slate-800 block truncate text-xs">{item.name}</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    {item.isExtra ? (
+                    {item.isExtra || item.isRefill || item.isCustomWater ? (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -859,12 +1138,12 @@ export default function LogCounterSaleForm({
               <select
                 className="select-base text-xs font-medium"
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                onChange={(e) => handleCustomerChange(e.target.value)}
               >
                 <option value="">-- Walk-In Customer (Must Pay in Full) --</option>
                 {customers.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({c.phone}) — Debt: Rs {Number(c.currentBalance || 0).toLocaleString()} {Number(c.deposit || 0) > 0 ? `• Dep: Rs ${Number(c.deposit).toLocaleString()}` : ''}
+                    {c.name} ({c.phone}) — Debt: Rs {Number(c.currentBalance || 0).toLocaleString()} {Number(c.defaultPrice || 0) > 0 ? `• Custom Rate: Rs ${Number(c.defaultPrice)}` : ''} {Number(c.deposit || 0) > 0 ? `• Dep: Rs ${Number(c.deposit).toLocaleString()}` : ''}
                   </option>
                 ))}
               </select>

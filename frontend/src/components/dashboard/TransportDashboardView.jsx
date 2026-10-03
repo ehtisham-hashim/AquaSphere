@@ -6,18 +6,23 @@ import {
   Calendar, 
   CheckCircle2, 
   RefreshCw, 
-  ArrowRight,
-  TrendingUp,
-  Receipt
+  ArrowRight, 
+  TrendingUp, 
+  Receipt,
+  Truck,
+  RotateCcw,
+  Clock,
+  PackageCheck
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 
-// ponytail: lean TM dashboard - fleet metrics, fuel/maintenance, vehicle status
+// ponytail: lean TM dashboard - fleet metrics, fuel/maintenance, vehicle status & delivery queue
 export default function TransportDashboardView() {
   const { tenant, isWadaana } = useTenant();
   const [vehicles, setVehicles] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -26,23 +31,51 @@ export default function TransportDashboardView() {
     else setLoading(true);
 
     try {
-      const [vehRes, expRes] = await Promise.all([
+      const [vehRes, expRes, ordRes] = await Promise.all([
         fetch(`${API_URL}/vehicles`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }),
-        fetch(`${API_URL}/expenses?limit=50`, {
+        fetch(`${API_URL}/transport-expenses?limit=100`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
-        })
+        }).catch(() => null),
+        fetch(`${API_URL}/orders?limit=50`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        }).catch(() => null)
       ]);
 
-      const [vehJson, expJson] = await Promise.all([vehRes.json(), expRes.json()]);
+      const [vehJson, expJson, ordJson] = await Promise.all([
+        vehRes ? vehRes.json().catch(() => ({})) : {},
+        expRes ? expRes.json().catch(() => ({})) : {},
+        ordRes ? ordRes.json().catch(() => ({})) : {}
+      ]);
 
       if (vehJson.success) setVehicles(vehJson.data || []);
-      if (expJson.success) {
-        const raw = expJson.data?.expenses || expJson.data || [];
-        setExpenses(Array.isArray(raw) ? raw : []);
+      
+      let expList = [];
+      if (expJson.success && Array.isArray(expJson.data)) {
+        expList = expJson.data;
+      }
+      // If transport expenses empty, fallback to general expenses
+      if (expList.length === 0) {
+        try {
+          const genRes = await fetch(`${API_URL}/expenses?limit=50`, {
+            headers: { 'x-tenant': tenant },
+            credentials: 'include'
+          });
+          const genJson = await genRes.json();
+          if (genJson.success) {
+            const raw = genJson.data?.expenses || genJson.data || [];
+            expList = Array.isArray(raw) ? raw : [];
+          }
+        } catch (_) {}
+      }
+      setExpenses(expList);
+
+      if (ordJson.success) {
+        setOrders(ordJson.data || []);
       }
     } catch (err) {
       console.error('Failed to load transport dashboard data:', err);
@@ -70,7 +103,7 @@ export default function TransportDashboardView() {
   const todayVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => {
-        const d = new Date(e.createdAt || e.date);
+        const d = new Date(e.date || e.createdAt);
         return d.toISOString().slice(0, 10) === todayStr;
       })
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
@@ -79,16 +112,42 @@ export default function TransportDashboardView() {
   const monthVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => {
-        const d = new Date(e.createdAt || e.date);
+        const d = new Date(e.date || e.createdAt);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       })
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
   }, [expenses, currentMonth, currentYear]);
 
+  // Delivery & Dispatch metrics
+  const pendingDeliveries = useMemo(() => {
+    return orders.filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL');
+  }, [orders]);
+
+  const todayDeliveredCount = useMemo(() => {
+    return orders.filter(o => {
+      if (o.deliveryStatus !== 'DELIVERED') return false;
+      const d = new Date(o.updatedAt || o.createdAt);
+      return d.toISOString().slice(0, 10) === todayStr;
+    }).length;
+  }, [orders, todayStr]);
+
+  const todayBottlesRecovered = useMemo(() => {
+    let count = 0;
+    orders.forEach(o => {
+      (o.deliveries || []).forEach(d => {
+        const delDate = new Date(d.deliveredAt || o.updatedAt);
+        if (delDate.toISOString().slice(0, 10) === todayStr) {
+          count += Number(d.bottlesReturnedGood || 0) + Number(d.bottlesReturnedBroken || 0);
+        }
+      });
+    });
+    return count;
+  }, [orders, todayStr]);
+
   // Filter expenses that have vehicle attached or fuel/repairs
   const recentVehicleExpenses = useMemo(() => {
     return expenses
-      .filter(e => e.vehicle || e.vehicleId || ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'].includes(e.category))
+      .filter(e => e.vehicle || e.vehicleId || ['DAILY', 'REPAIRS', 'OTHER', 'Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Maintenance'].includes(e.type || e.category))
       .slice(0, 6);
   }, [expenses]);
 
@@ -142,21 +201,21 @@ export default function TransportDashboardView() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {/* Total Fleet */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Fleet</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Car size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Fleet</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Car size={15} />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <div className="text-2xl font-black text-slate-800 font-mono">{totalVehicles}</div>
-            <div className="text-xs font-semibold text-slate-500 mt-1 flex items-center gap-1">
+            <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
               <span className="text-emerald-600 font-bold">{activeVehicles.length} active</span>
               <span>•</span>
-              <span className="text-slate-400">{totalVehicles - activeVehicles.length} inactive</span>
+              <span className="text-slate-400">{totalVehicles - activeVehicles.length} off</span>
             </div>
           </div>
         </div>
@@ -164,15 +223,47 @@ export default function TransportDashboardView() {
         {/* Operational Rate */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Operational Rate</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fleet Ready</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 size={15} />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <div className="text-2xl font-black text-emerald-600 font-mono">{operationalRate}%</div>
-            <div className="text-xs font-semibold text-slate-500 mt-1">
-              {activeVehicles.length} of {totalVehicles} vehicles road-ready
+            <div className="text-[11px] font-semibold text-slate-500 mt-1">
+              {activeVehicles.length} road-ready vehicles
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Dispatches */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Orders</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock size={15} />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <div className="text-2xl font-black text-amber-600 font-mono">{pendingDeliveries.length}</div>
+            <div className="text-[11px] font-semibold text-slate-500 mt-1">
+              Awaiting transit delivery
+            </div>
+          </div>
+        </div>
+
+        {/* Today's Bottle Recoveries */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bottles Returned</span>
+            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+              <RotateCcw size={15} />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <div className="text-2xl font-black text-teal-600 font-mono">{todayBottlesRecovered}</div>
+            <div className="text-[11px] font-semibold text-slate-500 mt-1">
+              Recovered from routes today
             </div>
           </div>
         </div>
@@ -180,18 +271,18 @@ export default function TransportDashboardView() {
         {/* Today's Vehicle Expenses */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Today's Expenses</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Fuel size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Today Fuel/Repairs</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Fuel size={15} />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-slate-800 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-black text-slate-800 font-mono">
               Rs. {Math.round(todayVehicleExpenses).toLocaleString()}
             </div>
-            <div className="text-xs font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <Calendar size={12} className="text-slate-400" />
-              <span>Fuel & maintenance today</span>
+            <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
+              <Calendar size={11} className="text-slate-400" />
+              <span>Fleet logs today</span>
             </div>
           </div>
         </div>
@@ -199,17 +290,17 @@ export default function TransportDashboardView() {
         {/* Month's Transport Spend */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Month Spend</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <TrendingUp size={16} />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Month Spend</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <TrendingUp size={15} />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-slate-800 font-mono">
+          <div className="mt-2.5">
+            <div className="text-xl font-black text-slate-800 font-mono">
               Rs. {Math.round(monthVehicleExpenses).toLocaleString()}
             </div>
-            <div className="text-xs font-semibold text-slate-500 mt-1">
-              MTD fleet operations total
+            <div className="text-[11px] font-semibold text-slate-500 mt-1">
+              MTD fleet operations
             </div>
           </div>
         </div>
@@ -217,129 +308,238 @@ export default function TransportDashboardView() {
 
       {/* Main Section: Fleet Status & Recent Expenses */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Vehicles Grid / Overview (2 Columns) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Fleet Status Overview</h2>
-              <p className="text-xs text-slate-500">Live operational status across all vehicles</p>
+        {/* Left Column: Fleet Status & Pending Delivery Dispatches (2 Columns) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Fleet Status Overview */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Fleet Status Overview</h2>
+                <p className="text-xs text-slate-500">Live operational status across all delivery vehicles</p>
+              </div>
+              <Link
+                to="/transport"
+                className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
+              >
+                View All Fleet <ArrowRight size={12} />
+              </Link>
             </div>
-            <Link
-              to="/transport"
-              className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
-            >
-              View All Fleet <ArrowRight size={12} />
-            </Link>
+
+            <div className="p-4">
+              {vehicles.length === 0 ? (
+                <div className="text-center py-10 text-slate-400">
+                  <Car size={32} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-sm font-semibold">No vehicles registered yet</p>
+                  <Link to="/transport" className="text-xs text-brand-primary underline mt-1 inline-block">
+                    Add vehicle in Transport
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {vehicles.map(v => (
+                    <div 
+                      key={v.id} 
+                      className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 transition-all flex items-start justify-between"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${v.isActive ? 'bg-blue-50 text-brand-primary' : 'bg-slate-100 text-slate-400'}`}>
+                          <Car size={18} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 text-sm">{v.name}</div>
+                          <div className="font-mono text-xs font-semibold text-slate-500 mt-0.5">{v.plateNumber}</div>
+                          {v.model && (
+                            <div className="text-[11px] text-slate-400 mt-0.5">{v.model}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        v.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                        {v.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="p-4 flex-1">
-            {vehicles.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <Car size={32} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm font-semibold">No vehicles registered yet</p>
-                <Link to="/transport" className="text-xs text-brand-primary underline mt-1 inline-block">
-                  Add vehicle in Transport
-                </Link>
+          {/* Pending Delivery Dispatches Queue */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-800">Pending Delivery Orders</h2>
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-black rounded-full">
+                    {pendingDeliveries.length} Pending
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">Orders awaiting route dispatch & delivery execution</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {vehicles.map(v => (
-                  <div 
-                    key={v.id} 
-                    className="p-3.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 transition-all flex items-start justify-between"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${v.isActive ? 'bg-blue-50 text-brand-primary' : 'bg-slate-100 text-slate-400'}`}>
-                        <Car size={18} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-800 text-sm">{v.name}</div>
-                        <div className="font-mono text-xs font-semibold text-slate-500 mt-0.5">{v.plateNumber}</div>
-                        {v.model && (
-                          <div className="text-[11px] text-slate-400 mt-0.5">{v.model}</div>
-                        )}
-                      </div>
-                    </div>
+              <Link
+                to="/orders"
+                className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
+              >
+                Go to Orders <ArrowRight size={12} />
+              </Link>
+            </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      v.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>
-                      {v.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="p-4">
+              {pendingDeliveries.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <PackageCheck size={32} className="mx-auto mb-2 text-emerald-500 opacity-60" />
+                  <p className="text-sm font-semibold text-slate-700">All dispatches up to date!</p>
+                  <p className="text-xs text-slate-400 mt-0.5">No pending customer delivery orders.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {pendingDeliveries.slice(0, 5).map(o => (
+                    <div
+                      key={o.id}
+                      className="p-3 rounded-lg border border-slate-100 bg-slate-50/60 hover:bg-slate-50 flex items-center justify-between transition-colors"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-800">
+                            {o.customer?.name || 'Customer'}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                            {o.deliveryStatus}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[280px]">
+                          {o.customer?.address || 'No delivery address recorded'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                          <span>Items: {(o.items || []).reduce((sum, it) => sum + (it.quantity || 0), 0)} bottles</span>
+                          <span>•</span>
+                          <span>{new Date(o.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <Link
+                        to="/orders"
+                        className="px-2.5 py-1 text-xs font-bold text-brand-primary bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                      >
+                        Dispatch
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Recent Vehicle Expenses (1 Column) */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Recent Vehicle Expenses</h2>
-              <p className="text-xs text-slate-500">Latest transport & fuel logs</p>
+        {/* Right Column: Recent Vehicle Expenses & Quick Links (1 Column) */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-2.5">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Actions</h2>
+            <div className="grid grid-cols-1 gap-2">
+              <Link
+                to="/transport-expenses"
+                className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary/40 hover:bg-brand-primary/5 transition-all text-xs font-bold text-slate-700"
+              >
+                <div className="flex items-center gap-2">
+                  <Fuel size={14} className="text-amber-500" />
+                  <span>Log Vehicle / Fuel Expense</span>
+                </div>
+                <ArrowRight size={13} className="text-slate-400" />
+              </Link>
+              <Link
+                to="/transport"
+                className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary/40 hover:bg-brand-primary/5 transition-all text-xs font-bold text-slate-700"
+              >
+                <div className="flex items-center gap-2">
+                  <Car size={14} className="text-blue-500" />
+                  <span>Fleet Vehicle Management</span>
+                </div>
+                <ArrowRight size={13} className="text-slate-400" />
+              </Link>
+              <Link
+                to="/orders"
+                className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary/40 hover:bg-brand-primary/5 transition-all text-xs font-bold text-slate-700"
+              >
+                <div className="flex items-center gap-2">
+                  <Truck size={14} className="text-emerald-500" />
+                  <span>Dispatch & Delivery Routes</span>
+                </div>
+                <ArrowRight size={13} className="text-slate-400" />
+              </Link>
             </div>
-            <Link
-              to="/transport"
-              className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
-            >
-              All Logs <ArrowRight size={12} />
-            </Link>
           </div>
 
-          <div className="p-4 flex-1">
-            {recentVehicleExpenses.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <Receipt size={32} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm font-semibold">No recent vehicle expenses</p>
+          {/* Recent Vehicle Expenses */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Recent Vehicle Expenses</h2>
+                <p className="text-xs text-slate-500">Latest transport & fuel logs</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {recentVehicleExpenses.map(ex => (
-                  <div 
-                    key={ex.id}
-                    className="p-3 rounded-lg border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-800">
-                          {ex.vehicle?.name || ex.vehicle?.plateNumber || ex.category}
-                        </span>
-                        {ex.vehicle?.plateNumber && (
-                          <span className="text-[10px] font-mono text-slate-400">
-                            ({ex.vehicle.plateNumber})
+              <Link
+                to="/transport-expenses"
+                className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
+              >
+                All Logs <ArrowRight size={12} />
+              </Link>
+            </div>
+
+            <div className="p-4 flex-1">
+              {recentVehicleExpenses.length === 0 ? (
+                <div className="text-center py-10 text-slate-400">
+                  <Receipt size={32} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-sm font-semibold">No recent vehicle expenses</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentVehicleExpenses.map(ex => (
+                    <div 
+                      key={ex.id} 
+                      className="p-3 rounded-lg border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-800">
+                            {ex.vehicle?.name || ex.vehicle?.plateNumber || ex.type || ex.category}
                           </span>
+                          {ex.vehicle?.plateNumber && (
+                            <span className="text-[10px] font-mono text-slate-400">
+                              ({ex.vehicle.plateNumber})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[150px]">
+                          {ex.note || ex.remarks || ex.type || ex.category}
+                        </div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Calendar size={10} />
+                          {new Date(ex.date || ex.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-black font-mono text-xs text-brand-primary">
+                          Rs. {Math.round(Number(ex.amount || 0)).toLocaleString()}
+                        </div>
+                        {ex.receiptUrl && (
+                          <a 
+                            href={ex.receiptUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-[10px] font-bold text-blue-600 hover:underline inline-block mt-0.5"
+                          >
+                            Receipt
+                          </a>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-500 truncate max-w-[160px]">
-                        {ex.remarks || ex.category}
-                      </div>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                        <Calendar size={10} />
-                        {new Date(ex.createdAt || ex.date).toLocaleDateString()}
-                      </div>
                     </div>
-
-                    <div className="text-right">
-                      <div className="font-black font-mono text-xs text-brand-primary">
-                        Rs. {Math.round(Number(ex.amount || 0)).toLocaleString()}
-                      </div>
-                      {ex.receiptUrl && (
-                        <a 
-                          href={ex.receiptUrl} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-blue-600 hover:underline inline-block mt-0.5"
-                        >
-                          Receipt
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

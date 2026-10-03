@@ -57,7 +57,8 @@ export default function ProductionDashboardView() {
     pendingBatchesCount = 0,
     recentBatches = [],
     recentPurchases = [],
-    dailyClose = {}
+    dailyClose = {},
+    mineralMetrics = {}
   } = data || {};
 
 
@@ -161,6 +162,7 @@ export default function ProductionDashboardView() {
         dailyClose={dailyClose}
         pendingBatchesCount={pendingBatchesCount}
         isWadaana={isWadaana}
+        mineralMetrics={mineralMetrics}
       />
 
       {/* Main Grid Workspace */}

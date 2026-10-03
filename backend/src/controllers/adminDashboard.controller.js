@@ -31,7 +31,8 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     finishedGoods,
     cashCollected,
     todaysDailyClose,
-    spotSalesCash
+    spotSalesCash,
+    customerReceivablesAgg
   ] = await Promise.all([
     // Today's orders count + list
     prisma[`${prefix}Order`].findMany({
@@ -87,10 +88,15 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     prisma[`${prefix}DailyClose`].findFirst({
       where: { date: { gte: startOfDay, lte: endOfDay } }
     }),
-    // Spot sales cash
+    // Spot sales cash & water litres
     prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true },
+      _sum: { cashCollected: true, totalLitres: true, litresSold: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    }),
+    // Total customer receivables
+    prisma[`${prefix}Customer`].aggregate({
+      _sum: { currentBalance: true },
+      where: { currentBalance: { gt: 0 }, archivedAt: null }
     })
   ]);
 
@@ -166,6 +172,8 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       totalCashCollected: orderPayments + spotCash,
       cashFromOrders: orderPayments,
       cashFromSpotSales: spotCash,
+      todaysWaterDispensedLitres: Number(spotSalesCash._sum.totalLitres || spotSalesCash._sum.litresSold || 0),
+      totalOutstandingReceivables: Number(customerReceivablesAgg._sum.currentBalance || 0),
       dailyCloseStatus: {
         isClosed: Boolean(todaysDailyClose?.adminConfirmed),
         pmConfirmed: Boolean(todaysDailyClose?.pmConfirmed),

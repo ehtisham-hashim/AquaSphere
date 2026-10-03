@@ -37,8 +37,10 @@ export default function Production() {
   const [batchToDelete, setBatchToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (isBackground = false) => {
+    if (!isBackground && batches.length === 0) {
+      setLoading(true);
+    }
     try {
       const [itemsRes, batchesRes] = await Promise.all([
         fetch(`${API}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
@@ -59,9 +61,9 @@ export default function Production() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tenant]);
 
-  useLiveEvent(['PRODUCTION_UPDATED', 'INVENTORY_CHANGED'], fetchData);
+  useLiveEvent(['PRODUCTION_UPDATED', 'INVENTORY_CHANGED'], () => fetchData(true));
 
   const handleLogBatch = async (payload) => {
     setSubmitting(true);
@@ -196,12 +198,23 @@ export default function Production() {
             <span>Production Inventory & Low Stock Alerts ({lowItems.length})</span>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            {lowItems.map(item => (
-              <span key={item.id} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1.5 shadow-xs">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                {item.name}: {Number(item.cachedQty || 0).toLocaleString()} {item.unit || 'pcs'} remaining
-              </span>
-            ))}
+            {lowItems.map(item => {
+              const stock = Number(item.cachedQty || 0);
+              const nameLower = (item.name || '').toLowerCase();
+              const packSize = Number(item.packSize) > 1 
+                ? Number(item.packSize) 
+                : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+              const isPack = !isWadaana && packSize > 1;
+              const fullPacks = Math.floor(stock / packSize);
+              const loose = Math.round(stock % packSize);
+
+              return (
+                <span key={item.id} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1.5 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  {item.name}: {stock.toLocaleString()} bottles {isPack && `(${fullPacks} PETs${loose > 0 ? ` + ${loose} loose` : ''})`} remaining
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

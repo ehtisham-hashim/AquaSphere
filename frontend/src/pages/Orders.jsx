@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
@@ -67,6 +68,7 @@ const orderMatchesDate = (o, filter) => {
 
 export default function Orders() {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
@@ -89,25 +91,34 @@ export default function Orders() {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    const [ordRes, custRes, itmRes] = await Promise.all([
-      fetch(`${API_URL}/orders`, { credentials: 'include' }),
-      fetch(`${API_URL}/customers`, { credentials: 'include' }),
-      fetch(`${API_URL}/items`, { credentials: 'include' })
-    ]);
-    const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
-    if (ord.success) setOrders(ord.data);
-    if (cust.success) setCustomers(cust.data);
-    if (itm.success) setItems(itm.data || []);
-    setIsLoading(false);
-  };
+  const fetchData = useCallback(async (isBackground = false) => {
+    if (!isBackground && orders.length === 0) {
+      setIsLoading(true);
+    }
+    try {
+      const [ordRes, custRes, itmRes] = await Promise.all([
+        fetch(`${API_URL}/orders`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API_URL}/customers`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API_URL}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+      ]);
+      const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
+      if (ord.success) setOrders(ord.data);
+      if (cust.success) setCustomers(cust.data);
+      if (itm.success) setItems(itm.data || []);
+    } catch (err) {
+      console.error('Failed to fetch orders data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenant, orders.length]);
 
-  useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], fetchData);
+  useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], () => fetchData(true));
 
   useEffect(() => { 
     fetchData(); 
-    
+  }, [fetchData]);
+
+  useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();

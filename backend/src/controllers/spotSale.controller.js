@@ -151,6 +151,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
   // Calculate line items and total bill
   let totalBill = new Prisma.Decimal(0);
   let totalLitres = 0;
+  let totalRefillLitres = 0;
   let totalBottles = 0;
   let totalCaps = 0;
   const processedItems = [];
@@ -159,12 +160,14 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     const saleType = String(raw.saleType || (raw.unitType === 'PACK' ? 'PACK' : (raw.unitType === 'BOTTLE' ? 'BOTTLE' : 'FINISHED_GOOD'))).toUpperCase();
     const isPack = saleType === 'PACK';
     const isRefill = saleType === 'WATER_REFILL';
+    const isCustomWater = saleType === 'CUSTOM_WATER';
+    const isWater = isRefill || isCustomWater;
     const isCap = saleType === 'EXTRA_CAP';
     const isExtraCharge = saleType === 'EXTRA_CHARGE';
     const isExtra = isCap || isExtraCharge;
 
     const fgItem = raw.itemId ? dbItemMap.get(raw.itemId) : null;
-    if (!fgItem && !isExtra) {
+    if (!fgItem && !isExtra && !isWater) {
       throw new ApiError(400, `Item "${raw.name || raw.itemId}" is either invalid or not an active finished good.`);
     }
 
@@ -182,17 +185,26 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     totalBill = totalBill.plus(subtotal);
 
     const packMultiplier = (isPack && fgItem) ? Number(fgItem.packSize || 1) : 1;
-    const baseUnitsDeduct = (isRefill || isExtra) ? 0 : (qty * packMultiplier);
+    // Water has no shortage in Pakistan — NEVER deduct finished good bottle/water stock for bulk/custom water or customer refills
+    const baseUnitsDeduct = (isWater || isExtra) ? 0 : (qty * packMultiplier);
 
-    if (!isExtra && !isRefill) {
+    if (!isExtra && !isWater) {
       totalBottles += Math.round(baseUnitsDeduct);
     }
     if (isCap) {
       totalCaps += Math.round(qty);
     }
 
-    // Litres calculation (only for physical finished goods/refills)
-    if (!isExtra && fgItem) {
+    // Litres calculation (tracks physical volume for dispensing & mineral dosing)
+    if (isCustomWater) {
+      const customLitres = raw.litres ? parseFloat(raw.litres) : qty;
+      totalRefillLitres += customLitres;
+      totalLitres += customLitres;
+    } else if (isRefill) {
+      const refillLitres = (raw.litres ? parseFloat(raw.litres) : (qty * 24.0));
+      totalRefillLitres += refillLitres;
+      totalLitres += refillLitres;
+    } else if (!isExtra && fgItem) {
       const nameLower = (fgItem.name || '').toLowerCase();
       let litresPerUnit;
       if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
@@ -204,13 +216,15 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     }
 
     processedItems.push({
-      fgItem,
-      name: raw.name || fgItem?.name || (isCap ? 'Extra Cap' : 'Extra Item'),
+      fgItem: fgItem || (isWater ? dbItems.find(i => (i.name || '').toLowerCase().includes('19') || (i.name || '').toLowerCase().includes('water')) : null),
+      itemId: raw.itemId,
+      name: raw.name || fgItem?.name || (isCustomWater ? `Custom Water (${qty}L)` : (isRefill ? '19L Water Refill (Customer Bottle)' : (isCap ? 'Extra Cap' : 'Extra Item'))),
       saleType,
       quantity: qty,
       baseUnitsDeduct,
       unitPrice,
-      subtotal: Number(subtotal)
+      subtotal: Number(subtotal),
+      litres: isCustomWater ? (raw.litres ? parseFloat(raw.litres) : qty) : (isRefill ? (raw.litres ? parseFloat(raw.litres) : qty * 24.0) : 0)
     });
   }
 
@@ -359,9 +373,58 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       }
     }
 
+    // 1b. Water Refill & Custom Water Mineral Deductions (Calcium, Magnesium, Sodium)
+    if (totalRefillLitres > 0) {
+      const mineralFraction = totalRefillLitres / 15141; // 15,141L capacity per full mineral set
+      const caDeduct = Math.max(0.0001, Math.round((mineralFraction * 2) * 10000) / 10000);
+      const mgDeduct = Math.max(0.0001, Math.round((mineralFraction * 1) * 10000) / 10000);
+      const naDeduct = Math.max(0.0001, Math.round((mineralFraction * 0.5) * 10000) / 10000);
+
+      const [calcium, magnesium, sodium] = await Promise.all([
+        tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'calcium', mode: 'insensitive' }, archivedAt: null }
+        }),
+        tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'magnesium', mode: 'insensitive' }, archivedAt: null }
+        }),
+        tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'sodium', mode: 'insensitive' }, archivedAt: null }
+        })
+      ]);
+
+      const mineralsToDeduct = [
+        { item: calcium, qty: caDeduct, name: 'Calcium' },
+        { item: magnesium, qty: mgDeduct, name: 'Magnesium' },
+        { item: sodium, qty: naDeduct, name: 'Sodium' }
+      ];
+
+      for (const m of mineralsToDeduct) {
+        if (m.item && m.qty > 0) {
+          await tx[`${prefix}Item`].update({
+            where: { id: m.item.id },
+            data: {
+              cachedQty: { decrement: m.qty },
+              factoryQty: { decrement: m.qty }
+            }
+          });
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: m.item.id,
+              quantity: m.qty,
+              direction: 'OUT',
+              reason: 'SPOT_SALE_MINERAL_DOSING',
+              refType: 'SPOT_SALE',
+              refId: saleNumber,
+              location: 'FACTORY'
+            }
+          });
+        }
+      }
+    }
+
     // 2. Summary string for legacy/receipt compatibility
     const summaryProductType = processedItems
-      .map(p => `${p.name || p.fgItem?.name} ${p.saleType === 'PACK' ? '(Pack)' : (p.saleType === 'BOTTLE' ? '(Bottle)' : (p.saleType === 'WATER_REFILL' ? '(Refill)' : ''))} (x${p.quantity})`)
+      .map(p => `${p.name || p.fgItem?.name} ${p.saleType === 'PACK' ? '(Pack)' : (p.saleType === 'BOTTLE' ? '(Bottle)' : (p.saleType === 'WATER_REFILL' ? '(Refill)' : (p.saleType === 'CUSTOM_WATER' ? '(Custom Water)' : '')))} (x${p.quantity})`)
       .join(', ');
     const totalQty = processedItems.reduce((acc, p) => acc + p.quantity, 0);
 
@@ -387,9 +450,16 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       }
     });
 
-    // 4. Create child SpotSaleItem records
+    // 4. Create child SpotSaleItem records (all items persisted)
+    let genericFallbackItem = null;
     for (const p of processedItems) {
-      const targetItemId = p.fgItem?.id || p.itemId;
+      let targetItemId = p.fgItem?.id || p.itemId;
+      if (!targetItemId) {
+        if (!genericFallbackItem) {
+          genericFallbackItem = await tx[`${prefix}Item`].findFirst({ where: { archivedAt: null } });
+        }
+        targetItemId = genericFallbackItem?.id;
+      }
       if (targetItemId) {
         await tx[`${prefix}SpotSaleItem`].create({
           data: {

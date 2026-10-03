@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Wallet, Receipt, ShoppingCart, TrendingUp, Clock, Lock } from 'lucide-react';
+import { CreditCard, Wallet, Receipt, ShoppingCart, TrendingUp, Clock, Lock, Droplets, ShieldCheck } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
@@ -13,6 +13,9 @@ export default function AccountantDashboardView({ data }) {
   const [loadingExpenses, setLoadingExpenses] = useState(true);
 
   const netCash = Number(data?.cash || 0) - Number(data?.expenses || 0);
+  const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
+  const mineralMetrics = data?.mineralMetrics || {};
+  const waterMetrics = data?.waterMetrics || {};
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -70,16 +73,96 @@ export default function AccountantDashboardView({ data }) {
           <TrendingUp size={16} className="text-slate-500" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Financial Summary</h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <ModernKpiCard icon={CreditCard} title="Cash Collected" value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`} subtitle="Cash received today" variant="emerald" />
           <ModernKpiCard icon={Wallet} title="Today's Sales" value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`} subtitle="Total sales revenue" variant="sky" />
-          <ModernKpiCard icon={CreditCard} title="Credit Sales" value={`Rs. ${Number(data?.credit || 0).toLocaleString()}`} subtitle="Billed on credit" variant="amber" />
+          <ModernKpiCard icon={CreditCard} title="Credit Sales" value={`Rs. ${Number(data?.credit || 0).toLocaleString()}`} subtitle="Billed on credit today" variant="amber" />
+          <ModernKpiCard icon={CreditCard} title="Customer Receivables" value={`Rs. ${totalReceivables.toLocaleString()}`} subtitle="All-time unpaid credit" variant="amber" />
           <ModernKpiCard icon={Receipt} title="Expenses Today" value={`Rs. ${Number(data?.expenses || 0).toLocaleString()}`} subtitle="Operating cost logged" variant="rose" />
           <ModernKpiCard icon={Wallet} title="Net Cash" value={`Rs. ${netCash.toLocaleString()}`} subtitle="Cash - Expenses" variant={netCash >= 0 ? "emerald" : "rose"} />
         </div>
       </section>
 
-      {/* 2. Vendor Payables Summary */}
+      {/* 2. Water & Minerals Reconciliation Section */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Droplets size={16} className="text-blue-600" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Water Dispensed & Mineral Reconciliation</h2>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          {/* Water Sales Volume */}
+          <div className="lg:col-span-5 bg-gradient-to-br from-blue-50/80 to-sky-50/80 border border-blue-200/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0 shadow-xs">
+                  <Droplets size={17} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Water Sold Today</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Physical volume dispensed</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                Today
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-2xl font-bold font-mono tracking-tight text-blue-950">
+                {Number(waterMetrics?.dailyLitres || data?.daily?.waterLitres || 0).toLocaleString()} <span className="text-sm font-semibold text-slate-500">Litres</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-600 font-medium pt-1 border-t border-blue-200/60">
+                <span>Refills: <strong className="font-mono text-slate-800">{Number(waterMetrics?.dailyRefillLitres || data?.daily?.refillWaterLitres || 0).toLocaleString()}L</strong></span>
+                <span>•</span>
+                <span>Custom: <strong className="font-mono text-slate-800">{Number(waterMetrics?.dailyCustomLitres || data?.daily?.customWaterLitres || 0).toLocaleString()}L</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Mineral Stock & Capacity */}
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 shrink-0">
+                  <ShieldCheck size={17} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Mineral Dosing & Stock Reconciliation</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Auto-deducted inventory for pure water dosing</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Remaining Dosing Capacity</span>
+                <span className="text-xs font-bold font-mono text-emerald-700">
+                  {Number(mineralMetrics?.mineralCapacityLitres || 0).toLocaleString()} L ({mineralMetrics?.batchesAvailable || 0} batches)
+                </span>
+              </div>
+            </div>
+
+            {/* Mineral Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
+              <div className="bg-slate-50 p-2 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 font-semibold block">Calcium (Ca)</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{Number(mineralMetrics?.calciumStock || 0).toFixed(2)} kg</span>
+              </div>
+              <div className="bg-slate-50 p-2 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 font-semibold block">Magnesium (Mg)</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{Number(mineralMetrics?.magnesiumStock || 0).toFixed(2)} kg</span>
+              </div>
+              <div className="bg-slate-50 p-2 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 font-semibold block">Sodium (Na)</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{Number(mineralMetrics?.sodiumStock || 0).toFixed(2)} kg</span>
+              </div>
+              <div className="bg-slate-50 p-2 rounded-lg text-center">
+                <span className="text-[10px] text-slate-500 font-semibold block">Antiscalant</span>
+                <span className="text-xs font-bold font-mono text-slate-900">{Number(mineralMetrics?.antiscalantStock || 0).toFixed(2)} kg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Vendor Payables Summary */}
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Receipt size={18} className="text-slate-500" />

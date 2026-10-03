@@ -226,6 +226,17 @@ export default function CreateBatchModal({
                 {finishedGoods.map(fg => {
                   const qty = parseInt(quantities[fg.id] || 0, 10);
                   const isProduced = qty > 0;
+                  const nameLower = (fg.name || '').toLowerCase();
+                  const packSize = Number(fg.packSize) > 1 
+                    ? Number(fg.packSize) 
+                    : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+                  const isPackItem = !isWadaana && packSize > 1;
+                  const unitLabel = isPackItem ? 'PETs' : (fg.unit || 'bottle');
+                  const totalProducedBottles = isPackItem ? qty * packSize : qty;
+
+                  const currentStockBottles = Number(fg.cachedQty || 0);
+                  const stockPacks = isPackItem ? Math.floor(currentStockBottles / packSize) : 0;
+                  const stockLoose = isPackItem ? Math.round(currentStockBottles % packSize) : currentStockBottles;
 
                   return (
                     <div
@@ -248,14 +259,17 @@ export default function CreateBatchModal({
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                                 isWadaana ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800'
                               }`}>
-                                <CheckCircle2 size={11} /> {qty.toLocaleString()} {fg.unit}
+                                <CheckCircle2 size={11} /> {qty.toLocaleString()} {unitLabel} {isPackItem && `(${totalProducedBottles.toLocaleString()} btl)`}
                               </span>
                             )}
                           </div>
                           
                           <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
                             <span>
-                              Current Stock: <strong className="font-mono text-slate-700">{Number(fg.cachedQty || 0).toLocaleString()} {fg.unit}</strong>
+                              Current Stock:{' '}
+                              <strong className="font-mono text-slate-700">
+                                {currentStockBottles.toLocaleString()} bottles {isPackItem && `(${stockPacks} PETs${stockLoose > 0 ? ` + ${stockLoose} loose` : ''})`}
+                              </strong>
                             </span>
                             <span className="text-slate-300">•</span>
                             <span className="text-[11px] text-slate-400">
@@ -265,8 +279,8 @@ export default function CreateBatchModal({
                         </div>
 
                         {/* Direct Quantity Input */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="relative w-36">
+                        <div className="flex flex-col items-end shrink-0">
+                          <div className="relative w-40">
                             <input
                               type="text"
                               inputMode="numeric"
@@ -279,10 +293,15 @@ export default function CreateBatchModal({
                                   : 'border-slate-200 focus:border-slate-400'
                               }`}
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 uppercase pointer-events-none truncate max-w-[40px]">
-                              {fg.unit}
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 uppercase pointer-events-none truncate max-w-[45px]">
+                              {unitLabel}
                             </span>
                           </div>
+                          {isPackItem && qty > 0 && (
+                            <span className="text-[11px] font-bold text-emerald-700 mt-1">
+                              = {totalProducedBottles.toLocaleString()} bottles ({packSize} btl/PET)
+                            </span>
+                          )}
                         </div>
 
                       </div>

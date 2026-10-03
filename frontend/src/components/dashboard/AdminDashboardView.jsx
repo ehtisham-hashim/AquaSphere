@@ -10,7 +10,8 @@ import {
   RefreshCw,
   AlertTriangle, 
   UserX, 
-  CreditCard 
+  CreditCard,
+  Droplets
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL as API } from '../../utils/api';
@@ -91,7 +92,7 @@ export default function AdminDashboardView() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <ModernKpiCard
           icon={Truck}
           title="Today's Orders"
@@ -106,6 +107,14 @@ export default function AdminDashboardView() {
           value={isWadaana ? `${kpis.totalProductionYield || 0} units` : `${kpis.packs05LProduced || 0} / ${kpis.packs15LProduced || 0}`}
           subtitle={`${kpis.productionWaste || 0} units waste`}
           variant="brand"
+        />
+
+        <ModernKpiCard
+          icon={Droplets}
+          title="Water Dispensed"
+          value={`${Number(kpis.todaysWaterDispensedLitres || 0).toLocaleString()} L`}
+          subtitle="Total volume today"
+          variant="sky"
         />
 
         <ModernKpiCard
@@ -125,11 +134,11 @@ export default function AdminDashboardView() {
         />
 
         <ModernKpiCard
-          icon={ShieldAlert}
-          title="Active Alerts"
-          value={alerts?.totalAlerts || 0}
-          subtitle={`${alerts?.creditBreaches?.length || 0} Credit / ${alerts?.inactiveCustomers?.length || 0} Inactive`}
-          variant={(alerts?.totalAlerts || 0) > 0 ? 'amber' : 'neutral'}
+          icon={CreditCard}
+          title="Receivables"
+          value={`Rs. ${(kpis.totalOutstandingReceivables || 0).toLocaleString()}`}
+          subtitle="Unpaid customer balance"
+          variant="amber"
         />
       </div>
 

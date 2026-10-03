@@ -30,6 +30,7 @@ import adminDashboardRoutes from './routes/adminDashboard.routes.js';
 import vehicleRoutes from './routes/vehicle.routes.js';
 import transportExpenseRoutes from './routes/transportExpense.routes.js';
 import eventRoutes from './routes/events.routes.js';
+import landingPageRoutes from './routes/landingPage.routes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -44,7 +45,7 @@ app.set('trust proxy', 1);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 3000, // 3000 requests per 15 min allows fast operational navigation without false throttling
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -59,7 +60,14 @@ if (process.env.NODE_ENV === 'production') {
 app.use(helmet({
   contentSecurityPolicy: false // Allow Swagger UI inline scripts/styles
 }));
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers.accept === 'text/event-stream') {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 const configuredOrigins = (process.env.FRONTEND_URL || '')
   .split(',')
@@ -121,6 +129,8 @@ app.use('/api/v1/vehicles', vehicleRoutes);
 app.use('/api/v1/transport-expenses', transportExpenseRoutes);
 app.use('/api/v1/events', eventRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/v1/landing-page', landingPageRoutes);
+app.use('/api/landing-page', landingPageRoutes);
 
 // Health check endpoint
 app.get('/', (_req, res) => {

@@ -48,7 +48,7 @@ export const login = asyncHandler(async (req, res) => {
     const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
 
     // Send 2FA email via ZeptoMail
-    sendOwner2FAEmail({ to: recipients, otp, tenant: prefix });
+    sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
     console.log(`[2FA OTP] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
 
@@ -202,7 +202,7 @@ export const resendOwnerOtp = asyncHandler(async (req, res) => {
   const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
 
   // Send 2FA email via ZeptoMail
-  sendOwner2FAEmail({ to: recipients, otp, tenant: prefix });
+  sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
   console.log(`[2FA OTP Resend] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
 

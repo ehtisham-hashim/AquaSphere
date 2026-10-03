@@ -7,6 +7,8 @@ import { SSEProvider } from './context/SSEContext';
 import MainLayout from './components/layout/MainLayout';
 import { RouteErrorBoundary } from './components/common/RouteErrorBoundary';
 
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const WebsiteAdmin = lazy(() => import('./pages/WebsiteAdmin'));
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Vendors = lazy(() => import('./pages/Vendors'));
@@ -49,7 +51,7 @@ function RoleProtectedRoute({ path, children }) {
   if (!user) return <Navigate to="/login" replace />;
 
   if (!isPageAllowedForRole(user?.role, path, currentTenant)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -58,7 +60,7 @@ function RoleProtectedRoute({ path, children }) {
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -66,6 +68,22 @@ function AppRoutes() {
   return (
     <RouteErrorBoundary>
       <Routes>
+        <Route
+          path="/"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <LandingPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/website-admin"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <WebsiteAdmin />
+            </Suspense>
+          }
+        />
         <Route
           path="/login"
           element={
@@ -77,7 +95,7 @@ function AppRoutes() {
           }
         />
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="vendors" element={<RoleProtectedRoute path="/vendors"><Vendors /></RoleProtectedRoute>} />
           <Route path="purchases" element={<RoleProtectedRoute path="/purchases"><Purchases /></RoleProtectedRoute>} />
           <Route path="raw-materials" element={<RoleProtectedRoute path="/raw-materials"><RawMaterials /></RoleProtectedRoute>} />

@@ -15,7 +15,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
   const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
-  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles] = await Promise.all([
+  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles, customerReceivablesAgg] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: { 
         createdAt: { gte: minDate, lte: endOfDay },
@@ -51,7 +51,16 @@ const computeDashboardAnalytics = async (prefix) => {
     }),
     prisma[`${prefix}SpotSale`].findMany({
       where: { createdAt: { gte: minDate, lte: endOfDay } },
-      select: { createdAt: true, cashCollected: true, creditAmount: true }
+      select: {
+        createdAt: true,
+        cashCollected: true,
+        creditAmount: true,
+        litresSold: true,
+        totalLitres: true,
+        items: {
+          select: { saleType: true, quantity: true }
+        }
+      }
     }),
     prisma[`${prefix}VendorLedgerEntry`].groupBy({
       by: ['type'],
@@ -77,21 +86,25 @@ const computeDashboardAnalytics = async (prefix) => {
           select: { createdAt: true }
         }
       }
+    }),
+    prisma[`${prefix}Customer`].aggregate({
+      _sum: { currentBalance: true },
+      where: { currentBalance: { gt: 0 }, archivedAt: null }
     })
   ]);
 
   const dayMap = Object.create(null);
   const monthMap = Object.create(null);
 
-  const daily = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
-  const monthly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
-  const yearly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0 };
+  const daily = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
+  const monthly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
+  const yearly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
 
   const getDKey = (d) => d.toISOString().split('T')[0];
   const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 });
-  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0 });
+  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0, waterLitres: 0 });
+  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0, waterLitres: 0 });
 
   for (const o of orders) {
     const d = new Date(o.createdAt);
@@ -99,11 +112,23 @@ const computeDashboardAnalytics = async (prefix) => {
     const isDelivered = o.deliveryStatus === 'DELIVERED';
     const isUnprocessed = o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL';
 
+    let orderLitres = 0;
+    for (const it of o.items || []) {
+      const n = (it.item?.name || '').toLowerCase();
+      const q = parseFloat(it.quantity || 0);
+      if (n.includes('0.5') || n.includes('500')) orderLitres += q * 9.0;
+      else if (n.includes('1.5') || n.includes('1500')) orderLitres += q * 12.0;
+      else if (n.includes('19')) orderLitres += q * 24.0;
+      else orderLitres += q;
+    }
+
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.sales += total;
     day.ordersCount += 1;
+    day.waterLitres = (day.waterLitres || 0) + orderLitres;
     month.sales += total;
+    month.waterLitres = (month.waterLitres || 0) + orderLitres;
 
     if (isDelivered) {
       day.deliveredSales += total;
@@ -119,6 +144,8 @@ const computeDashboardAnalytics = async (prefix) => {
     if (d >= startOfDay) { 
       daily.sales += total; 
       daily.bottlesSold += 1; 
+      daily.waterLitres += orderLitres;
+      daily.bottledWaterLitres += orderLitres;
       if (isDelivered) daily.deliveredSales += total;
       if (isUnprocessed) {
         daily.unprocessedSales += total;
@@ -128,6 +155,8 @@ const computeDashboardAnalytics = async (prefix) => {
     if (d >= startOfMonth) { 
       monthly.sales += total; 
       monthly.bottlesSold += 1; 
+      monthly.waterLitres += orderLitres;
+      monthly.bottledWaterLitres += orderLitres;
       if (isDelivered) monthly.deliveredSales += total;
       if (isUnprocessed) {
         monthly.unprocessedSales += total;
@@ -137,6 +166,8 @@ const computeDashboardAnalytics = async (prefix) => {
     if (d >= startOfYear) { 
       yearly.sales += total; 
       yearly.bottlesSold += 1; 
+      yearly.waterLitres += orderLitres;
+      yearly.bottledWaterLitres += orderLitres;
       if (isDelivered) yearly.deliveredSales += total;
       if (isUnprocessed) {
         yearly.unprocessedSales += total;
@@ -163,16 +194,47 @@ const computeDashboardAnalytics = async (prefix) => {
     const d = new Date(st.createdAt);
     const cashAmt = parseFloat(st.cashCollected || 0);
     const creditAmt = parseFloat(st.creditAmount || 0);
+    const totalLit = parseFloat(st.totalLitres || st.litresSold || 0);
+    let customLit = 0;
+    let refillLit = 0;
+    for (const it of st.items || []) {
+      if (it.saleType === 'CUSTOM_WATER') {
+        customLit += parseFloat(it.quantity || 0);
+      } else if (it.saleType === 'WATER_REFILL') {
+        refillLit += parseFloat(it.quantity || 0) * 24.0;
+      }
+    }
+
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.spotSalesCash += cashAmt;
     day.cashCollected += cashAmt;
     day.creditBilled += creditAmt;
+    day.waterLitres = (day.waterLitres || 0) + totalLit;
     month.spotSalesCash += cashAmt;
     month.cash += cashAmt;
-    if (d >= startOfDay) { daily.cash += cashAmt; daily.credit += creditAmt; }
-    if (d >= startOfMonth) { monthly.cash += cashAmt; monthly.credit += creditAmt; }
-    if (d >= startOfYear) { yearly.cash += cashAmt; yearly.credit += creditAmt; }
+    month.waterLitres = (month.waterLitres || 0) + totalLit;
+    if (d >= startOfDay) { 
+      daily.cash += cashAmt; 
+      daily.creditBilled += creditAmt; 
+      daily.waterLitres += totalLit;
+      daily.customWaterLitres += customLit;
+      daily.refillWaterLitres += refillLit;
+    }
+    if (d >= startOfMonth) { 
+      monthly.cash += cashAmt; 
+      monthly.creditBilled += creditAmt; 
+      monthly.waterLitres += totalLit;
+      monthly.customWaterLitres += customLit;
+      monthly.refillWaterLitres += refillLit;
+    }
+    if (d >= startOfYear) { 
+      yearly.cash += cashAmt; 
+      yearly.creditBilled += creditAmt; 
+      yearly.waterLitres += totalLit;
+      yearly.customWaterLitres += customLit;
+      yearly.refillWaterLitres += refillLit;
+    }
   }
 
   for (const e of expenses) {
@@ -199,9 +261,9 @@ const computeDashboardAnalytics = async (prefix) => {
     if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; }
   }
 
-  daily.credit = Math.max(0, daily.deliveredSales - daily.cash);
-  monthly.credit = Math.max(0, monthly.deliveredSales - monthly.cash);
-  yearly.credit = Math.max(0, yearly.deliveredSales - yearly.cash);
+  daily.credit = Math.max(0, daily.deliveredSales - (daily.orderCash || 0)) + daily.creditBilled;
+  monthly.credit = Math.max(0, monthly.deliveredSales - (monthly.orderCash || 0)) + monthly.creditBilled;
+  yearly.credit = Math.max(0, yearly.deliveredSales - (yearly.orderCash || 0)) + yearly.creditBilled;
 
   daily.netCash = daily.cash - daily.expenses;
   monthly.netCash = monthly.cash - monthly.expenses;
@@ -280,11 +342,51 @@ const computeDashboardAnalytics = async (prefix) => {
       };
     });
 
+  const totalOutstandingReceivables = Number(customerReceivablesAgg?._sum?.currentBalance || 0);
+
+  const calciumItem = rawMaterials.find(m => (m.name || '').toLowerCase().includes('calcium'));
+  const magnesiumItem = rawMaterials.find(m => (m.name || '').toLowerCase().includes('magnesium'));
+  const sodiumItem = rawMaterials.find(m => (m.name || '').toLowerCase().includes('sodium'));
+  const antiscalantItem = rawMaterials.find(m => (m.name || '').toLowerCase().includes('antiscalant'));
+
+  const caQty = Number(calciumItem?.cachedQty || 0);
+  const mgQty = Number(magnesiumItem?.cachedQty || 0);
+  const naQty = Number(sodiumItem?.cachedQty || 0);
+  const antiQty = Number(antiscalantItem?.cachedQty || 0);
+
+  // 15,141L capacity per full mineral set: Ca: 2kg, Mg: 1kg, Na: 0.5kg
+  const caBatches = caQty / 2;
+  const mgBatches = mgQty / 1;
+  const naBatches = naQty / 0.5;
+  const batchesAvailable = Math.max(0, Math.min(caBatches, mgBatches, naBatches));
+  const mineralCapacityLitres = Math.round(batchesAvailable * 15141);
+
   return {
     ...daily,
     daily,
     monthly,
     yearly,
+    totalReceivables: totalOutstandingReceivables,
+    totalOutstandingReceivables,
+    mineralMetrics: {
+      calciumStock: caQty,
+      magnesiumStock: mgQty,
+      sodiumStock: naQty,
+      antiscalantStock: antiQty,
+      batchesAvailable: Number(batchesAvailable.toFixed(2)),
+      mineralCapacityLitres,
+      isLow: batchesAvailable < 2
+    },
+    waterMetrics: {
+      dailyLitres: daily.waterLitres,
+      dailyCustomLitres: daily.customWaterLitres,
+      dailyRefillLitres: daily.refillWaterLitres,
+      dailyBottledLitres: daily.bottledWaterLitres,
+      monthlyLitres: monthly.waterLitres,
+      monthlyCustomLitres: monthly.customWaterLitres,
+      monthlyRefillLitres: monthly.refillWaterLitres,
+      yearlyLitres: yearly.waterLitres
+    },
     bottleCustody,
     unprocessedOrders,
     dailySalesHistory,
@@ -626,9 +728,25 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(producedBy) ? 'Production Manager' : producedBy;
   };
 
+  const calcium = rawMaterials.find(m => (m.name || '').toLowerCase().includes('calcium'));
+  const magnesium = rawMaterials.find(m => (m.name || '').toLowerCase().includes('magnesium'));
+  const sodium = rawMaterials.find(m => (m.name || '').toLowerCase().includes('sodium'));
+  const caQty = Number(calcium?.cachedQty || 0);
+  const mgQty = Number(magnesium?.cachedQty || 0);
+  const naQty = Number(sodium?.cachedQty || 0);
+  const batchesAvailable = Math.max(0, Math.min(caQty / 2, mgQty / 1, naQty / 0.5));
+  const mineralCapacityLitres = Math.round(batchesAvailable * 15141);
+
   return sendSuccess(res, {
     todaysProduction,
     dailyProductionHistory: dailyHistory,
+    mineralMetrics: {
+      batchesAvailable: Number(batchesAvailable.toFixed(1)),
+      mineralCapacityLitres,
+      calciumStock: caQty,
+      magnesiumStock: mgQty,
+      sodiumStock: naQty
+    },
     finishedGoods: finishedGoods.map(fg => ({
       id: fg.id,
       name: fg.name,

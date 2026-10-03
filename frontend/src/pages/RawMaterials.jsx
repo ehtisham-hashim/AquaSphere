@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
 import { toast } from 'sonner';
 import { useTenant } from '../context/TenantContext';
@@ -22,17 +22,22 @@ export default function RawMaterials() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const hasLoadedRef = useRef(false);
 
-  const fetchMaterials = useCallback(async () => {
-    setIsLoading(true);
+  const fetchMaterials = useCallback(async (isBackground = false) => {
+    if (!isBackground && !hasLoadedRef.current) {
+      setIsLoading(true);
+    }
     try {
       const res = await fetch(`${API}/items?type=RAW_MATERIAL&includeArchived=${includeArchived}`, {
-        headers: { 'x-tenant': tenant },
+        headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
+        cache: 'no-store',
         credentials: 'include'
       });
       const json = await res.json();
       if (json.success || res.ok) {
         setMaterials(json.data || []);
+        hasLoadedRef.current = true;
       } else {
         toast.error(json.message || 'Failed to load raw materials');
       }
@@ -48,7 +53,7 @@ export default function RawMaterials() {
     fetchMaterials();
   }, [fetchMaterials]);
 
-  useLiveEvent(['INVENTORY_CHANGED', 'PURCHASE_CREATED', 'PRODUCTION_UPDATED'], fetchMaterials);
+  useLiveEvent(['INVENTORY_CHANGED', 'PURCHASE_CREATED', 'PRODUCTION_UPDATED', 'COUNTER_SALE_CREATED'], () => fetchMaterials(true));
 
   const handleOpenAdd = () => {
     if (!canEditMaterial) {

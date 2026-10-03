@@ -63,12 +63,29 @@ function getBatchProducts(b, isWadaana) {
     try {
       const parsed = JSON.parse(b.remarks);
       if (Array.isArray(parsed.producedItems) && parsed.producedItems.length > 0) {
-        const colors = ['cyan', 'sky', 'emerald', 'purple', 'amber', 'orange', 'blue'];
-        return parsed.producedItems.map((p, idx) => ({
-          name: p.name,
-          qty: `+${p.quantity?.toLocaleString()} ${p.unit || 'units'}`,
-          color: colors[idx % colors.length]
-        }));
+        const colors = ['emerald', 'purple', 'blue', 'cyan', 'sky', 'amber', 'orange'];
+        return parsed.producedItems.map((p, idx) => {
+          const nameLower = (p.name || '').toLowerCase();
+          const packSize = Number(p.packSize) > 1 
+            ? Number(p.packSize) 
+            : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+          const isPet = !isWadaana && (packSize > 1 || p.unit?.toLowerCase() === 'pets' || p.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
+
+          let qtyLabel;
+          if (isPet) {
+            const pets = Number(p.quantity) || 0;
+            const totalBottles = p.totalBottles || (pets * packSize);
+            qtyLabel = `+${pets.toLocaleString()} PETs (${totalBottles.toLocaleString()} btl)`;
+          } else {
+            qtyLabel = `+${Number(p.quantity).toLocaleString()} ${p.unit || 'bottles'}`;
+          }
+
+          return {
+            name: p.name,
+            qty: qtyLabel,
+            color: colors[idx % colors.length]
+          };
+        });
       }
     } catch (_err) {
       // Ignore invalid JSON
@@ -94,10 +111,10 @@ function getBatchProducts(b, isWadaana) {
     return list;
   }
 
-  // AquaSphere standard
+  // AquaSphere standard fallback
   const list = [];
-  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `+${b.packs05L.toLocaleString()} packs (${(b.packs05L * 12).toLocaleString()} PETs)`, color: 'emerald' });
-  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `+${b.packs15L.toLocaleString()} packs (${(b.packs15L * 6).toLocaleString()} PETs)`, color: 'purple' });
+  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `+${b.packs05L.toLocaleString()} PETs (${(b.packs05L * 12).toLocaleString()} btl)`, color: 'emerald' });
+  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `+${b.packs15L.toLocaleString()} PETs (${(b.packs15L * 6).toLocaleString()} btl)`, color: 'purple' });
   if (b.quantity > 0) list.push({ name: '19L Refill', qty: `+${b.quantity.toLocaleString()} bottles`, color: 'blue' });
   return list;
 }
@@ -107,6 +124,41 @@ function getTotalOutputText(b, isWadaana) {
     try {
       const parsed = JSON.parse(b.remarks);
       if (Array.isArray(parsed.producedItems) && parsed.producedItems.length > 0) {
+        if (!isWadaana) {
+          let totalPets = 0;
+          let totalBottles = 0;
+          let hasPets = false;
+          let hasBottlesOnly = false;
+
+          for (const p of parsed.producedItems) {
+            const nameLower = (p.name || '').toLowerCase();
+            const packSize = Number(p.packSize) > 1 
+              ? Number(p.packSize) 
+              : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+            const isPet = packSize > 1 || p.unit?.toLowerCase() === 'pets' || p.unit?.toLowerCase() === 'packs' || nameLower.includes('pet');
+
+            if (isPet) {
+              hasPets = true;
+              const pets = Number(p.quantity) || 0;
+              totalPets += pets;
+              totalBottles += (p.totalBottles || (pets * packSize));
+            } else {
+              hasBottlesOnly = true;
+              const bottles = Number(p.quantity) || 0;
+              totalBottles += bottles;
+            }
+          }
+
+          if (hasPets && hasBottlesOnly) {
+            return `${totalPets.toLocaleString()} PETs + ${totalBottles.toLocaleString()} Total Bottles`;
+          }
+          if (hasPets) {
+            return `${totalPets.toLocaleString()} PETs (${totalBottles.toLocaleString()} Bottles)`;
+          }
+          return `${totalBottles.toLocaleString()} Bottles`;
+        }
+
+        // Wadaana
         if (parsed.producedItems.length === 1) {
           return `${parsed.producedItems[0].quantity?.toLocaleString()} ${parsed.producedItems[0].unit || 'Units'}`;
         }
@@ -132,9 +184,10 @@ function getTotalOutputText(b, isWadaana) {
   const p05 = b.packs05L || 0;
   const p15 = b.packs15L || 0;
   const qty = b.quantity || 0;
-  const packs = p05 + p15;
-  if (packs > 0 && qty > 0) return `${packs.toLocaleString()} Packs + ${qty.toLocaleString()} Bottles`;
-  if (packs > 0) return `${packs.toLocaleString()} Packs`;
+  const pets = p05 + p15;
+  const totalBottles = (p05 * 12) + (p15 * 6) + qty;
+  if (pets > 0 && qty > 0) return `${pets.toLocaleString()} PETs + ${qty.toLocaleString()} Bottles (${totalBottles.toLocaleString()} Total Bottles)`;
+  if (pets > 0) return `${pets.toLocaleString()} PETs (${totalBottles.toLocaleString()} Bottles)`;
   return `${qty.toLocaleString()} Bottles`;
 }
 

@@ -113,6 +113,12 @@ html {
   }
 }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
