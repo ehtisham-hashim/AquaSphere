@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import LogoLoop from '../components/ui/LogoLoop';
 import { 
   Phone, 
   Clock, 
@@ -455,21 +456,33 @@ export default function LandingPage() {
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-3">Bottle Design Showcase</h2>
           <p className="text-slate-500 text-sm max-w-xl mx-auto mt-3">Precision-engineered molds and lightweight ergonomic grips manufactured at highest hygienic standards.</p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-12">
-            {BOTTLE_GALLERY.map((b) => (
-              <div key={b.id} className="bg-sky-50/40 rounded-xl p-4 border border-sky-100 hover:border-cyan-400 hover:bg-white transition-all flex flex-col items-center shadow-sm">
-                <div className="h-44 w-full flex items-center justify-center">
-                  <img 
-                    src={optImg(b.url, 250)} 
-                    alt={`Bottle Design ${b.id}`} 
-                    className="max-h-full max-w-full object-contain hover:scale-110 transition-transform duration-300"
-                    loading="lazy"
-                    decoding="async"
-                  />
+          <div className="mt-12 -mx-4 sm:-mx-6">
+            <LogoLoop
+              logos={BOTTLE_GALLERY}
+              speed={60}
+              direction="left"
+              logoHeight={16}
+              gap={20}
+              hoverSpeed={0}
+              fadeOut
+              fadeOutColor="#ffffff"
+              ariaLabel="Bottle design showcase"
+              renderItem={(b) => (
+                <div className="logoloop-card w-44 sm:w-52 bg-sky-50/40 rounded-xl p-4 border border-sky-100 hover:border-cyan-400 hover:bg-white transition-all flex flex-col items-center shadow-sm my-2">
+                  <div className="h-44 w-full flex items-center justify-center">
+                    <img
+                      src={optImg(b.url, 250)}
+                      alt={`Bottle Design ${b.id}`}
+                      className="object-contain hover:scale-110 transition-transform duration-300"
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-slate-600 mt-2">Design #{b.id}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-600 mt-2">Design #{b.id}</span>
-              </div>
-            ))}
+              )}
+            />
           </div>
         </div>
       </section>
