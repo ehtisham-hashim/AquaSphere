@@ -255,6 +255,7 @@ export const ROLE_ACCESS = {
 
 export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
   if (!role || !path) return false;
+  if (path === '/dashboard') path = SIDEBAR_ROUTES.DASHBOARD;
   const tenantKey = String(tenant).toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
   const tenantAccess = ROLE_ACCESS[tenantKey] || ROLE_ACCESS.aquasphere;
   const roleRules = tenantAccess[role];
