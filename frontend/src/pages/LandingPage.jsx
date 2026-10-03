@@ -167,7 +167,7 @@ export default function LandingPage() {
             <img 
               src={optImg(settings.logo_url, 400)} 
               alt={settings.site_name} 
-              className="h-16 sm:h-20 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-20 sm:h-[88px] w-auto object-contain scale-125 origin-left transition-transform group-hover:scale-[1.3]"
               loading="eager"
             />
           </a>
@@ -507,22 +507,22 @@ export default function LandingPage() {
       </section>
 
       {/* 8. FOOTER WITH FULL CONTACT, SMOOTH HOVER & ICONIC HALF-CUT AQUASPHERE DESIGN */}
-      <footer id="contact" className="bg-[#080d1a] text-slate-300 border-t border-slate-800/80 pt-28 sm:pt-36 pb-0 px-4 sm:px-8 relative overflow-hidden w-full max-w-full">
+      <footer id="contact" className="bg-[#080d1a] text-slate-300 border-t border-slate-800/80 pt-12 sm:pt-16 pb-0 px-4 sm:px-8 relative overflow-hidden w-full max-w-full">
         {/* Subtle Watermark Logo Emblem in Background */}
         <div className="absolute right-0 top-12 pointer-events-none opacity-[0.035] select-none overflow-hidden max-w-full">
           <img src={optImg(settings.logo_url, 600)} alt="" className="w-[450px] h-[450px] object-contain translate-x-8" />
         </div>
 
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 pb-16 border-b border-slate-800/80">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pb-10 border-b border-slate-800/80">
             
             {/* Col 1: About Aqua Sphere & Logo */}
-            <div className="space-y-5">
-              <div className="flex items-center">
+            <div className="space-y-4">
+              <div className="inline-flex items-center bg-white rounded-2xl px-5 py-2 shadow-lg shadow-cyan-500/10">
                 <img 
                   src={optImg(settings.logo_url, 400)} 
                   alt={settings.site_name} 
-                  className="h-20 sm:h-24 w-auto object-contain transition-transform duration-300 hover:scale-105" 
+                  className="h-16 sm:h-20 w-auto object-contain scale-125 transition-transform duration-300 hover:scale-[1.3]" 
                 />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed font-normal">
@@ -653,7 +653,7 @@ export default function LandingPage() {
           </div>
 
           {/* Bottom Copyright & Sub-links */}
-          <div className="pt-8 pb-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          <div className="pt-5 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
             <p>© {new Date().getFullYear()} {settings.site_name} Mineral Water. All rights reserved.</p>
             <div className="flex gap-6">
               <Link to="/website-admin" className="hover:text-cyan-400 transition-colors duration-200">Website Admin</Link>
@@ -663,7 +663,7 @@ export default function LandingPage() {
         </div>
 
         {/* 10. ICONIC HALF-CUT HOLLOW OUTLINED "AQUASPHERE" (Cut precisely in half at bottom edge, zero horizontal overflow) */}
-        <div className="w-full max-w-full overflow-hidden select-none pointer-events-none relative flex justify-center mt-6">
+        <div className="w-full max-w-full overflow-hidden select-none pointer-events-none relative flex justify-center mt-2">
           <svg 
             viewBox="0 0 1250 62" 
             className="w-full max-w-full h-auto block select-none pointer-events-none"
