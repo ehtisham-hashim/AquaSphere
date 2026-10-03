@@ -194,14 +194,17 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
               <ImageIcon size={14} className="text-slate-500" /> Customer / House Photo
             </h4>
             {imagePreview ? (
-              <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-slate-200">
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              <div className="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-emerald-400 to-teal-500 shadow-md">
+                <div className="w-full h-full rounded-full bg-white p-0.5 overflow-hidden">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-full" />
+                </div>
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition"
+                  className="absolute top-0 right-0 p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-md transition"
+                  title="Remove Image"
                 >
-                  <X size={14} />
+                  <X size={13} />
                 </button>
               </div>
             ) : (

@@ -59,6 +59,7 @@ model AquasphereItem {
   name         String
   type         AquasphereItemType
   unit         String             @default("kg")
+  packSize     Int                @default(1) @map("pack_size")
   cachedQty    Decimal            @default(0.0) @map("cached_qty")
   factoryQty   Decimal            @default(0.0) @map("factory_qty")
   warehouseQty Decimal            @default(0.0) @map("warehouse_qty")
@@ -420,6 +421,10 @@ model AquasphereDailyClose {
   tmConfirmedBy   AquasphereUser? @relation("TMConfirmer", fields: [tmConfirmedById], references: [id])
 
   adminConfirmed Boolean         @default(false) @map("admin_confirmed")
+  actualCash     Decimal?        @map("actual_cash")
+  expectedCash   Decimal?        @map("expected_cash")
+  cashDifference Decimal?        @map("cash_difference")
+  notes          String?
   closedAt       DateTime        @default(now()) @map("closed_at")
   closedById     String?         @map("closed_by_id")
   closedBy       AquasphereUser? @relation("AdminConfirmer", fields: [closedById], references: [id])
@@ -434,16 +439,19 @@ model AquasphereUser {
   email        String         @unique
   phone        String?
   passwordHash String
-  role         AquasphereRole
-  isActive     Boolean        @default(true) @map("is_active")
-  createdAt    DateTime       @default(now()) @map("created_at")
+  role                 AquasphereRole
+  isActive             Boolean                        @default(true) @map("is_active")
+  otpCode              String?                        @map("otp_code")
+  otpExpiresAt         DateTime?                      @map("otp_expires_at")
+  createdAt            DateTime                       @default(now()) @map("created_at")
 
-  pmConfirmedCloses    AquasphereDailyClose[] @relation("PMConfirmer")
-  mmConfirmedCloses    AquasphereDailyClose[] @relation("MMConfirmer")
-  tmConfirmedCloses    AquasphereDailyClose[] @relation("TMConfirmer")
-  adminConfirmedCloses AquasphereDailyClose[] @relation("AdminConfirmer")
+  pmConfirmedCloses    AquasphereDailyClose[]         @relation("PMConfirmer")
+  mmConfirmedCloses    AquasphereDailyClose[]         @relation("MMConfirmer")
+  tmConfirmedCloses    AquasphereDailyClose[]         @relation("TMConfirmer")
+  adminConfirmedCloses AquasphereDailyClose[]         @relation("AdminConfirmer")
   expenses             AquasphereExpense[]
   spotSales            AquasphereSpotSale[]
+  counterAuditLedgers  AquasphereCounterAuditLedger[]
 
   @@index([role])
   @@index([isActive])
@@ -544,6 +552,9 @@ model AquasphereSpotSale {
   productQty       Decimal                  @default(1.0) @map("product_qty")
   openPackLeftover Int                      @default(0) @map("open_pack_leftover")
   litresSold       Decimal                  @map("litres_sold")
+  totalLitres      Decimal?                 @default(0.0) @map("total_litres")
+  totalBottles     Int?                     @default(0) @map("total_bottles")
+  totalCaps        Int?                     @default(0) @map("total_caps")
   capsIssued       Int                      @default(0) @map("caps_issued")
   cashCollected    Decimal                  @default(0.0) @map("cash_collected")
   creditAmount     Decimal                  @default(0.0) @map("credit_amount")
@@ -571,6 +582,7 @@ model AquasphereSpotSaleItem {
   spotSale   AquasphereSpotSale @relation(fields: [spotSaleId], references: [id], onDelete: Cascade)
   itemId     String             @map("item_id")
   item       AquasphereItem     @relation(fields: [itemId], references: [id])
+  saleType   String             @default("FINISHED_GOOD") @map("sale_type")
   quantity   Decimal            @map("quantity")
   unitPrice  Decimal            @map("unit_price")
   subtotal   Decimal            @map("subtotal")
@@ -579,6 +591,23 @@ model AquasphereSpotSaleItem {
   @@index([spotSaleId])
   @@index([itemId])
   @@map("spot_sale_items")
+  @@schema("aquasphere")
+}
+
+model AquasphereCounterAuditLedger {
+  id                      String          @id @default(uuid())
+  date                    DateTime        @unique @db.Date
+  recordedById            String?         @map("recorded_by_id")
+  recordedBy              AquasphereUser? @relation(fields: [recordedById], references: [id])
+  physicalCashInHand      Decimal         @default(0.0) @map("physical_cash_in_hand")
+  recordedWaterLitres     Decimal         @default(0.0) @map("recorded_water_litres")
+  countedBottles          Int             @default(0) @map("counted_bottles")
+  countedCaps             Int             @default(0) @map("counted_caps")
+  cameraVerificationNotes String?         @map("camera_verification_notes")
+  isVerified              Boolean         @default(false) @map("is_verified")
+  createdAt               DateTime        @default(now()) @map("created_at")
+
+  @@map("counter_audit_ledgers")
   @@schema("aquasphere")
 }
 
@@ -668,6 +697,7 @@ model WadaanaItem {
   name         String
   type         WadaanaItemType
   unit         String          @default("kg")
+  packSize     Int             @default(1) @map("pack_size")
   cachedQty    Decimal         @default(0.0) @map("cached_qty")
   factoryQty   Decimal         @default(0.0) @map("factory_qty")
   warehouseQty Decimal         @default(0.0) @map("warehouse_qty")
@@ -1037,6 +1067,10 @@ model WadaanaDailyClose {
   tmConfirmedBy   WadaanaUser? @relation("TMConfirmerW", fields: [tmConfirmedById], references: [id])
 
   adminConfirmed Boolean      @default(false) @map("admin_confirmed")
+  actualCash     Decimal?     @map("actual_cash")
+  expectedCash   Decimal?     @map("expected_cash")
+  cashDifference Decimal?     @map("cash_difference")
+  notes          String?
   closedAt       DateTime     @default(now()) @map("closed_at")
   closedById     String?      @map("closed_by_id")
   closedBy       WadaanaUser? @relation("AdminConfirmerW", fields: [closedById], references: [id])
@@ -1053,14 +1087,17 @@ model WadaanaUser {
   passwordHash String
   role         WadaanaRole
   isActive     Boolean     @default(true) @map("is_active")
+  otpCode      String?     @map("otp_code")
+  otpExpiresAt DateTime?   @map("otp_expires_at")
   createdAt    DateTime    @default(now()) @map("created_at")
 
-  pmConfirmedCloses    WadaanaDailyClose[] @relation("PMConfirmerW")
-  mmConfirmedCloses    WadaanaDailyClose[] @relation("MMConfirmerW")
-  tmConfirmedCloses    WadaanaDailyClose[] @relation("TMConfirmerW")
-  adminConfirmedCloses WadaanaDailyClose[] @relation("AdminConfirmerW")
+  pmConfirmedCloses    WadaanaDailyClose[]         @relation("PMConfirmerW")
+  mmConfirmedCloses    WadaanaDailyClose[]         @relation("MMConfirmerW")
+  tmConfirmedCloses    WadaanaDailyClose[]         @relation("TMConfirmerW")
+  adminConfirmedCloses WadaanaDailyClose[]         @relation("AdminConfirmerW")
   expenses             WadaanaExpense[]
   spotSales            WadaanaSpotSale[]
+  counterAuditLedgers  WadaanaCounterAuditLedger[]
 
   @@index([role])
   @@index([isActive])
@@ -1161,6 +1198,9 @@ model WadaanaSpotSale {
   productQty       Decimal               @default(1.0) @map("product_qty")
   openPackLeftover Int                   @default(0) @map("open_pack_leftover")
   litresSold       Decimal               @map("litres_sold")
+  totalLitres      Decimal?              @default(0.0) @map("total_litres")
+  totalBottles     Int?                  @default(0) @map("total_bottles")
+  totalCaps        Int?                  @default(0) @map("total_caps")
   capsIssued       Int                   @default(0) @map("caps_issued")
   cashCollected    Decimal               @default(0.0) @map("cash_collected")
   creditAmount     Decimal               @default(0.0) @map("credit_amount")
@@ -1188,6 +1228,7 @@ model WadaanaSpotSaleItem {
   spotSale   WadaanaSpotSale @relation(fields: [spotSaleId], references: [id], onDelete: Cascade)
   itemId     String          @map("item_id")
   item       WadaanaItem     @relation(fields: [itemId], references: [id])
+  saleType   String          @default("FINISHED_GOOD") @map("sale_type")
   quantity   Decimal         @map("quantity")
   unitPrice  Decimal         @map("unit_price")
   subtotal   Decimal         @map("subtotal")
@@ -1196,6 +1237,23 @@ model WadaanaSpotSaleItem {
   @@index([spotSaleId])
   @@index([itemId])
   @@map("spot_sale_items")
+  @@schema("wadaana")
+}
+
+model WadaanaCounterAuditLedger {
+  id                      String       @id @default(uuid())
+  date                    DateTime     @unique @db.Date
+  recordedById            String?      @map("recorded_by_id")
+  recordedBy              WadaanaUser? @relation(fields: [recordedById], references: [id])
+  physicalCashInHand      Decimal      @default(0.0) @map("physical_cash_in_hand")
+  recordedWaterLitres     Decimal      @default(0.0) @map("recorded_water_litres")
+  countedBottles          Int          @default(0) @map("counted_bottles")
+  countedCaps             Int          @default(0) @map("counted_caps")
+  cameraVerificationNotes String?      @map("camera_verification_notes")
+  isVerified              Boolean      @default(false) @map("is_verified")
+  createdAt               DateTime     @default(now()) @map("created_at")
+
+  @@map("counter_audit_ledgers")
   @@schema("wadaana")
 }
 

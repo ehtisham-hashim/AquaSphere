@@ -5,6 +5,7 @@ import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 const API = API_URL;
 
@@ -32,9 +33,12 @@ export default function RawMaterials() {
       const json = await res.json();
       if (json.success || res.ok) {
         setMaterials(json.data || []);
+      } else {
+        toast.error(json.message || 'Failed to load raw materials');
       }
     } catch (err) {
       console.error('Failed to fetch raw materials:', err);
+      toast.error('Failed to load raw materials');
     } finally {
       setIsLoading(false);
     }
@@ -43,6 +47,8 @@ export default function RawMaterials() {
   useEffect(() => {
     fetchMaterials();
   }, [fetchMaterials]);
+
+  useLiveEvent(['INVENTORY_CHANGED', 'PURCHASE_CREATED', 'PRODUCTION_UPDATED'], fetchMaterials);
 
   const handleOpenAdd = () => {
     if (!canEditMaterial) {

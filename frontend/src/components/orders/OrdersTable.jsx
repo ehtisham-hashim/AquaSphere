@@ -1,5 +1,7 @@
 import { Truck, CheckCircle, MessageCircle, Printer, CreditCard, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -34,9 +36,13 @@ export default function OrdersTable({
 }) {
   const handleShareWhatsApp = (order) => {
     try {
-      const text = `*New Delivery*\nOrder: #${order.id.slice(0, 6).toUpperCase()}\nCustomer: ${order.customer?.name || 'Unknown'}\nPhone: ${order.customer?.phone || 'Unknown'}\nTotal: Rs. ${order.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0}\nAddress: ${order.customer?.address || 'See customer profile'}`;
+      const cust = order.customer || {};
+      const mapLink = cust.mapLink?.trim()
+        ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
+        : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
+      const text = `📦 *New Delivery*\nOrder: #${order.id.slice(0, 6).toUpperCase()}\n👤 Customer: ${cust.name || 'Unknown'}\n📞 Phone: ${cust.phone || 'Unknown'}\nTotal: Rs. ${order.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0}\n📍 Address: ${cust.address || 'See customer profile'}${mapLink ? `\n🗺️ Location: ${mapLink}` : ''}`;
       const encoded = encodeURIComponent(text);
-      const url = `https://wa.me/?text=${encoded}`;
+      const url = `https://api.whatsapp.com/send?text=${encoded}`;
       const win = window.open(url, '_blank');
       if (win) {
         toast.success('Order details ready to send to driver.');
@@ -47,6 +53,8 @@ export default function OrdersTable({
       toast.error('WhatsApp could not be opened.');
     }
   };
+
+  const pagination = usePagination(orders || [], 50);
 
   if (isLoading) {
     return (
@@ -84,7 +92,7 @@ export default function OrdersTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
-          {orders.map(o => {
+          {pagination.paginatedItems.map(o => {
             const total = o.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0;
             const totalQty = o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0;
             const isNineteen = o.type === 'NINETEEN_L' || o.type === 'PURE_BOTTLES' || o.type === 'MIX_BOTTLES';
@@ -233,6 +241,7 @@ export default function OrdersTable({
           })}
         </tbody>
       </table>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

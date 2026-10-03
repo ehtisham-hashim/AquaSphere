@@ -1,6 +1,8 @@
 import { Loader2, Car, Edit2, PowerOff, Search, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function CarsTable({
   vehicles = [],
@@ -14,6 +16,7 @@ export default function CarsTable({
   const { user } = useAuth();
   const { isWadaana } = useTenant();
   const canManage = user?.role === 'TRANSPORT_MANAGER';
+  const pagination = usePagination(vehicles || [], 50, search);
 
   return (
     <div className="space-y-3">
@@ -60,7 +63,7 @@ export default function CarsTable({
                   </td>
                 </tr>
               ) : (
-                vehicles.map((v) => (
+                pagination.paginatedItems.map((v) => (
                   <tr
                     key={v.id}
                     onClick={() => onSelectVehicle && onSelectVehicle(v)}
@@ -136,6 +139,7 @@ export default function CarsTable({
             </tbody>
           </table>
         </div>
+        <TablePagination pagination={pagination} />
       </div>
     </div>
   );

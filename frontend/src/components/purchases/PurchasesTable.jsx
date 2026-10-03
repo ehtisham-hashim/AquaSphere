@@ -1,4 +1,6 @@
 import { Calendar, Eye, Printer, ShieldCheck, Trash2, ShoppingCart, Building2, Edit3 } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function PurchasesTable({
   purchases = [],
@@ -15,6 +17,7 @@ export default function PurchasesTable({
   onOpenModal
 }) {
   const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+  const pagination = usePagination(purchases || [], 50);
 
   if (!purchases || purchases.length === 0) {
     return (
@@ -72,7 +75,7 @@ export default function PurchasesTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium">
-            {purchases.map(p => (
+            {pagination.paginatedItems.map(p => (
               <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
                 <td className="table-td text-slate-600">
                   <div className="flex items-center gap-1.5 font-semibold">
@@ -171,6 +174,7 @@ export default function PurchasesTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }

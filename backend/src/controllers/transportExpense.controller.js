@@ -4,6 +4,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { paginationArgs } from '../utils/pagination.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 const VALID_EXPENSE_TYPES = ['DAILY', 'REPAIRS', 'OTHER'];
 const VALID_PERIODS = ['MONTHLY'];
@@ -164,6 +165,7 @@ export const addTransportExpense = asyncHandler(async (req, res) => {
     }
   });
 
+  broadcastEvent(prefix, 'EXPENSE_LOGGED', { transportExpenseId: expense.id, vehicleId, amount: expense.amount });
   return sendSuccess(res, expense, 201);
 });
 
@@ -186,5 +188,6 @@ export const deleteTransportExpense = asyncHandler(async (req, res) => {
     where: { id }
   });
 
+  broadcastEvent(prefix, 'EXPENSE_LOGGED', { deletedExpenseId: id });
   return sendSuccess(res, { message: 'Transport expense deleted successfully' }, 200);
 });

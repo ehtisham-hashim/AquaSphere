@@ -42,7 +42,7 @@ export const healSpotSalesInventory = async (prefix = 'aquasphere') => {
       const sizeKey = mapSpotSaleProductTypeToSizeKey(sale.productType);
       if (!sizeKey) continue;
 
-      let fgItem = allItems.find(i => 
+      const fgItem = allItems.find(i => 
         (i.type === 'FINISHED_GOOD' || !i.type) && 
         getProductSizeKey(i.name) === sizeKey
       );
@@ -85,8 +85,8 @@ export const healSpotSalesInventory = async (prefix = 'aquasphere') => {
         if (!currentItem) return;
 
         const currentFactory = Number(currentItem.factoryQty || 0);
-        let factoryDeduct = currentFactory >= qtyToDeduct ? qtyToDeduct : currentFactory;
-        let warehouseDeduct = currentFactory >= qtyToDeduct ? 0 : qtyToDeduct - currentFactory;
+        const factoryDeduct = currentFactory >= qtyToDeduct ? qtyToDeduct : currentFactory;
+        const warehouseDeduct = currentFactory >= qtyToDeduct ? 0 : qtyToDeduct - currentFactory;
 
         // Create transaction record
         await tx[`${prefix}InventoryTransaction`].create({

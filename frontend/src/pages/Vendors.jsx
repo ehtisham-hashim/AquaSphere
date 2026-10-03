@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useLiveEvent } from '../context/SSEContext';
 import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
 import VendorPaymentModal from '../components/vendors/VendorPaymentModal';
@@ -48,7 +49,7 @@ export default function Vendors() {
     notes: ''
   });
 
-  const fetchVendors = async () => {
+  const fetchVendors = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/vendors?includeArchived=${includeArchived}`, {
@@ -63,12 +64,13 @@ export default function Vendors() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [includeArchived, tenant]);
 
   useEffect(() => {
     fetchVendors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeArchived, tenant]);
+  }, [fetchVendors]);
+
+  useLiveEvent(['PURCHASE_CREATED', 'EXPENSE_LOGGED'], fetchVendors);
 
   const handleOpenAdd = () => {
     setEditingVendor(null);

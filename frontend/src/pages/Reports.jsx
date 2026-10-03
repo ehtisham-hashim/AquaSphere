@@ -5,6 +5,8 @@ import {
   Package, Settings, Users, Truck, AlertCircle 
 } from 'lucide-react';
 import { PageHeader } from '../components/ui';
+import { usePagination } from '../hooks/usePagination';
+import TablePagination from '../components/common/TablePagination';
 
 const REPORT_TABS = [
   { id: 'sales', label: 'Sales Report', icon: TrendingUp },
@@ -34,6 +36,8 @@ export default function Reports() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const pagination = usePagination(reportData?.table || [], 50, activeTab);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -215,7 +219,7 @@ export default function Reports() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {reportData.table && reportData.table.length > 0 ? (
-                        reportData.table.map((row, idx) => (
+                        pagination.paginatedItems.map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                             {Object.values(row).map((val, cellIdx) => (
                               <td key={cellIdx} className="table-td whitespace-nowrap font-mono text-xs">
@@ -234,6 +238,7 @@ export default function Reports() {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination pagination={pagination} />
               </div>
             </>
           ) : (

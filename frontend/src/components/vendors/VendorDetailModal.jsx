@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { X, Calendar, CreditCard, FileText, ShoppingCart, Receipt } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function VendorDetailModal({
   selectedVendorDetail,
@@ -8,6 +10,10 @@ export default function VendorDetailModal({
   onOpenPayment
 }) {
   const [profileTab, setProfileTab] = useState('ledger');
+
+  const ledgerPagination = usePagination(selectedVendorDetail?.ledgerEntries || [], 50, profileTab);
+  const purchasesPagination = usePagination(selectedVendorDetail?.purchases || [], 50, profileTab);
+  const paymentsPagination = usePagination(selectedVendorDetail?.payments || [], 50, profileTab);
 
   if (!selectedVendorDetail) return null;
 
@@ -117,43 +123,46 @@ export default function VendorDetailModal({
               {(!selectedVendorDetail.ledgerEntries || selectedVendorDetail.ledgerEntries.length === 0) ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No ledger activity recorded for this vendor.</p>
               ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs whitespace-nowrap">
-                    <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Type</th>
-                        <th className="p-3">Remarks / Reference</th>
-                        <th className="p-3 text-right">Amount</th>
-                        <th className="p-3 text-right">Running Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {selectedVendorDetail.ledgerEntries?.map(entry => (
-                        <tr key={entry.id} className="hover:bg-slate-50/80">
-                          <td className="p-3 text-slate-500">{new Date(entry.createdAt).toLocaleString()}</td>
-                          <td className="p-3">
-                            {entry.type === 'PURCHASE' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">
-                                PURCHASE (+)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                                PAYMENT (-)
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-slate-600">{entry.remarks || '—'}</td>
-                          <td className={`p-3 text-right font-bold ${entry.type === 'PURCHASE' ? 'text-amber-700' : 'text-emerald-700'}`}>
-                            Rs {Number(entry.amount).toLocaleString()}
-                          </td>
-                          <td className="p-3 text-right font-black text-indigo-900">
-                            Rs {Number(entry.runningBalance || 0).toLocaleString()}
-                          </td>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Type</th>
+                          <th className="p-3">Remarks / Reference</th>
+                          <th className="p-3 text-right">Amount</th>
+                          <th className="p-3 text-right">Running Balance</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {ledgerPagination.paginatedItems?.map(entry => (
+                          <tr key={entry.id} className="hover:bg-slate-50/80">
+                            <td className="p-3 text-slate-500">{new Date(entry.createdAt).toLocaleString()}</td>
+                            <td className="p-3">
+                              {entry.type === 'PURCHASE' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">
+                                  PURCHASE (+)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                  PAYMENT (-)
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-slate-600">{entry.remarks || '—'}</td>
+                            <td className={`p-3 text-right font-bold ${entry.type === 'PURCHASE' ? 'text-amber-700' : 'text-emerald-700'}`}>
+                              Rs {Number(entry.amount).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-black text-indigo-900">
+                              Rs {Number(entry.runningBalance || 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePagination pagination={ledgerPagination} />
                 </div>
               )}
             </div>
@@ -165,41 +174,44 @@ export default function VendorDetailModal({
               {!selectedVendorDetail.purchases?.length ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No purchases recorded from this vendor.</p>
               ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs whitespace-nowrap">
-                    <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                      <tr>
-                        <th className="p-3">Invoice No</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Items Purchased</th>
-                        <th className="p-3 text-right">Total Amount</th>
-                        <th className="p-3 text-right">Receipt Proof</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {selectedVendorDetail.purchases?.map(pur => (
-                        <tr key={pur.id} className="hover:bg-slate-50/80">
-                          <td className="p-3 font-bold text-slate-800">{pur.invoiceNo || 'INV-MANUAL'}</td>
-                          <td className="p-3 text-slate-500">{new Date(pur.createdAt).toLocaleDateString()}</td>
-                          <td className="p-3 text-slate-700">
-                            {pur.items?.map(i => `${i.item?.name || 'Material'} (${i.quantity})`).join(', ') || '—'}
-                          </td>
-                          <td className="p-3 text-right font-bold text-slate-900">
-                            Rs {Number(pur.grandTotal || 0).toLocaleString()}
-                          </td>
-                          <td className="p-3 text-right">
-                            {pur.receiptUrl ? (
-                              <a href={pur.receiptUrl} target="_blank" rel="noreferrer" className="text-indigo-600 font-bold hover:underline">
-                                📷 View Receipt
-                              </a>
-                            ) : (
-                              <span className="text-slate-300">—</span>
-                            )}
-                          </td>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">Invoice No</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Items Purchased</th>
+                          <th className="p-3 text-right">Total Amount</th>
+                          <th className="p-3 text-right">Receipt Proof</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {purchasesPagination.paginatedItems?.map(pur => (
+                          <tr key={pur.id} className="hover:bg-slate-50/80">
+                            <td className="p-3 font-bold text-slate-800">{pur.invoiceNo || 'INV-MANUAL'}</td>
+                            <td className="p-3 text-slate-500">{new Date(pur.createdAt).toLocaleDateString()}</td>
+                            <td className="p-3 text-slate-700">
+                              {pur.items?.map(i => `${i.item?.name || 'Material'} (${i.quantity})`).join(', ') || '—'}
+                            </td>
+                            <td className="p-3 text-right font-bold text-slate-900">
+                              Rs {Number(pur.grandTotal || 0).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              {pur.receiptUrl ? (
+                                <a href={pur.receiptUrl} target="_blank" rel="noreferrer" className="text-indigo-600 font-bold hover:underline">
+                                  📷 View Receipt
+                                </a>
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePagination pagination={purchasesPagination} />
                 </div>
               )}
             </div>
@@ -211,41 +223,44 @@ export default function VendorDetailModal({
               {!selectedVendorDetail.payments?.length ? (
                 <p className="text-xs text-slate-400 italic p-4 text-center">No payment transactions recorded for this vendor.</p>
               ) : (
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-left text-xs whitespace-nowrap">
-                    <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Method</th>
-                        <th className="p-3">Reference #</th>
-                        <th className="p-3">Remarks</th>
-                        <th className="p-3 text-right">Amount</th>
-                        <th className="p-3 text-right">Attached Bank Proof</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {selectedVendorDetail.payments?.map(pay => (
-                        <tr key={pay.id} className="hover:bg-slate-50/80">
-                          <td className="p-3 text-slate-500">{new Date(pay.createdAt).toLocaleDateString()}</td>
-                          <td className="p-3 font-bold text-purple-800">{pay.paymentMethod || 'CASH'}</td>
-                          <td className="p-3 text-slate-600">{pay.referenceNo || '—'}</td>
-                          <td className="p-3 text-slate-600">{pay.remarks || '—'}</td>
-                          <td className="p-3 text-right font-bold text-emerald-700">
-                            Rs {Number(pay.amount).toLocaleString()}
-                          </td>
-                          <td className="p-3 text-right">
-                            {pay.proofUrl ? (
-                              <a href={pay.proofUrl} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">
-                                📷 View Bank Slip
-                              </a>
-                            ) : (
-                              <span className="text-slate-300">—</span>
-                            )}
-                          </td>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">Date</th>
+                          <th className="p-3">Method</th>
+                          <th className="p-3">Reference #</th>
+                          <th className="p-3">Remarks</th>
+                          <th className="p-3 text-right">Amount</th>
+                          <th className="p-3 text-right">Attached Bank Proof</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {paymentsPagination.paginatedItems?.map(pay => (
+                          <tr key={pay.id} className="hover:bg-slate-50/80">
+                            <td className="p-3 text-slate-500">{new Date(pay.createdAt).toLocaleDateString()}</td>
+                            <td className="p-3 font-bold text-purple-800">{pay.paymentMethod || 'CASH'}</td>
+                            <td className="p-3 text-slate-600">{pay.referenceNo || '—'}</td>
+                            <td className="p-3 text-slate-600">{pay.remarks || '—'}</td>
+                            <td className="p-3 text-right font-bold text-emerald-700">
+                              Rs {Number(pay.amount).toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              {pay.proofUrl ? (
+                                <a href={pay.proofUrl} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold hover:underline">
+                                  📷 View Bank Slip
+                                </a>
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePagination pagination={paymentsPagination} />
                 </div>
               )}
             </div>

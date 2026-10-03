@@ -6,11 +6,16 @@ import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay } from '../../se
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
+import DrawerReconciliationCard from './DrawerReconciliationCard';
+import CounterAuditLedgerCard from './CounterAuditLedgerCard';
 
 export default function AdminClose() {
   const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [history, setHistory] = useState([]);
   const [cashSummary, setCashSummary] = useState(null);
+  const [dailyData, setDailyData] = useState(null);
+  const [actualCash, setActualCash] = useState('');
+  const [notes, setNotes] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,6 +27,7 @@ export default function AdminClose() {
       if (hJson.success) setHistory(hJson.data || []);
       if (cJson.success) {
         const d = cJson.data;
+        setDailyData(d);
         setCashSummary({
           orderCash: d.totalDeliveryAmount || 0,
           counterSales: d.totalSpotSales || 0,
@@ -39,7 +45,11 @@ export default function AdminClose() {
   const handleFinalize = async () => {
     setSubmitting(true);
     try {
-      const json = await finalizeDay(date, tenant);
+      const payload = {
+        actualCash: actualCash !== '' ? Number(actualCash) : undefined,
+        notes: notes.trim() || undefined
+      };
+      const json = await finalizeDay(date, tenant, payload);
       if (json.success) {
         toast.success('Day double-verified and locked successfully.');
         refreshStatus(false);
@@ -144,7 +154,53 @@ export default function AdminClose() {
             </div>
           </div>
 
-          {/* 3. Double-Verification & Daily Lock Action Card */}
+          {/* 3. Cash Drawer Physical Count & Reconciliation */}
+          <DrawerReconciliationCard
+            expectedCash={cashSummary?.netCash || 0}
+            actualCash={actualCash}
+            onActualCashChange={setActualCash}
+            notes={notes}
+            onNotesChange={setNotes}
+            disabled={submitting}
+          />
+
+          {/* Today's Counter Sales Summary */}
+          <div className="card-surface p-4 border border-slate-200">
+            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <ShoppingBag size={16} className="text-brand" />
+              Today's Counter Sales Summary
+            </h3>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="text-xs text-blue-600 font-semibold mb-1">Water</div>
+                <div className="text-lg font-mono font-bold text-blue-700">
+                  {dailyData?.counterSales?.totalLitres || 0}L
+                </div>
+              </div>
+              <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                <div className="text-xs text-indigo-600 font-semibold mb-1">Bottles</div>
+                <div className="text-lg font-mono font-bold text-indigo-700">
+                  {dailyData?.counterSales?.totalBottles || 0}
+                </div>
+              </div>
+              <div className="text-center p-2 bg-amber-50 rounded-lg border border-amber-100">
+                <div className="text-xs text-amber-600 font-semibold mb-1">Caps</div>
+                <div className="text-lg font-mono font-bold text-amber-700">
+                  {dailyData?.counterSales?.totalCaps || 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Counter Audit Ledger Pre-Close Verification */}
+          <CounterAuditLedgerCard
+            date={date}
+            tenant={tenant}
+            isClosed={isClosed}
+            onLedgerSaved={loadData}
+          />
+
+          {/* 5. Double-Verification & Daily Lock Action Card */}
           <div className="card-surface p-6 border-2 border-indigo-100 bg-indigo-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-indigo-950 font-black text-base">

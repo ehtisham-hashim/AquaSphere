@@ -3,6 +3,8 @@ import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
+import { usePagination } from '../hooks/usePagination';
+import TablePagination from '../components/common/TablePagination';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
@@ -104,6 +106,8 @@ export default function Users() {
     (u.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const pagination = usePagination(filteredUsers, 50, search);
+
   return (
     <div className="space-y-4">
       {/* Page Header */}
@@ -160,7 +164,7 @@ export default function Users() {
                   <td colSpan="5" className="p-10 text-center text-slate-400 text-sm">No users found.</td>
                 </tr>
               ) : (
-                filteredUsers.map(u => (
+                pagination.paginatedItems.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="table-td">
                     <div className="flex items-center gap-2.5">
@@ -215,6 +219,7 @@ export default function Users() {
             </tbody>
           </table>
         </div>
+        <TablePagination pagination={pagination} />
       </div>
 
       {/* Add/Edit User Modal */}

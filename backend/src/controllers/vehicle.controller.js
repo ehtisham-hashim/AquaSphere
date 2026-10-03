@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /**
  * Retrieves all vehicles for the active tenant
@@ -59,6 +60,7 @@ export const addVehicle = asyncHandler(async (req, res) => {
     }
   });
 
+  broadcastEvent(prefix, 'VEHICLE_UPDATED', { vehicleId: vehicle.id });
   return sendSuccess(res, vehicle, 201);
 });
 
@@ -108,6 +110,7 @@ export const updateVehicle = asyncHandler(async (req, res) => {
     }
   });
 
+  broadcastEvent(prefix, 'VEHICLE_UPDATED', { vehicleId: updatedVehicle.id });
   return sendSuccess(res, updatedVehicle, 200);
 });
 
@@ -137,5 +140,6 @@ export const deleteVehicle = asyncHandler(async (req, res) => {
     }
   });
 
+  broadcastEvent(prefix, 'VEHICLE_UPDATED', { vehicleId: id });
   return sendSuccess(res, deactivated, 200);
 });

@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
-import AddTransportExpenseModal from './AddTransportExpenseModal';
+import LogExpenseModal from '../expenses/LogExpenseModal';
 import DeleteConfirmationModal from '../ui/DeleteConfirmationModal';
 
 export default function VehicleDetailPanel({
@@ -23,10 +23,15 @@ export default function VehicleDetailPanel({
 }) {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
-  const canManage = user?.role === 'TRANSPORT_MANAGER';
+  const canManage = ['TRANSPORT_MANAGER', 'OWNER', 'ACCOUNTANT'].includes(user?.role);
   const vehicleId = initialVehicle?.id;
 
   const [vehicle, setVehicle] = useState(initialVehicle);
+
+  useEffect(() => {
+    if (initialVehicle) setVehicle(initialVehicle);
+  }, [initialVehicle]);
+
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -44,16 +49,18 @@ export default function VehicleDetailPanel({
     if (!vehicleId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/transport-expenses/vehicle/${vehicleId}?limit=15`, {
+      const res = await fetch(`${API_URL}/expenses?vehicleId=${vehicleId}&limit=15`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
       if (json.success) {
-        setExpenses(json.data || []);
+        // Handle both response formats (expenses object or direct array)
+        const expensesData = json.data?.expenses || json.data || [];
+        setExpenses(expensesData);
         if (json.vehicle) setVehicle(json.vehicle);
-        setHasMore(Boolean(json.hasMore));
-        setNextCursor(json.nextCursor || null);
+        setHasMore(Boolean(json.hasMore ?? json.pagination?.hasMore));
+        setNextCursor(json.nextCursor || (expensesData.length > 0 ? expensesData[expensesData.length - 1].id : null));
       } else {
         toast.error(json.message || 'Failed to load vehicle expenses');
       }
@@ -74,7 +81,7 @@ export default function VehicleDetailPanel({
     setLoadingMore(true);
     try {
       const res = await fetch(
-        `${API_URL}/transport-expenses/vehicle/${vehicleId}?cursor=${nextCursor}&limit=15`,
+        `${API_URL}/expenses?vehicleId=${vehicleId}&cursor=${nextCursor}&limit=15`,
         {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
@@ -82,9 +89,14 @@ export default function VehicleDetailPanel({
       );
       const json = await res.json();
       if (json.success) {
-        setExpenses((prev) => [...prev, ...(json.data || [])]);
-        setHasMore(Boolean(json.hasMore));
-        setNextCursor(json.nextCursor || null);
+        const moreExpenses = json.data?.expenses || json.data || [];
+        setExpenses((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const uniqueNew = moreExpenses.filter((e) => !existingIds.has(e.id));
+          return [...prev, ...uniqueNew];
+        });
+        setHasMore(Boolean(json.hasMore ?? json.pagination?.hasMore));
+        setNextCursor(json.nextCursor || (moreExpenses.length > 0 ? moreExpenses[moreExpenses.length - 1].id : null));
       }
     } catch (err) {
       console.error('Failed to load more expenses', err);
@@ -116,7 +128,7 @@ export default function VehicleDetailPanel({
     if (!expenseToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`${API_URL}/transport-expenses/${expenseToDelete.id}`, {
+      const res = await fetch(`${API_URL}/expenses/${expenseToDelete.id}`, {
         method: 'DELETE',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
@@ -140,9 +152,15 @@ export default function VehicleDetailPanel({
   const getTypeBadge = (type) => {
     switch (type) {
       case 'DAILY':
+      case 'Fuel':
+      case 'Fuel / Transport':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'REPAIRS':
+      case 'Vehicle Repairs':
+      case 'Vehicle Repair':
         return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'Maintenance':
+        return 'bg-teal-50 text-teal-700 border-teal-200';
       case 'OTHER':
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -266,21 +284,34 @@ export default function VehicleDetailPanel({
                     </td>
 
                     <td className="table-td">
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${getTypeBadge(ex.type)}`}>
-                        {ex.type}
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${getTypeBadge(ex.type || ex.category)}`}>
+                        {ex.type || ex.category}
                       </span>
                     </td>
 
                     <td className="table-td text-xs font-medium text-slate-600">
-                      {ex.period || 'MONTHLY'}
+                      {ex.period || '—'}
                     </td>
 
                     <td className="table-td font-black font-mono text-sm text-brand-primary">
                       Rs. {Math.round(Number(ex.amount)).toLocaleString()}
                     </td>
 
-                    <td className="table-td text-slate-700 text-xs max-w-[320px] truncate">
-                      {ex.note || '—'}
+                    <td className="table-td text-slate-700 text-xs max-w-[320px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">{ex.note || ex.remarks || '—'}</span>
+                        {ex.receiptUrl && (
+                          <a
+                            href={ex.receiptUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-brand-primary hover:underline font-bold bg-brand-light px-2 py-0.5 rounded shrink-0"
+                            title="View Receipt"
+                          >
+                            <FileText size={11} /> Receipt
+                          </a>
+                        )}
+                      </div>
                     </td>
 
                     {canManage && (
@@ -315,15 +346,21 @@ export default function VehicleDetailPanel({
         </div>
       </div>
 
-      {/* Add Expense Modal */}
+      {/* Log Expense Modal */}
       {isAddExpenseOpen && (
-        <AddTransportExpenseModal
+        <LogExpenseModal
           isOpen={isAddExpenseOpen}
           onClose={() => setIsAddExpenseOpen(false)}
-          onSuccess={() => fetchVehicleExpenses()}
-          vehicles={[vehicle]}
-          preselectedVehicleId={vehicle?.id}
-          isWadaana={isWadaana}
+          onSaved={() => {
+            setIsAddExpenseOpen(false);
+            fetchVehicleExpenses();
+          }}
+          onSuccess={() => {
+            setIsAddExpenseOpen(false);
+            fetchVehicleExpenses();
+          }}
+          defaultVehicleId={vehicle?.id}
+          lockVehicle={true}
         />
       )}
 
@@ -331,8 +368,8 @@ export default function VehicleDetailPanel({
       {expenseToDelete && (
         <DeleteConfirmationModal
           isOpen={Boolean(expenseToDelete)}
-          title="Delete Transport Expense"
-          message={`Are you sure you want to delete this Rs. ${Math.round(Number(expenseToDelete.amount)).toLocaleString()} ${expenseToDelete.type} expense record?`}
+          title="Delete Expense"
+          message={`Are you sure you want to delete this Rs. ${Math.round(Number(expenseToDelete.amount)).toLocaleString()} ${expenseToDelete.type || expenseToDelete.category || ''} expense record?`}
           onConfirm={handleDeleteExpense}
           onClose={() => setExpenseToDelete(null)}
           loading={deleting}

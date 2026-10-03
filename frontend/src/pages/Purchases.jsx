@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useLiveEvent } from '../context/SSEContext';
 import { toast } from 'sonner';
 import { DeleteConfirmationModal, PageHeader } from '../components/ui';
 import {
@@ -80,6 +81,11 @@ export default function Purchases() {
   useEffect(() => {
     fetchPurchases();
   }, [fetchPurchases]);
+
+  useLiveEvent(['PURCHASE_CREATED', 'INVENTORY_CHANGED'], () => {
+    fetchPurchases();
+    fetchCatalogs();
+  });
 
   // Handlers
   const handleOpenAddModal = () => {

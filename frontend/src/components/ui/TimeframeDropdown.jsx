@@ -1,14 +1,18 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronDown, Check } from 'lucide-react';
 
-const DEFAULT_OPTIONS = [
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'DAILY', label: 'Daily' },
-  { value: 'YEARLY', label: 'Yearly' }
+export const DEFAULT_OPTIONS = [
+  { value: '1_MONTH', label: 'This Month' },
+  { value: 'TODAY', label: 'Today' },
+  { value: 'YESTERDAY', label: 'Yesterday' },
+  { value: 'LAST_3_DAYS', label: 'Last 3 Days' },
+  { value: '1_WEEK', label: 'This Week' },
+  { value: '1_YEAR', label: 'This Year' }
 ];
 
 export default function TimeframeDropdown({ 
-  value = 'MONTHLY', 
+  value = '1_MONTH', 
   onChange, 
   options = DEFAULT_OPTIONS,
   className = ''
@@ -16,7 +20,14 @@ export default function TimeframeDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find(o => o.value === value)
+    || (value === 'MONTHLY' ? options.find(o => o.value === '1_MONTH') : null)
+    || (value === 'DAILY' ? options.find(o => o.value === 'TODAY') : null)
+    || (value === 'YEARLY' ? options.find(o => o.value === '1_YEAR') : null)
+    || (value === '1_MONTH' ? options.find(o => o.value === 'MONTHLY') : null)
+    || (value === 'TODAY' ? options.find(o => o.value === 'DAILY') : null)
+    || (value === '1_YEAR' ? options.find(o => o.value === 'YEARLY') : null)
+    || options[0];
 
   useEffect(() => {
     const handleClickOutside = (e) => {

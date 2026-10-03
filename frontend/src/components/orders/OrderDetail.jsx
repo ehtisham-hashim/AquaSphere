@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
   FileText, ExternalLink, ShoppingBag, User, Share2,
-  Copy, CheckCircle2, Clock, Truck, Navigation
+  Copy, CheckCircle2, Clock, Truck, Navigation, Camera
 } from 'lucide-react';
 import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +16,7 @@ export default function OrderDetail({ order, onClose }) {
   const { isWadaana } = useTenant();
   const [previewImage, setPreviewImage] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedPhoto, setCopiedPhoto] = useState(false);
 
   if (!order) return null;
 
@@ -44,6 +45,40 @@ export default function OrderDetail({ order, onClose }) {
     buttonPrimary: isWadaana ? 'bg-[#0ea5e9] hover:bg-sky-500' : 'bg-emerald-600 hover:bg-emerald-500',
   };
 
+  const sanitizeMapLink = (link) => {
+    if (!link) return null;
+    const trimmed = link.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const copyPhotoBinaryToClipboard = async () => {
+    if (!customer.homePictureUrl) {
+      toast.error('No house photo available for this customer.');
+      return;
+    }
+    try {
+      const response = await fetch(customer.homePictureUrl);
+      const blob = await response.blob();
+      // Ensure PNG format for ClipboardItem compatibility
+      const pngBlob = blob.type === 'image/png' ? blob : new Blob([blob], { type: 'image/png' });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': pngBlob })
+      ]);
+      setCopiedPhoto(true);
+      toast.success('Customer house photo copied to clipboard (Binary PNG)!');
+      setTimeout(() => setCopiedPhoto(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy binary photo to clipboard:', err);
+      // Fallback: copy url
+      navigator.clipboard.writeText(customer.homePictureUrl);
+      setCopiedPhoto(true);
+      toast.info('Direct photo copy blocked by browser; photo URL copied instead.');
+      setTimeout(() => setCopiedPhoto(false), 2000);
+    }
+  };
+
   // Full order + customer payload formatted for dispatch to driver (WhatsApp or SMS)
   const buildDriverMessage = () => {
     const itemsList = items.map((i) => {
@@ -52,6 +87,8 @@ export default function OrderDetail({ order, onClose }) {
       const rate = Number(i.price || 0);
       return `  • ${name}: ${qty} ${i.item?.unit || 'Bottles'} @ Rs. ${rate.toLocaleString()}`;
     }).join('\n');
+
+    const cleanMapLink = sanitizeMapLink(customer.mapLink) || (customer.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}` : null);
 
     return [
       `📦 *DELIVERY ORDER — ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}*`,
@@ -62,8 +99,7 @@ export default function OrderDetail({ order, onClose }) {
       `Name: ${customer.name || 'N/A'}`,
       `Phone: ${customer.phone || 'N/A'}`,
       customer.address ? `Address: ${customer.address}` : null,
-      customer.mapLink ? `Maps Location: ${customer.mapLink}` : null,
-      customer.homePictureUrl ? `House Picture: ${customer.homePictureUrl}` : null,
+      cleanMapLink ? `Maps Location: ${cleanMapLink}` : null,
       ``,
       `🛍️ *ITEMS TO DELIVER:*`,
       itemsList || '  • No items specified',
@@ -74,24 +110,25 @@ export default function OrderDetail({ order, onClose }) {
       `Paid: Rs. ${totalPaid.toLocaleString()}`,
       `To Collect: Rs. ${balanceDue > 0 ? balanceDue.toLocaleString() : '0 (Already Paid)'}`,
       `Payment Status: ${order.paymentStatus || 'UNPAID'}`,
-      ``,
-      order.remarks ? `📝 Notes: ${order.remarks}` : null,
+      order.remarks ? `\n📝 Notes: ${order.remarks}` : null,
+      customer.homePictureUrl ? `\n📸 House Picture:\n${customer.homePictureUrl}` : null,
     ].filter(Boolean).join('\n');
   };
 
   // Customer-only details text (same as CustomerDetails)
   const buildCustomerText = () => {
+    const cleanMapLink = sanitizeMapLink(customer.mapLink) || (customer.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}` : null);
     return [
       `📋 *Customer Details*`,
       `👤 Name: ${customer.name || 'N/A'}`,
       `📞 Phone: ${customer.phone || 'N/A'}`,
       customer.address ? `📍 Address: ${customer.address}` : null,
-      customer.mapLink ? `🗺️ Map: ${customer.mapLink}` : null,
-      customer.homePictureUrl ? `🖼️ Photo: ${customer.homePictureUrl}` : null,
+      cleanMapLink ? `🗺️ Location: ${cleanMapLink}` : null,
+      customer.homePictureUrl ? `\n📸 Photo:\n${customer.homePictureUrl}` : null,
     ].filter(Boolean).join('\n');
   };
 
-  const handleCopyDriverDetails = () => {
+  const handleCopyDriverDetails = async () => {
     navigator.clipboard.writeText(buildDriverMessage());
     setCopied(true);
     toast.success('Order & customer details copied for driver!');
@@ -100,7 +137,7 @@ export default function OrderDetail({ order, onClose }) {
 
   const handleShareWhatsAppDriver = () => {
     const text = encodeURIComponent(buildDriverMessage());
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   return (
@@ -111,7 +148,7 @@ export default function OrderDetail({ order, onClose }) {
         
         {/* Customer Picture / Placeholder */}
         <div
-          className={`w-32 h-32 rounded-2xl ${theme.accentBg} border-2 ${customer.homePictureUrl ? 'border-solid' : 'border-dashed'} ${theme.avatarBorder} flex items-center justify-center mb-4 shadow-inner overflow-hidden ${customer.homePictureUrl ? 'cursor-pointer' : ''}`}
+          className={`w-32 h-32 rounded-2xl ${theme.accentBg} border-2 ${customer.homePictureUrl ? 'border-solid' : 'border-dashed'} ${theme.avatarBorder} flex items-center justify-center mb-2 shadow-inner overflow-hidden ${customer.homePictureUrl ? 'cursor-pointer' : ''}`}
           onClick={() => customer.homePictureUrl && setPreviewImage(customer.homePictureUrl)}
           title={customer.homePictureUrl ? 'Click to view full photo' : ''}
         >
@@ -125,6 +162,18 @@ export default function OrderDetail({ order, onClose }) {
           ) : null}
           <User size={56} className={`${theme.iconColor} opacity-80 ${customer.homePictureUrl ? 'hidden' : ''}`} />
         </div>
+
+        {customer.homePictureUrl && (
+          <button
+            type="button"
+            onClick={copyPhotoBinaryToClipboard}
+            className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-colors shadow-2xs"
+            title="Copy House Photo (Binary PNG) to clipboard"
+          >
+            {copiedPhoto ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Camera size={12} />}
+            <span>{copiedPhoto ? 'Photo Copied!' : 'Copy House Photo'}</span>
+          </button>
+        )}
 
         {/* Customer Name & Badges */}
         <h2 className="text-lg font-bold text-slate-900">{customer.name || 'Unnamed Customer'}</h2>
@@ -151,7 +200,7 @@ export default function OrderDetail({ order, onClose }) {
                   <Copy size={15} />
                 </button>
                 <button
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(buildCustomerText())}`, '_blank')}
+                  onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(buildCustomerText())}`, '_blank')}
                   className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                   title="Share customer info via WhatsApp"
                 >

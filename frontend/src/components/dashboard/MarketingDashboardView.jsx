@@ -14,6 +14,7 @@ import {
 import AlertsSection from './AlertsSection';
 import ModernKpiCard from './ModernKpiCard';
 import ChartTooltip from './charts/ChartTooltip';
+import BottleCustodyWidget from './BottleCustodyWidget';
 import { formatCompactCurrency, formatCompactNumber } from '../../utils/chartFormatters';
 import { useTenant } from '../../context/TenantContext';
 
@@ -133,6 +134,9 @@ export default function MarketingDashboardView({ data }) {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* 19L Bottle Custody & Recovery Fleet Widget */}
+      <BottleCustodyWidget />
 
       {/* 3. Customer Credit & Inactivity Alerts */}
       <section className="space-y-2.5">

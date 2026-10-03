@@ -13,6 +13,8 @@ import { PageHeader } from '../components/ui';
 import ProductionBatchTable from '../components/production/ProductionBatchTable';
 import CreateBatchModal from '../components/production/CreateBatchModal';
 import CompleteBatchModal from '../components/production/CompleteBatchModal';
+import PreformConsumptionSummary from '../components/production/PreformConsumptionSummary';
+import { useLiveEvent } from '../context/SSEContext';
 
 const API = API_URL;
 
@@ -23,7 +25,6 @@ export default function Production() {
 
   const [batches, setBatches] = useState([]);
   const [items, setItems] = useState([]);
-  const [, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,19 +40,15 @@ export default function Production() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsRes, batchesRes, statsRes] = await Promise.all([
+      const [itemsRes, batchesRes] = await Promise.all([
         fetch(`${API}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API}/production/stats`, { headers: { 'x-tenant': tenant }, credentials: 'include' }).catch(() => ({ json: () => ({ success: true, data: null }) }))
+        fetch(`${API}/production`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
 
-      const itemsData = await itemsRes.json();
-      const batchesData = await batchesRes.json();
-      const statsData = await statsRes.json();
+      const [itemsData, batchesData] = await Promise.all([itemsRes.json(), batchesRes.json()]);
 
       if (itemsData.success) setItems(itemsData.data || []);
       if (batchesData.success) setBatches(batchesData.data || []);
-      if (statsData.success) setStats(statsData.data);
     } catch (err) {
       console.error('Error fetching PM production data:', err);
     } finally {
@@ -63,6 +60,8 @@ export default function Production() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useLiveEvent(['PRODUCTION_UPDATED', 'INVENTORY_CHANGED'], fetchData);
 
   const handleLogBatch = async (payload) => {
     setSubmitting(true);
@@ -206,6 +205,9 @@ export default function Production() {
           </div>
         </div>
       )}
+
+      {/* Preform Consumption Summary (Wadaana Only) */}
+      {isWadaana && <PreformConsumptionSummary batches={batches} isWadaana={isWadaana} />}
 
       {/* Production History & Batch Audit Trail Table */}
       <ProductionBatchTable

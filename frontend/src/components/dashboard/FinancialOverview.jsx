@@ -4,12 +4,22 @@ import DashboardKpiCard from './DashboardKpiCard';
 import { TimeframeDropdown } from '../ui';
 
 export default function FinancialOverview({ data, role }) {
-  const [timeframe, setTimeframe] = useState('MONTHLY');
+  const [timeframe, setTimeframe] = useState('1_MONTH');
   const isMarketing = role === 'MARKETING_MANAGER';
 
   const activeData = useMemo(() => {
     if (!data) return {};
-    const tfKey = timeframe.toLowerCase();
+    let tfKey;
+    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+      tfKey = 'daily';
+    } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+      tfKey = 'yearly';
+    } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+      tfKey = 'monthly';
+    } else {
+      tfKey = timeframe.toLowerCase();
+    }
+
     if (data[tfKey]) return data[tfKey];
     return {
       sales: Number(data.sales || 0),
@@ -24,13 +34,21 @@ export default function FinancialOverview({ data, role }) {
   }, [data, timeframe]);
 
   const getTimeLabel = (base) => {
-    if (timeframe === 'DAILY') return `${base} (TODAY)`;
-    if (timeframe === 'YEARLY') return `${base} (THIS YEAR)`;
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return `${base} (TODAY)`;
+    if (timeframe === 'YESTERDAY') return `${base} (YESTERDAY)`;
+    if (timeframe === 'LAST_3_DAYS') return `${base} (LAST 3 DAYS)`;
+    if (timeframe === '1_WEEK') return `${base} (THIS WEEK)`;
+    if (timeframe === 'YEARLY' || timeframe === '1_YEAR') return `${base} (THIS YEAR)`;
     return `${base} (THIS MONTH)`;
   };
 
   const getTimeSubtitle = (base) => {
-    const period = timeframe === 'DAILY' ? 'today' : timeframe === 'YEARLY' ? 'this year' : 'this month';
+    const period = (timeframe === 'DAILY' || timeframe === 'TODAY') ? 'today'
+      : timeframe === 'YESTERDAY' ? 'yesterday'
+      : timeframe === 'LAST_3_DAYS' ? 'past 3 days'
+      : timeframe === '1_WEEK' ? 'this week'
+      : (timeframe === 'YEARLY' || timeframe === '1_YEAR') ? 'this year'
+      : 'this month';
     return `${base} ${period}`;
   };
 

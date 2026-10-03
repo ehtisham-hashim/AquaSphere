@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Filter } from 'lucide-react';
 import { API_URL } from '../utils/api';
+import { usePagination } from '../hooks/usePagination';
+import TablePagination from './common/TablePagination';
 
 export default function AuditLogsModal({ onClose }) {
   const [logs, setLogs] = useState([]);
@@ -35,6 +37,7 @@ export default function AuditLogsModal({ onClose }) {
   });
 
   const uniqueActions = [...new Set(logs.map(log => log.action))].filter(Boolean);
+  const pagination = usePagination(filteredLogs, 50, `${searchQuery}_${filterAction}`);
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -72,42 +75,45 @@ export default function AuditLogsModal({ onClose }) {
           </div>
         </div>
 
-        <div className="overflow-y-auto p-0 flex-1">
+        <div className="overflow-y-auto p-0 flex-1 flex flex-col justify-between">
           {loading ? (
             <div className="p-10 text-center text-slate-400 text-xs">Loading audit logs...</div>
           ) : (
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 sticky top-0 shadow-xs border-b border-slate-200">
-                <tr>
-                  <th className="table-th">Timestamp</th>
-                  <th className="table-th">Action</th>
-                  <th className="table-th">Performed By</th>
-                  <th className="table-th">Entity</th>
-                  <th className="table-th">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredLogs.length > 0 ? filteredLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="table-td whitespace-nowrap font-mono text-xs text-slate-600">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </td>
-                    <td className="table-td">
-                      <span className="badge-neutral text-[11px]">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="table-td font-semibold text-slate-800 text-xs">{log.userName || log.userId}</td>
-                    <td className="table-td text-xs">{log.entity}</td>
-                    <td className="table-td text-xs max-w-xs truncate" title={log.details}>{log.details}</td>
-                  </tr>
-                )) : (
+            <div>
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-500 sticky top-0 shadow-xs border-b border-slate-200">
                   <tr>
-                    <td colSpan="5" className="p-8 text-center text-slate-400 text-xs">No logs found.</td>
+                    <th className="table-th">Timestamp</th>
+                    <th className="table-th">Action</th>
+                    <th className="table-th">Performed By</th>
+                    <th className="table-th">Entity</th>
+                    <th className="table-th">Details</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {pagination.paginatedItems.length > 0 ? pagination.paginatedItems.map(log => (
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="table-td whitespace-nowrap font-mono text-xs text-slate-600">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </td>
+                      <td className="table-td">
+                        <span className="badge-neutral text-[11px]">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="table-td font-semibold text-slate-800 text-xs">{log.userName || log.userId}</td>
+                      <td className="table-td text-xs">{log.entity}</td>
+                      <td className="table-td text-xs max-w-xs truncate" title={log.details}>{log.details}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-slate-400 text-xs">No logs found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <TablePagination pagination={pagination} />
+            </div>
           )}
         </div>
       </div>

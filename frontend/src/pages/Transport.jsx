@@ -11,6 +11,7 @@ import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 import {
   CarsTable,
   AddEditCarModal,
@@ -133,6 +134,11 @@ export default function Transport() {
     fetchExpenses();
   }, [fetchVehicles, fetchExpenses]);
 
+  useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED'], () => {
+    fetchVehicles();
+    fetchExpenses();
+  });
+
   // Filter transport-related expenses (strictly fuel and vehicle repairs)
   const transportExpenses = useMemo(() => {
     return expenses.filter(ex => {
@@ -155,27 +161,14 @@ export default function Transport() {
       const exDate = new Date(ex.createdAt);
       const now = new Date();
 
-      let matchesTime = true;
-      if (timeRange === 'DAILY') {
-        matchesTime = exDate.toDateString() === now.toDateString();
-      } else if (timeRange === 'WEEKLY') {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        matchesTime = exDate >= startOfWeek;
-      } else if (timeRange === 'MONTHLY') {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        matchesTime = exDate >= startOfMonth;
-      } else if (timeRange === 'QUARTERLY') {
-        const currentQuarterMonth = Math.floor(now.getMonth() / 3) * 3;
-        const startOfQuarter = new Date(now.getFullYear(), currentQuarterMonth, 1);
-        matchesTime = exDate >= startOfQuarter;
-      } else if (timeRange === 'YEARLY') {
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        matchesTime = exDate >= startOfYear;
-      } else if (timeRange === 'LIFETIME') {
-        matchesTime = true;
-      }
+      const matchesTime = timeRange === 'DAILY' ? exDate.toDateString() === now.toDateString()
+        : timeRange === 'YESTERDAY' ? exDate.toDateString() === new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toDateString()
+        : timeRange === 'LAST3DAYS' ? exDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0, 0)
+        : timeRange === 'WEEKLY' ? exDate >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0)
+        : timeRange === 'MONTHLY' ? exDate >= new Date(now.getFullYear(), now.getMonth(), 1)
+        : timeRange === 'QUARTERLY' ? exDate >= new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+        : timeRange === 'YEARLY' ? exDate >= new Date(now.getFullYear(), 0, 1)
+        : true;
 
       return matchesCategory && matchesSearch && matchesTime;
     });
@@ -318,7 +311,7 @@ export default function Transport() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-600">Time Horizon:</span>
               <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
-                {['DAILY', 'WEEKLY', 'MONTHLY', 'LIFETIME'].map((r) => (
+                {['YESTERDAY', 'LAST3DAYS', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'LIFETIME'].map((r) => (
                   <button
                     key={r}
                     onClick={() => setTimeRange(r)}
@@ -328,7 +321,7 @@ export default function Transport() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    {r.charAt(0) + r.slice(1).toLowerCase()}
+                    {r === 'LAST3DAYS' ? 'Last 3 Days' : r.charAt(0) + r.slice(1).toLowerCase()}
                   </button>
                 ))}
               </div>

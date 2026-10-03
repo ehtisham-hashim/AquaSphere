@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { toast } from 'sonner';
 import { 
   InventoryHeader, 
   FinishedGoodsSummaryCards, 
@@ -9,6 +10,7 @@ import {
 import { useTenant } from '../context/TenantContext';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -39,12 +41,17 @@ export default function Inventory() {
 
       if (itemsJson.success || results[0].ok) {
         setItems(itemsJson.data || []);
+      } else {
+        toast.error(itemsJson.message || 'Failed to load inventory items');
       }
       if (txnsJson.success || results[1].ok) {
         setTransactions(txnsJson.data || []);
+      } else {
+        toast.error(txnsJson.message || 'Failed to load inventory transactions');
       }
     } catch (err) {
       console.error('Failed to fetch finished goods inventory:', err);
+      toast.error('Failed to load inventory');
     } finally {
       setIsLoading(false);
     }
@@ -53,6 +60,8 @@ export default function Inventory() {
   useEffect(() => {
     fetchInventoryData();
   }, [fetchInventoryData]);
+
+  useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED'], fetchInventoryData);
 
   // Filter transactions by search
   const filteredTransactions = useMemo(() => {

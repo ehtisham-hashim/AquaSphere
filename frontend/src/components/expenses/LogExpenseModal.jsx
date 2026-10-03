@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 const API = API_URL;
 const TM_CATEGORIES = TRANSPORT_EXPENSE_CATEGORIES;
 
-export default function LogExpenseModal({ isOpen, onClose, onSaved, defaultVehicleId = '', lockVehicle = false }) {
+export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, defaultVehicleId = '', lockVehicle = false }) {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
   const isTM = user?.role === 'TRANSPORT_MANAGER' || lockVehicle;
@@ -158,7 +158,8 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, defaultVehic
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to save expense');
       resetForm(); 
-      onSaved();
+      if (typeof onSaved === 'function') onSaved(json.data);
+      if (typeof onSuccess === 'function') onSuccess(json.data);
     } catch (e) { 
       setError(e.message); 
     } finally { 

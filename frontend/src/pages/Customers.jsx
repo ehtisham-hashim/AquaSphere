@@ -7,11 +7,12 @@ import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function Customers() {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const canAddCustomer = user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER';
+  const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'].includes(user?.role);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
@@ -41,6 +42,8 @@ export default function Customers() {
     fetchCustomers(search, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tenant]);
+
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED'], () => fetchCustomers(search, activeTab));
 
   const handleSearchChange = (e) => {
     const val = e.target.value;

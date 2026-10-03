@@ -2,11 +2,10 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
-import pkg from '@prisma/client';
-const { Prisma } = pkg;
 
 const QTY_THRESHOLDS = {
   Home: 5,
@@ -149,6 +148,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     return o;
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
   return sendSuccess(res, order, 201);
 });
 
@@ -186,6 +186,7 @@ export const updateOrder = asyncHandler(async (req, res) => {
     });
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
   return sendSuccess(res, updated);
 });
 
@@ -322,12 +323,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       if (orderItem.itemId) {
         const itemObj = itemMap.get(orderItem.itemId);
         if (itemObj) {
+          const packMultiplier = Number(itemObj.packSize || 1);
+          const reqQty = Number(orderItem.quantity || 0) * packMultiplier;
           const factoryStock = Number(itemObj.factoryQty !== undefined && itemObj.factoryQty !== null ? itemObj.factoryQty : itemObj.cachedQty || 0);
-          const reqQty = Number(orderItem.quantity || 0);
           if (factoryStock < reqQty) {
             throw new ApiError(
               400,
-              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty}, Available on Factory Floor: ${factoryStock}.`
+              `❌ Cannot deliver order: Insufficient Factory Floor stock for "${itemObj.name}". Required: ${reqQty} bottles (${orderItem.quantity} packs), Available on Factory Floor: ${factoryStock}.`
             );
           }
         }
@@ -352,45 +354,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
+    // 19L bottle custody update (minerals/caps deducted exclusively at production batch completion)
     if (has19L && qty19L > 0) {
-      const largeCap = await tx[`${prefix}Item`].findFirst({
-        where: {
-          type: 'RAW_MATERIAL',
-          OR: [
-            { name: { contains: 'large cap', mode: 'insensitive' } },
-            { name: { contains: 'big cap', mode: 'insensitive' } },
-            { name: { contains: '19l cap', mode: 'insensitive' } },
-            { name: { contains: 'big 19l', mode: 'insensitive' } }
-          ]
-        }
-      });
-      if (largeCap) {
-        await tx[`${prefix}Item`].update({ where: { id: largeCap.id }, data: { cachedQty: { decrement: qty19L } } });
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: largeCap.id, quantity: qty19L, direction: 'OUT', reason: '19L_DELIVERY_CAPS', refType: 'ORDER', refId: o.id }
-        });
-      }
-
-      // Mineral deduction: 24L treated water per bottle / 15,141L per mineral set
-      const mineralSetFraction = new Prisma.Decimal(qty19L * 24).dividedBy(15141);
-      const rawItems = await tx[`${prefix}Item`].findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null } });
-      const minerals = [
-        { search: 'calcium', factor: 2 },
-        { search: 'magnesium', factor: 1 },
-        { search: 'sodium', factor: 0.5 }
-      ];
-
-      for (const m of minerals) {
-        const minItem = rawItems.find(i => i.name.toLowerCase().includes(m.search));
-        if (minItem && mineralSetFraction.greaterThan(0)) {
-          const qtyUsed = mineralSetFraction.mul(m.factor);
-          await tx[`${prefix}Item`].update({ where: { id: minItem.id }, data: { cachedQty: { decrement: qtyUsed } } });
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: minItem.id, quantity: qtyUsed, direction: 'OUT', reason: '19L_DELIVERY_MINERALS', refType: 'ORDER', refId: o.id }
-          });
-        }
-      }
-
       await tx[`${prefix}BottleTransaction`].create({
         data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
       });
@@ -414,11 +379,12 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    // Deduct finished goods exclusively from Factory Floor
+    // Deduct finished goods exclusively from Factory Floor in base units
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
         const is19L = orderItem.item?.name?.toLowerCase().includes('19l');
-        const qtyToDeduct = Number(orderItem.quantity || 0);
+        const packMultiplier = Number(orderItem.item?.packSize || 1);
+        const qtyToDeduct = Number(orderItem.quantity || 0) * packMultiplier;
 
         await tx[`${prefix}Item`].update({
           where: { id: orderItem.itemId },
@@ -428,7 +394,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         await tx[`${prefix}InventoryTransaction`].create({
           data: { 
             itemId: orderItem.itemId, 
-            quantity: orderItem.quantity, 
+            quantity: qtyToDeduct, 
             direction: 'OUT', 
             reason: is19L ? '19L_DELIVERY' : 'PET_DELIVERY', 
             refType: 'ORDER', 
@@ -481,8 +447,77 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     return updated;
   }, { maxWait: 10000, timeout: 30000 });
 
-  broadcastDashboardUpdate();
+    broadcastDashboardUpdate();
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, order);
+});
+
+/** Records payment settlement for an order without triggering delivery */
+export const recordOrderPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const prefix = getTenantPrefix(req);
+  const { amount, paymentMethod = 'CASH', remarks } = req.body;
+  const cash = parseFloat(amount || 0);
+
+  if (cash <= 0) {
+    throw new ApiError(400, 'Payment amount must be greater than 0');
+  }
+
+  const o = await prisma[`${prefix}Order`].findUnique({
+    where: { id },
+    include: { payments: true, customer: true, items: { include: { item: true } } }
+  });
+  if (!o) throw new ApiError(404, 'Order not found');
+
+  const alreadyPaid = o.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+  const orderTotal = o.items.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
+      where: { id: o.customerId },
+      select: { currentBalance: true, deposit: true }
+    });
+    const currentCustomerDebt = Math.max(0, Number(customerSnapshot?.currentBalance || 0));
+
+    const debtReduction = Math.min(currentCustomerDebt, cash);
+    const depositRestored = Math.max(0, cash - debtReduction);
+
+    await tx[`${prefix}Payment`].create({
+      data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
+    });
+
+    const customerUpdateData = {};
+    if (debtReduction > 0) customerUpdateData.currentBalance = { decrement: debtReduction };
+    if (depositRestored > 0) customerUpdateData.deposit = { increment: depositRestored };
+
+    if (Object.keys(customerUpdateData).length > 0) {
+      await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
+    }
+
+    const newTotalPaid = alreadyPaid + cash;
+    const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+
+    const orderUpdated = await tx[`${prefix}Order`].update({
+      where: { id },
+      data: { paymentStatus: newPaymentStatus },
+      include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_PAYMENT_SETTLED',
+      entityType: 'Order',
+      entityId: orderUpdated.id,
+      performedBy: req.user?.id || 'Unknown',
+      details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, debtReduction, depositRestored, remarks })
+    });
+
+    return orderUpdated;
+  });
+
+  broadcastDashboardUpdate();
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
+  return sendSuccess(res, updated);
 });
 
 /** Generates and streams PDF invoice */
@@ -497,7 +532,8 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, 'Order not found');
 
   const { generateInvoicePDF } = await import('../utils/pdfGenerator.js');
-  const pdfBuffer = await generateInvoicePDF(order, prefix);
+  const withGst = req.query.gst === 'true' || req.query.gst === '1' || Boolean(order.withGst);
+  const pdfBuffer = await generateInvoicePDF(order, prefix, { withGst });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="invoice-${id.substring(0, 8)}.pdf"`);

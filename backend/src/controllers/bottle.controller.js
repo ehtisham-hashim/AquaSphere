@@ -89,7 +89,7 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { customerId, type, quantity, reason } = req.body;
 
-  const qty = parseInt(quantity);
+  const qty = parseInt(quantity, 10);
   if (!type || isNaN(qty) || qty <= 0) {
     throw new ApiError(400, 'Valid transaction type and positive quantity are required');
   }

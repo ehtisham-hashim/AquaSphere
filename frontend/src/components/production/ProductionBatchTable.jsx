@@ -1,5 +1,44 @@
 import { useState } from 'react';
 import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, UserCheck } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
+import { parsePreformInfo } from '../../utils/preformHelper';
+
+function getBatchConsumptions(b, isWadaana) {
+  if (!b) return [];
+  if (Array.isArray(b.consumptions) && b.consumptions.length > 0) {
+    return b.consumptions.map(c => {
+      const rawName = c.item?.name || 'Raw Material';
+      const info = parsePreformInfo(rawName);
+      const qtyKg = Number(c.quantityUsed || 0);
+      const qtyGrams = qtyKg * 1000;
+      return {
+        name: rawName,
+        info,
+        qtyKg,
+        qtyGrams
+      };
+    });
+  }
+
+  if (isWadaana) {
+    const products = getBatchProducts(b, isWadaana);
+    return products.map(p => {
+      const info = parsePreformInfo(p.name);
+      const qty = parseInt(String(p.qty).replace(/[^0-9]/g, ''), 10) || 0;
+      const qtyGrams = qty * info.gramsPerBottle;
+      const qtyKg = qtyGrams / 1000;
+      return {
+        name: info.name,
+        info,
+        qtyKg,
+        qtyGrams
+      };
+    }).filter(c => c.qtyGrams > 0);
+  }
+
+  return [];
+}
 
 function getColorClasses(color) {
   switch (color) {
@@ -118,6 +157,7 @@ export default function ProductionBatchTable({
   onDelete
 }) {
   const [viewingBatch, setViewingBatch] = useState(null);
+  const pagination = usePagination(batches || [], 50);
 
   return (
     <div className="table-container">
@@ -157,7 +197,7 @@ export default function ProductionBatchTable({
                 </td>
               </tr>
             ) : (
-              batches.map(b => {
+              pagination.paginatedItems.map(b => {
                 const products = getBatchProducts(b, isWadaana);
                 const visibleProducts = products.slice(0, 2);
                 const remainingCount = products.length - 2;
@@ -280,6 +320,7 @@ export default function ProductionBatchTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
 
       {/* Batch Details Modal (Opened by Eye Icon or "+X more") */}
       {viewingBatch && (
@@ -343,25 +384,55 @@ export default function ProductionBatchTable({
                 </div>
               </div>
 
-              {/* Consumed Raw Materials (If Dynamic Recipe or Consumptions) */}
-              {viewingBatch.consumptions && viewingBatch.consumptions.length > 0 && (
-                <div>
-                  <h5 className="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2">
-                    Raw Material Consumptions
-                  </h5>
-                  <div className="space-y-1.5">
-                    {viewingBatch.consumptions.map((c, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between"
-                      >
-                        <span className="font-semibold text-slate-700">{c.item?.name || 'Raw Material'}</span>
-                        <span className="font-bold text-slate-900">{c.quantityUsed} {c.item?.unit || ''}</span>
-                      </div>
-                    ))}
+              {/* Consumed Raw Materials (Preforms) */}
+              {(() => {
+                const consumptionsList = getBatchConsumptions(viewingBatch, isWadaana);
+                if (consumptionsList.length === 0) return null;
+
+                return (
+                  <div>
+                    <h5 className="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1.5">
+                      <Flame size={13} className="text-orange-500" />
+                      Raw Material Consumptions (Preforms)
+                    </h5>
+                    <div className="space-y-1.5">
+                      {consumptionsList.map((c, idx) => {
+                        const { info, qtyKg, qtyGrams } = c;
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-xl border flex items-center justify-between shadow-2xs ${info.bgClass || 'bg-slate-50 border-slate-300'}`}
+                          >
+                            <div className="flex-1 min-w-0 pr-3">
+                              <span className="font-bold text-slate-900 block text-xs truncate">{c.name}</span>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${info.badgeTypeClass}`}>
+                                  {info.type}
+                                </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                  {info.size}
+                                </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                  {info.color}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-black text-slate-900 text-sm sm:text-base">
+                                {qtyGrams.toLocaleString()}g
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono">
+                                ({qtyKg.toFixed(3).replace(/\.?0+$/, '')} kg)
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Scrap & Audit Trail */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">

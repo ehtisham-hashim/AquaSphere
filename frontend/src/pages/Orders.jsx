@@ -16,6 +16,54 @@ import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
 import RecordPaymentModal from '../components/orders/RecordPaymentModal';
 import OrderSearch from '../components/orders/OrderSearch';
 import OrderDetail from '../components/orders/OrderDetail';
+import { usePagination } from '../hooks/usePagination';
+import TablePagination from '../components/common/TablePagination';
+import { useLiveEvent } from '../context/SSEContext';
+
+const DATE_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Time' },
+  { value: 'TODAY', label: 'Today' },
+  { value: 'YESTERDAY', label: 'Yesterday' },
+  { value: 'LAST_3_DAYS', label: 'Last 3 Days' },
+  { value: '1_WEEK', label: '1 Week' },
+  { value: '1_MONTH', label: '1 Month' },
+  { value: '1_YEAR', label: '1 Year' },
+];
+
+const parseOrderDate = (d) => {
+  if (!d) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+  if (typeof d === 'string') {
+    const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match && (d.length === 10 || d.includes('T00:00:00'))) {
+      const [, y, m, day] = match;
+      return new Date(Number(y), Number(m) - 1, Number(day), 12, 0, 0);
+    }
+  }
+  const dateObj = new Date(d);
+  return isNaN(dateObj.getTime()) ? null : dateObj;
+};
+
+const checkDateMatch = (rawDate, filter, now) => {
+  if (!rawDate || filter === 'ALL') return true;
+  const d = parseOrderDate(rawDate);
+  if (!d) return false;
+
+  const startOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 0, 0, 0, 0);
+  const endOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
+
+  if (filter === 'TODAY') return d >= startOfDay(0) && d <= endOfDay(0);
+  if (filter === 'YESTERDAY') return d >= startOfDay(1) && d <= endOfDay(1);
+  const spanMap = { LAST_3_DAYS: 2, '1_WEEK': 7, '1_MONTH': 30, '1_YEAR': 365 };
+  return spanMap[filter] ? (d >= startOfDay(spanMap[filter]) && d <= endOfDay(0)) : true;
+};
+
+const orderMatchesDate = (o, filter) => {
+  if (!filter || filter === 'ALL') return true;
+  const rawDate = o.expectedDelivery || o.createdAt;
+  if (!rawDate) return false;
+  return checkDateMatch(rawDate, filter, new Date());
+};
 
 export default function Orders() {
   const { user } = useAuth();
@@ -27,6 +75,7 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('All Clients');
+  const [dateFilter, setDateFilter] = useState('ALL');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
@@ -53,6 +102,8 @@ export default function Orders() {
     if (itm.success) setItems(itm.data || []);
     setIsLoading(false);
   };
+
+  useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], fetchData);
 
   useEffect(() => { 
     fetchData(); 
@@ -122,6 +173,9 @@ export default function Orders() {
     
     // Client type filtering
     if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
+
+    // Date filtering
+    if (dateFilter !== 'ALL' && !orderMatchesDate(o, dateFilter)) return false;
     
     // Search query: Order ID, Customer Name, Phone Number
     if (searchQuery) {
@@ -137,6 +191,8 @@ export default function Orders() {
 
     return true;
   });
+
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${activeTab}_${dateFilter}`);
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
@@ -196,8 +252,8 @@ export default function Orders() {
 
       {/* Tab Filter & Search Toolbar */}
       <div className="card-surface p-3 flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="w-full sm:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div className="w-full lg:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
             <div className="inline-flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 min-w-max">
               {tabs.map(tab => (
                 <button 
@@ -215,14 +271,30 @@ export default function Orders() {
             </div>
           </div>
 
-          <div className="shrink-0 w-full sm:w-48">
-            <select 
-              className="select-base text-xs py-1.5 px-2.5 w-full"
-              value={clientFilter}
-              onChange={e => setClientFilter(e.target.value)}
-            >
-              {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full lg:w-auto">
+            <div className="w-full sm:w-36">
+              <select 
+                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value)}
+                aria-label="Filter orders by date"
+              >
+                {DATE_FILTER_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full sm:w-44">
+              <select 
+                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+                value={clientFilter}
+                onChange={e => setClientFilter(e.target.value)}
+                aria-label="Filter orders by client"
+              >
+                {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -250,11 +322,25 @@ export default function Orders() {
                 {filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="p-12 text-center text-slate-500">
-                      No orders found.
+                      <p>No orders found.</p>
+                      {(dateFilter !== 'ALL' || clientFilter !== 'All Clients' || searchQuery) && (
+                        <div className="mt-2">
+                          <button
+                            onClick={() => {
+                              setDateFilter('ALL');
+                              setClientFilter('All Clients');
+                              setSearchQuery('');
+                            }}
+                            className="text-xs text-brand hover:underline font-semibold"
+                          >
+                            Clear filters
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
-                filteredOrders.map(o => {
+                pagination.paginatedItems.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
                   const canProcess = !isAdmin && !isTransportManager && o.deliveryStatus !== 'CANCELLED' && (
@@ -300,7 +386,7 @@ export default function Orders() {
                       </td>
                       <td className="table-td text-xs text-slate-600">
                         {o.expectedDelivery ? (
-                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {new Date(o.expectedDelivery).toLocaleDateString()}</div>
+                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {parseOrderDate(o.expectedDelivery)?.toLocaleDateString()}</div>
                         ) : <span className="text-slate-400 text-xs">Not set</span>}
                       </td>
                       <td className="table-td">
@@ -326,7 +412,10 @@ export default function Orders() {
                               <button
                                 onClick={() => {
                                   const cust = o.customer || {};
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  const mapLink = cust.mapLink?.trim()
+                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
+                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
                                   navigator.clipboard.writeText(text);
                                   toast.success('Order summary copied for driver!');
                                 }}
@@ -338,8 +427,11 @@ export default function Orders() {
                               <button
                                 onClick={() => {
                                   const cust = o.customer || {};
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${cust.mapLink ? `🗺️ Map: ${cust.mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
-                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                  const mapLink = cust.mapLink?.trim()
+                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
+                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
+                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
                                 }}
                                 className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                                 title="Share to driver via WhatsApp"
@@ -387,6 +479,7 @@ export default function Orders() {
               )}
             </tbody>
           </table>
+          <TablePagination pagination={pagination} />
         </div>
       )}
       </>

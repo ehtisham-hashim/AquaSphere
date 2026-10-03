@@ -162,36 +162,36 @@ function calculateProductionBatch(params, items) {
     if (empty19L) addDeduction(empty19L, decQuantity19L, 'pcs');
   }
 
-  // 4. Finished Goods Additions (Net good packs after deducting broken bottles)
-  const totalBottles05L = packs05L * 12;
+  // 4. Finished Goods Additions (Net good bottles after deducting broken bottles)
+  const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (
+    i.name.toLowerCase().includes('500ml') || 
+    i.name.toLowerCase().includes('0.5l') || 
+    i.name.toLowerCase().includes('0.5')
+  ));
+  const packMult05L = Number(fg05L?.packSize || 12);
+  const totalBottles05L = packs05L * packMult05L;
   const netGoodBottles05L = Math.max(0, totalBottles05L - brokenBottles05L);
-  const netGoodPacks05L = new Prisma.Decimal(netGoodBottles05L).dividedBy(12);
 
-  if (netGoodPacks05L.greaterThan(0)) {
-    const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (
-      i.name.toLowerCase().includes('500ml') || 
-      i.name.toLowerCase().includes('0.5l') || 
-      i.name.toLowerCase().includes('0.5')
-    ));
-    if (fg05L) {
-      finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: netGoodPacks05L, unit: 'packs' });
-    }
+  if (netGoodBottles05L > 0 && fg05L) {
+    // Ensure quantity added is in base bottles
+    const addedBottles = new Prisma.Decimal(netGoodBottles05L);
+    finishedGoods.push({ itemId: fg05L.id, name: fg05L.name, quantityAdded: addedBottles, unit: fg05L.unit || 'bottle' });
   }
 
-  const totalBottles15L = packs15L * 6;
+  const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (
+    i.name.toLowerCase().includes('1.5l') || 
+    i.name.toLowerCase().includes('1500ml') || 
+    i.name.toLowerCase().includes('1.5') ||
+    i.name.toLowerCase().includes('1500')
+  ));
+  const packMult15L = Number(fg15L?.packSize || 6);
+  const totalBottles15L = packs15L * packMult15L;
   const netGoodBottles15L = Math.max(0, totalBottles15L - brokenBottles15L);
-  const netGoodPacks15L = new Prisma.Decimal(netGoodBottles15L).dividedBy(6);
 
-  if (netGoodPacks15L.greaterThan(0)) {
-    const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (
-      i.name.toLowerCase().includes('1.5l') || 
-      i.name.toLowerCase().includes('1500ml') || 
-      i.name.toLowerCase().includes('1.5') ||
-      i.name.toLowerCase().includes('1500')
-    ));
-    if (fg15L) {
-      finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: netGoodPacks15L, unit: 'packs' });
-    }
+  if (netGoodBottles15L > 0 && fg15L) {
+    // Ensure quantity added is in base bottles
+    const addedBottles = new Prisma.Decimal(netGoodBottles15L);
+    finishedGoods.push({ itemId: fg15L.id, name: fg15L.name, quantityAdded: addedBottles, unit: fg15L.unit || 'bottle' });
   }
 
   // 5. Broken Bottles Logging
@@ -241,7 +241,7 @@ function calculateDynamicBatch(outputItem, quantity, wasteQuantity = 0, allItems
       itemId: outputItem.id,
       name: outputItem.name,
       quantityAdded: netGoodQty,
-      unit: outputItem.unit || 'packs'
+      unit: outputItem.unit || 'bottle'
     });
   }
 

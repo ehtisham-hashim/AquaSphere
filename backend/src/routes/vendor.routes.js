@@ -17,9 +17,9 @@ const router = Router();
 
 router.use(verifyJWT);
 
-// View Vendors & Vendor Profiles: OWNER, ACCOUNTANT, ADMIN
-router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getVendors);
-router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getVendorById);
+// View Vendors & Vendor Profiles: OWNER, ACCOUNTANT, ADMIN, PRODUCTION_MANAGER, MARKETING_MANAGER
+router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendors);
+router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendorById);
 
 // Create & Edit Vendors: OWNER, ACCOUNTANT (Admin is read-only)
 router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), createVendor);

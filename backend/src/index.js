@@ -29,6 +29,7 @@ import auditLogRoutes from './routes/auditLog.routes.js';
 import adminDashboardRoutes from './routes/adminDashboard.routes.js';
 import vehicleRoutes from './routes/vehicle.routes.js';
 import transportExpenseRoutes from './routes/transportExpense.routes.js';
+import eventRoutes from './routes/events.routes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -118,6 +119,8 @@ app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/admin', adminDashboardRoutes);
 app.use('/api/v1/vehicles', vehicleRoutes);
 app.use('/api/v1/transport-expenses', transportExpenseRoutes);
+app.use('/api/v1/events', eventRoutes);
+app.use('/api/events', eventRoutes);
 
 // Health check endpoint
 app.get('/', (_req, res) => {

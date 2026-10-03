@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Printer, Copy, Check, Image as ImageIcon } from 'lucide-react';
+import { X, Printer, Copy, Check, Image as ImageIcon, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
 import {
@@ -8,11 +8,13 @@ import {
   printReceiptElement,
   copyReceiptElementAsImage
 } from '../../utils/receiptFormatter';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function OrderInvoiceModal({ order, onClose }) {
   const { isWadaana } = useTenant();
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [withGst, setWithGst] = useState(false);
 
   if (!order) return null;
 
@@ -24,47 +26,55 @@ export default function OrderInvoiceModal({ order, onClose }) {
 
   const items = order.items || [];
   const grandTotal = items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
+  const gstAmount = withGst ? Math.round(grandTotal * 0.18) : 0;
+  const netTotal = grandTotal + gstAmount;
+
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const balanceDue = grandTotal - totalPaid;
+  const balanceDue = netTotal - totalPaid;
 
   const handlePrint = () => {
     printReceiptElement('order-invoice-print');
   };
 
+  const getInvoiceData = () => ({
+    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    subtitle: withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice',
+    tagline: 'Pure Quality • Safe & Healthy Water',
+    withGst,
+    strn: 'E208741-4',
+    contactInfo: '051-5454438 / 0300-9149143',
+    receiptNo: `#${orderId}`,
+    receiptNoLabel: 'INV:',
+    dateStr: orderDate,
+    customerName: order.customer?.name || 'Walk-In Customer',
+    customerPhone: order.customer?.phone || '',
+    paymentMethod: order.paymentStatus || 'UNPAID',
+    statusValue: balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL',
+    servedBy: `DELIVERY: ${order.deliveryStatus || 'PENDING'}`,
+    items: items.map(item => {
+      const qty = Number(item.quantity || 0);
+      const rate = Number(item.price || 0);
+      return {
+        name: item.item?.name || 'Item',
+        qty,
+        unitPrice: rate,
+        lineTotal: qty * rate
+      };
+    }),
+    summaryRows: [
+      { label: 'Subtotal', value: grandTotal },
+      ...(withGst ? [{ label: 'GST (18%)', value: gstAmount }] : []),
+      { label: 'Amount Paid', value: totalPaid },
+      ...(balanceDue > 0 ? [{ label: 'Balance Due', value: balanceDue }] : [])
+    ],
+    netTotal: netTotal,
+    remarks: order.remarks || '',
+    footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+  });
+
   const handleCopyImage = async () => {
     try {
-      const invoiceData = {
-        title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
-        subtitle: 'Commercial Sales Invoice',
-        tagline: 'Pure Quality • Safe & Healthy Water',
-        receiptNo: `#${orderId}`,
-        receiptNoLabel: 'INV:',
-        dateStr: orderDate,
-        customerName: order.customer?.name || 'Walk-In Customer',
-        customerPhone: order.customer?.phone || '',
-        paymentMethod: order.paymentStatus || 'UNPAID',
-        statusValue: balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL',
-        servedBy: `DELIVERY: ${order.deliveryStatus || 'PENDING'}`,
-        items: items.map(item => {
-          const qty = Number(item.quantity || 0);
-          const rate = Number(item.price || 0);
-          return {
-            name: item.item?.name || 'Item',
-            qty,
-            unitPrice: rate,
-            lineTotal: qty * rate
-          };
-        }),
-        summaryRows: [
-          { label: 'Subtotal', value: grandTotal },
-          { label: 'Amount Paid', value: totalPaid },
-          ...(balanceDue > 0 ? [{ label: 'Balance Due', value: balanceDue }] : [])
-        ],
-        netTotal: grandTotal,
-        remarks: order.remarks || '',
-        footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
-      };
-
+      const invoiceData = getInvoiceData();
       const res = await copyReceiptElementAsImage('order-invoice-print', invoiceData);
       if (res && res.method === 'clipboard') {
         setCopiedImage(true);
@@ -73,15 +83,17 @@ export default function OrderInvoiceModal({ order, onClose }) {
       } else {
         toast.info('Invoice image downloaded! You can attach it directly in WhatsApp.');
       }
+      return res;
     } catch (err) {
       console.error('Invoice image copy failed:', err);
       toast.error('Could not copy image. Try Print Invoice or Copy Text.');
+      return null;
     }
   };
 
   const handleCopyText = async () => {
     try {
-      const text = formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana);
+      const text = formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, balanceDue, isWadaana, withGst);
       const ok = await copyTextToClipboard(text);
       if (ok) {
         setCopiedText(true);
@@ -96,15 +108,50 @@ export default function OrderInvoiceModal({ order, onClose }) {
     }
   };
 
+  const handleSendWhatsAppCustomer = async () => {
+    // 1. Copy image to clipboard for instant pasting
+    await handleCopyImage();
+
+    // 2. Build summary message text
+    const summaryText = WhatsAppTemplates.invoiceSummary(order, netTotal, balanceDue, isWadaana);
+
+    // 3. Open WhatsApp Web directly with prefilled text
+    openWhatsAppWeb(order.customer?.phone, summaryText);
+    toast.success('Opening WhatsApp! Paste the invoice image (Ctrl+V) into the chat.');
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Modal Header */}
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-slate-100 shrink-0">
-          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Printer size={16} className="text-slate-800" /> Order Invoice
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Printer size={16} className="text-slate-800" /> Order Invoice
+            </h3>
+            {/* Dual GST Toggle */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => setWithGst(false)}
+                className={`px-2 py-1 rounded-md transition-all ${
+                  !withGst ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Customer Care
+              </button>
+              <button
+                type="button"
+                onClick={() => setWithGst(true)}
+                className={`px-2 py-1 rounded-md transition-all ${
+                  withGst ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                With 18% GST & STRN
+              </button>
+            </div>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X size={18} />
           </button>
@@ -123,8 +170,16 @@ export default function OrderInvoiceModal({ order, onClose }) {
               {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
             </h2>
             <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
-              Commercial Sales Invoice
+              {withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice'}
             </p>
+            {withGst ? (
+              <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
+                <p>STRN #: E208741-4</p>
+                <p className="text-slate-700 font-normal">Tel: 051-5454438 | Cell: 0300-9149143</p>
+              </div>
+            ) : (
+              <p className="text-[11px] font-bold text-emerald-700 mt-1">Customer Care</p>
+            )}
             <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
             <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>
@@ -189,6 +244,18 @@ export default function OrderInvoiceModal({ order, onClose }) {
               <span>Subtotal:</span>
               <span className="font-bold">₨ {grandTotal.toLocaleString()}</span>
             </div>
+            {withGst && (
+              <div className="flex justify-between">
+                <span>GST (18%):</span>
+                <span className="font-bold">₨ {gstAmount.toLocaleString()}</span>
+              </div>
+            )}
+            {withGst && (
+              <div className="flex justify-between font-bold">
+                <span>Net Total:</span>
+                <span>₨ {netTotal.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Amount Paid:</span>
               <span className="font-bold">₨ {totalPaid.toLocaleString()}</span>
@@ -217,14 +284,14 @@ export default function OrderInvoiceModal({ order, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="btn-secondary text-xs py-2 px-4"
+            className="btn-secondary text-xs py-2 px-3"
           >
             Close
           </button>
           <button
             type="button"
             onClick={handleCopyText}
-            className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
+            className={`btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 transition-colors ${
               copiedText ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
             }`}
             title="Copy invoice text for WhatsApp / SMS"
@@ -235,20 +302,28 @@ export default function OrderInvoiceModal({ order, onClose }) {
           <button
             type="button"
             onClick={handleCopyImage}
-            className={`btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 transition-colors ${
+            className={`btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 transition-colors ${
               copiedImage ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'text-slate-700 hover:text-slate-900'
             }`}
             title="Copy invoice as PNG image for WhatsApp"
           >
             {copiedImage ? <Check size={14} className="text-emerald-600" /> : <ImageIcon size={14} />}
-            {copiedImage ? 'Image Copied!' : 'Copy Image (WhatsApp)'}
+            {copiedImage ? 'Image Copied!' : 'Copy Image'}
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
+            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
           >
-            <Printer size={14} /> Print Invoice
+            <Printer size={14} /> Print
+          </button>
+          <button
+            type="button"
+            onClick={handleSendWhatsAppCustomer}
+            className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-xs"
+            title="Copy invoice image to clipboard & open WhatsApp with customer"
+          >
+            <Send size={14} /> Send Invoice (WhatsApp)
           </button>
         </div>
       </div>

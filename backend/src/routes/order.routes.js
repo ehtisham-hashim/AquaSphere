@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getOrders, createOrder, updateOrder, deliverOrder, getOrderPDF, deleteOrder } from '../controllers/order.controller.js';
+import { getOrders, createOrder, updateOrder, deliverOrder, recordOrderPayment, getOrderPDF, deleteOrder } from '../controllers/order.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRoles } from '../middlewares/role.middleware.js';
 
@@ -14,6 +14,7 @@ router.get('/:id/pdf', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_M
 router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), createOrder);
 router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), updateOrder);
 router.post('/:id/deliver', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), deliverOrder);
+router.post('/:id/payment', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), recordOrderPayment);
 router.delete('/:id', requireRoles('OWNER'), deleteOrder);
 
 export default router;

@@ -1,4 +1,6 @@
 import { Package, Edit2, Archive, RefreshCw, AlertTriangle, CheckCircle2, Flame } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 export default function RawMaterialsTable({ 
   materials = [], 
@@ -10,6 +12,8 @@ export default function RawMaterialsTable({
   canArchive = false
 }) {
   const isWadaana = tenant === 'wadaana';
+  const showActions = !isReadOnly || canArchive;
+  const pagination = usePagination(materials || [], 50);
 
   const getBadge = (name) => {
     if (isWadaana) {
@@ -39,13 +43,13 @@ export default function RawMaterialsTable({
               <th className="table-th">Current Stock</th>
               <th className="table-th">Reorder Level</th>
               <th className="table-th">Status</th>
-              <th className="table-th text-right">Actions</th>
+              {showActions && <th className="table-th text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan="6" className="p-10 text-center">
+                <td colSpan={showActions ? 6 : 5} className="p-10 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-slate-500 font-medium text-xs">Loading inventory master...</p>
@@ -54,7 +58,7 @@ export default function RawMaterialsTable({
               </tr>
             ) : materials.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-12 text-center text-slate-500">
+                <td colSpan={showActions ? 6 : 5} className="p-12 text-center text-slate-500">
                   <div className="max-w-md mx-auto flex flex-col items-center">
                     <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
                       <Package size={24} />
@@ -69,7 +73,7 @@ export default function RawMaterialsTable({
                 </td>
               </tr>
             ) : (
-              materials.map((m) => {
+              pagination.paginatedItems.map((m) => {
                 const isLow = parseFloat(m.cachedQty) <= parseFloat(m.reorderLevel);
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition-colors text-xs">
@@ -115,8 +119,8 @@ export default function RawMaterialsTable({
                         </span>
                       )}
                     </td>
-                    <td className="table-td text-right">
-                      {(!isReadOnly || canArchive) ? (
+                    {showActions && (
+                      <td className="table-td text-right">
                         <div className="flex items-center justify-end gap-1">
                           {!isReadOnly && (
                             <button
@@ -141,10 +145,8 @@ export default function RawMaterialsTable({
                             </button>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 italic">Read-Only</span>
-                      )}
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 );
               })
@@ -152,6 +154,7 @@ export default function RawMaterialsTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination} />
     </div>
   );
 }
