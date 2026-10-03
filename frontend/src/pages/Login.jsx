@@ -219,7 +219,7 @@ export default function Login() {
               <Building2 className="w-12 h-12 text-white" />
             ) : (
               <img 
-                src="/logo.png" 
+                src="https://res.cloudinary.com/wgstyulb/image/upload/f_auto,q_auto,w_160/v1791005735/logo.png" 
                 alt="AquaSphere Logo" 
                 className="w-full h-full object-contain drop-shadow-xs" 
               />
@@ -287,7 +287,7 @@ export default function Login() {
                       <Building2 className="w-9 h-9" />
                     ) : (
                       <img 
-                        src="/logo.png" 
+                        src="https://res.cloudinary.com/wgstyulb/image/upload/f_auto,q_auto,w_160/v1791005735/logo.png" 
                         alt="AquaSphere Logo" 
                         className="w-full h-full object-contain" 
                       />
