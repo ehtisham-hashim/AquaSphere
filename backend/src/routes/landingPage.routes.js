@@ -4,11 +4,12 @@ import {
   updateLandingPageSettings,
   getLandingPageAssets
 } from '../controllers/landingPage.controller.js';
+import { verifyJWT } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
 router.get('/', getLandingPageSettings);
-router.put('/', updateLandingPageSettings);
-router.get('/assets', getLandingPageAssets);
+router.put('/', verifyJWT, updateLandingPageSettings);
+router.get('/assets', verifyJWT, getLandingPageAssets);
 
 export default router;

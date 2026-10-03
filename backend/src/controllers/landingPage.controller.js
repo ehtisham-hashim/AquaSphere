@@ -19,6 +19,10 @@ export const getLandingPageSettings = async (req, res) => {
 
 export const updateLandingPageSettings = async (req, res) => {
   try {
+    if (req.user && req.user.role !== 'OWNER' && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Forbidden: Admin or Owner privileges required to update website settings' });
+    }
+
     const payload = req.body;
     if (!payload || typeof payload !== 'object') {
       return res.status(400).json({ success: false, message: 'Invalid payload' });
