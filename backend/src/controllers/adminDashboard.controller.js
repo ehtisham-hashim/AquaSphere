@@ -144,7 +144,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   // Format production table
   const productionTable = todaysProductionBatches.map(b => ({
     id: b.id,
-    outputItem: b.outputItem?.name || (b.quantity ? '19L Refill Bottle' : 'PET Production Run'),
+    outputItem: b.outputItem?.name || (prefix === 'wadaana' ? 'PET Bottles' : (b.quantity ? '19L Refill Bottle' : 'PET Production Run')),
     quantity: b.quantity || 0,
     wasteQuantity: b.wasteQuantity || 0,
     packs05L: b.packs05L || 0,
@@ -172,7 +172,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       totalCashCollected: orderPayments + spotCash,
       cashFromOrders: orderPayments,
       cashFromSpotSales: spotCash,
-      todaysWaterDispensedLitres: Number(spotSalesCash._sum.totalLitres || spotSalesCash._sum.litresSold || 0),
+      todaysWaterDispensedLitres: prefix === 'wadaana' ? 0 : Number(spotSalesCash._sum.totalLitres || spotSalesCash._sum.litresSold || 0),
       totalOutstandingReceivables: Number(customerReceivablesAgg._sum.currentBalance || 0),
       dailyCloseStatus: {
         isClosed: Boolean(todaysDailyClose?.adminConfirmed),

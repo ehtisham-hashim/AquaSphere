@@ -4,11 +4,11 @@ import {
   Package, ShieldAlert, PhoneCall, RefreshCw, XCircle, MessageSquare
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function AlertsSection() {
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [alerts, setAlerts] = useState(null);
   const [custAlerts, setCustAlerts] = useState(null);
   const [loading, setLoading] = useState(true);

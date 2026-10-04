@@ -113,13 +113,15 @@ const computeDashboardAnalytics = async (prefix) => {
     const isUnprocessed = o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL';
 
     let orderLitres = 0;
-    for (const it of o.items || []) {
-      const n = (it.item?.name || '').toLowerCase();
-      const q = parseFloat(it.quantity || 0);
-      if (n.includes('0.5') || n.includes('500')) orderLitres += q * 9.0;
-      else if (n.includes('1.5') || n.includes('1500')) orderLitres += q * 12.0;
-      else if (n.includes('19')) orderLitres += q * 24.0;
-      else orderLitres += q;
+    if (prefix !== 'wadaana') {
+      for (const it of o.items || []) {
+        const n = (it.item?.name || '').toLowerCase();
+        const q = parseFloat(it.quantity || 0);
+        if (n.includes('0.5') || n.includes('500')) orderLitres += q * 9.0;
+        else if (n.includes('1.5') || n.includes('1500')) orderLitres += q * 12.0;
+        else if (n.includes('19')) orderLitres += q * 24.0;
+        else orderLitres += q;
+      }
     }
 
     const day = ensureDay(getDKey(d));
@@ -287,10 +289,12 @@ const computeDashboardAnalytics = async (prefix) => {
     };
   });
 
-  const bottleCustody = {
-    totalInCirculation: totalBottlesInCirculation,
-    customers: bottleCustodyList
-  };
+  const bottleCustody = prefix === 'wadaana' 
+    ? { totalInCirculation: 0, customers: [] }
+    : {
+        totalInCirculation: totalBottlesInCirculation,
+        customers: bottleCustodyList
+      };
 
   const dailySalesHistory = [];
   for (let i = 29; i >= 0; i--) {
@@ -368,7 +372,7 @@ const computeDashboardAnalytics = async (prefix) => {
     yearly,
     totalReceivables: totalOutstandingReceivables,
     totalOutstandingReceivables,
-    mineralMetrics: {
+    mineralMetrics: prefix === 'wadaana' ? null : {
       calciumStock: caQty,
       magnesiumStock: mgQty,
       sodiumStock: naQty,
@@ -377,7 +381,7 @@ const computeDashboardAnalytics = async (prefix) => {
       mineralCapacityLitres,
       isLow: batchesAvailable < 2
     },
-    waterMetrics: {
+    waterMetrics: prefix === 'wadaana' ? null : {
       dailyLitres: daily.waterLitres,
       dailyCustomLitres: daily.customWaterLitres,
       dailyRefillLitres: daily.refillWaterLitres,

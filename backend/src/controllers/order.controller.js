@@ -149,6 +149,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
+  broadcastDashboardUpdate(prefix);
   return sendSuccess(res, order, 201);
 });
 
@@ -447,7 +448,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     return updated;
   }, { maxWait: 10000, timeout: 30000 });
 
-    broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
   broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, order);
@@ -515,7 +516,7 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
     return orderUpdated;
   });
 
-  broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
   return sendSuccess(res, updated);
 });
@@ -568,6 +569,6 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     details: `Order ${id} soft-deleted and marked as CANCELLED`
   });
 
-  broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
 });

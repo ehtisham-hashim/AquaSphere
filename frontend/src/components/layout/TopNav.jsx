@@ -113,7 +113,10 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
     if (!canSwitchTenant || newTenant === currentTenant) return;
     clearCache();
     setTenant(newTenant);
-    navigate('/');
+    const targetPath = (location.pathname === '/' || location.pathname === '/login') 
+      ? '/dashboard' 
+      : (location.pathname + location.search);
+    navigate(targetPath, { replace: true });
   };
 
   const currentPage = PAGE_TITLES[location.pathname] || {

@@ -228,7 +228,7 @@ export default function CounterSales() {
   const todayCaps = todaySummary?.todayCaps ?? 0;
 
   if (isWadaana) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

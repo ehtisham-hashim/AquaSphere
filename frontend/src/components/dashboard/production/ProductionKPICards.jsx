@@ -10,7 +10,7 @@ export default function ProductionKPICards({
   mineralMetrics = {}
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWadaana ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-4`}>
       {/* Today's Output */}
       <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
@@ -73,22 +73,24 @@ export default function ProductionKPICards({
         </div>
       </div>
 
-      {/* Mineral Plant Dosing Capacity */}
-      <div className="card-surface p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mineral Capacity</span>
-          <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-            <Droplets size={16} />
+      {/* Mineral Plant Dosing Capacity (AquaSphere Only) */}
+      {!isWadaana && (
+        <div className="card-surface p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mineral Capacity</span>
+            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+              <Droplets size={16} />
+            </div>
+          </div>
+          <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
+            {Number(mineralMetrics?.mineralCapacityLitres || 0).toLocaleString()}
+            <span className="text-xs font-semibold text-slate-500 ml-1">L</span>
+          </div>
+          <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+            {mineralMetrics?.batchesAvailable || 0} mineral batch sets remaining
           </div>
         </div>
-        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
-          {Number(mineralMetrics?.mineralCapacityLitres || 0).toLocaleString()}
-          <span className="text-xs font-semibold text-slate-500 ml-1">L</span>
-        </div>
-        <div className="text-[11px] font-medium text-slate-500 mt-1.5">
-          {mineralMetrics?.batchesAvailable || 0} mineral batch sets remaining
-        </div>
-      </div>
+      )}
 
       {/* Daily Close Status */}
       <div className="card-surface p-4">

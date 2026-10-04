@@ -194,7 +194,7 @@ export default function ProductPricing() {
 
   // Strict role guard: only OWNER can view or edit pricing
   if (user?.role !== ROLES.OWNER) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
