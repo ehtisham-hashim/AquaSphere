@@ -1,0 +1,147 @@
+/* Scoped showcase and card styles for Certificates & Reports */
+
+.docs-showcase {
+  width: 100%;
+  min-height: 80vh;
+  padding: 50px 20px 80px;
+  position: relative;
+}
+
+.showcase-header {
+  max-width: 900px;
+  margin: 0 auto 45px;
+  text-align: center;
+}
+
+.showcase-tag {
+  display: inline-block;
+  padding: 7px 18px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(224, 242, 254, 0.95);
+  border: 1px solid rgba(125, 211, 252, 0.9);
+  color: #0369a1;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.showcase-header h1 {
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.12;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -1.5px;
+  margin-bottom: 14px;
+}
+
+.showcase-header h1 span {
+  background: linear-gradient(135deg, #0284c7, #06b6d4, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.showcase-header p {
+  max-width: 720px;
+  margin: 0 auto;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.docs-grid-premium {
+  width: min(96%, 1400px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  align-items: start;
+}
+
+.single-report-grid {
+  width: min(96%, 1150px);
+  grid-template-columns: 1fr;
+}
+
+.doc-premium-card {
+  width: 100%;
+  padding: 28px;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.doc-premium-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 70px rgba(2, 132, 199, 0.15);
+}
+
+.doc-card-top-line {
+  width: 80px;
+  height: 5px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, #0284c7, #06b6d4);
+}
+
+.pdf-frame {
+  width: 100%;
+  height: 780px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.pdf-frame-large {
+  height: 1000px;
+}
+
+.file-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0284c7, #06b6d4);
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(2, 132, 199, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.file-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 35px rgba(2, 132, 199, 0.35);
+}
+
+@media (max-width: 992px) {
+  .docs-grid-premium,
+  .single-report-grid {
+    grid-template-columns: 1fr;
+  }
+  .pdf-frame {
+    height: 650px;
+  }
+  .pdf-frame-large {
+    height: 780px;
+  }
+}
+
+@media (max-width: 640px) {
+  .doc-premium-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+  .pdf-frame {
+    height: 520px;
+  }
+  .pdf-frame-large {
+    height: 620px;
+  }
+}

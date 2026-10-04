@@ -25,6 +25,8 @@ const DailyClose = lazy(() => import('./pages/DailyClose'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Transport = lazy(() => import('./pages/Transport'));
 const ProductPricing = lazy(() => import('./pages/ProductPricing'));
+const Certificates = lazy(() => import('./pages/Certificates'));
+const PublicReports = lazy(() => import('./pages/PublicReports'));
 
 import { isPageAllowedForRole } from './constants/roleAccess';
 
@@ -85,6 +87,30 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/certificates"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <Certificates />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <PublicReports />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/reports-and-certificates"
+          element={
+            <Suspense fallback={<PageLoader />}>
+              <Certificates />
+            </Suspense>
+          }
+        />
+        <Route
           path="/login"
           element={
             <PublicRoute>
@@ -107,7 +133,8 @@ function AppRoutes() {
           <Route path="counter-sales" element={<RoleProtectedRoute path="/counter-sales"><CounterSales /></RoleProtectedRoute>} />
           <Route path="pricing" element={<RoleProtectedRoute path="/pricing"><ProductPricing /></RoleProtectedRoute>} />
           <Route path="users" element={<RoleProtectedRoute path="/users"><Users /></RoleProtectedRoute>} />
-          <Route path="reports" element={<RoleProtectedRoute path="/reports"><Reports /></RoleProtectedRoute>} />
+          <Route path="analytics" element={<RoleProtectedRoute path="/analytics"><Reports /></RoleProtectedRoute>} />
+          <Route path="erp-reports" element={<RoleProtectedRoute path="/erp-reports"><Reports /></RoleProtectedRoute>} />
           <Route path="daily-close" element={<RoleProtectedRoute path="/daily-close"><DailyClose /></RoleProtectedRoute>} />
           <Route path="transport" element={<RoleProtectedRoute path="/transport"><Transport /></RoleProtectedRoute>} />
           <Route path="transport-expenses" element={<Navigate to="/transport" replace />} />

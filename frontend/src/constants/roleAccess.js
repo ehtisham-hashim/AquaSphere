@@ -264,5 +264,9 @@ export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
     return roleRules[path];
   }
 
+  if (path === '/reports' || path === '/analytics' || path === '/erp-reports') {
+    return role === ROLES.OWNER || role === ROLES.ADMIN || role === ROLES.ACCOUNTANT;
+  }
+
   return false;
 };
