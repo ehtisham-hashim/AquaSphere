@@ -862,6 +862,7 @@ export const getBottleCustody = asyncHandler(async (req, res) => {
 /** Production loss and scrap analytics adhering to timeframe */
 export const getProductionLoss = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
+  const isWadaana = prefix === 'wadaana';
   const { timeframe = '1_MONTH' } = req.query;
 
   const now = new Date();
@@ -870,6 +871,14 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
   switch (timeframe.toUpperCase()) {
     case 'TODAY':
     case 'DAILY':
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case 'YESTERDAY':
+      startDate.setDate(now.getDate() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case 'LAST_3_DAYS':
+      startDate.setDate(now.getDate() - 3);
       startDate.setHours(0, 0, 0, 0);
       break;
     case '1_WEEK':
@@ -889,14 +898,15 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
   const batches = await prisma[`${prefix}ProductionBatch`].findMany({
     where: {
       status: 'COMPLETED',
-      createdAt: { gte: startDate }
+      OR: [
+        { createdAt: { gte: startDate } },
+        { batchDate: { gte: startDate } }
+      ]
     },
-    select: {
+    select: isWadaana ? {
       id: true,
       wasteQuantity: true,
       remarks: true,
-      packs05L: true,
-      packs15L: true,
       qtyPure05L: true,
       qtyPure15L: true,
       qtyMix05L: true,
@@ -904,7 +914,14 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
       brokenPure05L: true,
       brokenPure15L: true,
       brokenMix05L: true,
-      brokenMix15L: true,
+      brokenMix15L: true
+    } : {
+      id: true,
+      wasteQuantity: true,
+      remarks: true,
+      packs05L: true,
+      packs15L: true,
+      quantity: true,
       brokenBottles05L: true,
       brokenBottles15L: true
     }
@@ -914,17 +931,29 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
   const materialsMap = new Map();
 
   for (const b of batches) {
-    totalWasteBottles += Number(b.wasteQuantity || 0);
-
     let parsedLoss = null;
+    let batchWaste = 0;
+
     if (b.remarks) {
       try {
         const obj = JSON.parse(b.remarks);
         if (obj?.lossDetails?.wasteItems) {
           parsedLoss = obj.lossDetails.wasteItems;
         }
+        if (obj?.lossDetails?.totalWaste !== undefined) {
+          batchWaste = Number(obj.lossDetails.totalWaste);
+        }
       } catch (_e) { /* ignore */ }
     }
+
+    if (!batchWaste) {
+      if (isWadaana) {
+        batchWaste = (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0));
+      } else {
+        batchWaste = (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0) + Number(b.wasteQuantity || 0));
+      }
+    }
+    totalWasteBottles += batchWaste;
 
     if (Array.isArray(parsedLoss) && parsedLoss.length > 0) {
       for (const item of parsedLoss) {
