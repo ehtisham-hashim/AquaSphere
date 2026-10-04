@@ -111,13 +111,13 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
       {/* 2. MAIN NAVBAR (Identical to LandingPage) */}
       <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/15 transition-all shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-28 flex items-center justify-between">
           {/* Logo - Large, Crisp, Object Contain */}
           <Link to="/" className="flex items-center group py-2">
             <img 
               src={LOGO_URL} 
               alt="Aqua Sphere" 
-              className="h-14 sm:h-16 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
               loading="eager"
             />
           </Link>
@@ -352,11 +352,11 @@ export default function Certificates({ initialTab = 'certificates' }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-12 border-b border-slate-800">
             {/* Col 1 */}
             <div>
-              <div className="flex items-center gap-3 mb-4">
+              <div className="inline-flex items-center bg-white rounded-2xl px-6 py-3 shadow-lg shadow-cyan-500/10 mb-4">
                 <img 
                   src={LOGO_URL} 
                   alt="Aqua Sphere" 
-                  className="h-10 w-auto object-contain"
+                  className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform duration-300 hover:scale-105"
                 />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">

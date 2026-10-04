@@ -156,14 +156,14 @@ export default function LandingPage() {
       </div>
 
       {/* 2. MAIN NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#0f172a]/80 backdrop-blur-xl border-b border-white/15 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-[#0f172a]/90 backdrop-blur-xl border-b border-white/15 transition-all shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-28 flex items-center justify-between">
           {/* Logo */}
           <a href="#hero" className="flex items-center group py-2">
             <img 
-              src={optImg(settings.logo_url, 400)} 
+              src={optImg(settings.logo_url, 600)} 
               alt={settings.site_name} 
-              className="h-14 sm:h-16 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
               loading="eager"
             />
           </a>
@@ -173,6 +173,8 @@ export default function LandingPage() {
             <a href="#hero" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Home</a>
             <a href="#products" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Products</a>
             <a href="#about" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">About</a>
+            <Link to="/reports" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Reports</Link>
+            <Link to="/certificates" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Certificates</Link>
             <a href="#location" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Location</a>
             <a href="#contact" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Contact</a>
             <Link to="/login" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Admin</Link>
@@ -214,6 +216,8 @@ export default function LandingPage() {
             <a href="#hero" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Home</a>
             <a href="#products" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Products</a>
             <a href="#about" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">About</a>
+            <Link to="/reports" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Reports</Link>
+            <Link to="/certificates" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Certificates</Link>
             <a href="#location" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Location</a>
             <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Contact</a>
             
@@ -345,11 +349,11 @@ export default function LandingPage() {
             
             {/* Col 1: About Aqua Sphere & Logo */}
             <div className="space-y-4">
-              <div className="inline-flex items-center bg-white rounded-2xl px-5 py-2 shadow-lg shadow-cyan-500/10">
+              <div className="inline-flex items-center bg-white rounded-2xl px-6 py-3 shadow-lg shadow-cyan-500/10">
                 <img 
-                  src={optImg(settings.logo_url, 400)} 
+                  src={optImg(settings.logo_url, 600)} 
                   alt={settings.site_name} 
-                  className="h-16 sm:h-20 w-auto object-contain scale-125 transition-transform duration-300 hover:scale-[1.3]" 
+                  className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform duration-300 hover:scale-105" 
                 />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed font-normal">
@@ -393,6 +397,8 @@ export default function LandingPage() {
                 <li><a href="#hero" className="hover:text-cyan-400 transition-colors">Home</a></li>
                 <li><a href="#products" className="hover:text-cyan-400 transition-colors">Products & Refills</a></li>
                 <li><a href="#about" className="hover:text-cyan-400 transition-colors">About Aqua Sphere</a></li>
+                <li><Link to="/reports" className="hover:text-cyan-400 transition-colors">Lab Reports</Link></li>
+                <li><Link to="/certificates" className="hover:text-cyan-400 transition-colors">Our Certificates</Link></li>
                 <li><a href="#location" className="hover:text-cyan-400 transition-colors">Our Location</a></li>
                 <li><a href="#contact" className="hover:text-cyan-400 transition-colors">Contact Us</a></li>
                 <li><Link to="/website-admin" className="hover:text-cyan-400 transition-colors">Website Content Admin</Link></li>
