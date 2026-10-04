@@ -14,7 +14,7 @@ import { useLiveEvent } from '../context/SSEContext';
 
 export default function Inventory() {
   const { user } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, isWadaana } = useTenant();
 
   const canTransferStock = user?.role === 'OWNER' || user?.role === 'PRODUCTION_MANAGER';
   const canAddFinishedGood = user?.role === 'OWNER' || user?.role === 'ADMIN';
@@ -22,7 +22,7 @@ export default function Inventory() {
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
@@ -73,18 +73,11 @@ export default function Inventory() {
 
   useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED', 'COUNTER_SALE_CREATED'], () => fetchInventoryData(true));
 
-  // Filter transactions by search
+  // Filter transactions by selected finished good product
   const filteredTransactions = useMemo(() => {
-    if (!search.trim()) return transactions;
-    const term = search.toLowerCase();
-    return transactions.filter(t => 
-      t.item?.name?.toLowerCase().includes(term) ||
-      t.reason?.toLowerCase().includes(term) ||
-      t.direction?.toLowerCase().includes(term) ||
-      t.batchNo?.toLowerCase().includes(term) ||
-      t.location?.toLowerCase().includes(term)
-    );
-  }, [transactions, search]);
+    if (!selectedProduct || selectedProduct === 'ALL') return transactions;
+    return transactions.filter(t => t.itemId === selectedProduct || t.item?.id === selectedProduct);
+  }, [transactions, selectedProduct]);
 
   const negativeStockItems = items.filter(i => Number(i.cachedQty || 0) < 0);
   const hasNegativeStock = negativeStockItems.length > 0;
@@ -93,8 +86,6 @@ export default function Inventory() {
     <div className="space-y-4">
       {/* Module 1: Inventory Header */}
       <InventoryHeader 
-        search={search}
-        onSearchChange={setSearch}
         tenant={tenant}
         onOpenTransferModal={canTransferStock ? () => setIsTransferModalOpen(true) : null}
         onOpenAddModal={canAddFinishedGood ? () => setIsAddModalOpen(true) : null}
@@ -144,7 +135,10 @@ export default function Inventory() {
       <InventoryTransactionHistoryTable 
         transactions={filteredTransactions}
         isLoading={isLoading}
-        tenant={tenant}
+        items={items}
+        selectedItemId={selectedProduct}
+        onSelectItemId={setSelectedProduct}
+        isWadaana={isWadaana}
       />
 
       {/* Stock Transfer Modal (Factory <-> Warehouse) - Disabled for Accountant */}

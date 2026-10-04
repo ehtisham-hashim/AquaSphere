@@ -42,7 +42,7 @@ export const getSpotSales = asyncHandler(async (req, res) => {
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
       include: {
-        customer: { select: { id: true, name: true, phone: true, currentBalance: true, creditLimit: true, deposit: true } },
+        customer: { select: { id: true, name: true, phone: true, currentBalance: true, deposit: true } },
         createdBy: { select: { id: true, name: true, role: true } },
         items: {
           include: {

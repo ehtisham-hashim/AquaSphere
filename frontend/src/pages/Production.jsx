@@ -175,8 +175,7 @@ export default function Production() {
     <div className="space-y-4">
       {/* Header Banner */}
       <PageHeader
-        title="Factory Floor & Production Batches"
-        subtitle={isWadaana ? 'Log single preform bottle production runs in bulk.' : 'Log finished goods output with automated chemical & raw material deductions.'}
+        title="Production Batches"
         actions={
           (isOwner || user?.role === 'PRODUCTION_MANAGER') && (
             <button
@@ -200,18 +199,15 @@ export default function Production() {
           <div className="flex flex-wrap gap-2 pt-1">
             {lowItems.map(item => {
               const stock = Number(item.cachedQty || 0);
-              const nameLower = (item.name || '').toLowerCase();
-              const packSize = Number(item.packSize) > 1 
-                ? Number(item.packSize) 
-                : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
-              const isPack = !isWadaana && packSize > 1;
-              const fullPacks = Math.floor(stock / packSize);
-              const loose = Math.round(stock % packSize);
+              const packSize = Number(item.packSize || 1);
+              const isPack = !isWadaana && item.type === 'FINISHED_GOOD' && packSize > 1;
+              const fullPacks = isPack ? Math.floor(stock / packSize) : 0;
+              const loose = isPack ? Math.round(stock % packSize) : 0;
 
               return (
                 <span key={item.id} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1.5 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                  {item.name}: {stock.toLocaleString()} bottles {isPack && `(${fullPacks} PETs${loose > 0 ? ` + ${loose} loose` : ''})`} remaining
+                  {item.name}: {stock.toLocaleString()} {item.unit || 'units'} {isPack && `(${fullPacks} packs${loose > 0 ? ` + ${loose} loose` : ''})`} remaining
                 </span>
               );
             })}

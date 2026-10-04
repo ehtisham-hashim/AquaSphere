@@ -6,9 +6,9 @@ import { getTransportExpenses, getExpensesByVehicle, addTransportExpense, delete
 const router = Router();
 router.use(verifyJWT);
 
-router.get('/', requireRoles('OWNER', 'TRANSPORT_MANAGER'), getTransportExpenses);
-router.get('/vehicle/:id', requireRoles('OWNER', 'TRANSPORT_MANAGER'), getExpensesByVehicle);
-router.post('/', requireRoles('TRANSPORT_MANAGER'), addTransportExpense);
-router.delete('/:id', requireRoles('TRANSPORT_MANAGER'), deleteTransportExpense);
+router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), getTransportExpenses);
+router.get('/vehicle/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), getExpensesByVehicle);
+router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), addTransportExpense);
+router.delete('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER'), deleteTransportExpense);
 
 export default router;

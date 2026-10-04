@@ -24,8 +24,6 @@ model AquasphereCustomer {
   type           String
   deposit        Int     @default(0)
   currentBalance Decimal @default(0.0) @map("current_balance")
-  defaultPrice   Decimal @default(0.0) @map("default_price")
-  creditLimit    Decimal @default(0.0) @map("credit_limit")
   creditDuration Int     @default(1) @map("credit_duration")
   remarks        String?
   homePictureUrl String? @map("home_picture_url")
@@ -55,20 +53,20 @@ model AquasphereCustomer {
 }
 
 model AquasphereItem {
-  id           String             @id @default(uuid())
-  name         String
-  type         AquasphereItemType
-  unit         String             @default("kg")
-  packSize     Int                @default(1) @map("pack_size")
-  cachedQty    Decimal            @default(0.0) @map("cached_qty")
-  factoryQty   Decimal            @default(0.0) @map("factory_qty")
-  warehouseQty Decimal            @default(0.0) @map("warehouse_qty")
-  reorderLevel Decimal            @default(0.0) @map("reorder_level")
-  retailPrice  Decimal            @default(0.0) @map("retail_price")
-  sellableOnCounter Boolean          @default(false) @map("sellable_on_counter")
-  archivedAt   DateTime?          @map("archived_at")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  id                String             @id @default(uuid())
+  name              String
+  type              AquasphereItemType
+  unit              String             @default("kg")
+  packSize          Int                @default(1) @map("pack_size")
+  cachedQty         Decimal            @default(0.0) @map("cached_qty")
+  factoryQty        Decimal            @default(0.0) @map("factory_qty")
+  warehouseQty      Decimal            @default(0.0) @map("warehouse_qty")
+  reorderLevel      Decimal            @default(0.0) @map("reorder_level")
+  retailPrice       Decimal            @default(0.0) @map("retail_price")
+  sellableOnCounter Boolean            @default(false) @map("sellable_on_counter")
+  archivedAt        DateTime?          @map("archived_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   inventoryTransactions AquasphereInventoryTransaction[]
   orderItems            AquasphereOrderItem[]
@@ -441,11 +439,11 @@ model AquasphereUser {
   email        String         @unique
   phone        String?
   passwordHash String
-  role                 AquasphereRole
-  isActive             Boolean                        @default(true) @map("is_active")
-  otpCode              String?                        @map("otp_code")
-  otpExpiresAt         DateTime?                      @map("otp_expires_at")
-  createdAt            DateTime                       @default(now()) @map("created_at")
+  role         AquasphereRole
+  isActive     Boolean        @default(true) @map("is_active")
+  otpCode      String?        @map("otp_code")
+  otpExpiresAt DateTime?      @map("otp_expires_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
 
   pmConfirmedCloses    AquasphereDailyClose[]         @relation("PMConfirmer")
   mmConfirmedCloses    AquasphereDailyClose[]         @relation("MMConfirmer")
@@ -614,13 +612,13 @@ model AquasphereCounterAuditLedger {
 }
 
 model AquasphereVehicle {
-  id          String    @id @default(uuid())
-  name        String                             // e.g. "Suzuki Carry"
-  plateNumber String    @map("plate_number")
+  id          String   @id @default(uuid())
+  name        String // e.g. "Suzuki Carry"
+  plateNumber String   @map("plate_number")
   model       String?
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   expenses        AquasphereTransportExpense[]
   generalExpenses AquasphereExpense[]
@@ -631,17 +629,17 @@ model AquasphereVehicle {
 }
 
 model AquasphereTransportExpense {
-  id          String                        @id @default(uuid())
-  vehicleId   String                        @map("vehicle_id")
-  type        AquasphereTransportExpenseType
-  period      AquasphereTransportPeriod
-  amount      Decimal
-  note        String?
-  date        DateTime                      @default(now())
-  createdAt   DateTime                      @default(now()) @map("created_at")
-  updatedAt   DateTime                      @updatedAt @map("updated_at")
+  id        String                         @id @default(uuid())
+  vehicleId String                         @map("vehicle_id")
+  type      AquasphereTransportExpenseType
+  period    AquasphereTransportPeriod
+  amount    Decimal
+  note      String?
+  date      DateTime                       @default(now())
+  createdAt DateTime                       @default(now()) @map("created_at")
+  updatedAt DateTime                       @updatedAt @map("updated_at")
 
-  vehicle     AquasphereVehicle             @relation(fields: [vehicleId], references: [id])
+  vehicle AquasphereVehicle @relation(fields: [vehicleId], references: [id])
 
   @@index([vehicleId, date(sort: Desc)])
   @@index([date(sort: Desc)])
@@ -662,8 +660,6 @@ model WadaanaCustomer {
   type           String
   deposit        Int     @default(0)
   currentBalance Decimal @default(0.0) @map("current_balance")
-  defaultPrice   Decimal @default(0.0) @map("default_price")
-  creditLimit    Decimal @default(0.0) @map("credit_limit")
   creditDuration Int     @default(1) @map("credit_duration")
   remarks        String?
   homePictureUrl String? @map("home_picture_url")
@@ -695,20 +691,20 @@ model WadaanaCustomer {
 }
 
 model WadaanaItem {
-  id           String          @id @default(uuid())
-  name         String
-  type         WadaanaItemType
-  unit         String          @default("kg")
-  packSize     Int             @default(1) @map("pack_size")
-  cachedQty    Decimal         @default(0.0) @map("cached_qty")
-  factoryQty   Decimal         @default(0.0) @map("factory_qty")
-  warehouseQty Decimal         @default(0.0) @map("warehouse_qty")
-  reorderLevel Decimal         @default(0.0) @map("reorder_level")
-  retailPrice  Decimal         @default(0.0) @map("retail_price")
-  sellableOnCounter Boolean       @default(false) @map("sellable_on_counter")
-  archivedAt   DateTime?       @map("archived_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  id                String          @id @default(uuid())
+  name              String
+  type              WadaanaItemType
+  unit              String          @default("kg")
+  packSize          Int             @default(1) @map("pack_size")
+  cachedQty         Decimal         @default(0.0) @map("cached_qty")
+  factoryQty        Decimal         @default(0.0) @map("factory_qty")
+  warehouseQty      Decimal         @default(0.0) @map("warehouse_qty")
+  reorderLevel      Decimal         @default(0.0) @map("reorder_level")
+  retailPrice       Decimal         @default(0.0) @map("retail_price")
+  sellableOnCounter Boolean         @default(false) @map("sellable_on_counter")
+  archivedAt        DateTime?       @map("archived_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
   inventoryTransactions WadaanaInventoryTransaction[]
   orderItems            WadaanaOrderItem[]
@@ -1262,13 +1258,13 @@ model WadaanaCounterAuditLedger {
 }
 
 model WadaanaVehicle {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  plateNumber String    @map("plate_number")
+  plateNumber String   @map("plate_number")
   model       String?
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   expenses        WadaanaTransportExpense[]
   generalExpenses WadaanaExpense[]
@@ -1279,17 +1275,17 @@ model WadaanaVehicle {
 }
 
 model WadaanaTransportExpense {
-  id          String                      @id @default(uuid())
-  vehicleId   String                      @map("vehicle_id")
-  type        WadaanaTransportExpenseType
-  period      WadaanaTransportPeriod
-  amount      Decimal
-  note        String?
-  date        DateTime                    @default(now())
-  createdAt   DateTime                    @default(now()) @map("created_at")
-  updatedAt   DateTime                    @updatedAt @map("updated_at")
+  id        String                      @id @default(uuid())
+  vehicleId String                      @map("vehicle_id")
+  type      WadaanaTransportExpenseType
+  period    WadaanaTransportPeriod
+  amount    Decimal
+  note      String?
+  date      DateTime                    @default(now())
+  createdAt DateTime                    @default(now()) @map("created_at")
+  updatedAt DateTime                    @updatedAt @map("updated_at")
 
-  vehicle     WadaanaVehicle              @relation(fields: [vehicleId], references: [id])
+  vehicle WadaanaVehicle @relation(fields: [vehicleId], references: [id])
 
   @@index([vehicleId, date(sort: Desc)])
   @@index([date(sort: Desc)])

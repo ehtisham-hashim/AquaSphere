@@ -70,7 +70,9 @@ export default function TransportDashboardView() {
             const raw = genJson.data?.expenses || genJson.data || [];
             expList = Array.isArray(raw) ? raw : [];
           }
-        } catch (_) {}
+        } catch (_err) {
+          // ignore general expense fetch error
+        }
       }
       setExpenses(expList);
 
@@ -123,7 +125,7 @@ export default function TransportDashboardView() {
     return orders.filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL');
   }, [orders]);
 
-  const todayDeliveredCount = useMemo(() => {
+  const _todayDeliveredCount = useMemo(() => {
     return orders.filter(o => {
       if (o.deliveryStatus !== 'DELIVERED') return false;
       const d = new Date(o.updatedAt || o.createdAt);

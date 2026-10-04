@@ -70,35 +70,25 @@ export default function Dashboard() {
     }
   }, [tenant, user?.role]);
 
-  // 1. Initial REST Dashboard Fetch & Live SSE Stream
+  // 1. Initial REST Dashboard Fetch on mount or tenant switch
   useEffect(() => {
-    let isMounted = true;
-    fetchDashboard();
-
-    // 2. Real-time Dashboard SSE Stream with tenant query param
-    const sse = new EventSource(`${API_URL}/analytics/dashboard/stream?tenant=${tenant}`, {
-      withCredentials: true
+    setDashboardLoading(true);
+    setSummaryLoading(true);
+    setData({
+      sales: 0,
+      cash: 0,
+      expenses: 0,
+      credit: 0,
+      bottlesSold: 0,
+      todaysPurchases: 0,
+      todaysPurchasesCount: 0,
+      monthlyPurchases: 0,
+      pendingVendorPayables: 0,
+      lowStockMaterialsCount: 0,
+      lowStockMaterialsList: []
     });
-
-    sse.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        if (parsed.success && parsed.data && isMounted) {
-          setData(parsed.data);
-        }
-      } catch (err) {
-        console.error('Failed to parse SSE data', err);
-      }
-    };
-
-    sse.onerror = (err) => {
-      console.error('SSE Error:', err);
-    };
-
-    return () => {
-      isMounted = false;
-      sse.close();
-    };
+    setSummary(null);
+    fetchDashboard();
   }, [tenant, fetchDashboard]);
 
   // Purchasing & Vendor Summary Data (only for roles that use it)

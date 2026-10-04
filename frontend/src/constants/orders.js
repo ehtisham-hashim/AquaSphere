@@ -33,12 +33,12 @@ export const PAYMENT_STATUSES = {
   PARTIAL: 'PARTIAL'
 };
 
-export const getOrderPrice = (item, customer) => {
+export const getOrderPrice = (item, _customer) => {
   if (!item) return 0;
   if (typeof item.price === 'number' || !isNaN(parseFloat(item.price))) return parseFloat(item.price);
   if (typeof item.defaultPrice === 'number') return item.defaultPrice;
   const name = String(item.name || '').toLowerCase();
-  if (name.includes('19l')) return parseFloat(customer?.defaultPrice || 0) || DEFAULT_ORDER_PRICES['19l'];
+  if (name.includes('19l')) return DEFAULT_ORDER_PRICES['19l'];
   if (name.includes('pure') && name.includes('0.5')) return 15;
   if (name.includes('pure') && name.includes('1.5')) return 30;
   if (name.includes('mix') && name.includes('0.5')) return 13;

@@ -32,7 +32,6 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
         name: true,
         phone: true,
         currentBalance: true,
-        creditLimit: true,
         creditDuration: true,
         lastDeliveryAt: true,
         remarks: true,
@@ -63,18 +62,7 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
 
   for (const c of candidateCustomers) {
     const bal = Number(c.currentBalance || 0);
-    const limit = Number(c.creditLimit || 0);
     const bottles = Number(c.cachedBottleBalance || 0);
-
-    if (bal > 0 && limit > 0 && bal > limit) {
-      creditLimitBreaches.push({
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        currentBalance: c.currentBalance,
-        creditLimit: c.creditLimit
-      });
-    }
 
     if (bal > 0 && c.lastDeliveryAt && Number(c.creditDuration || 0) > 0) {
       const daysSince = (now - new Date(c.lastDeliveryAt)) / (1000 * 60 * 60 * 24);

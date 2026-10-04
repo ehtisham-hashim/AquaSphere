@@ -237,7 +237,6 @@ export default function Vendors() {
       {/* Page Header */}
       <PageHeader
         title="Vendors Directory"
-        subtitle="Manage raw material suppliers, vendor invoices, and accounts payable"
         actions={
           canAddEdit && (
             <button

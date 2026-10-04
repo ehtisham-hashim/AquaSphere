@@ -87,17 +87,6 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // Credit limit soft-block check
-  const currentBalance = parseFloat(customer.currentBalance || 0);
-  const creditLimit = parseFloat(customer.creditLimit || 0);
-  if (creditLimit > 0 && (currentBalance + orderTotal) > creditLimit && !bypassCreditCheck) {
-    return res.status(200).json({
-      success: false,
-      softBlock: true,
-      blockReason: 'BALANCE_EXCEEDED',
-      message: `Order amount exceeds credit limit. Order: Rs. ${orderTotal}, Current Debt: Rs. ${currentBalance}, Limit: Rs. ${creditLimit}. Proceed?`
-    });
-  }
 
   // Bottle security deposit check (for 19L orders)
   const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItems.map(i => i.itemId) } } });
@@ -149,6 +138,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
+  broadcastDashboardUpdate(prefix);
   return sendSuccess(res, order, 201);
 });
 
@@ -447,7 +437,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     return updated;
   }, { maxWait: 10000, timeout: 30000 });
 
-    broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: order.id });
   broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, order);
@@ -515,7 +505,7 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
     return orderUpdated;
   });
 
-  broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
   return sendSuccess(res, updated);
 });
@@ -568,6 +558,6 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     details: `Order ${id} soft-deleted and marked as CANCELLED`
   });
 
-  broadcastDashboardUpdate();
+  broadcastDashboardUpdate(prefix);
   return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
 });

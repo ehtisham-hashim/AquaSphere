@@ -12,6 +12,7 @@ export default function AddEditFinishedGoodModal({
 }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('packs');
+  const [packSize, setPackSize] = useState('1');
   const [reorderLevel, setReorderLevel] = useState(20);
   const [factoryStock, setFactoryStock] = useState('0');
   const [warehouseStock, setWarehouseStock] = useState('0');
@@ -42,6 +43,7 @@ export default function AddEditFinishedGoodModal({
         if (itemToEdit) {
           setName(itemToEdit.name || '');
           setUnit(itemToEdit.unit || 'packs');
+          setPackSize(String(itemToEdit.packSize || 1));
           setReorderLevel(Number(itemToEdit.reorderLevel || 0));
 
           const fac = Number(itemToEdit.factoryQty || 0);
@@ -64,6 +66,7 @@ export default function AddEditFinishedGoodModal({
         } else {
           setName('');
           setUnit('packs');
+          setPackSize('1');
           setReorderLevel(20);
           setFactoryStock('0');
           setWarehouseStock('0');
@@ -121,6 +124,7 @@ export default function AddEditFinishedGoodModal({
           name: name.trim(),
           type: 'FINISHED_GOOD',
           unit: unit.trim() || 'packs',
+          packSize: Math.max(1, parseInt(packSize, 10) || 1),
           reorderLevel: parseFloat(reorderLevel) || 0,
           factoryStock: parseFloat(factoryStock) || 0,
           warehouseStock: parseFloat(warehouseStock) || 0,
@@ -187,7 +191,7 @@ export default function AddEditFinishedGoodModal({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Unit</label>
                 <select
@@ -203,7 +207,22 @@ export default function AddEditFinishedGoodModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Reorder Level (Alert Threshold)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Pack Size (Bottles/Pack)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="1 (Single bottle) or 12"
+                  value={packSize}
+                  onChange={(e) => setPackSize(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Reorder Level (Alert)</label>
                 <input
                   type="number"
                   min="0"
@@ -286,11 +305,11 @@ export default function AddEditFinishedGoodModal({
             <div className="flex justify-between items-start">
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Recipe Consumption (Per 1 Finished Unit)
+                  Recipe Consumption (Per 1 {unit || 'unit'})
                 </h4>
                 <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                   <Info size={12} className="text-sky-500" />
-                  Enter consumption quantity. Leave 0 or blank if raw material is not used in recipe.
+                  Enter raw materials needed to produce exactly 1 {unit || 'unit'} (e.g. bottles, caps, shrink wrap, labels).
                 </p>
               </div>
             </div>

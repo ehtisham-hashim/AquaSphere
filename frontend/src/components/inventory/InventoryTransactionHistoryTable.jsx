@@ -4,23 +4,50 @@ import TablePagination from '../common/TablePagination';
 
 export default function InventoryTransactionHistoryTable({ 
   transactions = [], 
-  isLoading = false
+  isLoading = false,
+  items = [],
+  selectedItemId = 'ALL',
+  onSelectItemId,
+  _isWadaana = false
 }) {
   const pagination = usePagination(transactions || [], 50);
 
+  // Group finished goods for clean dropdown
+  const finishedGoods = items.filter(i => i.type === 'FINISHED_GOOD' && !i.archivedAt);
+
   return (
     <div className="table-container">
-      <div className="p-3.5 sm:p-4 border-b border-slate-200/80 bg-slate-50/50 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
-            <History className="w-4.5 h-4.5 text-brand" />
+      <div className="p-3.5 sm:p-4 border-b border-slate-200/80 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <History className="w-4.5 h-4.5 text-brand" />
+          <h3 className="text-sm sm:text-base font-bold text-slate-800">
             Audit Ledger
           </h3>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Detailed record of stock entries, dispatches, and transfers.</p>
         </div>
-        <span className="text-xs font-mono font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full shadow-2xs">
-          {transactions.length} Logs
-        </span>
+
+        <div className="flex items-center gap-2">
+          {/* Finished Goods Dropdown Filter */}
+          <div className="relative min-w-[200px]">
+            <select
+              value={selectedItemId}
+              onChange={(e) => onSelectItemId && onSelectItemId(e.target.value)}
+              className="w-full text-xs font-semibold py-1.5 px-3 bg-white border border-slate-300 rounded-lg text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand cursor-pointer"
+            >
+              <option value="ALL">
+                All Products ({finishedGoods.length})
+              </option>
+              {finishedGoods.map(fg => (
+                <option key={fg.id} value={fg.id}>
+                  {fg.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <span className="text-xs font-mono font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs whitespace-nowrap">
+            {transactions.length} Logs
+          </span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -60,17 +87,10 @@ export default function InventoryTransactionHistoryTable({
                 const isTransfer = (t.reason || '').toUpperCase().includes('TRANSFER');
                 const qty = Number(t.quantity || 0);
 
-                const getFinishedGoodUnit = (item) => {
-                  if (!item) return 'packs';
-                  const nameLower = (item.name || '').toLowerCase();
-                  if (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('1.5') || nameLower.includes('1500')) {
-                    return 'packs';
-                  }
-                  if (nameLower.includes('19')) {
-                    return 'bottles';
-                  }
-                  return (item.unit && item.unit !== 'kg') ? item.unit : 'packs';
-                };
+                const packSize = Number(t.item?.packSize || 1);
+                const isPackGood = packSize > 1;
+                const packs = isPackGood ? Math.floor(qty / packSize) : 0;
+                const loose = isPackGood ? qty % packSize : 0;
 
                 const batchDisplay = t.batchNo || (t.refId ? `AQ-#${t.refId.substring(0, 8).toUpperCase()}` : 'AQ-BATCH-AUTO');
                 const locDisplay = t.location || 'FACTORY';
@@ -101,8 +121,13 @@ export default function InventoryTransactionHistoryTable({
                     </td>
                     <td className="table-td">
                       <span className={`font-semibold text-sm tabular-nums ${isTransfer ? 'text-sky-700' : isIN ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {isTransfer ? '↔' : isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500 font-sans">{getFinishedGoodUnit(t.item)}</span>
+                        {isTransfer ? '↔' : isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500 font-sans">{t.item?.unit || 'bottle'}</span>
                       </span>
+                      {isPackGood && (
+                        <span className="block text-[11px] text-slate-500 font-normal">
+                          ({packs} {packs === 1 ? 'pack' : 'packs'}{loose > 0 ? ` + ${loose} btl` : ''})
+                        </span>
+                      )}
                     </td>
                     <td className="table-td text-xs font-semibold text-slate-700">
                       {locDisplay}
