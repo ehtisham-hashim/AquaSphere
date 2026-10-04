@@ -7,7 +7,8 @@ import {
   Menu, 
   X, 
   Settings, 
-  LogIn
+  LogIn,
+  ExternalLink
 } from 'lucide-react';
 import './landing.css';
 
@@ -53,8 +54,8 @@ const DEFAULT_SETTINGS = {
   project_text: "Wadaana Industries professionally manufactures high-quality water production and purification systems with modern technology, reliable performance, and trusted standards.",
   project_button: "View Project Details",
   location_title: "Our Location",
-  map_embed: "https://www.google.com/maps?q=AQUA%20SPHERE%2C%2033.6104649%2C72.9818914&output=embed",
-  map_link: "https://www.google.com/maps/place/AQUA+SPHERE/@33.6104612,72.9819,599m/data=!3m1!1e3!4m6!3m5!1s0x38df970024408d31:0xa9c9cb0ebd2d1923!8m2!3d33.6104649!4d72.9818914!16s%2Fg%2F11xg3w12kj?hl=en&entry=ttu",
+  map_embed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d6645.602196273996!2d72.97236419357911!3d33.610464900000004!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38df970024408d31%3A0xa9c9cb0ebd2d1923!2sAQUA%20SPHERE!5e0!3m2!1sen!2sus!4v1791118066494!5m2!1sen!2sus",
+  map_link: "https://maps.app.goo.gl/2PeNJ9oKaFzY2P7E6",
   contact_title: "Contact Us",
   products: [
     {
@@ -310,6 +311,16 @@ export default function LandingPage() {
           <h2>{settings.location_title}</h2>
           <p>{settings.location}</p>
           <div className="lp-map">
+            <a 
+              href={settings.map_link} 
+              target="_blank" 
+              rel="noreferrer" 
+              className="absolute top-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-cyan-700 text-xs font-bold rounded-xl border border-slate-200/90 shadow-md hover:shadow-lg transition-all hover:scale-105"
+              title="Open location in Google Maps"
+            >
+              <span>Open in Maps</span>
+              <ExternalLink className="w-3.5 h-3.5 text-cyan-600" />
+            </a>
             <iframe
               src={settings.map_embed}
               title="Aqua Sphere Location"
