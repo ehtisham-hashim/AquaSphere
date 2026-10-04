@@ -4,11 +4,11 @@ import {
   Package, ShieldAlert, PhoneCall, RefreshCw, XCircle, MessageSquare
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
-import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { useTenant } from '../../context/TenantContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function AlertsSection() {
-  const tenant = getCompanyFromCookie();
+  const { tenant } = useTenant();
   const [alerts, setAlerts] = useState(null);
   const [custAlerts, setCustAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -167,13 +167,13 @@ export default function AlertsSection() {
           )}
         />
 
-        {/* Credit Limit & Overdue Bill Alerts */}
+        {/* Overdue Bill Alerts */}
         <AlertListCard 
-          title="Credit Limit & Overdue Invoices"
+          title="Overdue Invoices (>7 Days)"
           icon={<AlertTriangle className="w-4 h-4 text-slate-600" />}
-          count={(custAlerts?.creditBreaches?.length || 0) + (custAlerts?.unpaidBillOver7Days?.length || 0)}
-          items={[...(custAlerts?.creditBreaches || []), ...(custAlerts?.unpaidBillOver7Days || [])]}
-          emptyMsg="No overdue credit or unpaid bill breaches."
+          count={(custAlerts?.unpaidBillOver7Days?.length || 0)}
+          items={[...(custAlerts?.unpaidBillOver7Days || [])]}
+          emptyMsg="No overdue unpaid bills detected."
           renderItem={(c, idx) => (
             <div key={idx} className="py-2.5 flex flex-col justify-center text-xs border-b border-slate-100 last:border-0 hover:bg-slate-50 p-2 rounded-lg transition-colors">
               <div className="flex justify-between items-center mb-1">
@@ -184,7 +184,6 @@ export default function AlertsSection() {
                 <div className="text-right flex items-center gap-2">
                   <div>
                     <span className="font-mono font-bold text-slate-900 block text-xs">Rs. {Number(c.currentBalance || c.unpaidAmount || 0).toLocaleString()}</span>
-                    {c.creditLimit > 0 && <span className="text-[10px] text-slate-400">Limit: Rs. {Number(c.creditLimit).toLocaleString()}</span>}
                   </div>
                   {c.phone && (
                     <button

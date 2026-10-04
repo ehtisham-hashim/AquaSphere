@@ -219,9 +219,8 @@ export default function ProductionBatchTable({
         <div>
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Factory className="w-4 h-4 text-brand" />
-            Production History & Batch Audit Trail
+            Production History
           </h3>
-          <p className="text-xs text-slate-500">Audit log of past production runs and formula deductions</p>
         </div>
         <span className="text-xs font-medium text-slate-600 bg-white px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs">
           Total Batches: <strong className="text-slate-900 font-bold">{batches.length}</strong>

@@ -13,7 +13,8 @@ import {
   CounterSalesMetrics,
   LogCounterSaleForm,
   CounterSalesHistoryTable,
-  CounterSaleReceiptModal
+  CounterSaleReceiptModal,
+  ManageCounterSuppliesModal
 } from '../components/counterSales';
 import { useLiveEvent } from '../context/SSEContext';
 
@@ -41,6 +42,7 @@ export default function CounterSales() {
 
   const [receiptSale, setReceiptSale] = useState(null);
   const [lastRecordedSale, setLastRecordedSale] = useState(null);
+  const [showSuppliesModal, setShowSuppliesModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setLiveDateTime(new Date()), 1000);
@@ -228,7 +230,7 @@ export default function CounterSales() {
   const todayCaps = todaySummary?.todayCaps ?? 0;
 
   if (isWadaana) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
@@ -236,10 +238,14 @@ export default function CounterSales() {
       <CounterSalesHeader 
         onExportCSV={handleExportCSV} 
         hasSales={filteredSales.length > 0} 
+        onManageSupplies={canCreate ? () => setShowSuppliesModal(true) : null}
       />
 
-      {/* Horizontal Finished Goods Stock Wrapper */}
-      <CounterSalesStockBar items={finishedGoods} loading={loading} />
+      {/* Horizontal Finished Goods & Counter Supplies Stock Wrapper */}
+      <CounterSalesStockBar 
+        items={[...finishedGoods, ...counterRawMaterials]} 
+        loading={loading} 
+      />
 
       {/* Realtime Counter Metrics */}
       <CounterSalesMetrics 
@@ -266,6 +272,9 @@ export default function CounterSales() {
           lastRecordedSale={lastRecordedSale}
           onPrintReceipt={setReceiptSale}
           loading={loading}
+          tenant={tenant}
+          onSuppliesChanged={() => fetchData(true)}
+          onManageSupplies={() => setShowSuppliesModal(true)}
         />
       )}
 
@@ -299,6 +308,15 @@ export default function CounterSales() {
         onClose={() => setReceiptSale(null)}
         user={user}
       />
+
+      {showSuppliesModal && (
+        <ManageCounterSuppliesModal
+          isOpen={showSuppliesModal}
+          onClose={() => setShowSuppliesModal(false)}
+          tenant={tenant}
+          onSuppliesChanged={() => fetchData(true)}
+        />
+      )}
     </div>
   );
 }

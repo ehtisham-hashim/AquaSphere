@@ -44,17 +44,29 @@ export default function CounterSalesStockBar({
           const warehouse = (fac === 0 && wh === 0) ? 0 : wh;
           const price = Number(item.retailPrice || 0);
 
+          const isRaw = item.type === 'RAW_MATERIAL';
           return (
             <div 
               key={item.id} 
-              className="card-surface p-3 space-y-1 min-w-[200px] sm:min-w-[220px] shrink-0 border border-slate-200 hover:border-slate-300 transition shadow-2xs"
+              className={`card-surface p-3 space-y-1 min-w-[200px] sm:min-w-[220px] shrink-0 border transition shadow-2xs ${
+                isRaw 
+                  ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-300' 
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-brand flex items-center gap-1.5 truncate">
-                  <Package size={13} className="shrink-0 text-brand" /> {item.name}
+                <span className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 truncate ${
+                  isRaw ? 'text-emerald-700' : 'text-brand'
+                }`}>
+                  <Package size={13} className={`shrink-0 ${isRaw ? 'text-emerald-600' : 'text-brand'}`} /> {item.name}
+                  {isRaw && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold shrink-0">
+                      SUPPLY
+                    </span>
+                  )}
                 </span>
                 {price > 0 && (
-                  <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">
+                  <span className="text-[10px] font-mono font-bold text-slate-600 shrink-0">
                     Rs {price}
                   </span>
                 )}

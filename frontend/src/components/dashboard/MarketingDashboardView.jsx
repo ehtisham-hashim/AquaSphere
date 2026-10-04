@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3, Droplets, Users } from 'lucide-react';
+import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3, Users } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -24,7 +24,6 @@ export default function MarketingDashboardView({ data }) {
 
   const [selectedDays, setSelectedDays] = useState('7');
   const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
-  const waterMetrics = data?.waterMetrics || {};
 
   const chartData = useMemo(() => {
     const rawHistory = data?.dailySalesHistory || [];
@@ -63,7 +62,7 @@ export default function MarketingDashboardView({ data }) {
       </div>
 
       {/* 1. Sales & Commercial KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <ModernKpiCard
           icon={Wallet}
           title="Today's Sales"
@@ -91,13 +90,6 @@ export default function MarketingDashboardView({ data }) {
           value={`Rs. ${totalReceivables.toLocaleString()}`}
           subtitle="All-time customer credit debt"
           variant="amber"
-        />
-        <ModernKpiCard
-          icon={Droplets}
-          title="Water Dispensed"
-          value={`${Number(waterMetrics?.dailyLitres || data?.daily?.waterLitres || 0).toLocaleString()} L`}
-          subtitle="Total volume today"
-          variant="sky"
         />
       </div>
 
@@ -151,8 +143,8 @@ export default function MarketingDashboardView({ data }) {
         </div>
       </div>
 
-      {/* 19L Bottle Custody & Recovery Fleet Widget */}
-      <BottleCustodyWidget />
+      {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) */}
+      {!isWadaana && <BottleCustodyWidget />}
 
       {/* 3. Customer Credit & Inactivity Alerts */}
       <section className="space-y-2.5">

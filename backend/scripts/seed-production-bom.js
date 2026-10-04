@@ -128,40 +128,41 @@ const AQUASPHERE_RAW_MATERIALS = [
   },
 ];
 
-// Single bottle consumption (unit = bottle)
+// Finished Goods consumption (unit = pack for PETs, bottle for 19L)
+// The recipe defines the exact raw materials consumed to produce 1 unit of this finished good
 const AQUASPHERE_FINISHED_GOODS = [
   {
     name: '0.5L PET',
     aliases: ['AquaSphere 0.5L Pack', '0.5L PET Pack', '0.5L Pack (12 Bottles)', 'AquaSphere 0.5L Pack (12 Bottles)'],
-    unit: 'bottle',
+    unit: 'pack',
     packSize: 12,
-    reorderLevel: 2400, // 200 packs
+    reorderLevel: 200, // 200 packs
     retailPrice: 360,
     recipe: [
-      { rmName: '0.5L Empty Bottles', qty: 1 },
-      { rmName: 'Small Caps', qty: 1 },
-      { rmName: '0.5L Labels', qty: 0.00056 }, // 0.56g per bottle
-      { rmName: 'Shrink Wrap Film', qty: 0.001894 }, // 0.02273 kg / 12
-      { rmName: 'Calcium', qty: 0.00009907 }, // (9L / 12) * 2 / 15141
-      { rmName: 'Magnesium', qty: 0.00004953 }, // (9L / 12) * 1 / 15141
-      { rmName: 'Sodium', qty: 0.00002477 }, // (9L / 12) * 0.5 / 15141
+      { rmName: '0.5L Empty Bottles', qty: 12 },
+      { rmName: 'Small Caps', qty: 12 },
+      { rmName: '0.5L Labels', qty: 0.00672 }, // 6.72g per pack of 12
+      { rmName: 'Shrink Wrap Film', qty: 0.02273 }, // 1 kg = 44 packs of 12 bottles
+      { rmName: 'Calcium', qty: 0.00118884 }, // 9L * 2 / 15141
+      { rmName: 'Magnesium', qty: 0.00059436 }, // 9L * 1 / 15141
+      { rmName: 'Sodium', qty: 0.00029724 }, // 9L * 0.5 / 15141
     ],
   },
   {
     name: '1.5L PET',
     aliases: ['AquaSphere 1.5L Pack', '1.5L PET Pack', '1.5L Pack (6 Bottles)', 'AquaSphere 1.5L Pack (6 Bottles)'],
-    unit: 'bottle',
+    unit: 'pack',
     packSize: 6,
-    reorderLevel: 6000, // 1000 packs
+    reorderLevel: 500, // 500 packs
     retailPrice: 300,
     recipe: [
-      { rmName: '1.5L Empty Bottles', qty: 1 },
-      { rmName: 'Small Caps', qty: 1 },
-      { rmName: '1.5L Labels', qty: 0.00130 }, // 1.30g per bottle
-      { rmName: 'Shrink Wrap Film', qty: 0.004167 }, // 0.025 kg / 6
-      { rmName: 'Calcium', qty: 0.00026418 }, // (12L / 6) * 2 / 15141
-      { rmName: 'Magnesium', qty: 0.00013209 }, // (12L / 6) * 1 / 15141
-      { rmName: 'Sodium', qty: 0.00006605 }, // (12L / 6) * 0.5 / 15141
+      { rmName: '1.5L Empty Bottles', qty: 6 },
+      { rmName: 'Small Caps', qty: 6 },
+      { rmName: '1.5L Labels', qty: 0.00780 }, // 7.80g per pack of 6
+      { rmName: 'Shrink Wrap Film', qty: 0.02500 }, // 1 kg = 40 packs of 6 bottles
+      { rmName: 'Calcium', qty: 0.001585 }, // 12L * 2 / 15141
+      { rmName: 'Magnesium', qty: 0.000793 }, // 12L * 1 / 15141
+      { rmName: 'Sodium', qty: 0.000396 }, // 12L * 0.5 / 15141
     ],
   },
   {
@@ -323,7 +324,10 @@ async function syncItem(prefix, def, type) {
       console.log(`  ✓ [${prefix}] Reusing "${item.name}"`);
     }
   } else {
-    console.log(`  + [${prefix}] Creating "${def.name}" (Type: ${type}, Unit: ${def.unit}, PackSize: ${targetPackSize}, Reorder: ${def.reorderLevel})`);
+    // Finished goods start at 0 (to be produced). Raw materials start with healthy stock above reorderLevel (2x reorderLevel or min 100)
+    const isFg = type === 'FINISHED_GOOD';
+    const initialQty = isFg ? 0 : (def.reorderLevel ? Math.max(100, Math.round(def.reorderLevel * 2)) : 100);
+    console.log(`  + [${prefix}] Creating "${def.name}" (Type: ${type}, Unit: ${def.unit}, PackSize: ${targetPackSize}, Reorder: ${def.reorderLevel}, Stock: ${initialQty})`);
     if (!isDryRun) {
       item = await model.create({
         data: {
@@ -333,11 +337,25 @@ async function syncItem(prefix, def, type) {
           packSize: targetPackSize,
           reorderLevel: def.reorderLevel,
           retailPrice: def.retailPrice || 0,
-          cachedQty: 0,
-          factoryQty: 0,
+          cachedQty: initialQty,
+          factoryQty: initialQty,
           warehouseQty: 0,
         }
       });
+      // Record initial stock transaction for raw materials
+      if (initialQty > 0) {
+        await prisma[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: item.id,
+            quantity: initialQty,
+            direction: 'IN',
+            reason: 'INITIAL_STOCK',
+            location: 'FACTORY',
+            refType: 'MANUAL',
+            refId: 'SEED_INITIAL_STOCK'
+          }
+        });
+      }
     } else {
       item = { id: `simulated-${def.name}`, name: def.name, type, unit: def.unit, packSize: targetPackSize, reorderLevel: def.reorderLevel };
     }

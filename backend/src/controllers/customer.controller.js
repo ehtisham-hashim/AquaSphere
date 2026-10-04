@@ -120,7 +120,7 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
 /** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl } = req.body;
 
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
@@ -135,8 +135,6 @@ export const createCustomer = asyncHandler(async (req, res) => {
     mapLink: mapLink ? sanitizeGoogleMapsUrl(mapLink) : null,
     deposit: securityDeposit ? parseInt(securityDeposit, 10) : 0,
     currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
-    defaultPrice: defaultPrice ? parseFloat(defaultPrice) : 0.0,
-    creditLimit: creditLimit ? parseFloat(creditLimit) : 0.0,
     creditDuration: creditDuration ? parseInt(creditDuration, 10) : 1,
     remarks: remarks || null,
     homePictureUrl: homePictureUrl || null,
@@ -160,7 +158,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     entityType: 'Customer',
     entityId: customer.id,
     performedBy: req.user?.name || req.user?.id || 'Admin',
-    details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}, Credit Limit: Rs. ${customer.creditLimit}`
+    details: `Customer Created: ${customer.name} (${customer.phone}) - Type: ${customer.type}`
   });
 
   broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
@@ -171,7 +169,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, defaultPrice, creditLimit, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, creditDuration, remarks, homePictureUrl } = req.body;
 
   const existing = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
   if (!existing) throw new ApiError(404, 'Customer not found');
@@ -190,8 +188,6 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (address !== undefined) updateData.address = address;
   if (mapLink !== undefined) updateData.mapLink = mapLink ? sanitizeGoogleMapsUrl(mapLink) : null;
   if (securityDeposit !== undefined) updateData.deposit = parseInt(securityDeposit, 10) || 0;
-  if (defaultPrice !== undefined) updateData.defaultPrice = parseFloat(defaultPrice) || 0.0;
-  if (creditLimit !== undefined) updateData.creditLimit = parseFloat(creditLimit) || 0;
   if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration, 10) || 1;
   if (remarks !== undefined) updateData.remarks = remarks;
   if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
@@ -206,16 +202,6 @@ export const updateCustomer = asyncHandler(async (req, res) => {
       entityId: id,
       performedBy,
       details: `Phone number changed from '${existing.phone}' to '${phone.trim()}'`
-    });
-  }
-
-  if (creditLimit !== undefined && parseFloat(creditLimit) !== parseFloat(existing.creditLimit || 0)) {
-    await createAuditLog(prefix, {
-      action: 'CREDIT_LIMIT_CHANGED',
-      entityType: 'Customer',
-      entityId: id,
-      performedBy,
-      details: `Credit limit changed from Rs. ${parseFloat(existing.creditLimit || 0).toLocaleString()} to Rs. ${parseFloat(creditLimit).toLocaleString()}`
     });
   }
 

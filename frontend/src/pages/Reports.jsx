@@ -115,8 +115,7 @@ export default function Reports() {
     <div className="space-y-4">
       {/* Action Header */}
       <PageHeader
-        title="Advanced Reports & Analytics"
-        subtitle="Business analytics, profit ledgers, and data exports"
+        title="Reports & Analytics"
         actions={
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Period Segmented Filter */}

@@ -163,8 +163,7 @@ export default function Purchases() {
     <div className="space-y-4">
       {/* Page Header */}
       <PageHeader
-        title="Vendor Purchases & Procurement"
-        subtitle="Log raw material vendor invoices, bills, and warehouse stock additions"
+        title="Vendor Purchases"
         actions={
           canAddPurchase && (
             <button
