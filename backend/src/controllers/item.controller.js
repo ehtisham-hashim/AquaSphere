@@ -176,7 +176,6 @@ export const updateItem = asyncHandler(async (req, res) => {
   const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter } = req.body;
   const prefix = getTenantPrefix(req);
 
-  if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
   const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
   const hasDirectStock = currentStock !== undefined && currentStock !== null && currentStock !== '';
   const addQty = parseFloat(initialStock || quantityToAdd || 0);
@@ -186,9 +185,9 @@ export const updateItem = asyncHandler(async (req, res) => {
     if (!item) throw new ApiError(404, 'Item not found');
 
     const updateData = {
-      name: name.trim(),
-      unit: unit || item.unit,
-      reorderLevel: parseFloat(reorderLevel) || item.reorderLevel,
+      ...(name && name.trim() ? { name: name.trim() } : {}),
+      ...(unit ? { unit } : {}),
+      ...(reorderLevel !== undefined ? { reorderLevel: parseFloat(reorderLevel) || 0 } : {}),
       ...(retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(retailPrice) || 0) } : {}),
       ...(sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(sellableOnCounter) } : {})
     };
@@ -291,6 +290,7 @@ export const updateItem = asyncHandler(async (req, res) => {
     });
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updated);
 });
 

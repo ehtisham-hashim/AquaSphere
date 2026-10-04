@@ -106,7 +106,6 @@ export default function Customers() {
           {/* Page Header */}
           <PageHeader
             title="Customer Directory"
-            subtitle="Customer profiles, delivery accounts, and financial credit limits"
             actions={
               canAddCustomer && (
                 <button 

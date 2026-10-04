@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, User, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Minus, Plus } from 'lucide-react';
+import { X, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
@@ -26,12 +26,31 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   const dropdownRef = useRef(null);
 
   const [asyncCustomers, setAsyncCustomers] = useState(customers);
+  const [dbItems, setDbItems] = useState(items || []);
 
   useEffect(() => {
     if (customers && customers.length > 0) {
       setAsyncCustomers(customers);
     }
   }, [customers]);
+
+  useEffect(() => {
+    const fetchFG = async () => {
+      try {
+        const res = await fetch(`${API_URL}/items?type=FINISHED_GOOD`, {
+          headers: { 'x-tenant': activeTenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setDbItems(json.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch finished goods:', err);
+      }
+    };
+    fetchFG();
+  }, [activeTenant]);
 
   useEffect(() => {
     if (!searchTerm.trim()) return;
@@ -55,68 +74,28 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
 
   const selectedCustomer = asyncCustomers.find(c => c.id === orderData.customerId) || customers.find(c => c.id === orderData.customerId);
 
-  // Map real database finished goods into organized categories (strictly enforce full packs / PETs only, exclude loose single bottles)
-  const finishedGoods = items.filter(dbItem => {
-    if (dbItem.type !== 'FINISHED_GOOD' && dbItem.type) return false;
-    const nameLower = (dbItem.name || '').toLowerCase();
-    if (nameLower.includes('loose') || nameLower.includes('single')) return false;
-    return true;
-  });
-
-  const availableItems = finishedGoods.map(dbItem => {
-    const nameLower = (dbItem.name || '').toLowerCase();
-    let category = 'FINISHED_GOOD';
-    let categoryLabel = 'OTHER FINISHED GOODS';
-
-    if (nameLower.includes('19l') || nameLower.includes('19 l')) {
-      category = '19L';
-      categoryLabel = '19L WATER BOTTLES';
-    } else if (nameLower.includes('0.5') || nameLower.includes('500')) {
-      category = '0.5L';
-      categoryLabel = isWadaana ? '0.5L PREFORM BOTTLES' : '0.5L PET PACKS';
-    } else if (nameLower.includes('1.5') || nameLower.includes('1500')) {
-      category = '1.5L';
-      categoryLabel = isWadaana ? '1.5L PREFORM BOTTLES' : '1.5L PET PACKS';
-    }
-
-    if (isWadaana) {
-      if (nameLower.includes('pure')) {
-        category = 'PURE';
-        categoryLabel = 'PURE PREFORM BOTTLES';
-      } else if (nameLower.includes('mix')) {
-        category = 'MIX';
-        categoryLabel = 'MIX PREFORM BOTTLES';
-      }
-    }
-
-    const isPackItem = (dbItem.packSize && Number(dbItem.packSize) > 1) || category === '0.5L' || category === '1.5L';
-    const packSize = Number(dbItem.packSize) || (category === '0.5L' ? 12 : category === '1.5L' ? 6 : 1);
-    const unitLabel = isPackItem ? 'Pack' : (category === '19L' ? 'Bottle' : (dbItem.unit || 'Unit'));
-
-    return {
-      id: dbItem.id,
-      dbItemId: dbItem.id,
-      name: isPackItem && !dbItem.name.toLowerCase().includes('pack') ? `${dbItem.name} Pack (${packSize} Btls)` : dbItem.name,
-      category,
-      categoryLabel,
-      isPackItem,
-      packSize,
-      unitLabel,
-      defaultPrice: Number(dbItem.retailPrice || 0),
-      unit: isPackItem ? 'packs' : (dbItem.unit || 'units')
-    };
-  });
-
-  const categoryOrder = isWadaana 
-    ? ['PURE PREFORM BOTTLES', 'MIX PREFORM BOTTLES', 'OTHER FINISHED GOODS']
-    : ['19L WATER BOTTLES', '0.5L PET PACKS', '1.5L PET PACKS', 'OTHER FINISHED GOODS'];
-  
-  const existingCategories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));
-  const categories = existingCategories.sort((a, b) => {
-    const idxA = categoryOrder.indexOf(a);
-    const idxB = categoryOrder.indexOf(b);
-    return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
-  });
+  const availableItems = (dbItems.length > 0 ? dbItems : items)
+    .filter(dbItem => {
+      if (dbItem.type !== 'FINISHED_GOOD' && dbItem.type) return false;
+      const nameLower = (dbItem.name || '').toLowerCase();
+      if (nameLower.includes('loose') || nameLower.includes('single')) return false;
+      return true;
+    })
+    .map(dbItem => {
+      const nameLower = (dbItem.name || '').toLowerCase();
+      const isPack = Number(dbItem.packSize) > 1;
+      const unitLabel = isPack ? 'Pack' : (dbItem.unit || 'Bottle');
+      return {
+        id: dbItem.id,
+        name: dbItem.name,
+        is19L: nameLower.includes('19l'),
+        isMix: nameLower.includes('mix'),
+        unit: isPack ? 'packs' : (dbItem.unit || 'units'),
+        unitLabel,
+        defaultPrice: Number(dbItem.retailPrice || 0),
+        packSize: Number(dbItem.packSize) || 1
+      };
+    });
 
   const filteredCustomers = asyncCustomers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -133,14 +112,12 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const custDefaultPrice = Number(selectedCustomer?.defaultPrice || 0);
-
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
     const qty = parseInt(data.quantity) || 0;
     if (qty <= 0) return sum;
-    const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+    const defaultRate = Math.round(item.defaultPrice || 0);
     const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
     return sum + (unitRate * qty);
   }, 0);
@@ -156,7 +133,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       const next = { ...prev };
       const currentPrice = next[itemId]?.price;
       const item = availableItems.find(i => i.id === itemId);
-      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const defaultRate = Math.round(item?.defaultPrice || 0);
       const priceToKeep = currentPrice !== undefined && currentPrice !== '' ? currentPrice : defaultRate;
 
       if (isNaN(parsed) || parsed <= 0) {
@@ -192,7 +169,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       const updated = current + delta;
       const currentPrice = next[itemId]?.price;
       const item = availableItems.find(i => i.id === itemId);
-      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const defaultRate = Math.round(item?.defaultPrice || 0);
       const priceToKeep = currentPrice !== undefined && currentPrice !== '' ? currentPrice : defaultRate;
 
       if (updated <= 0) {
@@ -227,22 +204,22 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     
     const has19L = selectedKeys.some(itemId => {
       const item = availableItems.find(i => i.id === itemId);
-      return item?.category === '19L';
+      return item?.is19L;
     });
     const hasMix = selectedKeys.some(itemId => {
       const item = availableItems.find(i => i.id === itemId);
-      return item?.category === 'MIX';
+      return item?.isMix;
     });
     const orderType = isWadaana ? (hasMix ? 'MIX_BOTTLES' : 'PURE_BOTTLES') : (has19L ? 'NINETEEN_L' : 'PET');
 
     const orderItemsPayload = selectedKeys.map(itemId => {
       const item = availableItems.find(i => i.id === itemId);
-      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+      const defaultRate = Math.round(item.defaultPrice || 0);
       const customPrice = selectedItems[itemId].price !== undefined && selectedItems[itemId].price !== ''
         ? (parseFloat(selectedItems[itemId].price) || 0)
         : defaultRate;
       return {
-        itemId: item.dbItemId || item.id,
+        itemId: item.id,
         catalogId: item.id,
         productName: item.name,
         quantity: selectedItems[itemId].quantity,
@@ -292,17 +269,14 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100">
-        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 z-50">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100">
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-5 py-3.5 flex justify-between items-center z-10">
           <div>
-            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${isWadaana ? 'bg-sky-50 text-[#0ea5e9] border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-              {isWadaana ? 'WADAANA PREFORM ORDERS' : 'AQUASPHERE DISPATCH'}
-            </span>
-            <h3 className="text-xl font-bold text-slate-800 mt-0.5">Create New Order</h3>
+            <h3 className="text-base font-bold text-slate-800">Create New Order</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-2 rounded-full transition-colors">
-            <X size={20} />
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-full transition-colors">
+            <X size={18} />
           </button>
         </div>
         
@@ -313,15 +287,11 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
               submitOrder(e, false);
             }
           }}
-          className="p-6 space-y-6"
+          className="p-5 space-y-4"
         >
           {/* Customer Selection Section */}
           <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <User size={15}/> Customer Information
-            </h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="md:col-span-2 relative" ref={dropdownRef}>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Select Customer *</label>
                 <div 
@@ -386,11 +356,8 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                   </div>
                   <div className="text-right">
                     <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Financial Status</div>
-                    <div className={`font-black text-base ${parseFloat(selectedCustomer.currentBalance || 0) > parseFloat(selectedCustomer.creditLimit || 0) ? 'text-red-600' : (parseFloat(selectedCustomer.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                    <div className={`font-black text-base ${parseFloat(selectedCustomer.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                       Debt: Rs. {parseFloat(selectedCustomer.currentBalance || 0).toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-semibold">
-                      (Credit Limit: Rs. {parseFloat(selectedCustomer.creditLimit || 0).toLocaleString()})
                     </div>
                   </div>
                 </div>
@@ -398,115 +365,98 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
             </div>
           </div>
 
-          {/* Product Items Section - Streamlined Fast Layout */}
+          {/* Product Items Section - Dynamic Finished Goods from DB */}
           <div className="border-t border-slate-100 pt-5 space-y-3">
             <div className="flex justify-between items-center">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Package size={15}/> Order Items ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere'})
+                <Package size={15}/> Order Items
               </h4>
             </div>
 
-            <div className="space-y-4">
-              {categories.map(catLabel => {
-                const catItems = availableItems.filter(i => i.categoryLabel === catLabel);
+            <div className="space-y-2">
+              {availableItems.map(item => {
+                const qty = selectedItems[item.id]?.quantity || 0;
+                const hasQty = qty > 0;
+                const defaultRate = Math.round(item.defaultPrice || 0);
+                const currentPrice = selectedItems[item.id]?.price !== undefined && selectedItems[item.id]?.price !== ''
+                  ? selectedItems[item.id].price
+                  : defaultRate;
+                const lineSubtotal = qty * (parseFloat(currentPrice) || 0);
+
                 return (
-                  <div key={catLabel} className="space-y-1.5">
-                    {/* Minimalist Section Header */}
-                    <div className="flex items-center gap-2 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <span className={`w-2 h-2 rounded-full ${catLabel.includes('PURE') ? 'bg-[#0ea5e9]' : catLabel.includes('MIX') ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-                      <span>{catLabel}</span>
-                      <span className="flex-1 h-px bg-slate-200/80"></span>
+                  <div 
+                    key={item.id} 
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all ${
+                      hasQty 
+                        ? (isWadaana ? 'bg-sky-50/60 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' : 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/30 shadow-2xs')
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Product Info */}
+                    <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-800 text-sm truncate">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-slate-500 font-mono">
+                          Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Single Clean Row per Product */}
-                    <div className="space-y-1.5">
-                      {catItems.map(item => {
-                        const qty = selectedItems[item.id]?.quantity || 0;
-                        const hasQty = qty > 0;
-                        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
-                        const currentPrice = selectedItems[item.id]?.price !== undefined && selectedItems[item.id]?.price !== ''
-                          ? selectedItems[item.id].price
-                          : defaultRate;
-                        const lineSubtotal = qty * (parseFloat(currentPrice) || 0);
+                    {/* Inline Stepper, Rate Input, and Line Total */}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
+                      <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => handleQtyAdjust(item.id, -1)}
+                          disabled={!hasQty}
+                          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition"
+                          title="Decrease quantity"
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={qty > 0 ? qty : ''}
+                          placeholder="0"
+                          onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
+                          className={`w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none ${isWadaana ? 'focus:bg-sky-50/50' : 'focus:bg-emerald-50/50'}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleQtyAdjust(item.id, 1)}
+                          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition"
+                          title="Increase quantity"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
 
-                        return (
-                          <div 
-                            key={item.id} 
-                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:py-2.5 sm:px-3.5 rounded-xl border transition-all ${
-                              hasQty 
-                                ? (isWadaana ? 'bg-sky-50/60 border-sky-300 ring-1 ring-sky-300/30 shadow-2xs' : 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-300/30 shadow-2xs')
-                                : 'bg-white border-slate-200 hover:border-slate-300'
-                            }`}
-                          >
-                            {/* Product Info */}
-                            <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
-                              <div className="min-w-0">
-                                <div className="font-bold text-slate-800 text-sm truncate">
-                                  {item.name}
-                                </div>
-                                <div className="text-xs text-slate-500 font-mono">
-                                  Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
-                                </div>
-                              </div>
-                            </div>
+                      {/* Inline Editable Pack Price Input - Always editable */}
+                      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400">Rs.</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={currentPrice}
+                          onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
+                          className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
+                          title={`Custom rate per ${item.unitLabel}`}
+                          placeholder="Rate"
+                        />
+                        <span className="text-[10px] text-slate-400 font-sans">/{item.unitLabel}</span>
+                      </div>
 
-                            {/* Inline Stepper, Rate Input, and Line Total */}
-                            <div className="flex items-center justify-between sm:justify-end gap-3 mt-2 sm:mt-0 shrink-0">
-                              <div className="flex items-center rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQtyAdjust(item.id, -1)}
-                                  disabled={!hasQty}
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white transition"
-                                  title="Decrease quantity"
-                                >
-                                  <Minus size={13} />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={qty > 0 ? qty : ''}
-                                  placeholder="0"
-                                  onChange={(e) => handleItemQuantityChange(item.id, e.target.value)}
-                                  className={`w-16 h-8 text-center text-xs font-bold text-slate-800 border-x border-slate-200 focus:outline-none ${isWadaana ? 'focus:bg-sky-50/50' : 'focus:bg-emerald-50/50'}`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleQtyAdjust(item.id, 1)}
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition"
-                                  title="Increase quantity"
-                                >
-                                  <Plus size={13} />
-                                </button>
-                              </div>
-
-                              {/* Inline Editable Pack Price Input - Always editable */}
-                              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 h-8 shadow-2xs">
-                                <span className="text-[10px] font-bold text-slate-400">Rs.</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="any"
-                                  value={currentPrice}
-                                  onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
-                                  className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
-                                  title={`Custom rate per ${item.unitLabel}`}
-                                  placeholder="Rate"
-                                />
-                                <span className="text-[10px] text-slate-400 font-sans">/{item.unitLabel}</span>
-                              </div>
-
-                              <div className="w-24 text-right">
-                                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
-                                <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
-                                  Rs. {Math.round(lineSubtotal).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      <div className="w-24 text-right">
+                        <span className="text-[10px] text-slate-400 block font-semibold uppercase">Subtotal</span>
+                        <span className={`text-xs font-mono font-black ${hasQty ? (isWadaana ? 'text-sky-700' : 'text-emerald-700') : 'text-slate-300'}`}>
+                          Rs. {Math.round(lineSubtotal).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -538,7 +488,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
               </div>
               <div className="md:col-span-2">
                 <label className="block font-semibold text-slate-700 mb-1">Internal Remarks / Driver Notes</label>
-                <textarea name="remarks" rows="2" placeholder="E.g., preform delivery to factory floor..." className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none resize-none font-medium" value={orderData.remarks} onChange={handleChange}></textarea>
+                <textarea name="remarks" rows="2" placeholder="E.g., delivery notes..." className="w-full border border-slate-200 rounded-xl p-3 focus:border-sky-500 outline-none resize-none font-medium" value={orderData.remarks} onChange={handleChange}></textarea>
               </div>
             </div>
           </div>

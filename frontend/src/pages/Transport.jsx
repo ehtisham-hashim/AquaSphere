@@ -207,8 +207,7 @@ export default function Transport() {
     <div className="space-y-4">
       {/* Top Header & Tab Navigation */}
       <PageHeader
-        title="Fleet & Transport Hub"
-        subtitle="Manage company vehicles, active fleet status, and fuel & maintenance expenses"
+        title="Fleet & Transport"
         actions={
           <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 shrink-0">
             <button

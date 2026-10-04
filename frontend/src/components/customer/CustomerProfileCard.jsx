@@ -5,7 +5,6 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
   const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
 
-  const limitText = parseFloat(c.creditLimit) === 0 ? 'Unlimited' : `Rs. ${c.creditLimit}`;
   const lastDelivery = c.lastDeliveryAt
     ? new Date(c.lastDeliveryAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short' })
     : 'Never';
@@ -68,10 +67,6 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
 
       {/* Details */}
       <div className="p-3 space-y-1.5 text-xs text-slate-600">
-        <div className="flex justify-between">
-          <span className="text-slate-400">Credit Limit</span>
-          <span className={`font-semibold ${parseFloat(c.creditLimit) === 0 ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-700'}`}>{limitText}</span>
-        </div>
         <div className="flex justify-between">
           <span className="text-slate-400">Security Deposit</span>
           <span className="font-semibold text-slate-700">Rs. {c.deposit || 0}</span>

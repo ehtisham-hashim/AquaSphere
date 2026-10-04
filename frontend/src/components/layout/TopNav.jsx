@@ -6,23 +6,23 @@ import { API_URL, clearCache } from '../../utils/api';
 import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut } from 'lucide-react';
 
 const PAGE_TITLES = {
-  '/': { title: 'Dashboard', subtitle: 'Fast access to company operations and alerts' },
-  '/orders': { title: 'Orders & Dispatches', subtitle: 'Manage customer orders and delivery tracking' },
-  '/customers': { title: 'Customer Directory', subtitle: 'Customer profiles, custody, and financial ledgers' },
-  '/production': { title: 'Production Management', subtitle: 'Log factory output runs and chemical formulas' },
-  '/inventory': { title: 'Finished Goods Inventory', subtitle: 'Track finished goods across Factory & Warehouse' },
-  '/raw-materials': { title: 'Raw Materials Inventory', subtitle: 'Track raw material stock levels and reorder limits' },
-  '/purchases': { title: 'Vendor Purchases', subtitle: 'Record raw material purchases and vendor invoices' },
-  '/vendors': { title: 'Vendors Directory', subtitle: 'Manage vendor accounts and purchase ledgers' },
-  '/expenses': { title: 'Factory Expenses', subtitle: 'Track operational expenses and receipts' },
-  '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' },
-  '/pricing': { title: 'Product & Water Pricing', subtitle: 'Manage retail catalog prices and bulk water rates' },
-  '/transport-expenses': { title: 'Transport Expenses', subtitle: 'Track fleet operations, fuel, and vehicle maintenance' },
-  '/cars': { title: 'Vehicle Fleet', subtitle: 'Manage company vehicles, mileage, and service records' },
-  '/transport': { title: 'Fleet & Transport', subtitle: 'Manage company vehicles, operational status, and expenses' },
-  '/users': { title: 'Users & Roles', subtitle: 'Manage system users and access permissions' },
-  '/daily-close': { title: 'Daily Close', subtitle: 'Reconcile cash, sales, and end-of-day operations' },
-  '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }
+  '/': { title: 'Dashboard', subtitle: '' },
+  '/orders': { title: 'Orders & Dispatches', subtitle: '' },
+  '/customers': { title: 'Customer Directory', subtitle: '' },
+  '/production': { title: 'Production Management', subtitle: '' },
+  '/inventory': { title: 'Finished Goods Inventory', subtitle: '' },
+  '/raw-materials': { title: 'Raw Materials Inventory', subtitle: '' },
+  '/purchases': { title: 'Vendor Purchases', subtitle: '' },
+  '/vendors': { title: 'Vendors Directory', subtitle: '' },
+  '/expenses': { title: 'Factory Expenses', subtitle: '' },
+  '/counter-sales': { title: 'Counter Sales', subtitle: '' },
+  '/pricing': { title: 'Product & Water Pricing', subtitle: '' },
+  '/transport-expenses': { title: 'Transport Expenses', subtitle: '' },
+  '/cars': { title: 'Vehicle Fleet', subtitle: '' },
+  '/transport': { title: 'Fleet & Transport', subtitle: '' },
+  '/users': { title: 'Users & Roles', subtitle: '' },
+  '/daily-close': { title: 'Daily Close', subtitle: '' },
+  '/reports': { title: 'Reports & Analytics', subtitle: '' }
 };
 
 const ACTION_CONFIG = {

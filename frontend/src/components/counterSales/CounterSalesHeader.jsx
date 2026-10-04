@@ -1,6 +1,6 @@
-import { Download } from 'lucide-react';
+import { Download, Package } from 'lucide-react';
 
-export default function CounterSalesHeader({ onExportCSV, hasSales }) {
+export default function CounterSalesHeader({ onExportCSV, hasSales, onManageSupplies }) {
   return (
     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
       <div>
@@ -14,6 +14,15 @@ export default function CounterSalesHeader({ onExportCSV, hasSales }) {
       </div>
 
       <div className="flex items-center gap-2">
+        {onManageSupplies && (
+          <button 
+            type="button"
+            onClick={onManageSupplies}
+            className="btn-primary text-xs py-2 px-3 flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
+          >
+            <Package size={14} /> Manage Counter Supplies
+          </button>
+        )}
         <button 
           onClick={onExportCSV}
           disabled={!hasSales}

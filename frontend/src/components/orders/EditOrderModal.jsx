@@ -64,8 +64,6 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
   });
 
-  const custDefaultPrice = Number(order.customer?.defaultPrice || 0);
-
   // Initialize selected items from existing order.items
   const [selectedItems, setSelectedItems] = useState(() => {
     const initialItems = {};
@@ -80,7 +78,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
           ai.dbItemId === oi.itemId
         );
         const targetId = match ? match.id : oi.itemId;
-        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(match?.defaultPrice || 0);
+        const defaultRate = Math.round(match?.defaultPrice || 0);
         const itemPrice = oi.price !== null && oi.price !== undefined ? Number(oi.price) : defaultRate;
         initialItems[targetId] = { 
           quantity: oi.quantity, 
@@ -97,7 +95,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
   const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
-    const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+    const defaultRate = Math.round(item.defaultPrice || 0);
     const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
     return sum + (unitRate * (parseInt(data.quantity) || 0));
   }, 0);
@@ -115,7 +113,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
         delete next[itemId];
       } else {
         const item = availableItems.find(i => i.id === itemId);
-        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        const defaultRate = Math.round(item?.defaultPrice || 0);
         const existingDbId = prev[itemId]?.dbItemId || item?.dbItemId || itemId;
         next[itemId] = { 
           quantity: parsed, 
@@ -149,7 +147,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
         delete next[itemId];
       } else {
         const item = availableItems.find(i => i.id === itemId);
-        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+        const defaultRate = Math.round(item?.defaultPrice || 0);
         const existingDbId = prev[itemId]?.dbItemId || item?.dbItemId || itemId;
         next[itemId] = { 
           quantity: updated, 
@@ -183,7 +181,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
 
     const orderItemsPayload = selectedKeys.map(itemId => {
       const item = availableItems.find(i => i.id === itemId);
-      const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item?.defaultPrice || 0);
+      const defaultRate = Math.round(item?.defaultPrice || 0);
       const customPrice = selectedItems[itemId].price !== undefined && selectedItems[itemId].price !== ''
         ? parseFloat(selectedItems[itemId].price)
         : defaultRate;
@@ -279,7 +277,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                       {catItems.map(item => {
                         const qty = selectedItems[item.id]?.quantity || 0;
                         const hasQty = qty > 0;
-                        const defaultRate = custDefaultPrice > 0 ? custDefaultPrice : Math.round(item.defaultPrice);
+                        const defaultRate = Math.round(item.defaultPrice || 0);
                         const currentPrice = selectedItems[item.id]?.price !== undefined && selectedItems[item.id]?.price !== ''
                           ? selectedItems[item.id].price
                           : defaultRate;

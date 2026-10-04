@@ -314,27 +314,7 @@ export default function AdminDashboardView() {
               <p className="text-slate-500 font-bold text-xs">No customer alerts right now</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Credit Limit Breaches */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 mb-3">
-                  <CreditCard className="w-4 h-4 text-rose-500" />
-                  Credit Limit Breaches ({alerts.creditBreaches?.length || 0})
-                </h4>
-                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                  {alerts.creditBreaches?.length === 0 ? (
-                    <p className="text-xs text-slate-400 py-2">None</p>
-                  ) : (
-                    alerts.creditBreaches?.map(c => (
-                      <div key={c.id} className="py-2 text-xs">
-                        <p className="font-bold text-slate-800">{c.name}</p>
-                        <p className="text-[11px] text-slate-500">{c.phone}</p>
-                        <p className="text-xs text-rose-600 font-bold">Balance: Rs. {c.currentBalance?.toLocaleString()} / Limit: Rs. {c.creditLimit?.toLocaleString()}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Unpaid Bills > 7 Days */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">

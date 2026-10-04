@@ -63,20 +63,15 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   }, [initialCustomer?.id, tenant]);
 
   const currentBalance = parseFloat(c?.currentBalance || 0);
-  const limitVal = parseFloat(c?.creditLimit || 0);
-  const isOverLimit = currentBalance > limitVal; 
   const isInactive30Days = c?.lastDeliveryAt && (new Date() - new Date(c.lastDeliveryAt)) > (30 * 24 * 60 * 60 * 1000);
 
   useEffect(() => {
     if (!c) return;
-    if (isOverLimit) {
-      toast.error(`Credit Warning: Debt (Rs. ${currentBalance.toLocaleString()}) exceeds limit.`, { duration: 6000 });
-    }
     if (isInactive30Days) {
       toast.warning('Inactivity Alert: No order repeat recorded for over 30 days.', { duration: 6000 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c?.id, isOverLimit, isInactive30Days, currentBalance]);
+  }, [c?.id, isInactive30Days, currentBalance]);
 
   if (!c) return null;
 
@@ -325,11 +320,8 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
               
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Current Debt</span>
-                <span className={`text-lg font-bold font-mono block mt-1 ${isOverLimit ? 'text-rose-600' : (currentBalance > 0 ? 'text-amber-600' : 'text-slate-800')}`}>
+                <span className={`text-lg font-bold font-mono block mt-1 ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                   Rs. {currentBalance.toLocaleString()}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400 mt-0.5 block">
-                  {limitVal > 0 ? `Limit: Rs. ${limitVal.toLocaleString()}` : 'No Limit'}
                 </span>
                 {currentBalance > 0 && c.phone && (
                   <button
@@ -397,11 +389,6 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <ShoppingBag size={16} className={theme.iconColor} />
                 <span>Purchased Products ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere Delivery'})</span>
               </h3>
-              {Number(c.defaultPrice || 0) > 0 && (
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-mono">
-                  Custom Rate: Rs. {Number(c.defaultPrice).toLocaleString()}
-                </span>
-              )}
             </div>
             
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">

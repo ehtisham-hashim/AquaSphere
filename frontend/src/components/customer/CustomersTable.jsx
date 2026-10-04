@@ -119,10 +119,9 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                     </td>
                     <td className="table-td">
                       <div className="flex flex-col gap-0.5 tabular-nums">
-                        <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > parseFloat(c.creditLimit || 0) ? 'text-rose-600' : (parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600')}`}>
+                        <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                           Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
                         </span>
-                        <span className="text-xs text-slate-400">Limit: Rs. {c.creditLimit}</span>
                       </div>
                     </td>
                     {!isWadaana && (

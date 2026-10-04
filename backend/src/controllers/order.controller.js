@@ -87,17 +87,6 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // Credit limit soft-block check
-  const currentBalance = parseFloat(customer.currentBalance || 0);
-  const creditLimit = parseFloat(customer.creditLimit || 0);
-  if (creditLimit > 0 && (currentBalance + orderTotal) > creditLimit && !bypassCreditCheck) {
-    return res.status(200).json({
-      success: false,
-      softBlock: true,
-      blockReason: 'BALANCE_EXCEEDED',
-      message: `Order amount exceeds credit limit. Order: Rs. ${orderTotal}, Current Debt: Rs. ${currentBalance}, Limit: Rs. ${creditLimit}. Proceed?`
-    });
-  }
 
   // Bottle security deposit check (for 19L orders)
   const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItems.map(i => i.itemId) } } });

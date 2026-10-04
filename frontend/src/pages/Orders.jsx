@@ -226,7 +226,6 @@ export default function Orders() {
           {/* Page Header */}
           <PageHeader
         title="Orders & Dispatches"
-        subtitle="Customer orders, dispatch status, and delivery tracking"
         actions={
           <div className="flex items-center gap-2">
             {canAddCustomer && (

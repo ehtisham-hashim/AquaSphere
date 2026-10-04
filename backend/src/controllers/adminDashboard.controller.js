@@ -297,7 +297,6 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
       phone: true,
       type: true,
       currentBalance: true,
-      creditLimit: true,
       creditDuration: true,
       lastDeliveryAt: true,
       createdAt: true,
@@ -315,21 +314,8 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     }
   });
 
-  // Credit breaches — use stored currentBalance directly, not recalculated from recent orders
-  const creditBreaches = allCustomers.filter(c => {
-    const limit = Number(c.creditLimit || 0);
-    if (limit <= 0) return false;
-    return Number(c.currentBalance || 0) >= limit;
-  }).map(c => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    type: c.type,
-    currentBalance: Number(c.currentBalance || 0),
-    creditLimit: Number(c.creditLimit || 0),
-    alertType: 'CREDIT_LIMIT_EXCEEDED',
-    recommendation: 'Generate invoice and request immediate payment settlement.'
-  }));
+  // Credit breaches — deprecated, kept as empty array for backwards compatibility
+  const creditBreaches = [];
 
   // Unpaid bills older than 7 days
   const unpaidBillOver7Days = [];

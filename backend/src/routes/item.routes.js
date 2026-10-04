@@ -29,10 +29,10 @@ router.get('/:id', getItemById);
 router.put('/pricing/batch', requireRoles('OWNER'), updateItemPricingBatch);
 router.put('/:id/price', requireRoles('OWNER'), updateItemPrice);
 
-// Adding & updating items manually is restricted to OWNER and ADMIN
-router.post('/', requireRoles('OWNER', 'ADMIN'), createItem);
-router.put('/:id', requireRoles('OWNER', 'ADMIN'), updateItem);
-router.patch('/:id', requireRoles('OWNER', 'ADMIN'), updateItem);
+// Adding & updating items manually is accessible to operations and management roles
+router.post('/', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER'), createItem);
+router.put('/:id', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER'), updateItem);
+router.patch('/:id', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER', 'ACCOUNTANT'), updateItem);
 
 // Stock transfers & manual adjustments
 router.post('/transfer-stock', requireRoles('OWNER', 'PRODUCTION_MANAGER'), transferStock);
