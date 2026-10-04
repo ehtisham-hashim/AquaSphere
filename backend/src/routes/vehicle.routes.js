@@ -6,9 +6,9 @@ import { getVehicles, addVehicle, updateVehicle, deleteVehicle } from '../contro
 const router = Router();
 router.use(verifyJWT);
 
-router.get('/', requireRoles('OWNER', 'TRANSPORT_MANAGER'), getVehicles);
-router.post('/', requireRoles('TRANSPORT_MANAGER'), addVehicle);
-router.put('/:id', requireRoles('TRANSPORT_MANAGER'), updateVehicle);
-router.delete('/:id', requireRoles('TRANSPORT_MANAGER'), deleteVehicle);
+router.get('/', requireRoles('OWNER', 'ADMIN', 'TRANSPORT_MANAGER'), getVehicles);
+router.post('/', requireRoles('OWNER', 'ADMIN', 'TRANSPORT_MANAGER'), addVehicle);
+router.put('/:id', requireRoles('OWNER', 'ADMIN', 'TRANSPORT_MANAGER'), updateVehicle);
+router.delete('/:id', requireRoles('OWNER', 'ADMIN', 'TRANSPORT_MANAGER'), deleteVehicle);
 
 export default router;
