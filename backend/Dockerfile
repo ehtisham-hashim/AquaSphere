@@ -27,5 +27,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# On container start, push database schema to postgres and start express
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node src/index.js"]
+# On container start, generate prisma client, push database schema to postgres and start express
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && node src/index.js"]
