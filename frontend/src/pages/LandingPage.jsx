@@ -178,7 +178,7 @@ export default function LandingPage() {
             <Link to="/login" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Admin</Link>
           </nav>
 
-          {/* Website Admin Direct Button */}
+          {/* Header Action Buttons */}
           <div className="hidden sm:flex items-center gap-2.5">
             <Link 
               to="/website-admin" 
@@ -188,6 +188,15 @@ export default function LandingPage() {
               <Settings className="w-3.5 h-3.5 text-cyan-400" />
               <span>Website Admin</span>
             </Link>
+
+            <a 
+              href="https://theaquasphere.org/login" 
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-full transition-all shadow-sm shadow-sky-600/30"
+              title="Open Software ERP Portal"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Software Admin</span>
+            </a>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -217,14 +226,14 @@ export default function LandingPage() {
                 <Settings className="w-4 h-4 text-cyan-400" />
                 <span>Website Admin</span>
               </Link>
-              <Link 
-                to="/login" 
+              <a 
+                href="https://theaquasphere.org/login" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-full"
+                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-full shadow-sm"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Admin Login</span>
-              </Link>
+                <span>Software Admin</span>
+              </a>
             </div>
           </div>
         )}
@@ -387,7 +396,7 @@ export default function LandingPage() {
                 <li><a href="#location" className="hover:text-cyan-400 transition-colors">Our Location</a></li>
                 <li><a href="#contact" className="hover:text-cyan-400 transition-colors">Contact Us</a></li>
                 <li><Link to="/website-admin" className="hover:text-cyan-400 transition-colors">Website Content Admin</Link></li>
-                <li><Link to="/login" className="hover:text-cyan-400 transition-colors">Software ERP Portal</Link></li>
+                <li><a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors">Software ERP Portal</a></li>
               </ul>
             </div>
 
@@ -453,7 +462,7 @@ export default function LandingPage() {
             <p>© {new Date().getFullYear()} {settings.site_name} Mineral Water. All rights reserved.</p>
             <div className="flex gap-6">
               <Link to="/website-admin" className="hover:text-cyan-400 transition-colors duration-200">Website Admin</Link>
-              <Link to="/login" className="hover:text-cyan-400 transition-colors duration-200">Software Login</Link>
+              <a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors duration-200">Software Login</a>
             </div>
           </div>
         </div>
