@@ -31,7 +31,7 @@ export const getItems = asyncHandler(async (req, res) => {
         item.unit = 'Litres';
       } else {
         // Base Unit Storage Law: finished goods are stored in base bottles
-        item.unit = item.unit || 'bottle';
+        item.unit = 'bottle';
       }
     }
     return item;

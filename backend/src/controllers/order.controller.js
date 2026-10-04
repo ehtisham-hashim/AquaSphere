@@ -334,71 +334,93 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning ${retGood + retBroken}. Proceed anyway?`);
     }
 
-    await tx[`${prefix}Delivery`].create({
-      data: { orderId: o.id, qtyDelivered: qty, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
-    });
+    // Group 1: Non-dependent creates
+    const initialCreates = [
+      tx[`${prefix}Delivery`].create({
+        data: { orderId: o.id, qtyDelivered: qty, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
+      })
+    ];
 
     if (cash > 0) {
-      await tx[`${prefix}Payment`].create({
-        data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
-      });
+      initialCreates.push(
+        tx[`${prefix}Payment`].create({
+          data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
+        })
+      );
     }
 
     // 19L bottle custody update (minerals/caps deducted exclusively at production batch completion)
     if (has19L && qty19L > 0) {
-      await tx[`${prefix}BottleTransaction`].create({
-        data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
-      });
+      initialCreates.push(
+        tx[`${prefix}BottleTransaction`].create({
+          data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
+        })
+      );
     }
 
     if (retGood > 0) {
-      await tx[`${prefix}BottleTransaction`].create({
-        data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
-      });
-      const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
-      if (emptyBottle) {
-        await tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } });
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
-        });
-      }
+      initialCreates.push(
+        tx[`${prefix}BottleTransaction`].create({
+          data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
+        })
+      );
     }
     if (retBroken > 0) {
-      await tx[`${prefix}BottleTransaction`].create({
-        data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id}` }
-      });
+      initialCreates.push(
+        tx[`${prefix}BottleTransaction`].create({
+          data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id}` }
+        })
+      );
     }
 
-    // Deduct finished goods exclusively from Factory Floor in base units
+    await Promise.all(initialCreates);
+
+    if (retGood > 0) {
+      const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
+      if (emptyBottle) {
+        await Promise.all([
+          tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } }),
+          tx[`${prefix}InventoryTransaction`].create({
+            data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
+          })
+        ]);
+      }
+    }
+
+    // Deduct finished goods exclusively from Factory Floor in base units (parallel batch)
+    const inventoryUpdates = [];
     for (const orderItem of o.items) {
       if (orderItem.itemId) {
         const is19L = orderItem.item?.name?.toLowerCase().includes('19l');
         const packMultiplier = Number(orderItem.item?.packSize || 1);
         const qtyToDeduct = Number(orderItem.quantity || 0) * packMultiplier;
 
-        await tx[`${prefix}Item`].update({
-          where: { id: orderItem.itemId },
-          data: { cachedQty: { decrement: qtyToDeduct }, factoryQty: { decrement: qtyToDeduct } }
-        });
-
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: { 
-            itemId: orderItem.itemId, 
-            quantity: qtyToDeduct, 
-            direction: 'OUT', 
-            reason: is19L ? '19L_DELIVERY' : 'PET_DELIVERY', 
-            refType: 'ORDER', 
-            refId: o.id,
-            location: 'FACTORY'
-          }
-        });
+        inventoryUpdates.push(
+          tx[`${prefix}Item`].update({
+            where: { id: orderItem.itemId },
+            data: { cachedQty: { decrement: qtyToDeduct }, factoryQty: { decrement: qtyToDeduct } }
+          }),
+          tx[`${prefix}InventoryTransaction`].create({
+            data: { 
+              itemId: orderItem.itemId, 
+              quantity: qtyToDeduct, 
+              direction: 'OUT', 
+              reason: is19L ? '19L_DELIVERY' : 'PET_DELIVERY', 
+              refType: 'ORDER', 
+              refId: o.id,
+              location: 'FACTORY'
+            }
+          })
+        );
       }
+    }
+    if (inventoryUpdates.length > 0) {
+      await Promise.all(inventoryUpdates);
     }
 
     // Customer financial & balance updates
     const unpaidAmount = Math.max(0, orderTotal - cash);
-    const customerSnapshot = await tx[`${prefix}Customer`].findUnique({ where: { id: o.customerId }, select: { deposit: true } });
-    const existingDeposit = parseFloat(customerSnapshot.deposit || 0);
+    const existingDeposit = parseFloat(o.customer?.deposit || 0);
 
     let depositDeduction = 0;
     let debtAddition = 0;
@@ -419,12 +441,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
     }
 
-    await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
-
-    const updated = await tx[`${prefix}Order`].update({
-      where: { id },
-      data: { deliveryStatus: 'DELIVERED', paymentStatus: cash >= orderTotal ? 'PAID' : (cash > 0 ? 'PARTIAL' : 'UNPAID') }
-    });
+    const [_, updated] = await Promise.all([
+      tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData }),
+      tx[`${prefix}Order`].update({
+        where: { id },
+        data: { deliveryStatus: 'DELIVERED', paymentStatus: cash >= orderTotal ? 'PAID' : (cash > 0 ? 'PARTIAL' : 'UNPAID') }
+      })
+    ]);
 
     await createAuditLog(prefix, {
       action: 'ORDER_DELIVERED',

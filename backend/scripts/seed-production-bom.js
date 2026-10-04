@@ -134,7 +134,7 @@ const AQUASPHERE_FINISHED_GOODS = [
   {
     name: '0.5L PET',
     aliases: ['AquaSphere 0.5L Pack', '0.5L PET Pack', '0.5L Pack (12 Bottles)', 'AquaSphere 0.5L Pack (12 Bottles)'],
-    unit: 'pack',
+    unit: 'bottle',
     packSize: 12,
     reorderLevel: 200, // 200 packs
     retailPrice: 360,
@@ -151,7 +151,7 @@ const AQUASPHERE_FINISHED_GOODS = [
   {
     name: '1.5L PET',
     aliases: ['AquaSphere 1.5L Pack', '1.5L PET Pack', '1.5L Pack (6 Bottles)', 'AquaSphere 1.5L Pack (6 Bottles)'],
-    unit: 'pack',
+    unit: 'bottle',
     packSize: 6,
     reorderLevel: 500, // 500 packs
     retailPrice: 300,
