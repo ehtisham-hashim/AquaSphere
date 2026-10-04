@@ -22,6 +22,17 @@ pool.on('error', (err) => {
   console.error('PostgreSQL pool error:', err.message);
 });
 
+// Keep-alive ping every 4 minutes to prevent Neon serverless scale-to-zero cold starts
+if (process.env.DATABASE_URL) {
+  setInterval(async () => {
+    try {
+      await pool.query('SELECT 1');
+    } catch {
+      // Ignore background keepalive errors
+    }
+  }, 4 * 60 * 1000).unref();
+}
+
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({

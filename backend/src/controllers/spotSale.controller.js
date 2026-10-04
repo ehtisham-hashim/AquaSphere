@@ -123,7 +123,8 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     cashCollected,
     paymentMethod = 'CASH',
     customerId,
-    remarks
+    remarks,
+    allowNegativeStock = false
   } = req.body;
 
   if (!Array.isArray(inputItems) || inputItems.length === 0) {
@@ -266,7 +267,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         const rawItem = await tx[`${prefix}Item`].findUnique({ where: { id: line.itemId } });
         if (!rawItem) throw new ApiError(404, `Raw material "${line.name}" not found`);
         const totalAvail = Number(rawItem.cachedQty || 0);
-        if (totalAvail < quantity) {
+        if (totalAvail < quantity && !allowNegativeStock) {
           throw new ApiError(400, `❌ Insufficient stock for "${rawItem.name}". Required: ${quantity} ${rawItem.unit || 'units'}, Available: ${totalAvail}.`);
         }
         await tx[`${prefix}Item`].update({
@@ -328,7 +329,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       });
 
       const totalAvail = Number(currentItem.cachedQty || 0);
-      if (totalAvail < baseUnitsDeduct) {
+      if (totalAvail < baseUnitsDeduct && !allowNegativeStock) {
         throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${baseUnitsDeduct} bottles, Available: ${totalAvail}.`);
       }
 
@@ -337,11 +338,23 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       const effectiveFactory = (currentFactory === 0 && currentWarehouse === 0) ? totalAvail : currentFactory;
       const effectiveWarehouse = (currentFactory === 0 && currentWarehouse === 0) ? 0 : currentWarehouse;
 
-      const factoryDeduct = effectiveFactory >= baseUnitsDeduct ? baseUnitsDeduct : (effectiveFactory > 0 ? effectiveFactory : 0);
-      const warehouseDeduct = baseUnitsDeduct - factoryDeduct;
+      let factoryDeduct;
+      let warehouseDeduct = 0;
 
-      if (warehouseDeduct > 0 && effectiveWarehouse < warehouseDeduct) {
-        throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${baseUnitsDeduct} bottles, Available: ${totalAvail}.`);
+      if (effectiveFactory >= baseUnitsDeduct) {
+        factoryDeduct = baseUnitsDeduct;
+      } else {
+        factoryDeduct = effectiveFactory > 0 ? effectiveFactory : 0;
+        warehouseDeduct = baseUnitsDeduct - factoryDeduct;
+
+        if (warehouseDeduct > effectiveWarehouse) {
+          if (!allowNegativeStock) {
+            throw new ApiError(400, `❌ Insufficient stock for "${currentItem.name}". Required: ${baseUnitsDeduct} bottles, Available: ${totalAvail}.`);
+          }
+          // If allowNegativeStock is true and warehouse doesn't cover deficit, allocate all available warehouse, remainder to factory floor (pending batch)
+          warehouseDeduct = effectiveWarehouse > 0 ? effectiveWarehouse : 0;
+          factoryDeduct = baseUnitsDeduct - warehouseDeduct;
+        }
       }
 
       // Record factory inventory transaction if applicable
@@ -374,9 +387,9 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         });
       }
 
-      // Decrement item inventory atomically in base units
-      const newFactoryQty = Math.max(0, effectiveFactory - factoryDeduct);
-      const newWarehouseQty = Math.max(0, effectiveWarehouse - warehouseDeduct);
+      // Decrement item inventory atomically in base units (can become negative if oversold with physical override)
+      const newFactoryQty = effectiveFactory - factoryDeduct;
+      const newWarehouseQty = effectiveWarehouse - warehouseDeduct;
       await tx[`${prefix}Item`].update({
         where: { id: currentItem.id },
         data: {

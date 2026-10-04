@@ -4,6 +4,13 @@ export default function CounterSalesStockBar({
   items = [],
   loading = false
 }) {
+  const formatQty = (qty, packSize, unit) => {
+    if (packSize <= 1) return `${Math.round(qty).toLocaleString()} ${unit}`;
+    const packs = Math.floor(qty / packSize);
+    const loose = Math.round(qty % packSize);
+    return `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''} Pk`;
+  };
+
   // Ghost / Skeleton UI loader
   if (loading) {
     return (
@@ -44,7 +51,13 @@ export default function CounterSalesStockBar({
           const warehouse = (fac === 0 && wh === 0) ? 0 : wh;
           const price = Number(item.retailPrice || 0);
 
+          const packSize = Number(item.packSize) || 1;
+          const unit = item.unit || 'units';
+          const isPack = packSize > 1;
+          const packs = isPack ? Math.floor(total / packSize) : total;
+          const loose = isPack ? Math.round(total % packSize) : 0;
           const isRaw = item.type === 'RAW_MATERIAL';
+
           return (
             <div 
               key={item.id} 
@@ -72,10 +85,15 @@ export default function CounterSalesStockBar({
                 )}
               </div>
               <div className="text-base sm:text-lg font-mono font-bold text-slate-800">
-                {total.toLocaleString()} <span className="text-xs font-sans text-slate-500 font-semibold">{item.unit || 'units'}</span>
+                {isPack
+                  ? `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''}`
+                  : Math.round(total).toLocaleString()}{' '}
+                <span className="text-xs font-sans text-slate-500 font-semibold uppercase">
+                  {isPack ? 'Packs' : unit}
+                </span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium block truncate">
-                Factory: {factory} • Warehouse: {warehouse}
+              <span className="text-[10px] text-slate-400 font-medium block truncate font-mono">
+                Factory: {formatQty(factory, packSize, unit)} • Warehouse: {formatQty(warehouse, packSize, unit)}
               </span>
             </div>
           );

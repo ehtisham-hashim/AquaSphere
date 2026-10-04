@@ -407,15 +407,23 @@ const computeDashboardAnalytics = async (prefix) => {
   };
 };
 
-/** Broadcasts SSE update */
-export const broadcastDashboardUpdate = async (prefix = 'aquasphere') => {
-  try {
-    cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-    const payload = `data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`;
-    sseClients[prefix].forEach(client => client.write(payload));
-  } catch (error) {
-    console.error(`Error broadcasting dashboard update for ${prefix}:`, error);
+const debounceTimers = { aquasphere: null, wadaana: null };
+
+/** Broadcasts SSE update with debouncing to prevent database pool exhaustion */
+export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
+  if (debounceTimers[prefix]) {
+    clearTimeout(debounceTimers[prefix]);
   }
+  debounceTimers[prefix] = setTimeout(async () => {
+    debounceTimers[prefix] = null;
+    try {
+      cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
+      const payload = `data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`;
+      sseClients[prefix].forEach(client => client.write(payload));
+    } catch (error) {
+      console.error(`Error broadcasting dashboard update for ${prefix}:`, error);
+    }
+  }, 2500);
 };
 
 /** High-level dashboard analytics */

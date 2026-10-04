@@ -97,10 +97,14 @@ export default function LogCounterSaleForm({
     setExtraItems(prev => ({ ...prev, [extraKey]: { type, name, isExtra: true } }));
   };
 
-  const getItemPrice = (item, isPack) => {
-    const key = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
+  const getItemPrice = (item, typeKey = 'PACK') => {
+    const key = `${item.id}_${typeKey}`;
     if (customPrices[key] !== undefined && customPrices[key] !== '') {
       return customPrices[key];
+    }
+    const packSize = getPackSize(item);
+    if (typeKey === 'BOTTLE') {
+      return Math.round(Number(item.retailPrice || 0) / packSize) || 30;
     }
     return Number(item.retailPrice || 0);
   };
@@ -232,22 +236,32 @@ export default function LogCounterSaleForm({
         return;
       }
 
-      // Finished goods: strictly PACK (for packSize > 1) or UNIT (for packSize <= 1)
+      // Finished goods: PACK, BOTTLE, or UNIT
       const item = finishedGoods.find(i => i.id === itemId);
       if (!item) return;
 
       const packSize = getPackSize(item);
-      const isPack = packSize > 1;
-      const saleType = isPack ? 'PACK' : 'UNIT';
+      const isPack = type === 'PACK';
+      const isBottle = type === 'BOTTLE';
+      const saleType = isPack ? 'PACK' : (isBottle ? 'BOTTLE' : 'UNIT');
 
-      const defaultRate = Number(item.retailPrice || 0);
+      const defaultRate = isBottle
+        ? (Math.round(Number(item.retailPrice || 0) / packSize) || 30)
+        : Number(item.retailPrice || 0);
       const customRate = customPrices[cartKey];
       const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : defaultRate;
       const unitPrice = isNaN(parsedRate) ? defaultRate : parsedRate;
 
       const baseUnitsPerUnit = isPack ? packSize : 1;
       const totalBaseUnits = numQty * baseUnitsPerUnit;
-      const displayName = isPack ? `${item.name} (${packSize} pk)` : item.name;
+      let displayName;
+      if (isPack) {
+        displayName = `${item.name} (${numQty} Pack${numQty > 1 ? 's' : ''})`;
+      } else if (isBottle) {
+        displayName = `${item.name} (${numQty} Loose Bottle${numQty > 1 ? 's' : ''})`;
+      } else {
+        displayName = item.name;
+      }
 
       list.push({
         cartKey,
@@ -255,7 +269,7 @@ export default function LogCounterSaleForm({
         name: displayName,
         type: saleType,
         saleType,
-        packSize,
+        packSize: isPack ? packSize : 1,
         quantity: numQty,
         unitPrice,
         lineTotal: numQty * unitPrice,
@@ -330,37 +344,45 @@ export default function LogCounterSaleForm({
     });
   };
 
-  // Stock check by base units
+  // Stock check by base units with crystal clear transparent math
   const getStockWarning = (item) => {
     if (!item) return null;
     const packSize = getPackSize(item);
     const isPack = packSize > 1;
-    const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-    const qty = Number(cartMap[cartKey] || 0);
-    const requestedBaseUnits = qty * (isPack ? packSize : 1);
-    const available = Number(item.cachedQty || 0);
+    const totalAvail = Number(item.cachedQty || 0);
+    const availPacks = isPack ? Math.floor(totalAvail / packSize) : totalAvail;
 
-    if (requestedBaseUnits > available) {
-      return `Exceeds stock (${available} avail)`;
+    const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
+    const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || 0) + Number(cartMap[`${item.id}_UNIT`] || 0);
+    const requestedBaseUnits = (packQty * packSize) + bottleQty;
+
+    if (requestedBaseUnits > totalAvail) {
+      if (isPack) {
+        const looseStock = totalAvail % packSize;
+        return `Requested ${packQty > 0 ? `${packQty} Packs` : ''}${bottleQty > 0 ? ` + ${bottleQty} Loose` : ''} • System has ${availPacks} Packs${looseStock > 0 ? ` + ${looseStock} loose` : ''} recorded.`;
+      }
+      return `Requested ${requestedBaseUnits} • System has ${totalAvail} recorded.`;
     }
     return null;
   };
 
-  const hasStockError = useMemo(() => {
-    const hasFgError = finishedGoods.some(item => {
+  const hasStockDeficit = useMemo(() => {
+    const hasFgDeficit = finishedGoods.some(item => {
       const packSize = getPackSize(item);
       const isPack = packSize > 1;
-      const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-      const qty = Number(cartMap[cartKey] || 0);
-      const requested = qty * (isPack ? packSize : 1);
+      const packQty = Number(cartMap[`${item.id}_PACK`] || 0);
+      const bottleQty = Number(cartMap[`${item.id}_BOTTLE`] || 0) + Number(cartMap[`${item.id}_UNIT`] || 0);
+      const requested = (packQty * packSize) + bottleQty;
       return requested > Number(item.cachedQty || 0);
     });
-    const hasRawError = counterRawMaterials.some(item => {
+    const hasRawDeficit = counterRawMaterials.some(item => {
       const requested = Number(cartMap[`${item.id}_RAW`] || 0);
       return requested > Number(item.cachedQty || 0);
     });
-    return hasFgError || hasRawError;
+    return hasFgDeficit || hasRawDeficit;
   }, [cartMap, finishedGoods, counterRawMaterials]);
+
+  const [allowStockOverride, setAllowStockOverride] = useState(false);
 
   // Financial status
   const numericAmountPaid = parseFloat(amountPaid || 0);
@@ -374,7 +396,7 @@ export default function LogCounterSaleForm({
   const onSubmit = (e) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
-    if (hasStockError) return;
+    if (hasStockDeficit && !allowStockOverride) return;
     if (isWalkInDebtBlocked) return;
 
     handleMultiItemSubmit({
@@ -389,7 +411,8 @@ export default function LogCounterSaleForm({
       amountPaid: numericAmountPaid,
       paymentMethod,
       customerId: customerId || null,
-      remarks
+      remarks,
+      allowNegativeStock: allowStockOverride
     });
 
     // Instant reset
@@ -399,6 +422,7 @@ export default function LogCounterSaleForm({
     setRefillQty(0);
     setCustomWaterLitres(0);
     setIsAmountPaidManual(false);
+    setAllowStockOverride(false);
     setRemarks('');
   };
 
@@ -469,12 +493,194 @@ export default function LogCounterSaleForm({
                   const isPack = packSize > 1;
                   const totalStock = Number(item.cachedQty || 0);
                   const packsStock = isPack ? Math.floor(totalStock / packSize) : totalStock;
-
-                  const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-                  const currentQty = Number(cartMap[cartKey] || 0);
-                  const currentPrice = getItemPrice(item, isPack);
-                  const isInCart = currentQty > 0;
                   const warning = getStockWarning(item);
+
+                  if (isPack) {
+                    const packKey = `${item.id}_PACK`;
+                    const bottleKey = `${item.id}_BOTTLE`;
+                    const currentPackQty = Number(cartMap[packKey] || 0);
+                    const currentBottleQty = Number(cartMap[bottleKey] || 0);
+                    const isInCart = currentPackQty > 0 || currentBottleQty > 0;
+                    const packPrice = getItemPrice(item, 'PACK');
+                    const bottlePrice = getItemPrice(item, 'BOTTLE');
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-2.5 rounded-lg border transition-all ${
+                          isInCart 
+                            ? 'bg-brand/5 border-brand ring-1 ring-brand/20' 
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Header: Title & Total Stock */}
+                        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                              <Package size={14} className="text-brand shrink-0" />
+                              <span className="truncate">{item.name}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              Recorded Stock: <strong className={packsStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
+                                {packsStock} Packs
+                              </strong>
+                              {totalStock % packSize > 0 && (
+                                <span className="ml-1 text-slate-500 font-normal">({totalStock % packSize} loose)</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Row 1: Full Pack Control */}
+                        <div className="pt-2 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                              Pack of {packSize}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">Full Pack Rate</span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400">Rs</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
+                              value={packPrice}
+                              onChange={(e) => handlePriceChange(packKey, e.target.value)}
+                              title="Pack Rate"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(packKey, -1)}
+                                disabled={currentPackQty <= 0}
+                                className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                                  currentPackQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
+                                }`}
+                                value={currentPackQty > 0 ? currentPackQty : ''}
+                                onChange={(e) => setItemQtyDirect(packKey, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(packKey, 1)}
+                                className="w-6 h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+
+                            <div className="hidden sm:flex items-center gap-1">
+                              {[1, 5, 10].map(q => (
+                                <button
+                                  type="button"
+                                  key={q}
+                                  onClick={() => updateItemQty(packKey, q)}
+                                  className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
+                                >
+                                  +{q}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Row 2: Loose Bottle Control */}
+                        <div className="pt-2 mt-1.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                              Loose Bottle
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">Single Bottle Rate</span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400">Rs</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
+                              value={bottlePrice}
+                              onChange={(e) => handlePriceChange(bottleKey, e.target.value)}
+                              title="Bottle Rate"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(bottleKey, -1)}
+                                disabled={currentBottleQty <= 0}
+                                className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                                  currentBottleQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
+                                }`}
+                                value={currentBottleQty > 0 ? currentBottleQty : ''}
+                                onChange={(e) => setItemQtyDirect(bottleKey, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(bottleKey, 1)}
+                                className="w-6 h-6 rounded bg-slate-700 hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+
+                            <div className="hidden sm:flex items-center gap-1">
+                              {[1, 2, 5].map(q => (
+                                <button
+                                  type="button"
+                                  key={q}
+                                  onClick={() => updateItemQty(bottleKey, q)}
+                                  className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
+                                >
+                                  +{q}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Stock Warning */}
+                        {warning && (
+                          <div className="mt-2 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 p-1.5 rounded flex items-center gap-1.5">
+                            <AlertCircle size={13} className="shrink-0 text-amber-600" />
+                            <span>{warning}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Single unit control (19L Refill, etc.)
+                  const unitKey = `${item.id}_UNIT`;
+                  const currentQty = Number(cartMap[unitKey] || 0);
+                  const currentPrice = getItemPrice(item, 'UNIT');
+                  const isInCart = currentQty > 0;
 
                   return (
                     <div
@@ -493,10 +699,9 @@ export default function LogCounterSaleForm({
                             <span className="truncate">{item.name}</span>
                           </div>
                           <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            Stock: <strong className={packsStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
-                              {packsStock} {isPack ? 'Packs' : (item.unit || 'units')}
+                            Stock: <strong className={totalStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
+                              {totalStock} {item.unit || 'bottles'}
                             </strong>
-                            {isPack && <span className="ml-1 text-slate-400">({packSize}/pk)</span>}
                           </div>
                         </div>
 
@@ -509,7 +714,7 @@ export default function LogCounterSaleForm({
                             step="any"
                             className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
                             value={currentPrice}
-                            onChange={(e) => handlePriceChange(cartKey, e.target.value)}
+                            onChange={(e) => handlePriceChange(unitKey, e.target.value)}
                             title="Rate"
                           />
                         </div>
@@ -519,7 +724,7 @@ export default function LogCounterSaleForm({
                           <div className="flex items-center gap-0.5">
                             <button
                               type="button"
-                              onClick={() => updateItemQty(cartKey, -1)}
+                              onClick={() => updateItemQty(unitKey, -1)}
                               disabled={currentQty <= 0}
                               className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                             >
@@ -534,24 +739,23 @@ export default function LogCounterSaleForm({
                                 currentQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
                               }`}
                               value={currentQty > 0 ? currentQty : ''}
-                              onChange={(e) => setItemQtyDirect(cartKey, e.target.value)}
+                              onChange={(e) => setItemQtyDirect(unitKey, e.target.value)}
                             />
                             <button
                               type="button"
-                              onClick={() => updateItemQty(cartKey, 1)}
+                              onClick={() => updateItemQty(unitKey, 1)}
                               className="w-6 h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
                             >
                               <Plus size={11} />
                             </button>
                           </div>
 
-                          {/* Quick Chips */}
                           <div className="hidden sm:flex items-center gap-1">
                             {[1, 5, 10].map(q => (
                               <button
                                 type="button"
                                 key={q}
-                                onClick={() => updateItemQty(cartKey, q)}
+                                onClick={() => updateItemQty(unitKey, q)}
                                 className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
                               >
                                 +{q}
@@ -562,8 +766,8 @@ export default function LogCounterSaleForm({
                       </div>
 
                       {warning && (
-                        <div className="mt-1.5 text-[10px] font-bold text-rose-600 flex items-center gap-1">
-                          <AlertCircle size={12} className="shrink-0" />
+                        <div className="mt-2 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 p-1.5 rounded flex items-center gap-1.5">
+                          <AlertCircle size={13} className="shrink-0 text-amber-600" />
                           <span>{warning}</span>
                         </div>
                       )}
@@ -1017,18 +1221,44 @@ export default function LogCounterSaleForm({
               </div>
             </div>
 
+            {/* Flexible Stock Override Confirmation Banner */}
+            {hasStockDeficit && (
+              <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs space-y-1.5 animate-in fade-in">
+                <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                  <span>Recorded Stock Exceeded</span>
+                </div>
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  Physical stock present on counter? Check below to proceed without blocking (production batch can be logged later).
+                </p>
+                <label className="flex items-center gap-2 pt-1 font-semibold text-xs cursor-pointer select-none text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={allowStockOverride}
+                    onChange={(e) => setAllowStockOverride(e.target.checked)}
+                    className="w-4 h-4 rounded border-amber-400 text-brand focus:ring-brand cursor-pointer"
+                  />
+                  <span>Allow Sale (Physical stock verified on counter)</span>
+                </label>
+              </div>
+            )}
+
             {/* Fast Submit Button */}
             <button 
               type="submit" 
-              disabled={submitting || cartItems.length === 0 || isWalkInDebtBlocked || hasStockError}
-              className="btn-primary w-full py-2.5 text-xs uppercase tracking-wider font-bold mt-1 flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={submitting || cartItems.length === 0 || isWalkInDebtBlocked || (hasStockDeficit && !allowStockOverride)}
+              className={`w-full py-2.5 text-xs uppercase tracking-wider font-bold mt-1 flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
+                hasStockDeficit && allowStockOverride 
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                  : 'btn-primary'
+              }`}
             >
               {submitting ? (
                 <Loader2 size={15} className="animate-spin" />
               ) : (
                 <Zap size={14} className="fill-white" />
               )}
-              Record Sale — Rs. {cartTotal.toLocaleString()}
+              {hasStockDeficit && allowStockOverride ? 'Record Sale (Stock Override)' : 'Record Sale'} — Rs. {cartTotal.toLocaleString()}
             </button>
           </div>
 
