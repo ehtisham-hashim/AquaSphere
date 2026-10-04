@@ -18,8 +18,12 @@ export function calculateBatchDeductions(productionRuns = []) {
     if (!outputItem || quantity <= 0) continue;
 
     const packSize = Number(outputItem.packSize) > 1 ? Number(outputItem.packSize) : 1;
-    const netGoodPacks = Math.max(0, quantity - wasteQuantity);
-    const baseUnitsAdded = netGoodPacks * packSize;
+    
+    // FIX: wasteQuantity is in base units (bottles), quantity is in packs
+    // Convert waste from bottles to packs before subtracting
+    const wasteInPacks = wasteQuantity / packSize;
+    const netGoodPacks = Math.max(0, quantity - wasteInPacks);
+    const baseUnitsAdded = Math.round(netGoodPacks * packSize);
 
     const is19L = (outputItem.name || '').toLowerCase().includes('19l');
 
@@ -30,7 +34,7 @@ export function calculateBatchDeductions(productionRuns = []) {
       unit: outputItem.unit || 'bottle',
       is19L,
       netGoodPacks,
-      wastePacks: wasteQuantity
+      wastePacks: wasteInPacks
     });
 
     const recipes = outputItem.recipeFinishedGoods || [];
