@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Package, Calendar, RefreshCw, CheckCircle2, Factory, Hash, Flame } from 'lucide-react';
+import { X, Package, Calendar, RefreshCw, CheckCircle2, Factory, Hash, Flame, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { parsePreformInfo } from '../../utils/preformHelper';
 
@@ -86,6 +86,77 @@ export default function CreateBatchModal({
     return consumption;
   }, [finishedGoods, quantities, isWadaana]);
 
+  // Calculate raw material shortages dynamically based on DB recipes
+  const rawMaterialShortages = useMemo(() => {
+    const rawMap = new Map();
+    items
+      .filter(i => i.type === 'RAW_MATERIAL' && !i.archivedAt)
+      .forEach(rm => {
+        rawMap.set(rm.id, {
+          id: rm.id,
+          name: rm.name,
+          unit: rm.unit || 'pcs',
+          cachedQty: Number(rm.cachedQty || 0),
+          needed: 0
+        });
+      });
+
+    const rawByName = new Map();
+    items
+      .filter(i => i.type === 'RAW_MATERIAL' && !i.archivedAt)
+      .forEach(rm => {
+        rawByName.set(rm.name.toLowerCase().trim(), rm);
+      });
+
+    finishedGoods.forEach(fg => {
+      const qty = parseInt(quantities[fg.id] || 0, 10);
+      if (qty <= 0) return;
+
+      if (Array.isArray(fg.recipeFinishedGoods) && fg.recipeFinishedGoods.length > 0) {
+        fg.recipeFinishedGoods.forEach(r => {
+          const rmId = r.rawMaterialId || r.rawMaterial?.id;
+          const entry = rawMap.get(rmId);
+          if (entry) {
+            entry.needed += qty * Number(r.quantityPerUnit || 0);
+          }
+        });
+      } else if (Array.isArray(fg.recipe) && fg.recipe.length > 0) {
+        fg.recipe.forEach(r => {
+          const rmName = (r.rawMaterialName || r.rmName || '').toLowerCase().trim();
+          const matched = rawByName.get(rmName);
+          if (matched && rawMap.has(matched.id)) {
+            rawMap.get(matched.id).needed += qty * Number(r.qty || r.quantity || 0);
+          }
+        });
+      } else if (isWadaana) {
+        const info = parsePreformInfo(fg.name);
+        const neededKg = (info.gramsPerBottle * qty) / 1000;
+        for (const [name, rm] of rawByName.entries()) {
+          if (name.includes(info.type.toLowerCase()) && (name.includes(info.size.toLowerCase()) || name.includes(info.name.toLowerCase()))) {
+            if (rawMap.has(rm.id)) {
+              rawMap.get(rm.id).needed += neededKg;
+              break;
+            }
+          }
+        }
+      }
+    });
+
+    const shortages = [];
+    for (const item of rawMap.values()) {
+      if (item.needed > 0 && item.cachedQty < item.needed) {
+        shortages.push({
+          id: item.id,
+          name: item.name,
+          needed: Math.round(item.needed * 100) / 100,
+          available: Math.round(item.cachedQty * 100) / 100,
+          unit: item.unit
+        });
+      }
+    }
+    return shortages;
+  }, [items, finishedGoods, quantities, isWadaana]);
+
   // Reset form whenever modal opens
   useEffect(() => {
     if (isOpen) {
@@ -122,6 +193,11 @@ export default function CreateBatchModal({
 
     if (activeEntries.length === 0) {
       toast.error('Please enter a quantity greater than 0 for at least one finished good');
+      return;
+    }
+
+    if (rawMaterialShortages.length > 0) {
+      toast.error(`Cannot log batch: Insufficient stock for ${rawMaterialShortages.map(m => m.name).join(', ')}`);
       return;
     }
 
@@ -405,6 +481,16 @@ export default function CreateBatchModal({
             </div>
           )}
 
+          {/* Raw Material Shortage Alert */}
+          {rawMaterialShortages.length > 0 && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl text-xs flex items-center gap-2 font-medium">
+              <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+              <span>
+                Insufficient raw material stock: {rawMaterialShortages.map(m => `${m.name} (Need: ${m.needed.toLocaleString()} ${m.unit}, Have: ${m.available.toLocaleString()})`).join(', ')}
+              </span>
+            </div>
+          )}
+
           {/* Footer Actions */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 mt-auto">
             <button
@@ -417,13 +503,22 @@ export default function CreateBatchModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || totalQuantity === 0}
-              className="btn-primary text-xs py-2.5 px-5 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed font-bold"
+              disabled={submitting || totalQuantity === 0 || rawMaterialShortages.length > 0}
+              className={`text-xs py-2.5 px-5 flex items-center gap-1.5 font-bold rounded-xl transition ${
+                rawMaterialShortages.length > 0
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+                  : 'btn-primary'
+              }`}
             >
               {submitting ? (
                 <>
                   <RefreshCw size={14} className="animate-spin" />
                   <span>Recording Batch...</span>
+                </>
+              ) : rawMaterialShortages.length > 0 ? (
+                <>
+                  <AlertTriangle size={14} />
+                  <span>Insufficient Raw Materials</span>
                 </>
               ) : (
                 <>

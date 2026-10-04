@@ -25,7 +25,7 @@ export default function RawMaterials() {
   const hasLoadedRef = useRef(false);
 
   const fetchMaterials = useCallback(async (isBackground = false) => {
-    if (!isBackground && materials.length === 0) {
+    if (!isBackground && !hasLoadedRef.current) {
       setIsLoading(true);
     }
     try {
@@ -36,7 +36,6 @@ export default function RawMaterials() {
       const json = await res.json();
       if (json.success || res.ok) {
         setMaterials(json.data || []);
-        hasLoadedRef.current = true;
       } else {
         toast.error(json.message || 'Failed to load raw materials');
       }
@@ -44,7 +43,8 @@ export default function RawMaterials() {
       console.error('Failed to fetch raw materials:', err);
       toast.error('Failed to load raw materials');
     } finally {
-      setIsLoading(false);
+      hasLoadedRef.current = true;
+      if (!isBackground) setIsLoading(false);
     }
   }, [includeArchived, tenant]);
 

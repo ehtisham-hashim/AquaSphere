@@ -117,7 +117,8 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
   if (itemsToProduce.length > 0) {
     const itemIds = itemsToProduce.map(i => i.outputItemId);
     const existingItems = await prisma[`${prefix}Item`].findMany({
-      where: { id: { in: itemIds }, type: 'FINISHED_GOOD', archivedAt: null }
+      where: { id: { in: itemIds }, type: 'FINISHED_GOOD', archivedAt: null },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
     });
 
     if (existingItems.length !== itemIds.length) {
@@ -125,6 +126,36 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
     }
 
     const itemMap = new Map(existingItems.map(i => [i.id, i]));
+
+    // Disallow batch creation if required raw materials in stock are insufficient
+    const runsForValidation = existingItems.map(fg => ({
+      outputItem: fg,
+      quantity: (itemsToProduce.find(i => i.outputItemId === fg.id)?.quantity || 0),
+      wasteQuantity: 0
+    })).filter(r => r.quantity > 0);
+
+    const { deductions } = calculateBatchDeductions(runsForValidation);
+    if (deductions.length > 0) {
+      const rawItemIds = deductions.map(d => d.itemId);
+      const rawItems = await prisma[`${prefix}Item`].findMany({
+        where: { id: { in: rawItemIds } }
+      });
+      const rawMap = new Map(rawItems.map(r => [r.id, r]));
+
+      const shortages = [];
+      for (const d of deductions) {
+        const raw = rawMap.get(d.itemId);
+        const available = Number(raw?.cachedQty || 0);
+        if (available < d.quantityUsed) {
+          shortages.push(`${d.name} (Need: ${d.quantityUsed} ${d.unit}, Have: ${available})`);
+        }
+      }
+
+      if (shortages.length > 0) {
+        throw new ApiError(400, `Insufficient raw materials: ${shortages.join(', ')}`);
+      }
+    }
+
     const parsedBatchDate = batchDate ? new Date(batchDate) : new Date();
     const finalBatchDate = isNaN(parsedBatchDate.getTime()) ? new Date() : parsedBatchDate;
 

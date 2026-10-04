@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { 
   ExpensesHeader, 
   ExpensesSummaryCards, 
@@ -30,9 +30,10 @@ export default function Expenses() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const fetchExpenses = useCallback(async (isBackground = false) => {
-    if (!isBackground && expenses.length === 0) setLoading(true);
+    if (!isBackground && !hasLoadedRef.current) setLoading(true);
     try {
       const res = await fetch(`${API}/expenses`, {
         headers: { 'x-tenant': tenant },
@@ -43,7 +44,8 @@ export default function Expenses() {
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
     } finally {
-      setLoading(false);
+      hasLoadedRef.current = true;
+      if (!isBackground) setLoading(false);
     }
   }, [tenant]);
 

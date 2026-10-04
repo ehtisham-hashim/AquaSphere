@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { API_URL } from '../utils/api';
 import { clearCache } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +43,7 @@ export default function CounterSales() {
   const [receiptSale, setReceiptSale] = useState(null);
   const [lastRecordedSale, setLastRecordedSale] = useState(null);
   const [showSuppliesModal, setShowSuppliesModal] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => setLiveDateTime(new Date()), 1000);
@@ -50,7 +51,7 @@ export default function CounterSales() {
   }, []);
 
   const fetchData = useCallback(async (isBackground = false) => {
-    if (!isBackground && sales.length === 0) setLoading(true);
+    if (!isBackground && !hasLoadedRef.current) setLoading(true);
     try {
       const reqHeaders = { 'x-tenant': tenant };
       const reqOpts = { headers: reqHeaders, credentials: 'include' };
@@ -90,6 +91,7 @@ export default function CounterSales() {
     } catch (err) {
       console.error('Error fetching counter sales:', err);
     } finally {
+      hasLoadedRef.current = true;
       if (!isBackground) setLoading(false);
     }
   }, [tenant]);

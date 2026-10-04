@@ -29,7 +29,7 @@ export default function Inventory() {
   const hasLoadedRef = useRef(false);
 
   const fetchInventoryData = useCallback(async (isBackground = false) => {
-    if (!isBackground && items.length === 0) {
+    if (!isBackground && !hasLoadedRef.current) {
       setIsLoading(true);
     }
     try {
@@ -50,7 +50,6 @@ export default function Inventory() {
 
       if (itemsJson.success || results[0].ok) {
         setItems(itemsJson.data || []);
-        hasLoadedRef.current = true;
       } else {
         toast.error(itemsJson.message || 'Failed to load inventory items');
       }
@@ -63,7 +62,8 @@ export default function Inventory() {
       console.error('Failed to fetch finished goods inventory:', err);
       toast.error('Failed to load inventory');
     } finally {
-      setIsLoading(false);
+      hasLoadedRef.current = true;
+      if (!isBackground) setIsLoading(false);
     }
   }, [tenant]);
 

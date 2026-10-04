@@ -126,12 +126,24 @@ export const createOrder = asyncHandler(async (req, res) => {
     });
 
     const customerObj = await tx[`${prefix}Customer`].findUnique({ where: { id: customerId }, select: { name: true } });
+
+    if (paymentStatus === 'PAID') {
+      await tx[`${prefix}Payment`].create({
+        data: {
+          orderId: o.id,
+          customerId,
+          amount: orderTotal,
+          type: 'CASH'
+        }
+      });
+    }
+
     await createAuditLog(prefix, {
       action: 'ORDER_CREATED',
       entityType: 'Order',
       entityId: o.id,
       performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
-      details: `Order #${o.id.slice(0, 6).toUpperCase()} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${orderTotal.toLocaleString()})`
+      details: `Order #${o.id.slice(0, 6).toUpperCase()} created for ${customerObj?.name || 'Customer'} (${totalQty} units • Rs. ${orderTotal.toLocaleString()})${paymentStatus === 'PAID' ? ' • Paid in Advance' : ''}`
     });
 
     return o;
@@ -211,17 +223,20 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const retBroken = parseInt(bottlesReturnedBroken, 10) || 0;
     const cash = parseFloat(cashReceived) || 0;
     const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-    const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+    const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (o.paymentStatus === 'PAID' ? orderTotal : 0);
     const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
     const currentDebt = Math.max(0, parseFloat(o.customer.currentBalance || 0));
     const maxPayable = remainingOrderBalance + currentDebt;
 
-    if (cash > maxPayable && maxPayable > 0) {
+    if (cash > maxPayable && (maxPayable > 0 || remainingOrderBalance === 0)) {
       throw new ApiError(400, `Cash received (Rs. ${cash}) cannot exceed total customer payable balance (Rs. ${maxPayable}).`);
     }
 
     // CASE 1: Order is ALREADY DELIVERED — Settle payment
     if (o.deliveryStatus === 'DELIVERED') {
+      if (o.paymentStatus === 'PAID' && cash <= 0) {
+        return o;
+      }
       if (cash <= 0 && retGood <= 0 && retBroken <= 0) {
         throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
       }
@@ -347,6 +362,12 @@ export const deliverOrder = asyncHandler(async (req, res) => {
           data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
         })
       );
+    } else if (o.paymentStatus === 'PAID' && (!o.payments || o.payments.length === 0)) {
+      initialCreates.push(
+        tx[`${prefix}Payment`].create({
+          data: { orderId: o.id, customerId: o.customerId, amount: orderTotal, type: 'CASH' }
+        })
+      );
     }
 
     // 19L bottle custody update (minerals/caps deducted exclusively at production batch completion)
@@ -419,7 +440,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     // Customer financial & balance updates
-    const unpaidAmount = Math.max(0, orderTotal - cash);
+    const totalPaidForOrder = alreadyPaid + cash;
+    const unpaidAmount = (o.paymentStatus === 'PAID') ? 0 : Math.max(0, orderTotal - totalPaidForOrder);
     const existingDeposit = parseFloat(o.customer?.deposit || 0);
 
     let depositDeduction = 0;
@@ -441,11 +463,15 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
     }
 
+    const finalPaymentStatus = (o.paymentStatus === 'PAID' || totalPaidForOrder >= orderTotal)
+      ? 'PAID'
+      : (totalPaidForOrder > 0 ? 'PARTIAL' : 'UNPAID');
+
     const [_, updated] = await Promise.all([
       tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData }),
       tx[`${prefix}Order`].update({
         where: { id },
-        data: { deliveryStatus: 'DELIVERED', paymentStatus: cash >= orderTotal ? 'PAID' : (cash > 0 ? 'PARTIAL' : 'UNPAID') }
+        data: { deliveryStatus: 'DELIVERED', paymentStatus: finalPaymentStatus }
       })
     ]);
 

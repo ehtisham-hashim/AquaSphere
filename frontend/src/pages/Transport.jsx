@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
@@ -47,9 +47,10 @@ export default function Transport() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isCarModalOpen, setIsCarModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const hasVehiclesLoadedRef = useRef(false);
 
   const fetchVehicles = useCallback(async (isBackground = false) => {
-    if (!isBackground && vehicles.length === 0) setLoadingVehicles(true);
+    if (!isBackground && !hasVehiclesLoadedRef.current) setLoadingVehicles(true);
     try {
       const res = await fetch(`${API_URL}/vehicles`, {
         headers: { 'x-tenant': tenant },
@@ -64,7 +65,8 @@ export default function Transport() {
     } catch (err) {
       toast.error('Network error loading vehicles');
     } finally {
-      setLoadingVehicles(false);
+      hasVehiclesLoadedRef.current = true;
+      if (!isBackground) setLoadingVehicles(false);
     }
   }, [tenant]);
 
@@ -109,9 +111,10 @@ export default function Transport() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const hasExpensesLoadedRef = useRef(false);
 
   const fetchExpenses = useCallback(async (isBackground = false) => {
-    if (!isBackground && expenses.length === 0) setLoadingExpenses(true);
+    if (!isBackground && !hasExpensesLoadedRef.current) setLoadingExpenses(true);
     try {
       const res = await fetch(`${API_URL}/expenses?limit=200`, {
         headers: { 'x-tenant': tenant },
@@ -125,7 +128,8 @@ export default function Transport() {
     } catch (err) {
       console.error('Failed to fetch transport expenses:', err);
     } finally {
-      setLoadingExpenses(false);
+      hasExpensesLoadedRef.current = true;
+      if (!isBackground) setLoadingExpenses(false);
     }
   }, [tenant]);
 
