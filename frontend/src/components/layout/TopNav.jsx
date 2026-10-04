@@ -22,7 +22,9 @@ const PAGE_TITLES = {
   '/transport': { title: 'Fleet & Transport', subtitle: 'Manage company vehicles, operational status, and expenses' },
   '/users': { title: 'Users & Roles', subtitle: 'Manage system users and access permissions' },
   '/daily-close': { title: 'Daily Close', subtitle: 'Reconcile cash, sales, and end-of-day operations' },
-  '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }
+  '/reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' },
+  '/analytics': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' },
+  '/erp-reports': { title: 'Reports & Analytics', subtitle: 'Comprehensive financial, sales, and inventory reporting' }
 };
 
 const ACTION_CONFIG = {
