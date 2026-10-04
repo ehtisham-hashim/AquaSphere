@@ -34,7 +34,7 @@ export default function CounterSalesStockBar({
     );
   }
 
-  // If no items available, return nothing (no hardcoded old data flash)
+  // If no items available, return nothing
   if (!Array.isArray(items) || items.length === 0) {
     return null;
   }
@@ -88,7 +88,7 @@ export default function CounterSalesStockBar({
                 {isPack
                   ? `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''}`
                   : Math.round(total).toLocaleString()}{' '}
-                <span className="text-xs font-sans text-slate-500 font-semibold uppercase">
+                <span className="text-xs font-sans text-slate-500 font-semibold">
                   {isPack ? 'Packs' : unit}
                 </span>
               </div>
