@@ -1,156 +1,38 @@
-/* =====================================================
-   AQUA SPHERE — CERTIFICATES / REPORTS
-   SAAS PRO MAX CLEAN CSS
-===================================================== */
+/* Scoped showcase and card styles for Certificates & Reports */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Poppins', 'Segoe UI', sans-serif;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  min-height: 100vh;
-  overflow-x: hidden;
-  color: #0f172a;
-  background:
-    radial-gradient(circle at 8% 8%, rgba(14, 165, 233, 0.22), transparent 28%),
-    radial-gradient(circle at 92% 12%, rgba(99, 102, 241, 0.15), transparent 30%),
-    linear-gradient(135deg, #eaf8ff 0%, #f8fcff 45%, #ffffff 100%);
-}
-
-/* ================= TOP BAR ================= */
-
-.top-bar {
+.docs-showcase {
   width: 100%;
-  min-height: 46px;
-  padding: 9px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  background: linear-gradient(135deg, #020617, #075985, #0284c7);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  box-shadow: 0 10px 35px rgba(2, 132, 199, 0.28);
-}
-
-.top-bar div {
-  flex: 1;
-  white-space: nowrap;
-}
-
-/* ================= NAVBAR ================= */
-
-.navbar {
-  width: 100%;
-  height: 78px;
-  padding: 0 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(15, 23, 42, 0.94);
-  border-bottom: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.22);
-}
-
-.logo img {
-  height: 50px;
-  width: auto;
-  display: block;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  list-style: none;
-}
-
-.nav-links a {
-  display: inline-block;
-  padding: 10px 15px;
-  border-radius: 999px;
-  color: #ffffff;
-  text-decoration: none;
-  font-size: 15px;
-  font-weight: 800;
-  transition: 0.3s ease;
-}
-
-.nav-links a:hover,
-.nav-links a.active {
-  background: linear-gradient(135deg, #e0f2fe, #67e8f9);
-  color: #082f49;
-}
-
-.menu-toggle {
-  display: none;
-  color: white;
-  font-size: 28px;
-  cursor: pointer;
-}
-
-/* ================= PAGE ================= */
-
-.docs-showcase,
-.certificates-showcase,
-.reports-showcase {
-  width: 100%;
-  min-height: 100vh;
-  padding: 70px 22px 90px;
+  min-height: 80vh;
+  padding: 50px 20px 80px;
   position: relative;
 }
 
-.docs-showcase::before,
-.certificates-showcase::before,
-.reports-showcase::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(2,132,199,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(2,132,199,0.035) 1px, transparent 1px);
-  background-size: 42px 42px;
-  z-index: -1;
-}
-
-/* ================= HEADER ================= */
-
 .showcase-header {
   max-width: 900px;
-  margin: 0 auto 55px;
+  margin: 0 auto 45px;
   text-align: center;
 }
 
 .showcase-tag {
   display: inline-block;
-  padding: 10px 20px;
-  margin-bottom: 18px;
+  padding: 7px 18px;
+  margin-bottom: 14px;
   border-radius: 999px;
   background: rgba(224, 242, 254, 0.95);
   border: 1px solid rgba(125, 211, 252, 0.9);
   color: #0369a1;
   font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.4px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 .showcase-header h1 {
-  font-size: clamp(34px, 5vw, 60px);
-  line-height: 1.08;
-  font-weight: 950;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.12;
+  font-weight: 900;
   color: #0f172a;
-  letter-spacing: -1.8px;
-  margin-bottom: 16px;
+  letter-spacing: -1.5px;
+  margin-bottom: 14px;
 }
 
 .showcase-header h1 span {
@@ -163,353 +45,103 @@ body {
   max-width: 720px;
   margin: 0 auto;
   color: #64748b;
-  font-size: 18px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.7;
 }
 
-/* ================= GRID ================= */
-
 .docs-grid-premium {
-  width: min(96%, 1450px);
+  width: min(96%, 1400px);
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 34px;
+  gap: 32px;
   align-items: start;
 }
 
 .single-report-grid {
-  width: min(96%, 1050px);
+  width: min(96%, 1150px);
   grid-template-columns: 1fr;
 }
-
-/* ================= CARD ================= */
 
 .doc-premium-card {
   width: 100%;
   padding: 28px;
-  border-radius: 32px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  box-shadow:
-    0 28px 80px rgba(15, 23, 42, 0.11),
-    inset 0 1px 0 rgba(255,255,255,0.9);
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
   overflow: hidden;
-  transition: 0.35s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .doc-premium-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 40px 100px rgba(2, 132, 199, 0.20);
+  transform: translateY(-4px);
+  box-shadow: 0 30px 70px rgba(2, 132, 199, 0.15);
 }
 
 .doc-card-top-line {
-  width: 92px;
-  height: 6px;
+  width: 80px;
+  height: 5px;
   border-radius: 999px;
-  margin-bottom: 18px;
-  background: linear-gradient(90deg, #0284c7, #06b6d4, #6366f1);
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, #0284c7, #06b6d4);
 }
-
-.doc-premium-card h3 {
-  font-size: 28px;
-  font-weight: 950;
-  color: #075985;
-  margin-bottom: 8px;
-  letter-spacing: -0.5px;
-}
-
-.doc-premium-card p {
-  color: #64748b;
-  font-size: 16px;
-  line-height: 1.7;
-  margin-bottom: 20px;
-}
-
-/* ================= PDF VIEWER ================= */
 
 .pdf-frame {
   width: 100%;
-  height: 760px;
-  border-radius: 24px;
+  height: 780px;
+  border-radius: 20px;
   overflow: hidden;
   background: #f8fafc;
-  border: 1px solid #dbeafe;
-  box-shadow: 0 20px 55px rgba(2, 132, 199, 0.16);
-}
-
-.pdf-frame iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-  background: #ffffff;
-}
-
-.pdf-frame-portrait {
-  height: 820px;
-}
-
-.pdf-frame-landscape {
-  height: 540px;
+  border: 1px solid #e2e8f0;
 }
 
 .pdf-frame-large {
-  height: 880px;
+  height: 1000px;
 }
 
-/* ================= BUTTON ================= */
-
 .file-link {
-  width: fit-content;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 18px;
-  padding: 14px 30px;
+  padding: 12px 26px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #0284c7, #06b6d4, #67e8f9);
+  background: linear-gradient(135deg, #0284c7, #06b6d4);
   color: #ffffff;
   text-decoration: none;
-  font-size: 15px;
-  font-weight: 900;
-  box-shadow: 0 18px 42px rgba(2, 132, 199, 0.32);
-  transition: 0.35s ease;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(2, 132, 199, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .file-link:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 26px 58px rgba(2, 132, 199, 0.44);
-}
-
-/* ================= WHATSAPP ================= */
-
-.whatsapp-float {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #25D366, #16a34a);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 99999;
-  text-decoration: none;
-  box-shadow: 0 18px 45px rgba(37, 211, 102, 0.45);
-}
-
-.whatsapp-float i {
-  color: #ffffff;
-  font-size: 34px;
-}
-
-/* ================= RESPONSIVE ================= */
-
-@media (max-width: 1200px) {
-  .docs-grid-premium {
-    width: min(96%, 1100px);
-    gap: 28px;
-  }
-
-  .pdf-frame {
-    height: 680px;
-  }
-
-  .pdf-frame-portrait {
-    height: 720px;
-  }
-
-  .pdf-frame-landscape {
-    height: 480px;
-  }
+  transform: translateY(-2px);
+  box-shadow: 0 16px 35px rgba(2, 132, 199, 0.35);
 }
 
 @media (max-width: 992px) {
-  .top-bar {
-    padding: 9px 16px;
-    font-size: 12px;
-    gap: 8px;
-  }
-
-  .navbar {
-    padding: 0 22px;
-  }
-
   .docs-grid-premium,
   .single-report-grid {
-    width: min(94%, 760px);
     grid-template-columns: 1fr;
   }
-
   .pdf-frame {
     height: 650px;
   }
-
-  .pdf-frame-portrait {
-    height: 690px;
-  }
-
-  .pdf-frame-landscape {
-    height: 430px;
+  .pdf-frame-large {
+    height: 780px;
   }
 }
 
-@media (max-width: 768px) {
-  .top-bar {
-    flex-direction: column;
-    gap: 5px;
-    padding: 9px 12px;
-    font-size: 11px;
-    line-height: 1.4;
-  }
-
-  .top-bar div {
-    width: 100%;
-    white-space: normal;
-  }
-
-  .navbar {
-    height: 66px;
-    padding: 0 15px;
-  }
-
-  .logo img {
-    height: 36px;
-  }
-
-  .menu-toggle {
-    display: block;
-  }
-
-  .nav-links {
-    display: none;
-    position: absolute;
-    top: 66px;
-    left: 12px;
-    right: 12px;
-    flex-direction: column;
-    padding: 10px;
-    border-radius: 18px;
-    background: #020617;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-    z-index: 9999;
-  }
-
-  .nav-links.active {
-    display: flex;
-  }
-
-  .nav-links a {
-    width: 100%;
-    text-align: center;
-    padding: 12px;
-  }
-
-  .docs-showcase,
-  .certificates-showcase,
-  .reports-showcase {
-    padding: 38px 12px 55px;
-  }
-
-  .showcase-header {
-    margin-bottom: 34px;
-  }
-
-  .showcase-tag {
-    padding: 8px 15px;
-    font-size: 12px;
-  }
-
-  .showcase-header h1 {
-    font-size: 31px;
-    letter-spacing: -1px;
-  }
-
-  .showcase-header p {
-    font-size: 15px;
-  }
-
-  .docs-grid-premium,
-  .single-report-grid {
-    width: 100%;
-    gap: 24px;
-  }
-
+@media (max-width: 640px) {
   .doc-premium-card {
     padding: 18px;
-    border-radius: 24px;
+    border-radius: 20px;
   }
-
-  .doc-premium-card h3 {
-    font-size: 24px;
-  }
-
-  .doc-premium-card p {
-    font-size: 14px;
-  }
-
   .pdf-frame {
-    height: 560px;
-    border-radius: 18px;
-  }
-
-  .pdf-frame-portrait {
-    height: 590px;
-  }
-
-  .pdf-frame-landscape {
-    height: 340px;
-  }
-
-  .file-link {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .docs-showcase,
-  .certificates-showcase,
-  .reports-showcase {
-    padding: 30px 10px 45px;
-  }
-
-  .showcase-header h1 {
-    font-size: 27px;
-  }
-
-  .showcase-header p {
-    font-size: 14px;
-  }
-
-  .doc-premium-card {
-    padding: 14px;
-    border-radius: 22px;
-  }
-
-  .pdf-frame {
-    height: 500px;
-    border-radius: 16px;
-  }
-
-  .pdf-frame-portrait {
     height: 520px;
   }
-
-  .pdf-frame-landscape {
-    height: 290px;
-  }
-
-  .whatsapp-float {
-    width: 56px;
-    height: 56px;
-    right: 15px;
-    bottom: 15px;
-  }
-
-  .whatsapp-float i {
-    font-size: 28px;
+  .pdf-frame-large {
+    height: 620px;
   }
 }

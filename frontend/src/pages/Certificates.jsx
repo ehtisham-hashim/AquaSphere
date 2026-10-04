@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import './certificates-reports.css';
 
+const LOGO_URL = "https://res.cloudinary.com/wgstyulb/image/upload/v1791005735/logo.png";
+
 const CERTIFICATES = [
   {
     id: 1,
@@ -66,7 +68,7 @@ const REPORTS = [
   {
     id: 1,
     title: 'Water Quality Report',
-    description: 'Official lab report & chemical purity analysis',
+    description: 'Official laboratory chemical and microbiological purity analysis',
     pdfUrl: '/pdfs/reports/lab-report.pdf',
     badge: 'Lab Tested'
   },
@@ -82,84 +84,71 @@ function WhatsAppIcon({ className = "w-6 h-6" }) {
 
 export default function Certificates({ initialTab = 'certificates' }) {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState(() => {
-    if (location.pathname.includes('/reports')) return 'reports';
-    return initialTab;
-  });
+  const isReportsPage = location.pathname === '/reports' || initialTab === 'reports';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (location.pathname.includes('/reports')) {
-      setActiveTab('reports');
-    } else if (location.pathname.includes('/certificates')) {
-      setActiveTab('certificates');
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [location.pathname]);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab]);
-
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-cyan-500 selection:text-white">
-      {/* 1. TOP BAR */}
-      <div className="top-bar">
-        <div className="flex items-center justify-center gap-2">
-          <Phone className="w-3.5 h-3.5 text-cyan-300" />
-          <span>Land Line: 051-545-443-8</span>
-        </div>
-        <div className="flex items-center justify-center gap-2">
-          <Clock className="w-3.5 h-3.5 text-cyan-300" />
-          <span>Monday to Saturday - 8AM to 8PM</span>
-        </div>
-        <div className="flex items-center justify-center gap-2">
-          <MapPin className="w-3.5 h-3.5 text-cyan-300" />
-          <span>Plot #372, Japan Road, Naval Anchorage, Islamabad</span>
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-cyan-500 selection:text-white flex flex-col">
+      
+      {/* 1. TOP INFORMATION BAR (Identical to LandingPage) */}
+      <div className="bg-gradient-to-r from-[#082f49] via-[#0369a1] to-[#38bdf8] text-white text-xs sm:text-sm font-semibold py-2.5 px-4 sm:px-8 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
+          <div className="flex items-center gap-2">
+            <span>📞 Land Line: <strong>051-545-443-8</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>⏰ Monday to Saturday - 8AM to 5PM</span>
+          </div>
+          <div className="flex items-center gap-2 truncate max-w-md">
+            <span>📍 Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt</span>
+          </div>
         </div>
       </div>
 
-      {/* 2. NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/10 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+      {/* 2. MAIN NAVBAR (Identical to LandingPage) */}
+      <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/15 transition-all shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+          {/* Logo - Large, Crisp, Object Contain */}
+          <Link to="/" className="flex items-center group py-2">
             <img 
-              src="/images/logo.png" 
+              src={LOGO_URL} 
               alt="Aqua Sphere" 
-              className="h-12 w-auto object-contain"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/logo.png';
-              }}
+              className="h-14 sm:h-16 w-auto object-contain transition-transform group-hover:scale-105"
+              loading="eager"
             />
           </Link>
 
-          {/* Desktop Nav Links */}
+          {/* Desktop Nav Links (Reference capsule) */}
           <nav className="hidden lg:flex items-center gap-1 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 shadow-inner">
             <Link to="/" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Home</Link>
             <Link to="/#products" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Products</Link>
             <Link to="/#about" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">About</Link>
-            <button 
-              onClick={() => setActiveTab('reports')} 
+            <Link 
+              to="/reports" 
               className={`px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
-                activeTab === 'reports' ? 'bg-gradient-to-r from-cyan-400 to-sky-300 text-slate-900 shadow-md' : 'text-white hover:bg-white/20 hover:text-cyan-200'
+                isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
               }`}
             >
               Reports
-            </button>
-            <button 
-              onClick={() => setActiveTab('certificates')} 
+            </Link>
+            <Link 
+              to="/certificates" 
               className={`px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
-                activeTab === 'certificates' ? 'bg-gradient-to-r from-cyan-400 to-sky-300 text-slate-900 shadow-md' : 'text-white hover:bg-white/20 hover:text-cyan-200'
+                !isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
               }`}
             >
               Certificates
-            </button>
+            </Link>
             <Link to="/#location" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Location</Link>
             <Link to="/#contact" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Contact</Link>
+            <Link to="/login" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Admin</Link>
           </nav>
 
-          {/* Action Buttons */}
+          {/* Header Action Buttons */}
           <div className="hidden sm:flex items-center gap-2.5">
             <Link 
               to="/website-admin" 
@@ -195,18 +184,20 @@ export default function Certificates({ initialTab = 'certificates' }) {
             <Link to="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Home</Link>
             <Link to="/#products" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Products</Link>
             <Link to="/#about" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">About</Link>
-            <button 
-              onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }} 
-              className={`text-left py-1 hover:text-cyan-400 ${activeTab === 'reports' ? 'text-cyan-400 font-extrabold' : ''}`}
+            <Link 
+              to="/reports" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className={`hover:text-cyan-400 py-1 ${isReportsPage ? 'text-cyan-400 font-extrabold' : ''}`}
             >
               Reports
-            </button>
-            <button 
-              onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }} 
-              className={`text-left py-1 hover:text-cyan-400 ${activeTab === 'certificates' ? 'text-cyan-400 font-extrabold' : ''}`}
+            </Link>
+            <Link 
+              to="/certificates" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className={`hover:text-cyan-400 py-1 ${!isReportsPage ? 'text-cyan-400 font-extrabold' : ''}`}
             >
               Certificates
-            </button>
+            </Link>
             <Link to="/#location" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Location</Link>
             <Link to="/#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Contact</Link>
             
@@ -232,166 +223,140 @@ export default function Certificates({ initialTab = 'certificates' }) {
         )}
       </header>
 
-      {/* 3. MAIN SECTION */}
+      {/* 3. SHOWCASE CONTENT */}
       <main className="flex-1 docs-showcase">
-        {/* Header */}
-        <div className="showcase-header">
-          <span className="showcase-tag">
-            {activeTab === 'certificates' ? 'Official Documents' : 'Quality Assurance'}
-          </span>
-          <h1>
-            {activeTab === 'certificates' ? (
-              <>Our <span>Certificates</span></>
-            ) : (
-              <>Lab <span>Reports</span></>
-            )}
-          </h1>
-          <p>
-            {activeTab === 'certificates' 
-              ? 'Verified certifications, registration credentials, and compliance documents presented in a premium interface.' 
-              : 'Official water testing reports, mineral composition, and laboratory quality benchmarks displayed in clean premium layout.'}
-          </p>
+        {!isReportsPage ? (
+          <>
+            {/* Header: Certificates */}
+            <div className="showcase-header">
+              <span className="showcase-tag">Official Documents</span>
+              <h1>Our <span>Certificates</span></h1>
+              <p>Verified certifications, registration credentials, and compliance documents presented in a premium interface.</p>
+            </div>
 
-          {/* Quick Tab Switcher Pills */}
-          <div className="mt-8 inline-flex items-center p-1.5 rounded-full bg-slate-200/80 border border-slate-300 shadow-inner">
-            <button
-              onClick={() => setActiveTab('certificates')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-300 ${
-                activeTab === 'certificates'
-                  ? 'bg-gradient-to-r from-sky-600 to-cyan-600 text-white shadow-lg shadow-sky-500/30'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <Award className="w-4 h-4" />
-              <span>Our Certificates ({CERTIFICATES.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-300 ${
-                activeTab === 'reports'
-                  ? 'bg-gradient-to-r from-sky-600 to-cyan-600 text-white shadow-lg shadow-sky-500/30'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Lab Reports ({REPORTS.length})</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Content Grid */}
-        {activeTab === 'certificates' ? (
-          <div className="docs-grid-premium">
-            {CERTIFICATES.map((cert) => (
-              <div key={cert.id} className="doc-premium-card group">
-                <div className="doc-card-top-line" />
-                <div className="flex items-start justify-between gap-4 mb-2">
-                  <div>
-                    <h3 className="group-hover:text-cyan-700 transition-colors">{cert.title}</h3>
-                    <p className="mb-0">{cert.description}</p>
+            {/* 2-Column Grid */}
+            <div className="docs-grid-premium">
+              {CERTIFICATES.map((cert) => (
+                <div key={cert.id} className="doc-premium-card group">
+                  <div className="doc-card-top-line" />
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 group-hover:text-sky-700 transition-colors">
+                        {cert.title}
+                      </h3>
+                      <p className="text-slate-500 text-sm mt-1">{cert.description}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                      <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+                      {cert.badge}
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                    {cert.badge}
-                  </span>
-                </div>
 
-                <div className="pdf-frame mt-4">
-                  <iframe 
-                    src={`${cert.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                    title={cert.title}
-                    className="w-full h-full border-0 block bg-white"
-                  />
-                </div>
+                  <div className="pdf-frame mt-4">
+                    <iframe 
+                      src={`${cert.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                      title={cert.title}
+                      className="w-full h-full border-0 block bg-white"
+                    />
+                  </div>
 
-                <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
-                  <a 
-                    href={cert.pdfUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="file-link"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    <span>View Full Document</span>
-                  </a>
+                  <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
+                    <a 
+                      href={cert.pdfUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="file-link"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      <span>View Full Document</span>
+                    </a>
 
-                  <a 
-                    href={cert.pdfUrl} 
-                    download 
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-cyan-600 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download PDF</span>
-                  </a>
+                    <a 
+                      href={cert.pdfUrl} 
+                      download 
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-sky-600 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download PDF</span>
+                    </a>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="docs-grid-premium single-report-grid">
-            {REPORTS.map((report) => (
-              <div key={report.id} className="doc-premium-card group">
-                <div className="doc-card-top-line" />
-                <div className="flex items-start justify-between gap-4 mb-2">
-                  <div>
-                    <h3 className="group-hover:text-cyan-700 transition-colors">{report.title}</h3>
-                    <p className="mb-0">{report.description}</p>
+          <>
+            {/* Header: Lab Reports */}
+            <div className="showcase-header">
+              <span className="showcase-tag">Quality Assurance</span>
+              <h1>Lab <span>Reports</span></h1>
+              <p>Official water testing reports, mineral composition, and laboratory quality benchmarks displayed in clean premium layout.</p>
+            </div>
+
+            {/* Single Large Centered Report Card */}
+            <div className="docs-grid-premium single-report-grid">
+              {REPORTS.map((report) => (
+                <div key={report.id} className="doc-premium-card group">
+                  <div className="doc-card-top-line" />
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                      <h3 className="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-sky-700 transition-colors">
+                        {report.title}
+                      </h3>
+                      <p className="text-slate-500 text-base mt-1">{report.description}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      {report.badge}
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    {report.badge}
-                  </span>
-                </div>
 
-                <div className="pdf-frame pdf-frame-large mt-4">
-                  <iframe 
-                    src={`${report.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                    title={report.title}
-                    className="w-full h-full border-0 block bg-white"
-                  />
-                </div>
+                  <div className="pdf-frame pdf-frame-large mt-4">
+                    <iframe 
+                      src={`${report.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                      title={report.title}
+                      className="w-full h-full border-0 block bg-white"
+                    />
+                  </div>
 
-                <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
-                  <a 
-                    href={report.pdfUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="file-link"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    <span>View Full Lab Report</span>
-                  </a>
+                  <div className="mt-6 flex items-center justify-between flex-wrap gap-4">
+                    <a 
+                      href={report.pdfUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="file-link"
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      <span>View Full Lab Report</span>
+                    </a>
 
-                  <a 
-                    href={report.pdfUrl} 
-                    download 
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-cyan-600 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download PDF</span>
-                  </a>
+                    <a 
+                      href={report.pdfUrl} 
+                      download 
+                      className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-sky-600 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download PDF</span>
+                    </a>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </main>
 
-      {/* 4. FOOTER */}
+      {/* 4. FOOTER (Matching LandingPage footer) */}
       <footer className="w-full bg-[#070b14] text-white pt-14 pb-0 relative overflow-hidden mt-16 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-12 border-b border-slate-800">
-            {/* Col 1: About Aqua Sphere */}
+            {/* Col 1 */}
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <img 
-                  src="/images/logo.png" 
+                  src={LOGO_URL} 
                   alt="Aqua Sphere" 
-                  className="h-10 w-auto"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/logo.png';
-                  }}
+                  className="h-10 w-auto object-contain"
                 />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
@@ -410,20 +375,20 @@ export default function Certificates({ initialTab = 'certificates' }) {
               </div>
             </div>
 
-            {/* Col 2: Quick Links */}
+            {/* Col 2 */}
             <div>
               <h4 className="text-base font-bold text-white mb-4 tracking-wide">Quick Navigation</h4>
               <ul className="space-y-2.5 text-sm text-slate-400">
                 <li><Link to="/" className="hover:text-cyan-400 transition-colors">Home</Link></li>
                 <li><Link to="/#products" className="hover:text-cyan-400 transition-colors">Products & Bottles</Link></li>
                 <li><Link to="/#about" className="hover:text-cyan-400 transition-colors">About Aqua Sphere</Link></li>
-                <li><button onClick={() => setActiveTab('reports')} className="hover:text-cyan-400 transition-colors">Lab Reports</button></li>
-                <li><button onClick={() => setActiveTab('certificates')} className="hover:text-cyan-400 transition-colors">Our Certificates</button></li>
+                <li><Link to="/reports" className="hover:text-cyan-400 transition-colors">Lab Reports</Link></li>
+                <li><Link to="/certificates" className="hover:text-cyan-400 transition-colors">Our Certificates</Link></li>
                 <li><Link to="/#location" className="hover:text-cyan-400 transition-colors">Factory Location</Link></li>
               </ul>
             </div>
 
-            {/* Col 3: Direct Contact */}
+            {/* Col 3 */}
             <div>
               <h4 className="text-base font-bold text-white mb-4 tracking-wide">Contact Details</h4>
               <ul className="space-y-3 text-sm text-slate-300">
@@ -438,21 +403,21 @@ export default function Certificates({ initialTab = 'certificates' }) {
                   <Clock className="w-4 h-4 text-cyan-400 mt-1 shrink-0" />
                   <div>
                     <span className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Working Hours</span>
-                    <span className="text-slate-200 font-medium">Mon - Sat: 8:00 AM - 8:00 PM</span>
+                    <span className="text-slate-200 font-medium">Mon - Sat: 8:00 AM - 5:00 PM</span>
                   </div>
                 </li>
                 <li className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-cyan-400 mt-1 shrink-0" />
                   <div>
                     <span className="block text-xs uppercase tracking-wider text-slate-500 font-semibold mb-0.5">Factory Address</span>
-                    <span className="text-slate-200 font-medium leading-relaxed">Plot #372, Japan Road, Naval Anchorage, Islamabad</span>
+                    <span className="text-slate-200 font-medium leading-relaxed">Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt</span>
                   </div>
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* Bottom Copyright & Sub-links */}
+          {/* Bottom Copyright */}
           <div className="pt-4 pb-2 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
             <p>© {new Date().getFullYear()} Aqua Sphere Mineral Water. All rights reserved.</p>
             <div className="flex gap-6">
@@ -462,7 +427,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
           </div>
         </div>
 
-        {/* Half-cut hollow outline AQUASPHERE */}
+        {/* Half-cut outline AQUASPHERE */}
         <div className="w-full max-w-full overflow-hidden select-none pointer-events-none relative flex justify-center mt-2">
           <svg 
             viewBox="0 0 1250 62" 
@@ -491,13 +456,14 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
       {/* Floating WhatsApp Action */}
       <a 
-        href="https://wa.me/923015072233?text=Hello%20AquaSphere%20I%20am%20inquiring%20about%20Certificates%20and%20Reports" 
+        href="https://wa.me/923015072233?text=Hello%20AquaSphere" 
         target="_blank" 
         rel="noreferrer"
-        className="whatsapp-float"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold px-4 py-3 rounded-full shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40"
         title="Chat on WhatsApp"
       >
-        <WhatsAppIcon className="w-8 h-8 text-white" />
+        <WhatsAppIcon className="w-6 h-6 text-white shrink-0" />
+        <span className="text-xs font-bold hidden sm:inline">Order Now</span>
       </a>
     </div>
   );
