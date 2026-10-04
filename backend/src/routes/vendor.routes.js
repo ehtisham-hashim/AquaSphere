@@ -21,14 +21,14 @@ router.use(verifyJWT);
 router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendors);
 router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'), getVendorById);
 
-// Create & Edit Vendors: OWNER, ACCOUNTANT (Admin is read-only)
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT'), createVendor);
-router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT'), updateVendor);
+// Create & Edit Vendors: OWNER, ACCOUNTANT, ADMIN, PRODUCTION_MANAGER
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER'), createVendor);
+router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN', 'PRODUCTION_MANAGER'), updateVendor);
 
-// Record Payment & Archive/Restore: OWNER, ACCOUNTANT
-router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT'), upload.single('image'), uploadPaymentProof);
-router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT'), recordVendorPayment);
-router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT'), archiveVendor);
-router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT'), restoreVendor);
+// Record Payment & Archive/Restore: OWNER, ACCOUNTANT, ADMIN
+router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), upload.single('image'), uploadPaymentProof);
+router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), recordVendorPayment);
+router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), archiveVendor);
+router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), restoreVendor);
 
 export default router;

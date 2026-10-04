@@ -5,6 +5,7 @@ import { uploadImage } from '../utils/cloudinaryUpload.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /** Retrieves all vendors with aggregated purchase and payment totals */
 export const getVendors = asyncHandler(async (req, res) => {
@@ -135,8 +136,24 @@ export const createVendor = asyncHandler(async (req, res) => {
   if (existingVendor) throw new ApiError(400, `A vendor with name "${trimmedName}" or phone "${trimmedPhone}" already exists.`);
 
   const vendor = await prisma[`${prefix}Vendor`].create({
-    data: { name: trimmedName, phone: trimmedPhone, email: email?.trim(), address, notes }
+    data: {
+      name: trimmedName,
+      phone: trimmedPhone,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      notes: notes?.trim() || null
+    }
   });
+
+  await createAuditLog(prefix, {
+    action: 'VENDOR_CREATED',
+    entityType: 'Vendor',
+    entityId: vendor.id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Vendor Created: ${vendor.name} (${vendor.phone})`
+  });
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId: vendor.id });
 
   return sendSuccess(res, vendor, 201);
 });
@@ -148,10 +165,41 @@ export const updateVendor = asyncHandler(async (req, res) => {
   const { name, phone, email, address, notes } = req.body;
   if (!name || !phone) throw new ApiError(400, 'Vendor Name and Phone are required');
 
+  const trimmedName = name.trim();
+  const trimmedPhone = phone.trim();
+
+  const existing = await prisma[`${prefix}Vendor`].findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, 'Vendor not found');
+
+  const duplicate = await prisma[`${prefix}Vendor`].findFirst({
+    where: {
+      id: { not: id },
+      archivedAt: null,
+      OR: [{ name: { equals: trimmedName, mode: 'insensitive' } }, { phone: { equals: trimmedPhone } }]
+    }
+  });
+  if (duplicate) throw new ApiError(400, `Another vendor with name "${trimmedName}" or phone "${trimmedPhone}" already exists.`);
+
   const vendor = await prisma[`${prefix}Vendor`].update({
     where: { id },
-    data: { name: name.trim(), phone: phone.trim(), email: email?.trim(), address, notes }
+    data: {
+      name: trimmedName,
+      phone: trimmedPhone,
+      email: email?.trim() || null,
+      address: address?.trim() || null,
+      notes: notes?.trim() || null
+    }
   });
+
+  await createAuditLog(prefix, {
+    action: 'VENDOR_UPDATED',
+    entityType: 'Vendor',
+    entityId: vendor.id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Vendor Updated: ${vendor.name} (${vendor.phone})`
+  });
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId: vendor.id });
 
   return sendSuccess(res, vendor);
 });
@@ -163,6 +211,17 @@ export const archiveVendor = asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: { archivedAt: new Date() }
   });
+
+  await createAuditLog(prefix, {
+    action: 'VENDOR_ARCHIVED',
+    entityType: 'Vendor',
+    entityId: vendor.id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Vendor Archived: ${vendor.name}`
+  });
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId: vendor.id });
+
   return sendSuccess(res, vendor, 200, { message: 'Vendor archived successfully' });
 });
 
@@ -173,6 +232,17 @@ export const restoreVendor = asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: { archivedAt: null }
   });
+
+  await createAuditLog(prefix, {
+    action: 'VENDOR_RESTORED',
+    entityType: 'Vendor',
+    entityId: vendor.id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Vendor Restored: ${vendor.name}`
+  });
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId: vendor.id });
+
   return sendSuccess(res, vendor, 200, { message: 'Vendor restored successfully' });
 });
 
@@ -243,6 +313,8 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
 
   const totalPurchases = Number(ledgerSums.find(s => s.type === 'PURCHASE')?._sum?.amount || 0);
   const totalPaid = Number(ledgerSums.find(s => s.type === 'PAYMENT')?._sum?.amount || 0);
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId });
 
   return sendSuccess(res, result.payment, 201, {
     payableBalance: totalPurchases - totalPaid,

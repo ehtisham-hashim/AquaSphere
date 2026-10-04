@@ -24,8 +24,9 @@ export default function Vendors() {
 
   const isPM = user?.role === 'PRODUCTION_MANAGER';
   const isOwnerOrAccountant = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT';
-  const canAddEdit = isOwnerOrAccountant || isPM;
-  const canPayOrArchive = isOwnerOrAccountant;
+  const isAdmin = user?.role === 'ADMIN';
+  const canAddEdit = isOwnerOrAccountant || isPM || isAdmin;
+  const canPayOrArchive = isOwnerOrAccountant || isAdmin;
 
   const [selectedVendorDetail, setSelectedVendorDetail] = useState(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -56,8 +57,14 @@ export default function Vendors() {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
-      const json = await res.json();
-      if (json.success) setVendors(json.data);
+      let json = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (res.ok && json.success) setVendors(json.data || []);
+      else toast.error(json.message || 'Failed to load vendors');
     } catch (err) {
       console.error(err);
       toast.error('Failed to load vendors');
@@ -70,7 +77,7 @@ export default function Vendors() {
     fetchVendors();
   }, [fetchVendors]);
 
-  useLiveEvent(['PURCHASE_CREATED', 'EXPENSE_LOGGED'], fetchVendors);
+  useLiveEvent(['PURCHASE_CREATED', 'EXPENSE_LOGGED', 'VENDOR_UPDATED'], fetchVendors);
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
@@ -113,9 +120,16 @@ export default function Vendors() {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
-      const json = await res.json();
-      if (json.success) {
+      let json = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (res.ok && json.success) {
         setSelectedVendorDetail(json.data);
+      } else {
+        toast.error(json.message || 'Failed to load vendor profile');
       }
     } catch (err) {
       console.error('Error fetching vendor details:', err);
@@ -145,9 +159,14 @@ export default function Vendors() {
         body: JSON.stringify(formData),
         credentials: 'include'
       });
-      const json = await res.json();
-      if (!json.success) {
-        toast.error(json.message || 'Error saving vendor');
+      let json = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (!res.ok || !json.success) {
+        toast.error(json.message || `Failed to ${editingVendor ? 'update' : 'create'} vendor (Status: ${res.status})`);
         return;
       }
       toast.success(editingVendor ? 'Vendor updated successfully' : 'Vendor added successfully');
@@ -187,8 +206,13 @@ export default function Vendors() {
         body: JSON.stringify(paymentData),
         credentials: 'include'
       });
-      const json = await res.json();
-      if (!json.success) {
+      let json = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (!res.ok || !json.success) {
         toast.error(json.message || 'Failed to record payment');
         return;
       }
@@ -213,10 +237,16 @@ export default function Vendors() {
     try {
       const res = await fetch(`${API_URL}/vendors/${v.id}/${action}`, {
         method: 'PATCH',
+        headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
-      const json = await res.json();
-      if (json.success) {
+      let json = {};
+      try {
+        json = await res.json();
+      } catch {
+        // Fallback for non-JSON response
+      }
+      if (res.ok && json.success) {
         toast.success(`Vendor ${action}d successfully`);
         fetchVendors();
       } else {
