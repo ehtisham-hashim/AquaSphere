@@ -47,6 +47,7 @@ function loadFromStorage(key) {
 // Helper to save cache entry to sessionStorage
 function saveToStorage(key, data) {
   if (typeof window === 'undefined' || !window.sessionStorage) return;
+  if (isVolatile(key)) return;
   try {
     window.sessionStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
   } catch {

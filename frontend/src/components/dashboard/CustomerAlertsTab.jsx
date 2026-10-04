@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 
 export default function CustomerAlertsTab({ inactiveCustomers = [] }) {
   return (

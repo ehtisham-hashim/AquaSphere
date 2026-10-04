@@ -988,12 +988,6 @@ export default function LogCounterSaleForm({
                   <span>Walk-in requires full payment. Select a customer to record debt.</span>
                 </div>
               )}
-
-              {isLimitExceeded && (
-                <div className="mt-1 text-[11px] font-semibold text-amber-600">
-                  ⚠️ Credit limit (Rs. {customerLimit.toLocaleString()}) exceeded.
-                </div>
-              )}
             </div>
 
             {/* Payment Method & Remarks */}

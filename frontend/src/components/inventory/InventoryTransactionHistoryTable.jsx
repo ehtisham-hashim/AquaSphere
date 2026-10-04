@@ -8,7 +8,7 @@ export default function InventoryTransactionHistoryTable({
   items = [],
   selectedItemId = 'ALL',
   onSelectItemId,
-  isWadaana = false
+  _isWadaana = false
 }) {
   const pagination = usePagination(transactions || [], 50);
 
