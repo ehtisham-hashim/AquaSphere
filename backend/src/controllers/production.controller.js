@@ -299,14 +299,16 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   if (batch.outputItemId) {
     const waste = parseInt(req.body.wasteQuantity || req.body.brokenBottles || 0, 10);
     const qty = Number(batch.quantity || 0);
-    if (waste < 0) throw new ApiError(400, 'Waste quantity cannot be negative');
-    if (waste > qty) throw new ApiError(400, `Waste quantity (${waste}) cannot exceed produced amount (${qty})`);
-
     const outputItem = await prisma[`${prefix}Item`].findUnique({
       where: { id: batch.outputItemId },
       include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
     });
     if (!outputItem) throw new ApiError(404, 'Finished good item not found');
+    const packSize = Number(outputItem.packSize) > 1 ? Number(outputItem.packSize) : 1;
+    const maxBottles = packSize > 1 ? qty * packSize : qty;
+    if (waste < 0) throw new ApiError(400, 'Waste quantity cannot be negative');
+    if (waste > maxBottles) throw new ApiError(400, `Waste quantity (${waste} btl) cannot exceed produced amount (${maxBottles} btl)`);
+
     productionRuns.push({ outputItem, quantity: qty, wasteQuantity: waste });
   } else {
     // Parse items from remarks or legacy batch fields
@@ -332,9 +334,11 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
         const fgItem = itemMap.get(itemId);
         if (!fgItem) continue;
         const qty = Number(p.quantity || 0);
+        const packSize = Number(fgItem.packSize) > 1 ? Number(fgItem.packSize) : 1;
+        const maxBottles = packSize > 1 ? qty * packSize : qty;
         const waste = parseInt(itemBreakages[itemId] || 0, 10);
         if (waste < 0) throw new ApiError(400, `Waste for ${fgItem.name} cannot be negative`);
-        if (waste > qty) throw new ApiError(400, `Waste for ${fgItem.name} (${waste}) cannot exceed produced amount (${qty})`);
+        if (waste > maxBottles) throw new ApiError(400, `Waste for ${fgItem.name} (${waste} btl) cannot exceed produced amount (${maxBottles} btl)`);
         productionRuns.push({ outputItem: fgItem, quantity: qty, wasteQuantity: waste });
       }
     } else {
@@ -393,7 +397,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     }
   }
 
-  const { deductions, finishedGoods } = calculateBatchDeductions(productionRuns);
+  const { deductions, finishedGoods, wasteItems } = calculateBatchDeductions(productionRuns);
 
   // Validate raw material stock
   const rawItemIds = deductions.map(d => d.itemId);
@@ -412,17 +416,37 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
 
   const totalWaste = productionRuns.reduce((sum, r) => sum + (r.wasteQuantity || 0), 0);
 
+  let remarksObj = {};
+  if (batch.remarks) {
+    try {
+      remarksObj = JSON.parse(batch.remarks);
+    } catch (_e) {
+      remarksObj = { text: batch.remarks };
+    }
+  }
+  const updatedRemarks = JSON.stringify({
+    ...remarksObj,
+    lossDetails: {
+      totalWaste,
+      wasteItems
+    }
+  });
+
   const updatedBatch = await prisma.$transaction(async (tx) => {
     const pb = await tx[`${prefix}ProductionBatch`].update({
       where: { id },
-      data: { status: 'COMPLETED', wasteQuantity: totalWaste },
+      data: {
+        status: 'COMPLETED',
+        wasteQuantity: totalWaste,
+        remarks: updatedRemarks
+      },
       include: {
         outputItem: { select: { id: true, name: true, unit: true } },
         consumptions: { include: { item: true } }
       }
     });
 
-    // Record raw material consumption & deduct stock
+    // Record raw material consumption & deduct stock in parallel
     if (deductions.length > 0) {
       await tx[`${prefix}ProductionBatchConsumption`].createMany({
         data: deductions.map(d => ({ batchId: pb.id, itemId: d.itemId, quantityUsed: d.quantityUsed }))
@@ -438,18 +462,18 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
           location: 'FACTORY'
         }))
       });
-      for (const d of deductions) {
-        await tx[`${prefix}Item`].update({
+      await Promise.all(deductions.map(d =>
+        tx[`${prefix}Item`].update({
           where: { id: d.itemId },
           data: {
             cachedQty: { decrement: d.quantityUsed },
             factoryQty: { decrement: d.quantityUsed }
           }
-        });
-      }
+        })
+      ));
     }
 
-    // Record finished goods addition & increment stock in base units
+    // Record finished goods addition & increment stock in parallel
     if (finishedGoods.length > 0) {
       await tx[`${prefix}InventoryTransaction`].createMany({
         data: finishedGoods.map(fg => ({
@@ -462,57 +486,66 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
           location: 'FACTORY'
         }))
       });
-      for (const fg of finishedGoods) {
-        await tx[`${prefix}Item`].update({
+      await Promise.all(finishedGoods.map(fg =>
+        tx[`${prefix}Item`].update({
           where: { id: fg.itemId },
           data: {
             cachedQty: { increment: fg.quantityAdded },
             factoryQty: { increment: fg.quantityAdded }
           }
-        });
+        })
+      ));
 
-        // 19L bottle custody tracking
-        if (prefix === 'aquasphere' && fg.is19L) {
-          if (fg.netGoodPacks > 0) {
-            await tx.aquasphereBottleTransaction.create({
-              data: {
-                type: 'MOVED_TO_FACTORY',
-                quantity: fg.netGoodPacks,
-                reason: `Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
-              }
-            });
+      // 19L bottle custody tracking
+      if (prefix === 'aquasphere') {
+        const bottleTxns = [];
+        for (const fg of finishedGoods) {
+          if (fg.is19L) {
+            if (fg.netGoodPacks > 0) {
+              bottleTxns.push(tx.aquasphereBottleTransaction.create({
+                data: {
+                  type: 'MOVED_TO_FACTORY',
+                  quantity: fg.netGoodPacks,
+                  reason: `Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
+                }
+              }));
+            }
+            if (fg.wasteBottles > 0) {
+              bottleTxns.push(tx.aquasphereBottleTransaction.create({
+                data: {
+                  type: 'RETURNED_BROKEN',
+                  quantity: fg.wasteBottles,
+                  reason: `Broken in Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
+                }
+              }));
+            }
           }
-          if (fg.wastePacks > 0) {
-            await tx.aquasphereBottleTransaction.create({
-              data: {
-                type: 'RETURNED_BROKEN',
-                quantity: fg.wastePacks,
-                reason: `Broken in Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
-              }
-            });
-          }
+        }
+        if (bottleTxns.length > 0) {
+          await Promise.all(bottleTxns);
         }
       }
     }
 
-    await createAuditLog(prefix, {
-      action: 'PRODUCTION_BATCH_COMPLETED',
-      entityType: 'PRODUCTION_BATCH',
-      entityId: pb.id,
-      performedBy: req.user?.id || 'Unknown',
-      details: JSON.stringify({
-        status: 'COMPLETED',
-        produced: finishedGoods.map(f => `${f.name}: +${f.quantityAdded} (${f.unit})`),
-        consumed: deductions.map(d => `${d.name}: -${d.quantityUsed} (${d.unit})`),
-        wasteQuantity: totalWaste
-      })
-    });
-
     return pb;
-  }, { maxWait: 10000, timeout: 30000 });
+  }, { maxWait: 5000, timeout: 15000 });
+
+  // Audit log non-blocking
+  createAuditLog(prefix, {
+    action: 'PRODUCTION_BATCH_COMPLETED',
+    entityType: 'PRODUCTION_BATCH',
+    entityId: updatedBatch.id,
+    performedBy: req.user?.id || 'Unknown',
+    details: JSON.stringify({
+      status: 'COMPLETED',
+      produced: finishedGoods.map(f => `${f.name}: +${f.quantityAdded} (${f.unit})`),
+      consumed: deductions.map(d => `${d.name}: -${d.quantityUsed} (${d.unit})`),
+      wasteQuantity: totalWaste,
+      wasteItems
+    })
+  }).catch(() => {});
 
   broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: updatedBatch.id });
-  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updatedBatch);
 });
 

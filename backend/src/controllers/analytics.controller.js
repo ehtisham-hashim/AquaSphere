@@ -859,4 +859,137 @@ export const getBottleCustody = asyncHandler(async (req, res) => {
   });
 });
 
+/** Production loss and scrap analytics adhering to timeframe */
+export const getProductionLoss = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { timeframe = '1_MONTH' } = req.query;
+
+  const now = new Date();
+  let startDate = new Date();
+
+  switch (timeframe.toUpperCase()) {
+    case 'TODAY':
+    case 'DAILY':
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case '1_WEEK':
+      startDate.setDate(now.getDate() - 7);
+      break;
+    case '1_YEAR':
+    case 'YEARLY':
+      startDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    case '1_MONTH':
+    case 'MONTHLY':
+    default:
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+  }
+
+  const batches = await prisma[`${prefix}ProductionBatch`].findMany({
+    where: {
+      status: 'COMPLETED',
+      createdAt: { gte: startDate }
+    },
+    select: {
+      id: true,
+      wasteQuantity: true,
+      remarks: true,
+      packs05L: true,
+      packs15L: true,
+      qtyPure05L: true,
+      qtyPure15L: true,
+      qtyMix05L: true,
+      qtyMix15L: true,
+      brokenPure05L: true,
+      brokenPure15L: true,
+      brokenMix05L: true,
+      brokenMix15L: true,
+      brokenBottles05L: true,
+      brokenBottles15L: true
+    }
+  });
+
+  let totalWasteBottles = 0;
+  const materialsMap = new Map();
+
+  for (const b of batches) {
+    totalWasteBottles += Number(b.wasteQuantity || 0);
+
+    let parsedLoss = null;
+    if (b.remarks) {
+      try {
+        const obj = JSON.parse(b.remarks);
+        if (obj?.lossDetails?.wasteItems) {
+          parsedLoss = obj.lossDetails.wasteItems;
+        }
+      } catch (_e) { /* ignore */ }
+    }
+
+    if (Array.isArray(parsedLoss) && parsedLoss.length > 0) {
+      for (const item of parsedLoss) {
+        const key = item.name;
+        const current = materialsMap.get(key) || { name: item.name, quantity: 0, unit: item.unit };
+        current.quantity = Number((current.quantity + Number(item.quantityLost || 0)).toFixed(4));
+        materialsMap.set(key, current);
+      }
+    } else {
+      if (prefix === 'aquasphere') {
+        const b05 = Number(b.brokenBottles05L || 0);
+        const b15 = Number(b.brokenBottles15L || 0);
+        if (b05 > 0) {
+          const cur = materialsMap.get('0.5L Empty Bottles') || { name: '0.5L Empty Bottles', quantity: 0, unit: 'bottle' };
+          cur.quantity += b05;
+          materialsMap.set('0.5L Empty Bottles', cur);
+
+          const curCap = materialsMap.get('Small Caps') || { name: 'Small Caps', quantity: 0, unit: 'cap' };
+          curCap.quantity += b05;
+          materialsMap.set('Small Caps', curCap);
+        }
+        if (b15 > 0) {
+          const cur = materialsMap.get('1.5L Empty Bottles') || { name: '1.5L Empty Bottles', quantity: 0, unit: 'bottle' };
+          cur.quantity += b15;
+          materialsMap.set('1.5L Empty Bottles', cur);
+
+          const curCap = materialsMap.get('Small Caps') || { name: 'Small Caps', quantity: 0, unit: 'cap' };
+          curCap.quantity += b15;
+          materialsMap.set('Small Caps', curCap);
+        }
+      } else {
+        const p05 = Number(b.brokenPure05L || 0);
+        const p15 = Number(b.brokenPure15L || 0);
+        const m05 = Number(b.brokenMix05L || 0);
+        const m15 = Number(b.brokenMix15L || 0);
+        if (p05 > 0) {
+          const cur = materialsMap.get('Pure Preform 0.5L (Blue)') || { name: 'Pure Preform 0.5L (Blue)', quantity: 0, unit: 'kg' };
+          cur.quantity = Number((cur.quantity + p05 * 0.015).toFixed(3));
+          materialsMap.set('Pure Preform 0.5L (Blue)', cur);
+        }
+        if (p15 > 0) {
+          const cur = materialsMap.get('Pure Preform 1.5L (Blue)') || { name: 'Pure Preform 1.5L (Blue)', quantity: 0, unit: 'kg' };
+          cur.quantity = Number((cur.quantity + p15 * 0.030).toFixed(3));
+          materialsMap.set('Pure Preform 1.5L (Blue)', cur);
+        }
+        if (m05 > 0) {
+          const cur = materialsMap.get('Mix Preform 0.5L (Blue)') || { name: 'Mix Preform 0.5L (Blue)', quantity: 0, unit: 'kg' };
+          cur.quantity = Number((cur.quantity + m05 * 0.013).toFixed(3));
+          materialsMap.set('Mix Preform 0.5L (Blue)', cur);
+        }
+        if (m15 > 0) {
+          const cur = materialsMap.get('Mix Preform 1.5L (Blue)') || { name: 'Mix Preform 1.5L (Blue)', quantity: 0, unit: 'kg' };
+          cur.quantity = Number((cur.quantity + m15 * 0.027).toFixed(3));
+          materialsMap.set('Mix Preform 1.5L (Blue)', cur);
+        }
+      }
+    }
+  }
+
+  return sendSuccess(res, {
+    timeframe,
+    totalWasteBottles,
+    batchCount: batches.length,
+    materials: Array.from(materialsMap.values()).filter(m => m.quantity > 0)
+  });
+});
+
 

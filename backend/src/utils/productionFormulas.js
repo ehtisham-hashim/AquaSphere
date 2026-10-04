@@ -1,30 +1,28 @@
 /**
- * Production Formulas - 100% Database Recipe-Driven
- * Base units added = netGoodPacks * (packSize > 1 ? packSize : 1)
- * Raw materials deducted = producedPacks * recipeItem.quantityPerUnit
+ * Production Formulas - Database Recipe-Driven
+ * Base units added = sealedPacks * (packSize > 1 ? packSize : 1)
+ * Raw materials deducted = (goodPacks * recipeQty) + (brokenBottles * perBottleQty)
  */
 
 /**
- * Calculates raw material deductions and finished good base additions.
+ * Calculates raw material deductions (good output + breakage) and finished good additions.
  * @param {Array<{ outputItem: object, quantity: number, wasteQuantity: number }>} productionRuns
- * @returns {{ deductions: Array<{ itemId: string, name: string, quantityUsed: number, unit: string }>, finishedGoods: Array<{ itemId: string, name: string, quantityAdded: number, unit: string, is19L: boolean, netGoodPacks: number, wastePacks: number }> }}
+ * @returns {{ deductions: Array<{ itemId: string, name: string, quantityUsed: number, unit: string, goodQty: number, lossQty: number }>, finishedGoods: Array<{ itemId: string, name: string, quantityAdded: number, unit: string, is19L: boolean, netGoodPacks: number, wasteBottles: number }>, wasteItems: Array<{ itemId: string, name: string, quantityLost: number, unit: string }> }}
  */
 export function calculateBatchDeductions(productionRuns = []) {
   const deductionsMap = new Map();
+  const wasteMap = new Map();
   const finishedGoods = [];
 
   for (const run of productionRuns) {
     const { outputItem, quantity = 0, wasteQuantity = 0 } = run;
-    if (!outputItem || quantity <= 0) continue;
+    if (!outputItem || (quantity <= 0 && wasteQuantity <= 0)) continue;
 
     const packSize = Number(outputItem.packSize) > 1 ? Number(outputItem.packSize) : 1;
-    
-    // FIX: wasteQuantity is in base units (bottles), quantity is in packs
-    // Convert waste from bottles to packs before subtracting
-    const wasteInPacks = wasteQuantity / packSize;
-    const netGoodPacks = Math.max(0, quantity - wasteInPacks);
-    const baseUnitsAdded = Math.round(netGoodPacks * packSize);
+    const isPack = packSize > 1;
 
+    // Full sealed packs added to finished goods (zero loose bottles in inventory)
+    const baseUnitsAdded = Math.round(quantity * packSize);
     const is19L = (outputItem.name || '').toLowerCase().includes('19l');
 
     finishedGoods.push({
@@ -33,8 +31,8 @@ export function calculateBatchDeductions(productionRuns = []) {
       quantityAdded: baseUnitsAdded,
       unit: outputItem.unit || 'bottle',
       is19L,
-      netGoodPacks,
-      wastePacks: wasteInPacks
+      netGoodPacks: quantity,
+      wasteBottles: wasteQuantity
     });
 
     const recipes = outputItem.recipeFinishedGoods || [];
@@ -42,22 +40,56 @@ export function calculateBatchDeductions(productionRuns = []) {
       const rm = r.rawMaterial;
       if (!rm) continue;
 
-      // Recipe quantityPerUnit is for 1 produced unit of this finished good
-      const qtyUsed = quantity * Number(r.quantityPerUnit);
+      const qtyPerUnit = Number(r.quantityPerUnit);
+      const rmNameLower = (rm.name || '').toLowerCase();
+      const isShrinkFilm = rmNameLower.includes('shrink') || rmNameLower.includes('film') || rmNameLower.includes('wrap');
+
+      // Good output consumes recipe per pack/unit
+      const goodQty = quantity * qtyPerUnit;
+
+      // Broken bottles consume preforms/caps/minerals, but NOT shrink packaging film
+      let lossQty = 0;
+      if (wasteQuantity > 0 && !isShrinkFilm) {
+        if (isPack) {
+          lossQty = (qtyPerUnit / packSize) * wasteQuantity;
+        } else {
+          lossQty = qtyPerUnit * wasteQuantity;
+        }
+      }
+
+      const totalQtyUsed = Number((goodQty + lossQty).toFixed(4));
+      const unit = rm.unit || 'pcs';
+
       const existing = deductionsMap.get(rm.id) || {
         itemId: rm.id,
         name: rm.name,
         quantityUsed: 0,
-        unit: rm.unit || 'pcs'
+        goodQty: 0,
+        lossQty: 0,
+        unit
       };
-      existing.quantityUsed += qtyUsed;
+      existing.quantityUsed = Number((existing.quantityUsed + totalQtyUsed).toFixed(4));
+      existing.goodQty = Number((existing.goodQty + goodQty).toFixed(4));
+      existing.lossQty = Number((existing.lossQty + lossQty).toFixed(4));
       deductionsMap.set(rm.id, existing);
+
+      if (lossQty > 0) {
+        const existingWaste = wasteMap.get(rm.id) || {
+          itemId: rm.id,
+          name: rm.name,
+          quantityLost: 0,
+          unit
+        };
+        existingWaste.quantityLost = Number((existingWaste.quantityLost + lossQty).toFixed(4));
+        wasteMap.set(rm.id, existingWaste);
+      }
     }
   }
 
   return {
     deductions: Array.from(deductionsMap.values()),
-    finishedGoods
+    finishedGoods,
+    wasteItems: Array.from(wasteMap.values())
   };
 }
 
@@ -67,6 +99,7 @@ export const calculateDynamicBatch = (outputItem, quantity, wasteQuantity) => {
   return {
     deductions: res.deductions,
     finishedGoods: res.finishedGoods,
+    wasteItems: res.wasteItems,
     broken: []
   };
 };

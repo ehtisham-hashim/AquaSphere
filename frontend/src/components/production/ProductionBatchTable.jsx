@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, UserCheck } from 'lucide-react';
+import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, UserCheck, Eye } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { parsePreformInfo } from '../../utils/preformHelper';
@@ -9,14 +9,31 @@ function getBatchConsumptions(b, isWadaana) {
   if (Array.isArray(b.consumptions) && b.consumptions.length > 0) {
     return b.consumptions.map(c => {
       const rawName = c.item?.name || 'Raw Material';
-      const info = parsePreformInfo(rawName);
-      const qtyKg = Number(c.quantityUsed || 0);
-      const qtyGrams = qtyKg * 1000;
+      const unit = c.item?.unit || 'pcs';
+      const qty = Number(c.quantityUsed || 0);
+
+      if (isWadaana) {
+        const info = parsePreformInfo(rawName);
+        const qtyGrams = unit === 'kg' ? qty * 1000 : qty;
+        return {
+          name: rawName,
+          unit,
+          qty,
+          isPreform: true,
+          info,
+          qtyKg: unit === 'kg' ? qty : qty / 1000,
+          qtyGrams
+        };
+      }
+
+      // AquaSphere - format according to unit
+      const isCountable = unit === 'bottle' || unit === 'cap' || unit === 'pcs' || unit === 'unit';
       return {
         name: rawName,
-        info,
-        qtyKg,
-        qtyGrams
+        unit,
+        qty,
+        isCountable,
+        displayQty: isCountable ? `${Math.round(qty).toLocaleString()} ${unit}` : `${qty.toFixed(3).replace(/\.?0+$/, '')} ${unit}`
       };
     });
   }
@@ -30,6 +47,7 @@ function getBatchConsumptions(b, isWadaana) {
       const qtyKg = qtyGrams / 1000;
       return {
         name: info.name,
+        isPreform: true,
         info,
         qtyKg,
         qtyGrams
@@ -234,17 +252,16 @@ export default function ProductionBatchTable({
             <tr>
               <th className="table-th">Batch ID & Date</th>
               <th className="table-th">Produced Product & Breakdown</th>
-              <th className="table-th">Total Output</th>
               <th className="table-th">Waste / Loss</th>
               <th className="table-th">Status</th>
               <th className="table-th">Recorded By</th>
-              {isOwner && <th className="table-th text-right">Actions</th>}
+              <th className="table-th text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {batches.length === 0 ? (
               <tr>
-                <td colSpan={isOwner ? 7 : 6} className="p-8 text-center text-slate-400">
+                <td colSpan={6} className="p-8 text-center text-slate-400">
                   No production batches recorded.
                 </td>
               </tr>
@@ -253,7 +270,6 @@ export default function ProductionBatchTable({
                 const products = getBatchProducts(b, isWadaana);
                 const visibleProducts = products.slice(0, 2);
                 const remainingCount = products.length - 2;
-                const totalOutput = getTotalOutputText(b, isWadaana);
                 const wasteCount = getTotalWaste(b);
 
                 return (
@@ -296,14 +312,7 @@ export default function ProductionBatchTable({
                       </div>
                     </td>
 
-                    {/* 3. Total Output */}
-                    <td className="table-td">
-                      <span className="font-semibold text-slate-900 text-sm tabular-nums">
-                        {totalOutput}
-                      </span>
-                    </td>
-
-                    {/* 4. Waste / Loss */}
+                    {/* 3. Waste / Loss */}
                     <td className="table-td">
                       {wasteCount > 0 ? (
                         <span className="badge-danger text-xs font-semibold">
@@ -318,7 +327,7 @@ export default function ProductionBatchTable({
                       )}
                     </td>
 
-                    {/* 5. Status & Actions */}
+                    {/* 4. Status */}
                     <td className="table-td">
                       <div className="flex items-center gap-2">
                         {b.status === 'COMPLETED' ? (
@@ -345,7 +354,7 @@ export default function ProductionBatchTable({
                       </div>
                     </td>
 
-                    {/* 6. Recorded By */}
+                    {/* 5. Recorded By */}
                     <td className="table-td">
                       <div className="text-xs">
                         <span className="font-semibold text-slate-800 block">{b.createdBy?.name || 'System'}</span>
@@ -353,18 +362,28 @@ export default function ProductionBatchTable({
                       </div>
                     </td>
 
-                    {/* 7. Delete (Owner Only) */}
-                    {isOwner && (
-                      <td className="table-td text-right">
+                    {/* 6. Actions (Inspect for all, Delete for Owner) */}
+                    <td className="table-td text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => onDelete(b)}
-                          title="Delete Batch (Owner Only)"
-                          className="btn-danger text-xs p-1"
+                          type="button"
+                          onClick={() => setViewingBatch(b)}
+                          title="Inspect Batch Details & Consumptions"
+                          className="p-1 rounded-md text-slate-500 hover:text-brand hover:bg-slate-100 transition cursor-pointer"
                         >
-                          <Trash2 size={13} />
+                          <Eye size={15} />
                         </button>
-                      </td>
-                    )}
+                        {isOwner && (
+                          <button
+                            onClick={() => onDelete(b)}
+                            title="Delete Batch (Owner Only)"
+                            className="btn-danger text-xs p-1"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })
@@ -394,7 +413,7 @@ export default function ProductionBatchTable({
               <button
                 type="button"
                 onClick={() => setViewingBatch(null)}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition"
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/20 transition cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -421,7 +440,7 @@ export default function ProductionBatchTable({
               {/* Complete List of Produced Products */}
               <div>
                 <h5 className="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2">
-                  All Produced Items
+                  Produced Finished Goods
                 </h5>
                 <div className="space-y-1.5">
                   {getBatchProducts(viewingBatch, isWadaana).map((p, idx) => (
@@ -436,7 +455,7 @@ export default function ProductionBatchTable({
                 </div>
               </div>
 
-              {/* Consumed Raw Materials (Preforms) */}
+              {/* Consumed Raw Materials */}
               {(() => {
                 const consumptionsList = getBatchConsumptions(viewingBatch, isWadaana);
                 if (consumptionsList.length === 0) return null;
@@ -445,39 +464,51 @@ export default function ProductionBatchTable({
                   <div>
                     <h5 className="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1.5">
                       <Flame size={13} className="text-orange-500" />
-                      Raw Material Consumptions (Preforms)
+                      Raw Material Consumptions {isWadaana ? '(Preforms)' : ''}
                     </h5>
                     <div className="space-y-1.5">
                       {consumptionsList.map((c, idx) => {
-                        const { info, qtyKg, qtyGrams } = c;
+                        if (isWadaana && c.info) {
+                          const { info, qtyKg, qtyGrams } = c;
+                          return (
+                            <div
+                              key={idx}
+                              className={`p-3 rounded-xl border flex items-center justify-between shadow-2xs ${info.bgClass || 'bg-slate-50 border-slate-300'}`}
+                            >
+                              <div className="flex-1 min-w-0 pr-3">
+                                <span className="font-bold text-slate-900 block text-xs truncate">{c.name}</span>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${info.badgeTypeClass}`}>
+                                    {info.type}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                    {info.size}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
+                                    {info.color}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-black text-slate-900 text-sm sm:text-base">
+                                  {qtyGrams.toLocaleString()}g
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  ({qtyKg.toFixed(3).replace(/\.?0+$/, '')} kg)
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
 
+                        // AquaSphere clean display
                         return (
                           <div
                             key={idx}
-                            className={`p-3 rounded-xl border flex items-center justify-between shadow-2xs ${info.bgClass || 'bg-slate-50 border-slate-300'}`}
+                            className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between shadow-2xs"
                           >
-                            <div className="flex-1 min-w-0 pr-3">
-                              <span className="font-bold text-slate-900 block text-xs truncate">{c.name}</span>
-                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${info.badgeTypeClass}`}>
-                                  {info.type}
-                                </span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
-                                  {info.size}
-                                </span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 border border-slate-300">
-                                  {info.color}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className="font-black text-slate-900 text-sm sm:text-base">
-                                {qtyGrams.toLocaleString()}g
-                              </div>
-                              <div className="text-[10px] text-slate-500 font-mono">
-                                ({qtyKg.toFixed(3).replace(/\.?0+$/, '')} kg)
-                              </div>
-                            </div>
+                            <span className="font-bold text-slate-800">{c.name}</span>
+                            <span className="font-black text-slate-900 font-mono">{c.displayQty}</span>
                           </div>
                         );
                       })}
@@ -486,12 +517,60 @@ export default function ProductionBatchTable({
                 );
               })()}
 
-              {/* Scrap & Audit Trail */}
+              {/* Scrap & Breakage Details */}
+              {(() => {
+                let lossDetails = null;
+                try {
+                  if (viewingBatch.remarks) {
+                    const parsed = JSON.parse(viewingBatch.remarks);
+                    lossDetails = parsed.lossDetails || null;
+                  }
+                } catch {
+                  // Ignore invalid JSON
+                }
+
+                const wasteCount = getTotalWaste(viewingBatch);
+                const wasteItems = lossDetails?.wasteItems || [];
+
+                if (wasteCount === 0 && wasteItems.length === 0) return null;
+
+                return (
+                  <div>
+                    <h5 className="font-bold text-rose-700 uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1.5">
+                      <AlertCircle size={13} className="text-rose-600" />
+                      Scrap & Material Lost in Breakage ({wasteCount} broken bottles)
+                    </h5>
+                    {wasteItems.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {wasteItems.map((w, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl border border-rose-200 bg-rose-50/50 flex items-center justify-between shadow-2xs"
+                          >
+                            <span className="font-semibold text-rose-900">{w.name}</span>
+                            <span className="font-bold font-mono text-rose-700">
+                              {w.unit === 'bottle' || w.unit === 'cap' || w.unit === 'pcs' || w.unit === 'unit'
+                                ? `${Math.round(w.quantityLost).toLocaleString()} ${w.unit}`
+                                : `${Number(w.quantityLost).toFixed(3).replace(/\.?0+$/, '')} ${w.unit}`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs">
+                        {wasteCount} bottle{wasteCount > 1 ? 's' : ''} damaged / lost during production run.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Scrap Summary & Audit Trail */}
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px] font-bold uppercase">Scrap / Waste</span>
+                  <span className="text-slate-400 block text-[10px] font-bold uppercase">Breakage</span>
                   <span className="font-black text-slate-800 text-sm mt-0.5 block">
-                    {getTotalWaste(viewingBatch)} units
+                    {getTotalWaste(viewingBatch)} bottles
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">

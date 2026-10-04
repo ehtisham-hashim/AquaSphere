@@ -22,8 +22,9 @@ export default function CreateBatchModal({
     [items]
   );
 
-  // Calculate total preform consumption in grams for preview
+  // Calculate total preform consumption in grams for preview (Wadaana only)
   const preformConsumption = useMemo(() => {
+    if (!isWadaana) return {};
     const consumption = {};
     
     finishedGoods.forEach(fg => {

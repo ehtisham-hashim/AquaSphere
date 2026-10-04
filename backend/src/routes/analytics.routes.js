@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboardAnalytics, streamDashboardAnalytics, getPurchasingSummary, getProductionDashboard, getDailySummary, getBottleCustody } from '../controllers/analytics.controller.js';
+import { getDashboardAnalytics, streamDashboardAnalytics, getPurchasingSummary, getProductionDashboard, getDailySummary, getBottleCustody, getProductionLoss } from '../controllers/analytics.controller.js';
 import { getMMAlerts } from '../controllers/alerts.controller.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
@@ -12,6 +12,7 @@ router.get('/purchasing-summary', getPurchasingSummary);
 router.get('/production-dashboard', getProductionDashboard);
 router.get('/daily-summary', getDailySummary);
 router.get('/bottle-custody', getBottleCustody);
+router.get('/production-loss', getProductionLoss);
 router.get('/mm-alerts', getMMAlerts);
 
 export default router;

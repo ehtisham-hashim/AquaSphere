@@ -332,16 +332,6 @@ export default function CompleteBatchModal({
             <div className="space-y-3">
               {producedProducts.map((prod) => {
                 const breakageVal = parseInt(breakages[prod.key] || 0, 10);
-                
-                let netText;
-                if (prod.isPacks && prod.perPack) {
-                  const netBottles = Math.max(0, prod.bottlesTotal - breakageVal);
-                  const netPacks = (netBottles / prod.perPack).toFixed(1);
-                  netText = `${netPacks} PETs (${netBottles} bottles)`;
-                } else {
-                  const net = Math.max(0, prod.qty - breakageVal);
-                  netText = `${net.toLocaleString()} ${prod.unit}`;
-                }
 
                 return (
                   <div
@@ -389,12 +379,20 @@ export default function CompleteBatchModal({
                     </div>
 
                     {/* Net Output Preview */}
-                    <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Net Good Output added to Stock:</span>
-                      <span className="font-bold font-mono text-emerald-700 flex items-center gap-1 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md text-[11px]">
-                        <CheckCircle2 size={12} className="text-emerald-600" />
-                        +{netText}
-                      </span>
+                    <div className="pt-2 border-t border-slate-200/80 flex flex-col gap-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Finished Stock Output:</span>
+                        <span className="font-bold font-mono text-emerald-700 flex items-center gap-1 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md text-[11px]">
+                          <CheckCircle2 size={12} className="text-emerald-600" />
+                          +{prod.isPacks ? `${prod.qty} PETs (${prod.bottlesTotal} bottles)` : `${Math.max(0, prod.qty - breakageVal)} ${prod.unit}`}
+                        </span>
+                      </div>
+                      {breakageVal > 0 && prod.isPacks && (
+                        <div className="text-[11px] text-rose-600 font-medium flex items-center justify-between bg-rose-50/50 px-2 py-0.5 rounded border border-rose-100">
+                          <span>Raw Material Scrap:</span>
+                          <span className="font-bold font-mono">-{breakageVal} bottles & caps deducted</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

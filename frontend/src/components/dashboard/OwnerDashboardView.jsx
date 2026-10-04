@@ -20,6 +20,7 @@ import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import UnprocessedOrdersModal from './UnprocessedOrdersModal';
 import BottleCustodyWidget from './BottleCustodyWidget';
+import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
@@ -451,7 +452,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       {/* 4. Low Stock Raw Material Warning */}
       <LowStockAlertGrid count={data?.lowStockMaterialsCount} list={data?.lowStockMaterialsList} />
 
-      {/* 5. Purchasing & Vendor Summary */}
+      {/* 5. Production Scrap & Material Loss */}
+      <ProductionScrapLossWidget timeframe={timeframe} />
+
+      {/* 6. Purchasing & Vendor Summary */}
       <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
 
       {/* 6. Transport & Logistics Summary */}

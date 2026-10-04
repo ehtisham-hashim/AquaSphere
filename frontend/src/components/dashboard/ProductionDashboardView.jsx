@@ -15,6 +15,7 @@ import ProductionChart from './production/ProductionChart';
 import ProductionRecentRuns from './production/ProductionRecentRuns';
 import FinishedGoodsBreakdown from './production/FinishedGoodsBreakdown';
 import RawMaterialHealthPanel from './production/RawMaterialHealthPanel';
+import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
 
 export default function ProductionDashboardView() {
   const { tenant, isWadaana } = useTenant();
@@ -186,6 +187,7 @@ export default function ProductionDashboardView() {
 
         {/* Right Column (4 cols) */}
         <div className="lg:col-span-4 space-y-5">
+          <ProductionScrapLossWidget showDropdown={true} />
           <RawMaterialHealthPanel
             sortedRawMaterials={sortedRawMaterials}
             recentPurchases={recentPurchases}
