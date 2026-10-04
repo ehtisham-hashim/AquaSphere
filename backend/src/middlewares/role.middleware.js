@@ -6,10 +6,10 @@ export const requireRoles = (...roles) => {
       throw new ApiError(401, 'Unauthorized request');
     }
 
-    if (!roles.includes(req.user.role)) {
-      throw new ApiError(403, 'Forbidden: Insufficient privileges');
+    if (req.user.role === 'OWNER' || roles.includes(req.user.role)) {
+      return next();
     }
 
-    next();
+    throw new ApiError(403, 'Forbidden: Insufficient privileges');
   };
 };
