@@ -33,7 +33,7 @@ export const PAYMENT_STATUSES = {
   PARTIAL: 'PARTIAL'
 };
 
-export const getOrderPrice = (item, customer) => {
+export const getOrderPrice = (item, _customer) => {
   if (!item) return 0;
   if (typeof item.price === 'number' || !isNaN(parseFloat(item.price))) return parseFloat(item.price);
   if (typeof item.defaultPrice === 'number') return item.defaultPrice;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Package, Check, Plus, Loader2, DollarSign, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
+import { X, Package, Check, Plus, Loader2, ToggleLeft, ToggleRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 
