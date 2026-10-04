@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Wallet, Receipt, ShoppingCart, TrendingUp, Clock, Lock } from 'lucide-react';
+import { CreditCard, Wallet, Receipt, ShoppingCart, Clock, Lock } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
@@ -65,90 +65,120 @@ export default function AccountantDashboardView({ data }) {
         )}
       </div>
 
-      {/* 1. Financial & Cash Overview */}
+      {/* 1. Financial & Cash Flow Cards */}
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={16} className="text-slate-500" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Financial Summary</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          <ModernKpiCard icon={CreditCard} title="Cash Collected" value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`} subtitle="Cash received today" variant="emerald" />
-          <ModernKpiCard icon={Wallet} title="Today's Sales" value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`} subtitle="Total sales revenue" variant="sky" />
-          <ModernKpiCard icon={CreditCard} title="Credit Sales" value={`Rs. ${Number(data?.credit || 0).toLocaleString()}`} subtitle="Billed on credit today" variant="amber" />
-          <ModernKpiCard icon={CreditCard} title="Customer Receivables" value={`Rs. ${totalReceivables.toLocaleString()}`} subtitle="All-time unpaid credit" variant="amber" />
-          <ModernKpiCard icon={Receipt} title="Expenses Today" value={`Rs. ${Number(data?.expenses || 0).toLocaleString()}`} subtitle="Operating cost logged" variant="rose" />
-          <ModernKpiCard icon={Wallet} title="Net Cash" value={`Rs. ${netCash.toLocaleString()}`} subtitle="Cash - Expenses" variant={netCash >= 0 ? "emerald" : "rose"} />
-        </div>
-      </section>
-
-
-
-      {/* 3. Vendor Payables Summary */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Receipt size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Vendor Payables & Accounts Ledger</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <ModernKpiCard
+            icon={CreditCard}
+            title="Cash Collected"
+            value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`}
+            subtitle="Cash received today"
+            variant="emerald"
+          />
+          <ModernKpiCard
+            icon={Wallet}
+            title="Today's Sales"
+            value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`}
+            subtitle={`Credit: Rs. ${Number(data?.credit || 0).toLocaleString()}`}
+            variant="sky"
+          />
           <ModernKpiCard
             icon={Receipt}
-            title="Pending Vendor Payables"
-            value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
-            subtitle="Total outstanding debt owed to suppliers"
+            title="Expenses Today"
+            value={`Rs. ${Number(data?.expenses || 0).toLocaleString()}`}
+            subtitle="Operating cost logged"
             variant="rose"
           />
           <ModernKpiCard
-            icon={ShoppingCart}
-            title="Monthly Material Purchases"
-            value={`Rs. ${Number(data?.monthlyPurchases || 0).toLocaleString()}`}
-            subtitle="Raw material spend this month"
-            variant="neutral"
+            icon={Wallet}
+            title="Net Cash"
+            value={`Rs. ${netCash.toLocaleString()}`}
+            subtitle="Cash - Expenses"
+            variant={netCash >= 0 ? 'emerald' : 'rose'}
           />
         </div>
       </section>
 
-      {/* 3. Today's Logged Expenses Detail Table */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Today&apos;s Operating Expenses Breakdown</h2>
-          <span className="text-xs text-slate-400 font-semibold">{expenses.length} records today</span>
+      {/* 2. Main Ledger & Accounts Workspace (2-Column Split for Zero-Scroll Efficiency) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+        {/* Left Column (7 cols): Today's Operating Expenses Detail Table */}
+        <div className="lg:col-span-7 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+              <Receipt size={15} className="text-slate-500" />
+              Today&apos;s Expense Log
+            </h2>
+            <span className="text-xs text-slate-400 font-semibold">{expenses.length} records today</span>
+          </div>
+
+          <div className="table-container max-h-[380px] overflow-y-auto">
+            {loadingExpenses ? (
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">Loading today&apos;s ledger...</div>
+            ) : expenses.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">No operating expenses recorded for today.</div>
+            ) : (
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10">
+                  <tr>
+                    <th className="table-th">Category</th>
+                    <th className="table-th">Note</th>
+                    <th className="table-th">Method</th>
+                    <th className="table-th">By</th>
+                    <th className="table-th text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="table-td font-semibold text-slate-800">
+                        <span className="badge-neutral">{item.category}</span>
+                      </td>
+                      <td className="table-td text-slate-600 max-w-[180px] truncate">{item.description || '—'}</td>
+                      <td className="table-td text-slate-600 uppercase font-mono text-[10px]">{item.paymentMethod || 'CASH'}</td>
+                      <td className="table-td text-slate-500">{item.recordedBy || 'Admin'}</td>
+                      <td className="table-td text-right font-bold font-mono text-slate-900">
+                        Rs. {Number(item.amount || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
-        <div className="table-container">
-          {loadingExpenses ? (
-            <div className="p-8 text-center text-xs text-slate-400 font-medium">Loading today&apos;s ledger...</div>
-          ) : expenses.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-400 font-medium">No operating expenses recorded for today.</div>
-          ) : (
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead>
-                <tr>
-                  <th className="table-th">Expense Category</th>
-                  <th className="table-th">Description / Note</th>
-                  <th className="table-th">Payment Method</th>
-                  <th className="table-th">Logged By</th>
-                  <th className="table-th text-right">Amount (PKR)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map(item => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="table-td font-semibold text-slate-800">
-                      <span className="badge-neutral">{item.category}</span>
-                    </td>
-                    <td className="table-td text-slate-600 max-w-xs truncate">{item.description || '—'}</td>
-                    <td className="table-td text-slate-600 uppercase font-mono text-[10px]">{item.paymentMethod || 'CASH'}</td>
-                    <td className="table-td text-slate-500">{item.recordedBy || 'Admin'}</td>
-                    <td className="table-td text-right font-bold font-mono text-slate-900">
-                      Rs. {Number(item.amount || 0).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        {/* Right Column (5 cols): Accounts Ledger & Outstanding Balances */}
+        <div className="lg:col-span-5 space-y-2.5">
+          <div className="flex items-center gap-1.5">
+            <CreditCard size={15} className="text-slate-500" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Accounts & Payables Ledger</h2>
+          </div>
+
+          <div className="space-y-3">
+            <ModernKpiCard
+              icon={CreditCard}
+              title="Customer Receivables"
+              value={`Rs. ${totalReceivables.toLocaleString()}`}
+              subtitle="All-time unpaid customer credit"
+              variant="amber"
+            />
+            <ModernKpiCard
+              icon={Receipt}
+              title="Pending Vendor Payables"
+              value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
+              subtitle="Outstanding supplier debt"
+              variant="rose"
+            />
+            <ModernKpiCard
+              icon={ShoppingCart}
+              title="Monthly Material Purchases"
+              value={`Rs. ${Number(data?.monthlyPurchases || 0).toLocaleString()}`}
+              subtitle="Raw material spend this month"
+              variant="neutral"
+            />
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

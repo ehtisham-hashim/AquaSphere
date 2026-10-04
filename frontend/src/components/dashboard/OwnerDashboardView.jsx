@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Wallet, TrendingUp, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, ArrowRight, Clock } from 'lucide-react';
+import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, Clock } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -211,35 +211,15 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           </p>
         </div>
 
-        {/* Primary High-Level Metric Badge */}
-        <div className="bg-slate-50/80 border border-slate-200/80 px-3.5 py-2.5 rounded-xl flex items-center gap-3 shrink-0">
-          <div className={`p-2 rounded-lg shrink-0 ${netCash >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-            <Wallet size={18} />
-          </div>
-          <div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{getPeriodLabel()} Net Cash</span>
-            <div className={`text-base sm:text-lg font-bold font-mono tracking-tight ${netCash >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              Rs. {netCash.toLocaleString()}
-            </div>
-          </div>
+        <div className="flex items-center gap-2 self-start md:self-center">
+          <span className="text-xs text-slate-400">Timeframe:</span>
+          <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
         </div>
       </div>
 
-      {/* 1. Executive Financial Overview Grid */}
+      {/* 1. Executive Financial Overview Grid (Option A: 4 Clean Flow Cards) */}
       <section className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-slate-500" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600">Financial Snapshot</h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Timeframe:</span>
-            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           <ModernKpiCard 
             icon={Wallet} 
             title={`${getPeriodLabel()} Sales`} 
@@ -254,17 +234,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           />
           <ModernKpiCard 
             icon={CreditCard} 
-            title="Cash Collected" 
+            title="Cash Inflow" 
             value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`} 
-            subtitle={`Received ${getPeriodText()}`} 
+            subtitle={`Receivables: Rs. ${totalReceivables.toLocaleString()}`} 
             variant="emerald"
-          />
-          <ModernKpiCard 
-            icon={CreditCard} 
-            title="Outstanding Receivables" 
-            value={`Rs. ${totalReceivables.toLocaleString()}`} 
-            subtitle={`${getPeriodLabel()} Credit: Rs. ${Number(activeData?.credit || 0).toLocaleString()}`} 
-            variant="amber"
           />
           <ModernKpiCard 
             icon={Receipt} 
@@ -277,15 +250,8 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             icon={Wallet} 
             title="Net Cash" 
             value={`Rs. ${netCash.toLocaleString()}`} 
-            subtitle="Cash - Expenses" 
+            subtitle="Cash Inflow - Expenses" 
             variant={netCash >= 0 ? "emerald" : "rose"}
-          />
-          <ModernKpiCard 
-            icon={ShoppingCart} 
-            title={`${getPeriodLabel()} Purchases`} 
-            value={`Rs. ${Number(activeData?.purchases || 0).toLocaleString()}`} 
-            subtitle={`${activeData?.purchasesCount || 0} purchase logs`} 
-            variant="neutral"
           />
         </div>
 
@@ -425,113 +391,109 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
 
       </div>
 
-      {/* 3. Purchasing & Vendor Payables Cards */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <ShoppingCart size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Procurement & Payables</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <ModernKpiCard
-            icon={ShoppingCart}
-            title="Monthly Purchases Total"
-            value={`Rs. ${Number(data?.monthlyPurchases || data?.monthly?.purchases || 0).toLocaleString()}`}
-            subtitle="Raw material spend this month"
-            variant="neutral"
-          />
-          <ModernKpiCard
-            icon={Receipt}
-            title="Pending Vendor Payables"
-            value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
-            subtitle="Outstanding supplier debt"
-            variant="rose"
-          />
-        </div>
-      </section>
-
-      {/* 4. Low Stock Raw Material Warning */}
-      <LowStockAlertGrid count={data?.lowStockMaterialsCount} list={data?.lowStockMaterialsList} />
-
-      {/* 5. Production Scrap & Material Loss */}
-      <ProductionScrapLossWidget timeframe={timeframe} />
-
-      {/* 6. Purchasing & Vendor Summary */}
-      <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
-
-      {/* 6. Transport & Logistics Summary */}
-      {transportLoaded && (
-        <section className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Fuel size={18} className="text-brand" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Transport & Fleet Status</h2>
-            </div>
-            <Link
-              to="/transport-expenses"
-              className="text-xs font-semibold text-brand flex items-center gap-1 hover:underline"
-            >
-              View Fleet <ArrowRight size={13} />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <ModernKpiCard
-              icon={Car}
-              title="Active Fleet Size"
-              value={`${transportData.vehicleCount} Vehicles`}
-              subtitle="Operational delivery units"
-              variant="brand"
-            />
-            <ModernKpiCard
-              icon={Fuel}
-              title="Recent Transport Spend"
-              value={`Rs. ${Math.round(transportData.monthlySpend).toLocaleString()}`}
-              subtitle="Fuel & maintenance this month"
-              variant="brand"
-            />
-          </div>
-
-          {/* Transport Expenses Table */}
-          {transportData.expenses.length > 0 && (
-            <div className="table-container">
-              <div className="card-header bg-slate-50/70">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Recent Vehicle Expenses</span>
+      {/* 3. Operational Cockpit: 2-Column Split for high-density overview with minimal scrolling */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 pt-1">
+        {/* Left Column (7 cols): Purchasing, Payables & Logistics */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Procurement Summary & Payables */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={16} className="text-slate-500" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Procurement & Payables</h3>
               </div>
-              <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead>
-                  <tr>
-                    <th className="table-th">Date</th>
-                    <th className="table-th">Vehicle</th>
-                    <th className="table-th">Type</th>
-                    <th className="table-th">Amount</th>
-                    <th className="table-th">Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transportData.expenses.slice(0, 5).map((ex) => (
-                    <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="table-td text-slate-500">{new Date(ex.date || ex.createdAt).toLocaleDateString()}</td>
-                      <td className="table-td font-semibold text-slate-800">
-                        {ex.vehicle?.name || '—'} <span className="text-slate-400 font-mono font-normal">({ex.vehicle?.plateNumber})</span>
-                      </td>
-                      <td className="table-td">
-                        <span className="badge-neutral">{ex.type}</span>
-                      </td>
-                      <td className="table-td font-bold font-mono text-slate-900">
-                        Rs. {Math.round(Number(ex.amount)).toLocaleString()}
-                      </td>
-                      <td className="table-td text-slate-500 max-w-[200px] truncate">{ex.note || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-medium">Pending Payables:</span>
+                <span className="font-mono font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                  Rs. {Number(data?.pendingVendorPayables || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
+          </div>
+
+          {/* Transport & Fleet Status */}
+          {transportLoaded && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Fuel size={16} className="text-brand" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Transport & Fleet Status</h3>
+                </div>
+                <Link
+                  to="/transport-expenses"
+                  className="text-xs font-semibold text-brand flex items-center gap-1 hover:underline"
+                >
+                  View Fleet &rarr;
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ModernKpiCard
+                  icon={Car}
+                  title="Active Fleet Size"
+                  value={`${transportData.vehicleCount} Vehicles`}
+                  subtitle="Operational delivery units"
+                  variant="brand"
+                />
+                <ModernKpiCard
+                  icon={Fuel}
+                  title="Recent Transport Spend"
+                  value={`Rs. ${Math.round(transportData.monthlySpend).toLocaleString()}`}
+                  subtitle="Fuel & maintenance this month"
+                  variant="brand"
+                />
+              </div>
+
+              {/* Transport Expenses Table */}
+              {transportData.expenses.length > 0 && (
+                <div className="table-container max-h-56 overflow-y-auto">
+                  <table className="w-full text-left text-xs whitespace-nowrap">
+                    <thead>
+                      <tr>
+                        <th className="table-th">Date</th>
+                        <th className="table-th">Vehicle</th>
+                        <th className="table-th">Type</th>
+                        <th className="table-th">Amount</th>
+                        <th className="table-th">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transportData.expenses.slice(0, 5).map((ex) => (
+                        <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="table-td text-slate-500">{new Date(ex.date || ex.createdAt).toLocaleDateString()}</td>
+                          <td className="table-td font-semibold text-slate-800">
+                            {ex.vehicle?.name || '—'} <span className="text-slate-400 font-mono font-normal">({ex.vehicle?.plateNumber})</span>
+                          </td>
+                          <td className="table-td">
+                            <span className="badge-neutral">{ex.type}</span>
+                          </td>
+                          <td className="table-td font-bold font-mono text-slate-900">
+                            Rs. {Math.round(Number(ex.amount)).toLocaleString()}
+                          </td>
+                          <td className="table-td text-slate-500 max-w-[160px] truncate">{ex.note || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-        </section>
-      )}
+        </div>
 
-      {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) */}
-      {!isWadaana && <BottleCustodyWidget />}
+        {/* Right Column (5 cols): Plant Production Scrap & Inventory Health */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Low Stock Raw Material Warning (Alert) */}
+          <LowStockAlertGrid count={data?.lowStockMaterialsCount} list={data?.lowStockMaterialsList} />
+
+          {/* Production Scrap & Material Loss */}
+          <ProductionScrapLossWidget timeframe={timeframe} />
+
+          {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) */}
+          {!isWadaana && <BottleCustodyWidget />}
+        </div>
+      </div>
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal

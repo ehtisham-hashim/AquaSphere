@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, AlertTriangle, Package, CheckCircle2, Factory } from 'lucide-react';
+import { X, Package, CheckCircle2, Factory } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CompleteBatchModal({
@@ -331,8 +331,6 @@ export default function CompleteBatchModal({
           ) : (
             <div className="space-y-3">
               {producedProducts.map((prod) => {
-                const breakageVal = parseInt(breakages[prod.key] || 0, 10);
-
                 return (
                   <div
                     key={prod.key}
@@ -377,36 +375,11 @@ export default function CompleteBatchModal({
                         </span>
                       </div>
                     </div>
-
-                    {/* Net Output Preview */}
-                    <div className="pt-2 border-t border-slate-200/80 flex flex-col gap-1 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500 font-medium">Finished Stock Output:</span>
-                        <span className="font-bold font-mono text-emerald-700 flex items-center gap-1 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md text-[11px]">
-                          <CheckCircle2 size={12} className="text-emerald-600" />
-                          +{prod.isPacks ? `${prod.qty} PETs (${prod.bottlesTotal} bottles)` : `${Math.max(0, prod.qty - breakageVal)} ${prod.unit}`}
-                        </span>
-                      </div>
-                      {breakageVal > 0 && prod.isPacks && (
-                        <div className="text-[11px] text-rose-600 font-medium flex items-center justify-between bg-rose-50/50 px-2 py-0.5 rounded border border-rose-100">
-                          <span>Raw Material Scrap:</span>
-                          <span className="font-bold font-mono">-{breakageVal} bottles & caps deducted</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 );
               })}
             </div>
           )}
-
-          {/* Operational Formula Notification */}
-          <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900 text-xs flex items-start gap-2">
-            <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
-            <span>
-              <strong>Automatic Formula Deduction:</strong> Confirming this run will deduct the exact raw materials (caps, labels, bottles, shrink wrap, minerals) and update Factory Finished Goods inventory.
-            </span>
-          </div>
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">

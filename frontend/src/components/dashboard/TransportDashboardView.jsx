@@ -7,7 +7,6 @@ import {
   CheckCircle2, 
   RefreshCw, 
   ArrowRight, 
-  TrendingUp, 
   Receipt,
   Truck,
   RotateCcw,
@@ -202,46 +201,32 @@ export default function TransportDashboardView() {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        {/* Total Fleet */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+      {/* KPI Cards Grid (4 Clean Operational Metrics) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Fleet Readiness */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Fleet</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Car size={15} />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-2xl font-black text-slate-800 font-mono">{totalVehicles}</div>
-            <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <span className="text-emerald-600 font-bold">{activeVehicles.length} active</span>
-              <span>•</span>
-              <span className="text-slate-400">{totalVehicles - activeVehicles.length} off</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Operational Rate */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fleet Ready</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fleet Readiness</span>
             <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 size={15} />
             </div>
           </div>
           <div className="mt-2.5">
-            <div className="text-2xl font-black text-emerald-600 font-mono">{operationalRate}%</div>
-            <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              {activeVehicles.length} road-ready vehicles
+            <div className="text-2xl font-black text-slate-800 font-mono">
+              {activeVehicles.length} / {totalVehicles}
+            </div>
+            <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
+              <span className="text-emerald-600 font-bold">{operationalRate}% ready</span>
+              <span>•</span>
+              <span className="text-slate-400">{totalVehicles - activeVehicles.length} off-road</span>
             </div>
           </div>
         </div>
 
         {/* Pending Dispatches */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Orders</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Dispatches</span>
             <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <Clock size={15} />
             </div>
@@ -249,13 +234,13 @@ export default function TransportDashboardView() {
           <div className="mt-2.5">
             <div className="text-2xl font-black text-amber-600 font-mono">{pendingDeliveries.length}</div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              Awaiting transit delivery
+              Orders awaiting route delivery
             </div>
           </div>
         </div>
 
         {/* Today's Bottle Recoveries */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bottles Returned</span>
             <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
@@ -265,44 +250,28 @@ export default function TransportDashboardView() {
           <div className="mt-2.5">
             <div className="text-2xl font-black text-teal-600 font-mono">{todayBottlesRecovered}</div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              Recovered from routes today
+              Recovered from customer routes today
             </div>
           </div>
         </div>
 
-        {/* Today's Vehicle Expenses */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
+        {/* Transport & Fuel Spend */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Today Fuel/Repairs</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Transport Spend</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <Fuel size={15} />
             </div>
           </div>
           <div className="mt-2.5">
-            <div className="text-xl font-black text-slate-800 font-mono">
+            <div className="text-2xl font-black text-slate-800 font-mono">
               Rs. {Math.round(todayVehicleExpenses).toLocaleString()}
             </div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <Calendar size={11} className="text-slate-400" />
-              <span>Fleet logs today</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Month's Transport Spend */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:border-brand-primary/30 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Month Spend</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <TrendingUp size={15} />
-            </div>
-          </div>
-          <div className="mt-2.5">
-            <div className="text-xl font-black text-slate-800 font-mono">
-              Rs. {Math.round(monthVehicleExpenses).toLocaleString()}
-            </div>
-            <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              MTD fleet operations
+              <span>This Month:</span>
+              <strong className="text-slate-700 font-mono font-bold">
+                Rs. {Math.round(monthVehicleExpenses).toLocaleString()}
+              </strong>
             </div>
           </div>
         </div>

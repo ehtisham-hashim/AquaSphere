@@ -93,9 +93,9 @@ function getBatchProducts(b, isWadaana) {
           if (isPet) {
             const pets = Number(p.quantity) || 0;
             const totalBottles = p.totalBottles || (pets * packSize);
-            qtyLabel = `+${pets.toLocaleString()} PETs (${totalBottles.toLocaleString()} btl)`;
+            qtyLabel = `${pets.toLocaleString()} PETs (${totalBottles.toLocaleString()} btl)`;
           } else {
-            qtyLabel = `+${Number(p.quantity).toLocaleString()} ${p.unit || 'bottles'}`;
+            qtyLabel = `${Number(p.quantity).toLocaleString()} ${p.unit || 'bottles'}`;
           }
 
           return {
@@ -114,7 +114,7 @@ function getBatchProducts(b, isWadaana) {
     return [
       {
         name: b.outputItem?.name || 'Custom Product',
-        qty: `+${b.quantity?.toLocaleString()} ${b.outputItem?.unit || (isWadaana ? 'bottles' : 'units')}`,
+        qty: `${b.quantity?.toLocaleString()} ${b.outputItem?.unit || (isWadaana ? 'bottles' : 'units')}`,
         color: isWadaana ? 'sky' : 'emerald'
       }
     ];
@@ -122,18 +122,18 @@ function getBatchProducts(b, isWadaana) {
 
   if (isWadaana) {
     const list = [];
-    if (b.qtyPure05L > 0) list.push({ name: '0.5L Pure', qty: `+${b.qtyPure05L.toLocaleString()} pcs`, color: 'cyan' });
-    if (b.qtyPure15L > 0) list.push({ name: '1.5L Pure', qty: `+${b.qtyPure15L.toLocaleString()} pcs`, color: 'sky' });
-    if (b.qtyMix05L > 0) list.push({ name: '0.5L Mix', qty: `+${b.qtyMix05L.toLocaleString()} pcs`, color: 'amber' });
-    if (b.qtyMix15L > 0) list.push({ name: '1.5L Mix', qty: `+${b.qtyMix15L.toLocaleString()} pcs`, color: 'orange' });
+    if (b.qtyPure05L > 0) list.push({ name: '0.5L Pure', qty: `${b.qtyPure05L.toLocaleString()} pcs`, color: 'cyan' });
+    if (b.qtyPure15L > 0) list.push({ name: '1.5L Pure', qty: `${b.qtyPure15L.toLocaleString()} pcs`, color: 'sky' });
+    if (b.qtyMix05L > 0) list.push({ name: '0.5L Mix', qty: `${b.qtyMix05L.toLocaleString()} pcs`, color: 'amber' });
+    if (b.qtyMix15L > 0) list.push({ name: '1.5L Mix', qty: `${b.qtyMix15L.toLocaleString()} pcs`, color: 'orange' });
     return list;
   }
 
   // AquaSphere standard fallback
   const list = [];
-  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `+${b.packs05L.toLocaleString()} PETs (${(b.packs05L * 12).toLocaleString()} btl)`, color: 'emerald' });
-  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `+${b.packs15L.toLocaleString()} PETs (${(b.packs15L * 6).toLocaleString()} btl)`, color: 'purple' });
-  if (b.quantity > 0) list.push({ name: '19L Refill', qty: `+${b.quantity.toLocaleString()} bottles`, color: 'blue' });
+  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `${b.packs05L.toLocaleString()} PETs (${(b.packs05L * 12).toLocaleString()} btl)`, color: 'emerald' });
+  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `${b.packs15L.toLocaleString()} PETs (${(b.packs15L * 6).toLocaleString()} btl)`, color: 'purple' });
+  if (b.quantity > 0) list.push({ name: '19L Refill', qty: `${b.quantity.toLocaleString()} bottles`, color: 'blue' });
   return list;
 }
 

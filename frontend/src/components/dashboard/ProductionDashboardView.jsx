@@ -166,31 +166,39 @@ export default function ProductionDashboardView() {
         mineralMetrics={mineralMetrics}
       />
 
-      {/* Main Grid Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column (8 cols) */}
-        <div className="lg:col-span-8 space-y-5">
+      {/* 1. Upper Operations Workspace: Analytics & Plant Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+        {/* Left: Production Chart (8 cols) */}
+        <div className="lg:col-span-8">
           <ProductionChart
             chartData={chartData}
             selectedDays={selectedDays}
             setSelectedDays={setSelectedDays}
             isWadaana={isWadaana}
           />
-          <ProductionRecentRuns
-            recentBatches={recentBatches}
-            isWadaana={isWadaana}
-          />
-          <FinishedGoodsBreakdown
-            finishedGoods={finishedGoods}
-          />
         </div>
 
-        {/* Right Column (4 cols) */}
-        <div className="lg:col-span-4 space-y-5">
+        {/* Right: Scrap Loss & Raw Material Health (4 cols) */}
+        <div className="lg:col-span-4 space-y-4">
           <ProductionScrapLossWidget showDropdown={true} />
           <RawMaterialHealthPanel
             sortedRawMaterials={sortedRawMaterials}
             recentPurchases={recentPurchases}
+          />
+        </div>
+      </div>
+
+      {/* 2. Lower Operations Workspace: Recent Runs & Finished Goods side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+        <div className="lg:col-span-7">
+          <ProductionRecentRuns
+            recentBatches={recentBatches}
+            isWadaana={isWadaana}
+          />
+        </div>
+        <div className="lg:col-span-5">
+          <FinishedGoodsBreakdown
+            finishedGoods={finishedGoods}
           />
         </div>
       </div>

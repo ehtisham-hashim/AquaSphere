@@ -129,7 +129,7 @@ export default function ProductionScrapLossWidget({
             <span className="text-[11px] text-slate-400">No raw material loss recorded for this period.</span>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
             {materials.map((mat, idx) => {
               const isCountable = mat.unit === 'bottle' || mat.unit === 'cap' || mat.unit === 'pcs' || mat.unit === 'unit';
               const displayVal = isCountable 
@@ -139,15 +139,20 @@ export default function ProductionScrapLossWidget({
               return (
                 <div
                   key={idx}
-                  className="p-2.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 flex items-center justify-between transition shadow-2xs"
+                  className="p-3 rounded-xl border border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-xs flex flex-col justify-between gap-2 transition"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                    <span className="font-semibold text-xs text-slate-800">{mat.name}</span>
+                    <span className="font-semibold text-xs text-slate-800 truncate" title={mat.name}>
+                      {mat.name}
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-xs text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">
-                    -{displayVal}
-                  </span>
+                  <div className="flex items-baseline justify-between pt-1.5 border-t border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase">Loss</span>
+                    <span className="font-mono font-bold text-xs text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">
+                      -{displayVal}
+                    </span>
+                  </div>
                 </div>
               );
             })}
