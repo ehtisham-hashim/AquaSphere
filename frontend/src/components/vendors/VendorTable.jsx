@@ -1,4 +1,4 @@
-import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, CreditCard, Eye, Loader2 } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, Eye, Loader2 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
@@ -7,7 +7,6 @@ export default function VendorTable({
   loading,
   canAddEdit,
   canPayOrArchive,
-  onPay,
   onView,
   onEdit,
   onToggleArchive
@@ -103,21 +102,6 @@ export default function VendorTable({
 
                 <td className="table-td text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {canPayOrArchive && !v.archivedAt && (
-                      <button
-                        onClick={() => onPay(v)}
-                        disabled={Number(v.payableBalance || 0) <= 0}
-                        className={`px-2 py-1 text-xs font-semibold rounded-lg transition inline-flex items-center gap-1 ${
-                          Number(v.payableBalance || 0) <= 0
-                            ? 'text-slate-300 bg-slate-50 cursor-not-allowed'
-                            : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
-                        }`}
-                        title={Number(v.payableBalance || 0) <= 0 ? 'No outstanding balance' : 'Record Payment'}
-                      >
-                        <CreditCard size={13} /> Pay
-                      </button>
-                    )}
-
                     <button
                       onClick={() => onView(v)}
                       className="btn-secondary py-1 px-2 text-xs inline-flex items-center gap-1"

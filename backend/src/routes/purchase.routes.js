@@ -11,7 +11,8 @@ import {
   uploadReceipt,
   approvePurchase,
   deletePurchase,
-  updatePurchaseStatus
+  updatePurchaseStatus,
+  recordPurchasePayment
 } from '../controllers/purchase.controller.js';
 
 const router = Router();
@@ -25,6 +26,7 @@ router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'AD
 // POST routes: Staff & Managers can record purchases and upload receipts
 router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, createPurchase);
 router.post('/upload-receipt', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), upload.single('receipt'), uploadReceipt);
+router.post('/:id/payment', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, recordPurchasePayment);
 
 // PUT route: Strictly OWNER can edit purchase records
 router.put('/:id', requireRoles('OWNER'), checkDailyCloseLock, updatePurchase);

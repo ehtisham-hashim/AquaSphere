@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CreditCard, Wallet, Receipt, Clock, Lock, ShoppingCart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CreditCard, Wallet, Receipt, Clock, Lock, ShoppingCart, Users } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
 
 export default function AccountantDashboardView({ data }) {
+  const navigate = useNavigate();
   const { tenant, isWadaana } = useTenant();
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
@@ -195,25 +197,28 @@ export default function AccountantDashboardView({ data }) {
 
           <div className="space-y-3">
             <ModernKpiCard
-              icon={CreditCard}
+              icon={Users}
               title="Customer Receivables"
               value={`Rs. ${totalReceivables.toLocaleString()}`}
-              subtitle="All-time unpaid customer credit"
+              subtitle="All-time unpaid customer credit (Click to manage)"
               variant="amber"
-            />
-            <ModernKpiCard
-              icon={Receipt}
-              title="Pending Vendor Payables"
-              value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
-              subtitle="Outstanding supplier debt"
-              variant="rose"
+              onClick={() => navigate('/orders')}
             />
             <ModernKpiCard
               icon={ShoppingCart}
+              title="Pending Vendor Payables"
+              value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
+              subtitle="Outstanding supplier purchases (Click to settle)"
+              variant="rose"
+              onClick={() => navigate('/purchases')}
+            />
+            <ModernKpiCard
+              icon={Receipt}
               title="Monthly Material Purchases"
               value={`Rs. ${Number(data?.monthlyPurchases || 0).toLocaleString()}`}
               subtitle="Raw material spend this month"
               variant="neutral"
+              onClick={() => navigate('/purchases')}
             />
           </div>
         </div>

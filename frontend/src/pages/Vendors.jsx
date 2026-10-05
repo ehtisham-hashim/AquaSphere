@@ -7,7 +7,6 @@ import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
 import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
-import VendorPaymentModal from '../components/vendors/VendorPaymentModal';
 import VendorDetailModal from '../components/vendors/VendorDetailModal';
 import { PageHeader } from '../components/ui';
 
@@ -29,18 +28,6 @@ export default function Vendors() {
   const canPayOrArchive = isOwnerOrAccountant || isAdmin;
 
   const [selectedVendorDetail, setSelectedVendorDetail] = useState(null);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedVendorForPayment, setSelectedVendorForPayment] = useState(null);
-  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-
-  const [paymentData, setPaymentData] = useState({
-    amount: '',
-    paymentMethod: 'CASH',
-    referenceNo: '',
-    proofUrl: '',
-    remarks: '',
-    paymentDate: new Date().toISOString().split('T')[0]
-  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -95,23 +82,6 @@ export default function Vendors() {
       notes: v.notes || ''
     });
     setIsModalOpen(true);
-  };
-
-  const handleOpenPayment = (v) => {
-    if (Number(v?.payableBalance || 0) <= 0) {
-      toast.error(`Vendor ${v.name || 'selected'} has no outstanding payable balance`);
-      return;
-    }
-    setSelectedVendorForPayment(v);
-    setPaymentData({
-      amount: '',
-      paymentMethod: 'CASH',
-      referenceNo: '',
-      proofUrl: '',
-      remarks: '',
-      paymentDate: new Date().toISOString().split('T')[0]
-    });
-    setIsPaymentModalOpen(true);
   };
 
   const handleViewDetails = async (v) => {
@@ -176,56 +146,6 @@ export default function Vendors() {
       toast.error(err.message || 'Failed to save vendor');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
-      toast.error('Please enter a valid payment amount greater than zero');
-      return;
-    }
-
-    const maxPayable = Number(selectedVendorForPayment?.payableBalance || 0);
-    if (maxPayable > 0 && parseFloat(paymentData.amount) > maxPayable + 0.01) {
-      toast.error(`Payment amount cannot exceed outstanding balance of Rs. ${maxPayable.toLocaleString()}`);
-      return;
-    }
-
-    const requiresProof = ['BANK_TRANSFER', 'CHEQUE', 'ONLINE_TRANSFER'].includes(paymentData.paymentMethod);
-    if (requiresProof && !paymentData.proofUrl) {
-      toast.error(`Payment proof is required for ${paymentData.paymentMethod.replace('_', ' ').toLowerCase()}`);
-      return;
-    }
-
-    setPaymentSubmitting(true);
-    try {
-      const res = await fetch(`${API_URL}/vendors/${selectedVendorForPayment.id}/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
-        body: JSON.stringify(paymentData),
-        credentials: 'include'
-      });
-      let json = {};
-      try {
-        json = await res.json();
-      } catch {
-        // Fallback for non-JSON response
-      }
-      if (!res.ok || !json.success) {
-        toast.error(json.message || 'Failed to record payment');
-        return;
-      }
-      toast.success('Vendor payment recorded successfully');
-      setIsPaymentModalOpen(false);
-      fetchVendors();
-      if (selectedVendorDetail && selectedVendorDetail.id === selectedVendorForPayment.id) {
-        handleViewDetails(selectedVendorForPayment);
-      }
-    } catch (err) {
-      toast.error('Error submitting payment');
-    } finally {
-      setPaymentSubmitting(false);
     }
   };
 
@@ -312,7 +232,6 @@ export default function Vendors() {
         loading={loading}
         canAddEdit={canAddEdit}
         canPayOrArchive={canPayOrArchive}
-        onPay={handleOpenPayment}
         onView={handleViewDetails}
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
@@ -329,24 +248,11 @@ export default function Vendors() {
         submitting={submitting}
       />
 
-      {/* Record Vendor Payment Modal */}
-      <VendorPaymentModal
-        isOpen={isPaymentModalOpen && Boolean(selectedVendorForPayment) && canPayOrArchive}
-        onClose={() => setIsPaymentModalOpen(false)}
-        onSubmit={handlePaymentSubmit}
-        selectedVendor={selectedVendorForPayment}
-        paymentData={paymentData}
-        setPaymentData={setPaymentData}
-        paymentSubmitting={paymentSubmitting}
-        tenant={tenant}
-      />
-
       {/* View Vendor Profile Modal */}
       <VendorDetailModal
         selectedVendorDetail={selectedVendorDetail}
         onClose={() => setSelectedVendorDetail(null)}
         canPayOrArchive={canPayOrArchive}
-        onOpenPayment={handleOpenPayment}
       />
     </div>
   );

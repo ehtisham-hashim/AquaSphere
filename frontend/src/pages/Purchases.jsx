@@ -10,7 +10,8 @@ import {
   PurchasesFilters,
   PurchasesTable,
   ViewPurchaseModal,
-  AddEditPurchaseModal
+  AddEditPurchaseModal,
+  RecordPurchasePaymentModal
 } from '../components/purchases';
 
 export default function Purchases() {
@@ -29,6 +30,7 @@ export default function Purchases() {
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [purchaseToDelete, setPurchaseToDelete] = useState(null);
+  const [purchaseForPayment, setPurchaseForPayment] = useState(null);
 
   // Loading indicators
   const [deletingId, setDeletingId] = useState(null);
@@ -197,6 +199,7 @@ export default function Purchases() {
         onEdit={handleOpenEditModal}
         onVerify={handleApprovePurchase}
         onDelete={setPurchaseToDelete}
+        onRecordPayment={setPurchaseForPayment}
         verifyingId={verifyingId}
         deletingId={deletingId}
         isOwner={isOwner}
@@ -221,7 +224,22 @@ export default function Purchases() {
       <ViewPurchaseModal
         purchase={selectedPurchase}
         onClose={() => setSelectedPurchase(null)}
+        onRecordPayment={setPurchaseForPayment}
       />
+
+      {/* Record Purchase Payment Modal */}
+      {purchaseForPayment && (
+        <RecordPurchasePaymentModal
+          purchase={purchaseForPayment}
+          onClose={() => setPurchaseForPayment(null)}
+          onSuccess={() => {
+            fetchPurchases();
+            if (selectedPurchase?.id === purchaseForPayment?.id) {
+              setSelectedPurchase(null);
+            }
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Modal (Owner Only) */}
       <DeleteConfirmationModal

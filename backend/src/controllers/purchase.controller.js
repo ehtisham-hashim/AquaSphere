@@ -59,6 +59,10 @@ export const getPurchases = asyncHandler(async (req, res) => {
           id: true, itemId: true, quantity: true, unitPrice: true, total: true,
           item: { select: { id: true, name: true, unit: true } }
         }
+      },
+      ledgerEntries: {
+        where: { type: 'PAYMENT' },
+        select: { id: true, amount: true, createdAt: true, remarks: true }
       }
     },
     orderBy: [
@@ -599,4 +603,111 @@ export const updatePurchaseStatus = asyncHandler(async (req, res) => {
 
   broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: id });
   return sendSuccess(res, updated);
+});
+
+/** Records a payment against an outstanding purchase order */
+export const recordPurchasePayment = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+  const { amount, paymentMethod = 'CASH', referenceNo, proofUrl, remarks, paymentDate } = req.body;
+
+  const paymentAmount = parseFloat(amount);
+  if (isNaN(paymentAmount) || paymentAmount <= 0) {
+    throw new ApiError(400, 'Payment amount must be greater than zero');
+  }
+
+  const purchase = await prisma[`${prefix}Purchase`].findUnique({
+    where: { id },
+    include: {
+      vendor: { select: { id: true, name: true, phone: true } },
+      ledgerEntries: {
+        where: { type: 'PAYMENT' },
+        select: { id: true, amount: true }
+      }
+    }
+  });
+
+  if (!purchase) throw new ApiError(404, 'Purchase not found');
+
+  const grandTotal = Number(purchase.grandTotal || 0);
+  const alreadyPaid = (purchase.ledgerEntries || []).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const outstanding = Math.max(0, grandTotal - alreadyPaid);
+
+  if (outstanding <= 0 && purchase.paymentStatus === 'PAID') {
+    throw new ApiError(400, 'This purchase is already fully paid');
+  }
+
+  if (paymentAmount > outstanding + 0.01) {
+    throw new ApiError(400, `Payment amount (Rs. ${paymentAmount.toLocaleString()}) cannot exceed outstanding balance of Rs. ${outstanding.toLocaleString()}`);
+  }
+
+  const targetDate = paymentDate ? new Date(paymentDate) : new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Create VendorPayment
+    const payment = await tx[`${prefix}VendorPayment`].create({
+      data: {
+        vendorId: purchase.vendorId,
+        amount: paymentAmount,
+        paymentMethod: paymentMethod || 'CASH',
+        referenceNo: referenceNo || purchase.invoiceNo || null,
+        proofUrl: proofUrl || null,
+        remarks: remarks || `Payment for Purchase ${purchase.invoiceNo || purchase.id.slice(0, 8)}`,
+        createdAt: targetDate
+      }
+    });
+
+    // 2. Create VendorLedgerEntry linked to purchaseId
+    const ledgerRemarks = `Payment [${paymentMethod || 'CASH'}] for Purchase ${purchase.invoiceNo || purchase.id.slice(0, 8)}${referenceNo ? ` Ref: ${referenceNo}` : ''}${remarks ? ` - ${remarks}` : ''}`.trim();
+    const ledgerEntry = await tx[`${prefix}VendorLedgerEntry`].create({
+      data: {
+        vendorId: purchase.vendorId,
+        purchaseId: purchase.id,
+        type: 'PAYMENT',
+        amount: paymentAmount,
+        remarks: ledgerRemarks,
+        createdAt: targetDate
+      }
+    });
+
+    // 3. Recalculate payment status
+    const newTotalPaid = alreadyPaid + paymentAmount;
+    const newPaymentStatus = newTotalPaid >= grandTotal - 0.01 ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'CREDIT');
+
+    const updatedPurchase = await tx[`${prefix}Purchase`].update({
+      where: { id: purchase.id },
+      data: { paymentStatus: newPaymentStatus },
+      include: {
+        vendor: { select: { id: true, name: true, phone: true } },
+        items: { include: { item: { select: { id: true, name: true, unit: true } } } },
+        ledgerEntries: true
+      }
+    });
+
+    // 4. Create Audit Log
+    await createAuditLog(prefix, {
+      action: 'PURCHASE_PAYMENT_SETTLED',
+      entityType: 'PURCHASE',
+      entityId: purchase.id,
+      performedBy: req.user?.id || 'SYSTEM',
+      details: JSON.stringify({
+        amount: paymentAmount,
+        newPaymentStatus,
+        newTotalPaid,
+        invoiceNo: purchase.invoiceNo,
+        paymentMethod,
+        vendorName: purchase.vendor?.name
+      })
+    });
+
+    return { payment, ledgerEntry, updatedPurchase };
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { purchaseId: purchase.id });
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId: purchase.vendorId });
+  broadcastDashboardUpdate(prefix);
+
+  return sendSuccess(res, result.updatedPurchase, 200, {
+    message: `Payment of Rs. ${paymentAmount.toLocaleString()} recorded successfully`
+  });
 });

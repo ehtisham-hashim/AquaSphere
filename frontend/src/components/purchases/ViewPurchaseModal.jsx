@@ -1,6 +1,6 @@
-import { X, Printer, ShieldCheck, MapPin, Truck, FileText } from 'lucide-react';
+import { X, Printer, ShieldCheck, MapPin, Truck, FileText, CreditCard } from 'lucide-react';
 
-export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
+export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecordPayment }) {
   if (!purchase) return null;
 
   const handlePrint = () => {
@@ -47,6 +47,17 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
             </p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
+            {purchase.paymentStatus !== 'PAID' && onRecordPayment && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onRecordPayment(purchase);
+                }}
+                className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
+              >
+                <CreditCard size={14} /> Pay Purchase
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
@@ -179,6 +190,28 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint }) {
                 <FileText size={16} className="text-brand" />
                 <span>Open Attached Bill Photo</span>
               </a>
+            </div>
+          )}
+
+          {/* Recorded Payments */}
+          {purchase.ledgerEntries?.filter(e => e.type === 'PAYMENT').length > 0 && (
+            <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-2">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block">Recorded Payments</span>
+              <div className="divide-y divide-emerald-100 text-xs">
+                {purchase.ledgerEntries
+                  .filter(e => e.type === 'PAYMENT')
+                  .map(p => (
+                    <div key={p.id} className="py-1.5 flex justify-between items-center text-slate-700">
+                      <div>
+                        <span className="font-semibold text-slate-900">Rs {Number(p.amount).toLocaleString()}</span>
+                        {p.remarks && <span className="text-[11px] text-slate-500 ml-2">({p.remarks})</span>}
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {new Date(p.createdAt).toLocaleDateString('en-GB')}
+                      </span>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
 

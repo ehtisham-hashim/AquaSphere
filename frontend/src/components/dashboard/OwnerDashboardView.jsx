@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, Clock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, Clock, Users } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -31,6 +31,7 @@ const COST_COLORS = ['#f43f5e', '#8b5cf6'];
 const REVENUE_COLORS = ['#10b981', '#0284c7'];
 
 export default function OwnerDashboardView({ data, summary, summaryLoading }) {
+  const navigate = useNavigate();
   const { tenant, isWadaana } = useTenant();
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
@@ -252,6 +253,26 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             value={`Rs. ${netCash.toLocaleString()}`} 
             subtitle="Cash Inflow - Expenses" 
             variant={netCash >= 0 ? "emerald" : "rose"}
+          />
+        </div>
+
+        {/* Outstanding Balances Container (Customer Debt & Vendor Payables) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+          <ModernKpiCard
+            icon={Users}
+            title="Customer Market Debt (Receivables)"
+            value={`Rs. ${totalReceivables.toLocaleString()}`}
+            subtitle="Total outstanding customer orders & credit (Click to manage)"
+            variant="amber"
+            onClick={() => navigate('/orders')}
+          />
+          <ModernKpiCard
+            icon={ShoppingCart}
+            title="Vendor Payables (Unpaid Purchases)"
+            value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
+            subtitle="Outstanding raw material purchases (Click to settle)"
+            variant="rose"
+            onClick={() => navigate('/purchases')}
           />
         </div>
 

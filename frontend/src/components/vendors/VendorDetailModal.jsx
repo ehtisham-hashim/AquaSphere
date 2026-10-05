@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { X, Calendar, CreditCard, FileText, ShoppingCart, Receipt } from 'lucide-react';
+import { X, Calendar, FileText, ShoppingCart, Receipt } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
 export default function VendorDetailModal({
   selectedVendorDetail,
-  onClose,
-  canPayOrArchive,
-  onOpenPayment
+  onClose
 }) {
   const [profileTab, setProfileTab] = useState('ledger');
 
@@ -65,19 +63,6 @@ export default function VendorDetailModal({
                   Rs {Number(selectedVendorDetail.payableBalance || 0).toLocaleString()}
                 </span>
               </div>
-              {canPayOrArchive && (
-                <button
-                  onClick={() => onOpenPayment(selectedVendorDetail)}
-                  disabled={Number(selectedVendorDetail.payableBalance || 0) <= 0}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition inline-flex items-center gap-1 ${
-                    Number(selectedVendorDetail.payableBalance || 0) <= 0
-                      ? 'text-slate-300 bg-slate-100 cursor-not-allowed'
-                      : 'btn-primary py-1 px-2.5'
-                  }`}
-                >
-                  <CreditCard size={12} /> Pay
-                </button>
-              )}
             </div>
           </div>
 

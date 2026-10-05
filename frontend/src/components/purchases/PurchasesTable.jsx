@@ -1,4 +1,4 @@
-import { Calendar, Eye, Printer, ShieldCheck, Trash2, ShoppingCart, Building2, Edit3 } from 'lucide-react';
+import { Calendar, Eye, Printer, ShieldCheck, Trash2, ShoppingCart, Building2, Edit3, CreditCard } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
@@ -9,6 +9,7 @@ export default function PurchasesTable({
   onEdit,
   onVerify,
   onDelete,
+  onRecordPayment,
   verifyingId,
   deletingId,
   isOwner,
@@ -55,6 +56,9 @@ export default function PurchasesTable({
     if (status === 'PAID') {
       return <span className="badge-success">Paid</span>;
     }
+    if (status === 'PARTIAL') {
+      return <span className="badge-warning">Partial</span>;
+    }
     return <span className="badge-danger">Credit / Khata</span>;
   };
 
@@ -99,7 +103,18 @@ export default function PurchasesTable({
                   {renderStatusBadge(p.status)}
                 </td>
                 <td className="table-td">
-                  {renderPaymentBadge(p.paymentStatus)}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {renderPaymentBadge(p.paymentStatus)}
+                    {p.paymentStatus !== 'PAID' && onRecordPayment && (
+                      <button
+                        onClick={() => onRecordPayment(p)}
+                        className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                        title="Record Payment / Settle Khata"
+                      >
+                        <CreditCard size={12} /> Pay
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="table-td text-xs font-medium">
                   {p.verifiedBy ? (
@@ -130,6 +145,15 @@ export default function PurchasesTable({
                 </td>
                 <td className="table-td text-right">
                   <div className="flex items-center justify-end gap-1.5">
+                    {p.paymentStatus !== 'PAID' && onRecordPayment && (
+                      <button
+                        onClick={() => onRecordPayment(p)}
+                        className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition inline-flex items-center text-xs font-semibold"
+                        title="Settle Purchase Payment"
+                      >
+                        <CreditCard size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => onView(p)}
                       className="p-1.5 text-slate-600 hover:text-brand hover:bg-slate-100 rounded-lg transition inline-flex items-center gap-1 text-xs font-semibold"
