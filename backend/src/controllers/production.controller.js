@@ -286,6 +286,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
         status: 'PENDING'
       }
     });
+    broadcastEvent('wadaana', 'PRODUCTION_UPDATED', { batchId: batch.id });
     return sendSuccess(res, batch, 201);
   }
 
@@ -312,6 +313,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
       status: 'PENDING'
     }
   });
+  broadcastEvent('aquasphere', 'PRODUCTION_UPDATED', { batchId: batch.id });
   return sendSuccess(res, batch, 201);
 });
 
@@ -327,8 +329,62 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   // Collect items produced in this batch
   const productionRuns = [];
 
-  if (batch.outputItemId) {
-    const waste = parseInt(req.body.wasteQuantity || req.body.brokenBottles || 0, 10);
+  // Parse items from remarks or legacy batch fields
+  let remarksProducedItems = [];
+  if (batch.remarks) {
+    try {
+      const parsed = JSON.parse(batch.remarks);
+      if (Array.isArray(parsed.producedItems)) remarksProducedItems = parsed.producedItems;
+    } catch (_e) { /* ignore */ }
+  }
+
+  const { itemBreakages = {} } = req.body;
+
+  if (remarksProducedItems.length > 0) {
+    const itemIds = remarksProducedItems.map(p => p.outputItemId || p.itemId).filter(Boolean);
+    const items = await prisma[`${prefix}Item`].findMany({
+      where: { id: { in: itemIds } },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
+    });
+    const itemMap = new Map(items.map(i => [i.id, i]));
+
+    for (const p of remarksProducedItems) {
+      const itemId = p.outputItemId || p.itemId;
+      const fgItem = itemMap.get(itemId);
+      if (!fgItem) continue;
+      const qty = Number(p.quantity || 0);
+      const packSize = Number(fgItem.packSize) > 1 ? Number(fgItem.packSize) : 1;
+      const maxBottles = packSize > 1 ? qty * packSize : qty;
+
+      let waste = 0;
+      if (itemBreakages[itemId] !== undefined) {
+        waste = parseInt(itemBreakages[itemId], 10) || 0;
+      } else if (remarksProducedItems.length === 1 && req.body.wasteQuantity !== undefined) {
+        waste = parseInt(req.body.wasteQuantity, 10) || 0;
+      } else {
+        const nameLower = (fgItem.name || '').toLowerCase();
+        if (nameLower.includes('0.5') && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+          waste = parseInt(req.body.brokenBottles05L || 0, 10);
+        } else if ((nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+          waste = parseInt(req.body.brokenBottles15L || 0, 10);
+        } else if (nameLower.includes('19l')) {
+          waste = parseInt(req.body.wasteQuantity || 0, 10);
+        } else if (nameLower.includes('pure') && (nameLower.includes('0.5') || nameLower.includes('500'))) {
+          waste = parseInt(req.body.brokenPure05L || 0, 10);
+        } else if (nameLower.includes('pure') && (nameLower.includes('1.5') || nameLower.includes('1500'))) {
+          waste = parseInt(req.body.brokenPure15L || 0, 10);
+        } else if (nameLower.includes('mix') && (nameLower.includes('0.5') || nameLower.includes('500'))) {
+          waste = parseInt(req.body.brokenMix05L || 0, 10);
+        } else if (nameLower.includes('mix') && (nameLower.includes('1.5') || nameLower.includes('1500'))) {
+          waste = parseInt(req.body.brokenMix15L || 0, 10);
+        }
+      }
+
+      if (waste < 0) throw new ApiError(400, `Waste for ${fgItem.name} cannot be negative`);
+      if (waste > maxBottles) throw new ApiError(400, `Waste for ${fgItem.name} (${waste} btl) cannot exceed produced amount (${maxBottles} btl)`);
+      productionRuns.push({ outputItem: fgItem, quantity: qty, wasteQuantity: waste });
+    }
+  } else if (batch.outputItemId) {
     const qty = Number(batch.quantity || 0);
     const outputItem = await prisma[`${prefix}Item`].findUnique({
       where: { id: batch.outputItemId },
@@ -337,82 +393,66 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     if (!outputItem) throw new ApiError(404, 'Finished good item not found');
     const packSize = Number(outputItem.packSize) > 1 ? Number(outputItem.packSize) : 1;
     const maxBottles = packSize > 1 ? qty * packSize : qty;
+
+    const nameLower = (outputItem.name || '').toLowerCase();
+    const specificWaste = (nameLower.includes('0.5') && !nameLower.includes('pure') && !nameLower.includes('mix'))
+      ? req.body.brokenBottles05L
+      : (nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')
+      ? req.body.brokenBottles15L
+      : null;
+
+    const waste = parseInt(
+      itemBreakages[batch.outputItemId] ??
+      req.body.wasteQuantity ??
+      specificWaste ??
+      req.body.brokenBottles ??
+      0,
+      10
+    );
     if (waste < 0) throw new ApiError(400, 'Waste quantity cannot be negative');
     if (waste > maxBottles) throw new ApiError(400, `Waste quantity (${waste} btl) cannot exceed produced amount (${maxBottles} btl)`);
 
     productionRuns.push({ outputItem, quantity: qty, wasteQuantity: waste });
   } else {
-    // Parse items from remarks or legacy batch fields
-    let remarksProducedItems = [];
-    if (batch.remarks) {
-      try {
-        const parsed = JSON.parse(batch.remarks);
-        if (Array.isArray(parsed.producedItems)) remarksProducedItems = parsed.producedItems;
-      } catch (_e) { /* ignore */ }
-    }
+    // Legacy column fallback: locate matching finished goods
+    const allFGs = await prisma[`${prefix}Item`].findMany({
+      where: { type: 'FINISHED_GOOD', archivedAt: null },
+      include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
+    });
 
-    if (remarksProducedItems.length > 0) {
-      const { itemBreakages = {} } = req.body;
-      const itemIds = remarksProducedItems.map(p => p.outputItemId || p.itemId).filter(Boolean);
-      const items = await prisma[`${prefix}Item`].findMany({
-        where: { id: { in: itemIds } },
-        include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
-      });
-      const itemMap = new Map(items.map(i => [i.id, i]));
+    const findFg = (terms) => allFGs.find(i => terms.every(t => i.name.toLowerCase().includes(t.toLowerCase())));
 
-      for (const p of remarksProducedItems) {
-        const itemId = p.outputItemId || p.itemId;
-        const fgItem = itemMap.get(itemId);
-        if (!fgItem) continue;
-        const qty = Number(p.quantity || 0);
-        const packSize = Number(fgItem.packSize) > 1 ? Number(fgItem.packSize) : 1;
-        const maxBottles = packSize > 1 ? qty * packSize : qty;
-        const waste = parseInt(itemBreakages[itemId] || 0, 10);
-        if (waste < 0) throw new ApiError(400, `Waste for ${fgItem.name} cannot be negative`);
-        if (waste > maxBottles) throw new ApiError(400, `Waste for ${fgItem.name} (${waste} btl) cannot exceed produced amount (${maxBottles} btl)`);
-        productionRuns.push({ outputItem: fgItem, quantity: qty, wasteQuantity: waste });
+    if (prefix === 'aquasphere') {
+      const { brokenBottles05L = 0, brokenBottles15L = 0, wasteQuantity = 0 } = req.body;
+      if (batch.packs05L > 0) {
+        const fg = findFg(['0.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.packs05L, wasteQuantity: parseInt(brokenBottles05L, 10) || 0 });
+      }
+      if (batch.packs15L > 0) {
+        const fg = findFg(['1.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.packs15L, wasteQuantity: parseInt(brokenBottles15L, 10) || 0 });
+      }
+      if (batch.quantity > 0) {
+        const fg = findFg(['19l']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.quantity, wasteQuantity: parseInt(wasteQuantity, 10) || 0 });
       }
     } else {
-      // Legacy column fallback: locate matching finished goods
-      const allFGs = await prisma[`${prefix}Item`].findMany({
-        where: { type: 'FINISHED_GOOD', archivedAt: null },
-        include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
-      });
-
-      const findFg = (terms) => allFGs.find(i => terms.every(t => i.name.toLowerCase().includes(t.toLowerCase())));
-
-      if (prefix === 'aquasphere') {
-        const { brokenBottles05L = 0, brokenBottles15L = 0, wasteQuantity = 0 } = req.body;
-        if (batch.packs05L > 0) {
-          const fg = findFg(['0.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.packs05L, wasteQuantity: parseInt(brokenBottles05L, 10) || 0 });
-        }
-        if (batch.packs15L > 0) {
-          const fg = findFg(['1.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.packs15L, wasteQuantity: parseInt(brokenBottles15L, 10) || 0 });
-        }
-        if (batch.quantity > 0) {
-          const fg = findFg(['19l']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.quantity, wasteQuantity: parseInt(wasteQuantity, 10) || 0 });
-        }
-      } else {
-        const { brokenPure05L = 0, brokenPure15L = 0, brokenMix05L = 0, brokenMix15L = 0 } = req.body;
-        if (batch.qtyPure05L > 0) {
-          const fg = findFg(['pure', '0.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyPure05L, wasteQuantity: parseInt(brokenPure05L, 10) || 0 });
-        }
-        if (batch.qtyPure15L > 0) {
-          const fg = findFg(['pure', '1.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyPure15L, wasteQuantity: parseInt(brokenPure15L, 10) || 0 });
-        }
-        if (batch.qtyMix05L > 0) {
-          const fg = findFg(['mix', '0.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyMix05L, wasteQuantity: parseInt(brokenMix05L, 10) || 0 });
-        }
-        if (batch.qtyMix15L > 0) {
-          const fg = findFg(['mix', '1.5']);
-          if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyMix15L, wasteQuantity: parseInt(brokenMix15L, 10) || 0 });
-        }
+      const { brokenPure05L = 0, brokenPure15L = 0, brokenMix05L = 0, brokenMix15L = 0 } = req.body;
+      if (batch.qtyPure05L > 0) {
+        const fg = findFg(['pure', '0.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyPure05L, wasteQuantity: parseInt(brokenPure05L, 10) || 0 });
+      }
+      if (batch.qtyPure15L > 0) {
+        const fg = findFg(['pure', '1.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyPure15L, wasteQuantity: parseInt(brokenPure15L, 10) || 0 });
+      }
+      if (batch.qtyMix05L > 0) {
+        const fg = findFg(['mix', '0.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyMix05L, wasteQuantity: parseInt(brokenMix05L, 10) || 0 });
+      }
+      if (batch.qtyMix15L > 0) {
+        const fg = findFg(['mix', '1.5']);
+        if (fg) productionRuns.push({ outputItem: fg, quantity: batch.qtyMix15L, wasteQuantity: parseInt(brokenMix15L, 10) || 0 });
       }
     }
   }
@@ -463,14 +503,58 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     }
   });
 
+  const updateData = {
+    status: 'COMPLETED',
+    wasteQuantity: totalWaste,
+    remarks: updatedRemarks
+  };
+
+  if (prefix === 'aquasphere') {
+    let b05 = 0;
+    let b15 = 0;
+    for (const run of productionRuns) {
+      const nameLower = (run.outputItem.name || '').toLowerCase();
+      if (nameLower.includes('0.5') && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        b05 += (run.wasteQuantity || 0);
+      } else if ((nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        b15 += (run.wasteQuantity || 0);
+      }
+    }
+    if (req.body.brokenBottles05L !== undefined) b05 = Math.max(b05, parseInt(req.body.brokenBottles05L, 10) || 0);
+    if (req.body.brokenBottles15L !== undefined) b15 = Math.max(b15, parseInt(req.body.brokenBottles15L, 10) || 0);
+    updateData.brokenBottles05L = b05;
+    updateData.brokenBottles15L = b15;
+  } else if (prefix === 'wadaana') {
+    let bp05 = 0;
+    let bp15 = 0;
+    let bm05 = 0;
+    let bm15 = 0;
+    for (const run of productionRuns) {
+      const nameLower = (run.outputItem.name || '').toLowerCase();
+      if (nameLower.includes('pure') && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('15g'))) {
+        bp05 += (run.wasteQuantity || 0);
+      } else if (nameLower.includes('pure') && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('30g'))) {
+        bp15 += (run.wasteQuantity || 0);
+      } else if (nameLower.includes('mix') && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('13g'))) {
+        bm05 += (run.wasteQuantity || 0);
+      } else if (nameLower.includes('mix') && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('27g'))) {
+        bm15 += (run.wasteQuantity || 0);
+      }
+    }
+    if (req.body.brokenPure05L !== undefined) bp05 = Math.max(bp05, parseInt(req.body.brokenPure05L, 10) || 0);
+    if (req.body.brokenPure15L !== undefined) bp15 = Math.max(bp15, parseInt(req.body.brokenPure15L, 10) || 0);
+    if (req.body.brokenMix05L !== undefined) bm05 = Math.max(bm05, parseInt(req.body.brokenMix05L, 10) || 0);
+    if (req.body.brokenMix15L !== undefined) bm15 = Math.max(bm15, parseInt(req.body.brokenMix15L, 10) || 0);
+    updateData.brokenPure05L = bp05;
+    updateData.brokenPure15L = bp15;
+    updateData.brokenMix05L = bm05;
+    updateData.brokenMix15L = bm15;
+  }
+
   const updatedBatch = await prisma.$transaction(async (tx) => {
     const pb = await tx[`${prefix}ProductionBatch`].update({
       where: { id },
-      data: {
-        status: 'COMPLETED',
-        wasteQuantity: totalWaste,
-        remarks: updatedRemarks
-      },
+      data: updateData,
       include: {
         outputItem: { select: { id: true, name: true, unit: true } },
         consumptions: { include: { item: true } }
@@ -577,6 +661,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
   }).catch(() => {});
 
   broadcastEvent(prefix, 'PRODUCTION_UPDATED', { batchId: updatedBatch.id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updatedBatch);
 });
 

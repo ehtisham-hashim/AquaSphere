@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../utils/api';
+import { useLiveEvent } from '../context/SSEContext';
 import { 
   Download, Calendar, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle 
@@ -39,8 +40,8 @@ export default function Reports() {
 
   const pagination = usePagination(reportData?.table || [], 50, activeTab);
 
-  const fetchReport = async () => {
-    setLoading(true);
+  const fetchReport = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       let url = `${API_URL}/reports/${activeTab}?period=${period}`;
@@ -57,13 +58,16 @@ export default function Reports() {
         setError(data.message || 'Failed to load report data');
         setReportData(null);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error loading report');
       setReportData(null);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [activeTab, period, startDate, endDate]);
+
+  const fetchData = fetchReport;
+  useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED', 'PRODUCTION_UPDATED'], () => fetchData(true));
 
   useEffect(() => {
     if (period === 'custom' && !startDate && !endDate) {

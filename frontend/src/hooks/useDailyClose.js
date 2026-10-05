@@ -27,7 +27,7 @@ export function useDailyClose() {
 
   useEffect(() => { refreshStatus(); }, [refreshStatus]);
 
-  useLiveEvent('DAILY_CLOSE_CHANGED', () => refreshStatus(false));
+  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED', 'COUNTER_SALE_CREATED', 'EXPENSE_LOGGED'], () => refreshStatus(false));
 
   return {
     date, setDate, status, loading, refreshStatus, tenant,

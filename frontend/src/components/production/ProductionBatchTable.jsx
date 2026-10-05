@@ -210,13 +210,27 @@ function getTotalOutputText(b, isWadaana) {
 }
 
 function getTotalWaste(b) {
-  if (b.outputItem || b.outputItemId) {
-    return b.wasteQuantity || 0;
+  if (!b) return 0;
+  if (b.remarks) {
+    try {
+      const parsed = JSON.parse(b.remarks);
+      if (parsed?.lossDetails?.totalWaste !== undefined) {
+        return Number(parsed.lossDetails.totalWaste) || 0;
+      }
+    } catch {
+      // ignore invalid json
+    }
+  }
+  if (b.wasteQuantity !== undefined && b.wasteQuantity !== null && Number(b.wasteQuantity) > 0) {
+    return Number(b.wasteQuantity);
   }
   const b05 = b.brokenBottles05L || 0;
   const b15 = b.brokenBottles15L || 0;
-  const w19 = b.wasteQuantity || 0;
-  return b05 + b15 + w19;
+  const bp05 = b.brokenPure05L || 0;
+  const bp15 = b.brokenPure15L || 0;
+  const bm05 = b.brokenMix05L || 0;
+  const bm15 = b.brokenMix15L || 0;
+  return b05 + b15 + bp05 + bp15 + bm05 + bm15;
 }
 
 export default function ProductionBatchTable({

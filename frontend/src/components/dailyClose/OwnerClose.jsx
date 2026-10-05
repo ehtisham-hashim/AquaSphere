@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock, Truck, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
+import { useLiveEvent } from '../../context/SSEContext';
 import { fetchDailyCloseHistory, fetchDailySummary, finalizeDay, reopenDay } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
@@ -42,6 +43,11 @@ export default function OwnerClose() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED', 'COUNTER_SALE_CREATED', 'EXPENSE_LOGGED'], () => {
+    refreshStatus(false);
+    loadData();
+  });
 
   const handleFinalize = async () => {
     setSubmitting(true);

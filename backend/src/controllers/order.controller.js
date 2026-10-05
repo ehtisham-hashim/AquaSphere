@@ -687,5 +687,6 @@ export const deleteOrder = asyncHandler(async (req, res) => {
   });
 
   broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: id });
   return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
 });

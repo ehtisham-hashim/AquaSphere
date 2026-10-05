@@ -252,33 +252,25 @@ export default function CompleteBatchModal({
       }
     }
 
-    // Build payload matching backend expectations
-    if (batchToComplete.outputItem || batchToComplete.outputItemId) {
-      const w = parseInt(breakages.wasteQuantity || 0, 10);
-      onSubmit({ wasteQuantity: w, itemBreakages, confirmed: true });
-      return;
-    }
+    // Calculate total breakage across all items
+    const totalBreakage = Object.values(itemBreakages).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+    const fallbackWaste = parseInt(breakages.wasteQuantity || 0, 10);
+    const finalWasteQuantity = totalBreakage > 0 ? totalBreakage : fallbackWaste;
 
-    if (isWadaana) {
-      onSubmit({
-        brokenPure05L: parseInt(breakages.brokenPure05L || 0, 10),
-        brokenPure15L: parseInt(breakages.brokenPure15L || 0, 10),
-        brokenMix05L: parseInt(breakages.brokenMix05L || 0, 10),
-        brokenMix15L: parseInt(breakages.brokenMix15L || 0, 10),
-        itemBreakages,
-        confirmed: true
-      });
-      return;
-    }
-
-    // AquaSphere
-    onSubmit({
+    // Send unified payload covering single products, multiple items, and legacy columns
+    const payload = {
+      wasteQuantity: finalWasteQuantity,
       brokenBottles05L: parseInt(breakages.brokenBottles05L || 0, 10),
       brokenBottles15L: parseInt(breakages.brokenBottles15L || 0, 10),
-      wasteQuantity: parseInt(breakages.wasteQuantity || 0, 10),
+      brokenPure05L: parseInt(breakages.brokenPure05L || 0, 10),
+      brokenPure15L: parseInt(breakages.brokenPure15L || 0, 10),
+      brokenMix05L: parseInt(breakages.brokenMix05L || 0, 10),
+      brokenMix15L: parseInt(breakages.brokenMix15L || 0, 10),
       itemBreakages,
       confirmed: true
-    });
+    };
+
+    onSubmit(payload);
   };
 
   const batchShortId = `#${batchToComplete.id.substring(0, 8).toUpperCase()}`;

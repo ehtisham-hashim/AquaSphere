@@ -16,7 +16,9 @@ const EVENT_CACHE_MAP = {
   CUSTOMER_UPDATED: ['customers', 'orders', 'spot-sales'],
   EXPENSE_LOGGED: ['expenses', 'analytics', 'daily-close'],
   DAILY_CLOSE_CHANGED: ['daily-close', 'spot-sales', 'analytics'],
-  VEHICLE_UPDATED: ['vehicles', 'expenses']
+  VEHICLE_UPDATED: ['vehicles', 'expenses'],
+  USER_UPDATED: ['users'],
+  LANDING_PAGE_UPDATED: ['landing-page', 'settings']
 };
 
 const KNOWN_EVENTS = [
@@ -29,7 +31,9 @@ const KNOWN_EVENTS = [
   'EXPENSE_LOGGED',
   'DAILY_CLOSE_CHANGED',
   'PURCHASE_CREATED',
-  'VEHICLE_UPDATED'
+  'VEHICLE_UPDATED',
+  'USER_UPDATED',
+  'LANDING_PAGE_UPDATED'
 ];
 
 export function SSEProvider({ children }) {

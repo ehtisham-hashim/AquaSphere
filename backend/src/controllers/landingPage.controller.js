@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cloudinary from '../config/cloudinary.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,8 @@ export const updateLandingPageSettings = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid payload' });
     }
     await fs.writeFile(SETTINGS_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+    broadcastEvent('aquasphere', 'LANDING_PAGE_UPDATED');
+    broadcastEvent('wadaana', 'LANDING_PAGE_UPDATED');
     return res.json({ success: true, message: 'Settings saved successfully', data: payload });
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Failed to save settings', error: err.message });

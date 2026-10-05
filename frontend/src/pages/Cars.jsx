@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
 import { useTenant } from '../context/TenantContext';
+import { useLiveEvent } from '../context/SSEContext';
 import {
   CarsHeader,
   CarsTable,
@@ -23,8 +24,8 @@ export default function Cars() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
 
-  const fetchVehicles = useCallback(async () => {
-    setLoading(true);
+  const fetchVehicles = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`${API_URL}/vehicles`, {
         headers: { 'x-tenant': tenant },
@@ -36,16 +37,19 @@ export default function Cars() {
       } else {
         toast.error(json.message || 'Failed to load vehicles');
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error('Network error loading vehicles');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tenant]);
 
   useEffect(() => {
     fetchVehicles();
   }, [fetchVehicles]);
+
+  const fetchData = fetchVehicles;
+  useLiveEvent(['VEHICLE_UPDATED', 'EXPENSE_LOGGED'], () => fetchData(true));
 
   const filteredVehicles = useMemo(() => {
     if (!search.trim()) return vehicles;

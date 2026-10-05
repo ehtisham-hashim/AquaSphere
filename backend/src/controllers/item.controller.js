@@ -301,6 +301,7 @@ export const archiveItem = asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: { archivedAt: new Date() }
   });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED', { itemId: item.id });
   return sendSuccess(res, item, 200, { message: 'Item archived successfully' });
 });
 
@@ -311,6 +312,7 @@ export const restoreItem = asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: { archivedAt: null }
   });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED', { itemId: item.id });
   return sendSuccess(res, item, 200, { message: 'Item restored successfully' });
 });
 
@@ -345,7 +347,7 @@ export const adjustInventory = asyncHandler(async (req, res) => {
     });
   });
 
-  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+  broadcastEvent(prefix, 'INVENTORY_CHANGED', { itemId: updatedItem.id });
 
   return sendSuccess(res, updatedItem);
 });
@@ -550,6 +552,7 @@ export const updateItemPrice = asyncHandler(async (req, res) => {
     })
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED', { itemId: updatedItem.id });
   return sendSuccess(res, updatedItem, 200, { message: `Price for "${existingItem.name}" updated successfully` });
 });
 
@@ -595,6 +598,7 @@ export const updateItemPricingBatch = asyncHandler(async (req, res) => {
     return results;
   });
 
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updatedItems, 200, { message: `${updatedItems.length} product prices updated successfully` });
 });
 

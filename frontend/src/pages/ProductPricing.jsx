@@ -20,6 +20,7 @@ import { useTenant } from '../context/TenantContext';
 import { ROLES } from '../constants/roleAccess';
 import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
+import { useLiveEvent } from '../context/SSEContext';
 
 export default function ProductPricing() {
   const { user } = useAuth();
@@ -88,8 +89,8 @@ export default function ProductPricing() {
     }
   };
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
+  const fetchItems = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`${API_URL}/items?type=FINISHED_GOOD`, {
         headers: { 'x-tenant': tenant },
@@ -111,13 +112,16 @@ export default function ProductPricing() {
       console.error('Error fetching finished goods:', err);
       toast.error('Network error loading pricing catalog');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tenant]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  const fetchData = fetchItems;
+  useLiveEvent(['INVENTORY_CHANGED'], () => fetchData(true));
 
   // Compute dirty (modified) items
   const dirtyItems = useMemo(() => {
