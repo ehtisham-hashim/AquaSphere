@@ -12,8 +12,7 @@ import {
   ArrowDownRight,
   Sparkles,
   Lock,
-  Sliders,
-  AlertTriangle
+  Sliders
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -249,6 +248,22 @@ export default function ProductPricing() {
     return Math.round(sum / items.length);
   }, [items]);
 
+  const tenantCustomerTypes = useMemo(() => {
+    if (isWadaana) {
+      return [
+        { key: 'Corporate', label: 'Corporate Accounts', hint: 'Factories & bulk buyers' },
+        { key: 'Commercial', label: 'Commercial Clients', hint: 'Contract businesses' },
+        { key: 'Distributor', label: 'Distributors', hint: 'Wholesale partners' }
+      ];
+    }
+    return [
+      { key: 'Home', label: 'Home / Residential', hint: 'Household deliveries' },
+      { key: 'Commercial', label: 'Commercial Business', hint: 'Offices & small businesses' },
+      { key: 'Corporate', label: 'Corporate Accounts', hint: 'Large corporate clients' },
+      { key: 'Distributor', label: 'Distributor / Wholesale', hint: 'Wholesale resellers' }
+    ];
+  }, [isWadaana]);
+
   // Strict role guard: only OWNER can view or edit pricing
   if (user?.role !== ROLES.OWNER) {
     return <Navigate to="/dashboard" replace />;
@@ -267,7 +282,7 @@ export default function ProductPricing() {
         subtitle={
           activeTab === 'pricing'
             ? `Configure database-driven retail prices for all finished goods. Drives ${isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.`
-            : `Configure soft warnings for low finished goods stock and customer purchasing quantity limits (Database Option B).`
+            : `Configure safety alerts for low inventory and unusual customer order quantities.`
         }
         actions={
           activeTab === 'pricing' ? (
@@ -619,150 +634,143 @@ export default function ProductPricing() {
         </>
       ) : (
         /* Operational Defaults & Soft Warnings Tab */
-        <div className="space-y-6">
-          {/* Main Notice Banner */}
-          <div className="p-4 rounded-2xl border bg-white border-slate-200 shadow-xs flex items-start gap-3.5">
-            <div className={`p-2.5 rounded-xl ${isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'}`}>
-              <AlertTriangle className="w-5 h-5 shrink-0" />
+        <div className="space-y-4">
+          {/* Subtle Ergonomic Info Pill */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg ${isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'}`}>
+                <Sliders size={15} />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-800">Operational Warning Controls</p>
+                <p className="text-[11px] text-slate-500">All warnings are soft alerts — staff can click &quot;Proceed Anyway&quot; if approved.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Soft Warning Engine (No Order Blocking)</h3>
-              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                These rules trigger confirmation dialogs during order placement to catch stock deficits or data-entry typos.
-                Cashiers and managers can always click <strong>&quot;Proceed Anyway&quot;</strong> to confirm orders or schedule backorders.
-              </p>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveOperationalSettings}
+              disabled={savingSettings || !operationalSettings}
+              className="btn-primary py-1.5 px-3.5 text-xs inline-flex items-center gap-1.5"
+            >
+              <Save size={13} />
+              <span>{savingSettings ? 'Saving...' : 'Save Settings'}</span>
+            </button>
           </div>
 
-          {/* Toggles Section */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Sliders size={14} /> Warning Toggles
-            </h4>
-
-            <div className="space-y-4 divide-y divide-slate-100">
-              {/* Toggle 1: Low Finished Goods Stock */}
-              <div className="flex items-center justify-between pt-3">
-                <div className="space-y-0.5 max-w-xl">
-                  <span className="text-sm font-bold text-slate-900 block">Low Finished Goods Stock Warning</span>
-                  <span className="text-xs text-slate-500 block">
-                    {isWadaana
-                      ? 'Alerts when an order exceeds currently available inventory across all finished goods (0.5L & 1.5L Empty Bottles).'
-                      : 'Alerts when an order exceeds currently available inventory across all finished goods (19L Bottles, 0.5L & 1.5L PET Packs).'}
-                  </span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={Boolean(operationalSettings?.enableLowStockWarning)}
-                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableLowStockWarning: e.target.checked }))}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
+          {/* 2-Column Responsive Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Left: Warning Triggers */}
+            <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Order Alerts</h4>
+                <p className="text-xs text-slate-600 mt-0.5">Automated checks triggered when cashiers create orders.</p>
               </div>
 
-              {/* Toggle 2: Unusual Quantity Alert */}
-              <div className="flex items-center justify-between pt-3">
-                <div className="space-y-0.5 max-w-xl">
-                  <span className="text-sm font-bold text-slate-900 block">Unusual Purchasing Quantity Warning</span>
-                  <span className="text-xs text-slate-500 block">
-                    Alerts if customer order quantity exceeds their typical purchasing limit. Catches accidental keystroke typos (e.g. typing 111 instead of 11).
-                  </span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={Boolean(operationalSettings?.enableQuantityAlert)}
-                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableQuantityAlert: e.target.checked }))}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
-
-              {/* Toggle 3: Enforce Only On 19L (AquaSphere Only) */}
-              {!isWadaana && (
-                <div className="flex items-center justify-between pt-3">
-                  <div className="space-y-0.5 max-w-xl">
-                    <span className="text-sm font-bold text-slate-900 block">Scope Quantity Warning Strictly to 19L Carboys</span>
-                    <span className="text-xs text-slate-500 block">
-                      Only applies typo limits to 19-liter water bottles. Exempts bulk packaged PET bottles.
-                    </span>
+              <div className="space-y-3.5 divide-y divide-slate-100">
+                {/* Toggle 1: Low Stock */}
+                <div className="flex items-start justify-between gap-4 pt-1">
+                  <div className="space-y-0.5 max-w-sm">
+                    <p className="text-xs font-bold text-slate-900">Low Stock Warning</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      {isWadaana
+                        ? 'Warns if ordered quantity exceeds in-stock empty bottles (0.5L & 1.5L).'
+                        : 'Warns if ordered quantity exceeds in-stock bottles (19L or PET packs).'}
+                    </p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={Boolean(operationalSettings?.enforceOnlyOn19L)}
-                      onChange={(e) => setOperationalSettings(prev => ({ ...prev, enforceOnlyOn19L: e.target.checked }))}
+                      checked={Boolean(operationalSettings?.enableLowStockWarning)}
+                      onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableLowStockWarning: e.target.checked }))}
                     />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    <div className={`w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all ${isWadaana ? 'peer-checked:bg-sky-500' : 'peer-checked:bg-emerald-600'}`}></div>
                   </label>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Customer Purchasing Quantity Thresholds */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-            <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Package size={14} /> Customer Type Limits (Units per Order)
-              </h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Orders with quantity strictly greater than these thresholds trigger the soft confirmation warning.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-              {[
-                { key: 'Home', label: 'Home / Residential' },
-                { key: 'Office', label: 'Office' },
-                { key: 'Corporate', label: 'Corporate / Business' },
-                { key: 'Shop', label: 'Shop / Retail' },
-                { key: 'Restaurant', label: 'Restaurant / Hotel' },
-                { key: 'Commercial', label: 'Commercial' },
-                { key: 'Distributor', label: 'Distributor / Wholesale' }
-              ].map(({ key, label }) => {
-                const currentVal = operationalSettings?.orderThresholds?.[key] ?? '';
-                return (
-                  <div key={key} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 block">{label}</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={currentVal}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setOperationalSettings(prev => ({
-                            ...prev,
-                            orderThresholds: {
-                              ...prev?.orderThresholds,
-                              [key]: isNaN(val) ? '' : val
-                            }
-                          }));
-                        }}
-                        className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-                      />
-                      <span className="text-xs text-slate-400 font-semibold">units</span>
-                    </div>
+                {/* Toggle 2: Unusual Quantity */}
+                <div className="flex items-start justify-between gap-4 pt-3.5">
+                  <div className="space-y-0.5 max-w-sm">
+                    <p className="text-xs font-bold text-slate-900">Typo & Unusual Quantity Alert</p>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Catches keyboard typos by alerting if order exceeds customer limits.
+                    </p>
                   </div>
-                );
-              })}
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={Boolean(operationalSettings?.enableQuantityAlert)}
+                      onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableQuantityAlert: e.target.checked }))}
+                    />
+                    <div className={`w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all ${isWadaana ? 'peer-checked:bg-sky-500' : 'peer-checked:bg-emerald-600'}`}></div>
+                  </label>
+                </div>
+
+                {/* Toggle 3: 19L Scope (AquaSphere only) */}
+                {!isWadaana && (
+                  <div className="flex items-start justify-between gap-4 pt-3.5">
+                    <div className="space-y-0.5 max-w-sm">
+                      <p className="text-xs font-bold text-slate-900">Limit Strictly to 19L Carboys</p>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Applies quantity limit solely to 19-liter bottles. Exempts PET bottles.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={Boolean(operationalSettings?.enforceOnlyOn19L)}
+                        onChange={(e) => setOperationalSettings(prev => ({ ...prev, enforceOnlyOn19L: e.target.checked }))}
+                      />
+                      <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end">
-              <button
-                type="button"
-                onClick={handleSaveOperationalSettings}
-                disabled={savingSettings || !operationalSettings}
-                className="btn-primary"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>{savingSettings ? 'Saving...' : 'Save All Thresholds & Defaults'}</span>
-              </button>
+            {/* Right: Customer Type Limits */}
+            <div className="lg:col-span-6 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Order Quantity Limits</h4>
+                <p className="text-xs text-slate-600 mt-0.5">Max units allowed per order before soft confirmation triggers.</p>
+              </div>
+
+              <div className="space-y-2">
+                {tenantCustomerTypes.map(({ key, label, hint }) => {
+                  const currentVal = operationalSettings?.orderThresholds?.[key] ?? '';
+                  return (
+                    <div key={key} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/70 hover:bg-slate-50 transition-colors">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">{label}</span>
+                        <span className="text-[10px] text-slate-400 block">{hint}</span>
+                      </div>
+                      <div className="flex items-center h-8 px-2.5 bg-white border border-slate-200 rounded-lg focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 transition-all w-32 shadow-2xs">
+                        <input
+                          type="number"
+                          min="1"
+                          value={currentVal}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setOperationalSettings(prev => ({
+                              ...prev,
+                              orderThresholds: {
+                                ...prev?.orderThresholds,
+                                [key]: isNaN(val) ? '' : val
+                              }
+                            }));
+                          }}
+                          className="w-full bg-transparent border-none outline-none font-mono font-bold text-xs text-slate-800 text-right pr-1.5"
+                          placeholder="No limit"
+                        />
+                        <span className="text-[10px] font-semibold text-slate-400 select-none">units</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
