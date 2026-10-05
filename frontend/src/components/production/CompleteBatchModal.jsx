@@ -42,18 +42,23 @@ export default function CompleteBatchModal({
             let pieceLabel;
             let maxBreakage;
 
-            if ((nameLower.includes('0.5') && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+            const detectedPackSize = Number(dbItem?.packSize || item.packSize) > 1 
+              ? Number(dbItem?.packSize || item.packSize) 
+              : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+            const isPackItem = !isWadaana && (detectedPackSize > 1 || item.unit?.toLowerCase() === 'pets' || item.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
+
+            if (!isWadaana && (nameLower.includes('0.5') || nameLower.includes('500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
               key = 'brokenBottles05L';
               isPacks = true;
-              perPack = 12;
+              perPack = detectedPackSize || 12;
               pieceLabel = 'broken bottles';
-              maxBreakage = item.quantity * 12;
-            } else if (((nameLower.includes('1.5') || nameLower.includes('1500')) && nameLower.includes('pet')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+              maxBreakage = item.quantity * perPack;
+            } else if (!isWadaana && (nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
               key = 'brokenBottles15L';
               isPacks = true;
-              perPack = 6;
+              perPack = detectedPackSize || 6;
               pieceLabel = 'broken bottles';
-              maxBreakage = item.quantity * 6;
+              maxBreakage = item.quantity * perPack;
             } else if (nameLower.includes('19l') || nameLower.includes('19 l')) {
               key = 'wasteQuantity';
               pieceLabel = 'bottles';
@@ -76,8 +81,10 @@ export default function CompleteBatchModal({
               maxBreakage = item.quantity;
             } else {
               key = `breakage_${item.itemId}`;
-              pieceLabel = unit;
-              maxBreakage = item.quantity;
+              isPacks = isPackItem;
+              perPack = detectedPackSize;
+              pieceLabel = isPackItem ? 'broken bottles' : unit;
+              maxBreakage = isPackItem ? item.quantity * detectedPackSize : item.quantity;
             }
 
             return {
@@ -102,16 +109,32 @@ export default function CompleteBatchModal({
     // 2. Single custom outputItem batch
     if (batchToComplete.outputItem || batchToComplete.outputItemId) {
       const fg = batchToComplete.outputItem || items.find(i => i.id === batchToComplete.outputItemId);
+      const nameLower = (fg?.name || '').toLowerCase();
+      const detectedPackSize = Number(fg?.packSize) > 1 
+        ? Number(fg.packSize) 
+        : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+      const isPack = !isWadaana && (detectedPackSize > 1 || fg?.unit?.toLowerCase() === 'pets' || fg?.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
+      const maxBreakage = isPack ? (batchToComplete.quantity || 0) * detectedPackSize : (batchToComplete.quantity || 0);
+
+      let key = 'wasteQuantity';
+      if (!isWadaana && (nameLower.includes('0.5') || nameLower.includes('500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        key = 'brokenBottles05L';
+      } else if (!isWadaana && (nameLower.includes('1.5') || nameLower.includes('1500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
+        key = 'brokenBottles15L';
+      }
+
       return [
         {
           itemId: batchToComplete.outputItemId || batchToComplete.outputItem?.id,
-          key: 'wasteQuantity',
+          key,
           name: fg?.name || 'Finished Good',
-          unit: fg?.unit || 'units',
+          unit: isPack ? 'PETs' : (fg?.unit || 'units'),
           qty: batchToComplete.quantity || 0,
-          maxBreakage: batchToComplete.quantity || 0,
-          pieceLabel: fg?.unit || 'units',
-          isPacks: false
+          bottlesTotal: isPack ? (batchToComplete.quantity || 0) * detectedPackSize : null,
+          maxBreakage,
+          pieceLabel: isPack ? 'broken bottles' : (fg?.unit || 'units'),
+          isPacks: isPack,
+          perPack: detectedPackSize
         }
       ];
     }
