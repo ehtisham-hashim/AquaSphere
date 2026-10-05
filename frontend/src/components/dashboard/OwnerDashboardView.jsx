@@ -452,7 +452,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Transport & Fleet Status</h3>
                 </div>
                 <Link
-                  to="/transport"
+                  to="/transport?tab=fleet"
                   className="text-xs font-semibold text-brand flex items-center gap-1 hover:underline"
                 >
                   View Fleet &rarr;
@@ -466,7 +466,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
                   value={`${transportData.vehicleCount} Vehicles`}
                   subtitle="Operational delivery units"
                   variant="brand"
-                  onClick={() => navigate('/transport')}
+                  onClick={() => navigate('/transport?tab=fleet')}
                 />
                 <ModernKpiCard
                   icon={Fuel}

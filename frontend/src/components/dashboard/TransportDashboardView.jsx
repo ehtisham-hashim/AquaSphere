@@ -177,11 +177,11 @@ export default function TransportDashboardView() {
     return count;
   }, [orders, todayStr]);
 
-  // Filter expenses that have vehicle attached or fuel/repairs (up to 10)
+  // Filter expenses that have vehicle attached or fuel/repairs (up to 3)
   const recentVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => e.vehicle || e.vehicleId || ['DAILY', 'REPAIRS', 'OTHER', 'Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Maintenance'].includes(e.type || e.category))
-      .slice(0, 10);
+      .slice(0, 3);
   }, [expenses]);
 
   if (loading) {

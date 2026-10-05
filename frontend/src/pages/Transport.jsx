@@ -30,14 +30,14 @@ export default function Transport() {
   const { tenant, isWadaana } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active tab state ('fleet' | 'expenses')
-  const initialTab = searchParams.get('tab') === 'expenses' ? 'expenses' : 'fleet';
+  // Active tab state ('expenses' | 'fleet') - Vehicle Expenses shown first by default for all roles
+  const initialTab = searchParams.get('tab') === 'fleet' ? 'fleet' : 'expenses';
   const [activeTab, setActiveTab] = useState(initialTab);
 
   // Sync tab change to URL search params
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setSearchParams(tab === 'fleet' ? {} : { tab });
+    setSearchParams(tab === 'expenses' ? {} : { tab });
   };
 
   /* ------------------- Tab 1: Fleet State ------------------- */
@@ -215,16 +215,6 @@ export default function Transport() {
         actions={
           <div className="flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 shrink-0">
             <button
-              onClick={() => handleTabChange('fleet')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === 'fleet'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Car size={13} /> Fleet & Vehicles
-            </button>
-            <button
               onClick={() => handleTabChange('expenses')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 activeTab === 'expenses'
@@ -233,6 +223,16 @@ export default function Transport() {
               }`}
             >
               <Fuel size={13} /> Vehicle Expenses
+            </button>
+            <button
+              onClick={() => handleTabChange('fleet')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === 'fleet'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Car size={13} /> Fleet & Vehicles
             </button>
           </div>
         }
