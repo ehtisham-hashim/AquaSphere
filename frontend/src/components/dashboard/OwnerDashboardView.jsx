@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, Clock, Users } from 'lucide-react';
 import { 
@@ -22,6 +22,7 @@ import UnprocessedOrdersModal from './UnprocessedOrdersModal';
 import BottleCustodyWidget from './BottleCustodyWidget';
 import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
 import { useTenant } from '../../context/TenantContext';
+import { useLiveEvent } from '../../context/SSEContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
 import ChartTooltip from './charts/ChartTooltip';
@@ -73,54 +74,63 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
   const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
 
-  const [transportData, setTransportData] = useState({ expenses: [], vehicleCount: 0, monthlySpend: 0 });
+  const [transportData, setTransportData] = useState({ expenses: [], vehicleCount: 0, monthlySpend: 0, totalSpend: 0 });
   const [transportLoaded, setTransportLoaded] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchTransport() {
-      try {
-        const [expRes, vehRes] = await Promise.all([
-          fetch(`${API_URL}/transport-expenses?limit=5`, {
-            headers: { 'x-tenant': tenant },
-            credentials: 'include'
-          }),
-          fetch(`${API_URL}/vehicles`, {
-            headers: { 'x-tenant': tenant },
-            credentials: 'include'
-          })
-        ]);
-        const expJson = await expRes.json();
-        const vehJson = await vehRes.json();
-        if (isMounted && expJson.success && vehJson.success) {
-          const exps = expJson.data || [];
-          const vehs = vehJson.data || [];
-          const now = new Date();
-          const curMonth = now.getMonth();
-          const curYear = now.getFullYear();
-          const monthlySpend = exps
-            .filter((e) => {
-              const d = new Date(e.date || e.createdAt);
-              return d.getMonth() === curMonth && d.getFullYear() === curYear;
-            })
-            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const fetchTransport = useCallback(async () => {
+    try {
+      const [expRes, vehRes] = await Promise.all([
+        fetch(`${API_URL}/expenses?limit=200`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        }),
+        fetch(`${API_URL}/vehicles`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        })
+      ]);
+      const expJson = await expRes.json();
+      const vehJson = await vehRes.json();
+      if (expJson.success && vehJson.success) {
+        const rawExps = expJson.data?.expenses || expJson.data || [];
+        const exps = Array.isArray(rawExps) ? rawExps : [];
+        const vehs = vehJson.data || [];
 
-          setTransportData({
-            expenses: exps,
-            vehicleCount: vehs.length,
-            monthlySpend
-          });
-          setTransportLoaded(true);
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard transport data', err);
+        const TRANSPORT_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
+        const transportExps = exps.filter(e =>
+          TRANSPORT_CATEGORIES.includes(e.category) || Boolean(e.vehicleId)
+        );
+
+        const now = new Date();
+        const curMonth = now.getMonth();
+        const curYear = now.getFullYear();
+        const monthlySpend = transportExps
+          .filter((e) => {
+            const d = new Date(e.date || e.createdAt);
+            return d.getMonth() === curMonth && d.getFullYear() === curYear;
+          })
+          .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+        const totalSpend = transportExps.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+        setTransportData({
+          expenses: transportExps,
+          vehicleCount: vehs.length,
+          monthlySpend,
+          totalSpend
+        });
+        setTransportLoaded(true);
       }
+    } catch (err) {
+      console.error('Error fetching dashboard transport data', err);
     }
-    fetchTransport();
-    return () => {
-      isMounted = false;
-    };
   }, [tenant]);
+
+  useEffect(() => {
+    fetchTransport();
+  }, [fetchTransport]);
+
+  useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED'], fetchTransport);
 
   const [chartTimeframe, setChartTimeframe] = useState('7');
 
@@ -442,7 +452,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Transport & Fleet Status</h3>
                 </div>
                 <Link
-                  to="/transport-expenses"
+                  to="/transport"
                   className="text-xs font-semibold text-brand flex items-center gap-1 hover:underline"
                 >
                   View Fleet &rarr;
@@ -456,47 +466,60 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
                   value={`${transportData.vehicleCount} Vehicles`}
                   subtitle="Operational delivery units"
                   variant="brand"
+                  onClick={() => navigate('/transport')}
                 />
                 <ModernKpiCard
                   icon={Fuel}
-                  title="Recent Transport Spend"
-                  value={`Rs. ${Math.round(transportData.monthlySpend).toLocaleString()}`}
-                  subtitle="Fuel & maintenance this month"
+                  title="Total Transport Spend"
+                  value={`Rs. ${Math.round(transportData.totalSpend).toLocaleString()}`}
+                  subtitle={`Rs. ${Math.round(transportData.monthlySpend).toLocaleString()} this month • Click to view`}
                   variant="brand"
+                  onClick={() => navigate('/transport?tab=expenses')}
                 />
               </div>
 
-              {/* Transport Expenses Table */}
+              {/* Single Recent Transport Expense & View All Button */}
               {transportData.expenses.length > 0 && (
-                <div className="table-container max-h-56 overflow-y-auto">
-                  <table className="w-full text-left text-xs whitespace-nowrap">
-                    <thead>
-                      <tr>
-                        <th className="table-th">Date</th>
-                        <th className="table-th">Vehicle</th>
-                        <th className="table-th">Type</th>
-                        <th className="table-th">Amount</th>
-                        <th className="table-th">Note</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transportData.expenses.slice(0, 5).map((ex) => (
-                        <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="table-td text-slate-500">{new Date(ex.date || ex.createdAt).toLocaleDateString()}</td>
-                          <td className="table-td font-semibold text-slate-800">
-                            {ex.vehicle?.name || '—'} <span className="text-slate-400 font-mono font-normal">({ex.vehicle?.plateNumber})</span>
-                          </td>
-                          <td className="table-td">
-                            <span className="badge-neutral">{ex.type}</span>
-                          </td>
-                          <td className="table-td font-bold font-mono text-slate-900">
-                            Rs. {Math.round(Number(ex.amount)).toLocaleString()}
-                          </td>
-                          <td className="table-td text-slate-500 max-w-[160px] truncate">{ex.note || '—'}</td>
+                <div className="space-y-2">
+                  <div className="table-container overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead>
+                        <tr>
+                          <th className="table-th">Date</th>
+                          <th className="table-th">Vehicle</th>
+                          <th className="table-th">Category</th>
+                          <th className="table-th">Amount</th>
+                          <th className="table-th">Description</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {transportData.expenses.slice(0, 1).map((ex) => (
+                          <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="table-td text-slate-500">{new Date(ex.date || ex.createdAt).toLocaleDateString('en-GB')}</td>
+                            <td className="table-td font-semibold text-slate-800">
+                              {ex.vehicle?.name || 'General Fleet'} {ex.vehicle?.plateNumber && <span className="text-slate-400 font-mono font-normal">({ex.vehicle.plateNumber})</span>}
+                            </td>
+                            <td className="table-td">
+                              <span className="badge-neutral">{ex.category}</span>
+                            </td>
+                            <td className="table-td font-bold font-mono text-slate-900">
+                              Rs. {Math.round(Number(ex.amount)).toLocaleString()}
+                            </td>
+                            <td className="table-td text-slate-500 max-w-[160px] truncate">{ex.remarks || ex.description || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate('/transport?tab=expenses')}
+                    className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-brand font-bold text-xs rounded-xl border border-slate-200/80 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <span>View All</span>
+                    <span>&rarr;</span>
+                  </button>
                 </div>
               )}
             </div>

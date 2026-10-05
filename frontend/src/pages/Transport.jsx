@@ -367,10 +367,11 @@ export default function Transport() {
             categories={TRANSPORT_EXPENSE_CATEGORIES}
           />
 
-          {/* Log Expense Modal (Full support for receipts, TM mandatory car selection) */}
+          {/* Log Expense Modal (Transport-only categories) */}
           {isExpenseModalOpen && (
             <LogExpenseModal
               isOpen={isExpenseModalOpen}
+              transportOnly={true}
               onClose={() => setIsExpenseModalOpen(false)}
               onSuccess={() => {
                 fetchExpenses();

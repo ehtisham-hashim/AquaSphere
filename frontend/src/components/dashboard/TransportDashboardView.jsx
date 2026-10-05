@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Car, 
   Fuel, 
@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
+import { useLiveEvent } from '../../context/SSEContext';
 import { TimeframeDropdown } from '../ui';
 
 // ponytail: lean TM dashboard - fleet metrics, fuel/maintenance, vehicle status & delivery queue
 export default function TransportDashboardView() {
+  const navigate = useNavigate();
   const { tenant, isWadaana } = useTenant();
   const [timeframe, setTimeframe] = useState('1_MONTH');
   const [vehicles, setVehicles] = useState([]);
@@ -37,7 +39,7 @@ export default function TransportDashboardView() {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }),
-        fetch(`${API_URL}/transport-expenses?limit=100`, {
+        fetch(`${API_URL}/expenses?limit=200`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
@@ -56,24 +58,11 @@ export default function TransportDashboardView() {
       if (vehJson.success) setVehicles(vehJson.data || []);
       
       let expList = [];
-      if (expJson.success && Array.isArray(expJson.data)) {
-        expList = expJson.data;
-      }
-      // If transport expenses empty, fallback to general expenses
-      if (expList.length === 0) {
-        try {
-          const genRes = await fetch(`${API_URL}/expenses?limit=50`, {
-            headers: { 'x-tenant': tenant },
-            credentials: 'include'
-          });
-          const genJson = await genRes.json();
-          if (genJson.success) {
-            const raw = genJson.data?.expenses || genJson.data || [];
-            expList = Array.isArray(raw) ? raw : [];
-          }
-        } catch (_err) {
-          // ignore general expense fetch error
-        }
+      if (expJson.success) {
+        const raw = expJson.data?.expenses || expJson.data || [];
+        const allExp = Array.isArray(raw) ? raw : [];
+        const TRANSPORT_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
+        expList = allExp.filter(e => TRANSPORT_CATEGORIES.includes(e.category) || Boolean(e.vehicleId));
       }
       setExpenses(expList);
 
@@ -92,6 +81,10 @@ export default function TransportDashboardView() {
     fetchData();
   }, [fetchData]);
 
+  useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED', 'ORDER_CREATED', 'ORDER_UPDATED'], () => {
+    fetchData(true);
+  });
+
   // Derived metrics
   const activeVehicles = useMemo(() => vehicles.filter(v => v.isActive), [vehicles]);
   const totalVehicles = vehicles.length;
@@ -102,6 +95,10 @@ export default function TransportDashboardView() {
   const todayStr = now.toISOString().slice(0, 10);
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
+
+  const totalTransportSpend = useMemo(() => {
+    return expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  }, [expenses]);
 
   const _todayVehicleExpenses = useMemo(() => {
     return expenses
@@ -180,11 +177,11 @@ export default function TransportDashboardView() {
     return count;
   }, [orders, todayStr]);
 
-  // Filter expenses that have vehicle attached or fuel/repairs
+  // Filter expenses that have vehicle attached or fuel/repairs (up to 10)
   const recentVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => e.vehicle || e.vehicleId || ['DAILY', 'REPAIRS', 'OTHER', 'Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Maintenance'].includes(e.type || e.category))
-      .slice(0, 6);
+      .slice(0, 10);
   }, [expenses]);
 
   if (loading) {
@@ -297,20 +294,25 @@ export default function TransportDashboardView() {
           </div>
         </div>
 
-        {/* Transport & Fuel Spend */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
+        {/* Total Transport & Active Timeframe Spend */}
+        <div 
+          onClick={() => navigate('/transport?tab=expenses')}
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Transport Spend</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Transport Spend</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <Fuel size={15} />
             </div>
           </div>
           <div className="mt-2.5">
             <div className="text-2xl font-black text-slate-800 font-mono">
-              Rs. {Math.round(timeframeVehicleExpenses).toLocaleString()}
+              Rs. {Math.round(totalTransportSpend).toLocaleString()}
             </div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <span>{getPeriodLabel()} Spend</span>
+              <span className="text-purple-600 font-bold">Rs. {Math.round(timeframeVehicleExpenses).toLocaleString()}</span>
+              <span>•</span>
+              <span className="text-slate-400">{getPeriodLabel()} Spend</span>
             </div>
           </div>
         </div>
@@ -450,7 +452,7 @@ export default function TransportDashboardView() {
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Actions</h2>
             <div className="grid grid-cols-1 gap-2">
               <Link
-                to="/transport-expenses"
+                to="/transport?tab=expenses"
                 className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 hover:border-brand-primary/40 hover:bg-brand-primary/5 transition-all text-xs font-bold text-slate-700"
               >
                 <div className="flex items-center gap-2">
@@ -490,7 +492,7 @@ export default function TransportDashboardView() {
                 <p className="text-xs text-slate-500">Latest transport & fuel logs</p>
               </div>
               <Link
-                to="/transport-expenses"
+                to="/transport?tab=expenses"
                 className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-1"
               >
                 All Logs <ArrowRight size={12} />
@@ -547,6 +549,14 @@ export default function TransportDashboardView() {
                       </div>
                     </div>
                   ))}
+
+                  <Link
+                    to="/transport?tab=expenses"
+                    className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-brand-primary font-bold text-xs rounded-xl border border-slate-200/80 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs mt-3 block text-center"
+                  >
+                    <span>View All Transport Logs</span>
+                    <span>&rarr;</span>
+                  </Link>
                 </div>
               )}
             </div>

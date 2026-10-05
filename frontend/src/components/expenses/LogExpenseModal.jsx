@@ -8,18 +8,27 @@ import { useAuth } from '../../context/AuthContext';
 const API = API_URL;
 const TM_CATEGORIES = TRANSPORT_EXPENSE_CATEGORIES;
 
-export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, defaultVehicleId = '', lockVehicle = false }) {
+export default function LogExpenseModal({ 
+  isOpen, 
+  onClose, 
+  onSaved, 
+  onSuccess, 
+  defaultVehicleId = '', 
+  lockVehicle = false,
+  transportOnly = false 
+}) {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
-  const isTM = user?.role === 'TRANSPORT_MANAGER' || lockVehicle;
-  const availableCategories = isTM ? TM_CATEGORIES : EXPENSE_CATEGORIES;
+  const isVehicleMandatory = user?.role === 'TRANSPORT_MANAGER' || lockVehicle;
+  const isTransportOnly = isVehicleMandatory || transportOnly;
+  const availableCategories = isTransportOnly ? TM_CATEGORIES : EXPENSE_CATEGORIES;
 
   const [vehicles, setVehicles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const [form, setForm] = useState({ 
-    category: isTM ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
+    category: isTransportOnly ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
     amount: '', 
     remarks: '', 
     vehicleId: defaultVehicleId || '',
@@ -47,7 +56,11 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, d
         }
       })
       .catch(() => {});
-  }, [isOpen, tenant]);
+
+    if (isTransportOnly) {
+      setForm(prev => (TM_CATEGORIES.includes(prev.category) ? prev : { ...prev, category: 'Fuel / Transport' }));
+    }
+  }, [isOpen, isTransportOnly, tenant]);
 
   useEffect(() => {
     if (defaultVehicleId) {
@@ -59,7 +72,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, d
 
   const resetForm = () => {
     setForm({ 
-      category: isTM ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
+      category: isTransportOnly ? 'Fuel / Transport' : (EXPENSE_CATEGORIES[0] || 'Fuel / Transport'), 
       amount: '', 
       remarks: '', 
       vehicleId: defaultVehicleId || '',
@@ -129,7 +142,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, d
       if (!finalUrl) return;
     }
 
-    if (isTM && !form.vehicleId) {
+    if (isVehicleMandatory && !form.vehicleId) {
       setError('Please select a vehicle for this transport expense');
       return;
     }
@@ -173,7 +186,7 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, d
         <div className="border-b border-slate-100 px-5 py-4 flex justify-between items-center bg-slate-50/50">
           <div>
             <h3 className="font-bold text-base text-slate-800">
-              {isTM ? 'Log Vehicle Expense' : 'Log New Expense'}
+              {isTransportOnly ? 'Log Vehicle / Transport Expense' : 'Log New Expense'}
             </h3>
             <span className="badge-brand mt-0.5">
               {isWadaana ? 'WADAANA' : 'AQUASPHERE'}
@@ -219,23 +232,23 @@ export default function LogExpenseModal({ isOpen, onClose, onSaved, onSuccess, d
             </div>
           </div>
 
-          {/* Vehicle Selector (Mandatory for TM, optional for other roles) */}
-          {(isTM || vehicles.length > 0) && (
+          {/* Vehicle Selector (Mandatory for TM/lockVehicle, optional for other roles) */}
+          {(isTransportOnly || vehicles.length > 0) && (
             <div>
               <label className="block font-semibold text-slate-700 mb-1 text-xs flex items-center justify-between">
                 <span className="flex items-center gap-1">
-                  <Car size={13} className="text-brand-primary" /> Vehicle / Car {isTM && <span className="text-amber-600">* MANDATORY</span>}
+                  <Car size={13} className="text-brand-primary" /> Vehicle / Car {isVehicleMandatory && <span className="text-amber-600">* MANDATORY</span>}
                 </span>
-                {!isTM && <span className="text-[10px] text-slate-400 font-normal">Optional</span>}
+                {!isVehicleMandatory && <span className="text-[10px] text-slate-400 font-normal">Optional</span>}
               </label>
               <select
                 className="select-base text-xs py-2 w-full"
                 value={form.vehicleId}
                 onChange={e => setForm({ ...form, vehicleId: e.target.value })}
-                required={isTM}
+                required={isVehicleMandatory}
                 disabled={lockVehicle && !!defaultVehicleId}
               >
-                <option value="">{isTM ? '-- Select Vehicle --' : 'None (General Expense)'}</option>
+                <option value="">{isVehicleMandatory ? '-- Select Vehicle --' : 'None (General Transport)'}</option>
                 {vehicles.map(v => (
                   <option key={v.id} value={v.id}>
                     {v.name} ({v.plateNumber}) {v.model ? `• ${v.model}` : ''}
