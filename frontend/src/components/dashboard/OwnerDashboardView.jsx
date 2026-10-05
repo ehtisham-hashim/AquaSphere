@@ -489,11 +489,11 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
 
           {/* Production Scrap & Material Loss */}
           <ProductionScrapLossWidget timeframe={timeframe} />
-
-          {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) */}
-          {!isWadaana && <BottleCustodyWidget />}
         </div>
       </div>
+
+      {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) — Full Width */}
+      {!isWadaana && <BottleCustodyWidget />}
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal
