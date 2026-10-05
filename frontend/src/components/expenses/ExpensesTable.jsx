@@ -19,45 +19,43 @@ export default function ExpensesTable({
 
   return (
     <div className="space-y-3">
-      {/* Category Filter Pills & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+      {/* Category Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+        <button
+          onClick={() => setSelectedCategory('ALL')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shrink-0 ${
+            selectedCategory === 'ALL'
+              ? 'bg-brand text-white border-transparent shadow-xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          All
+        </button>
+        {categories.map(cat => (
           <button
-            onClick={() => setSelectedCategory('ALL')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border shrink-0 ${
-              selectedCategory === 'ALL'
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shrink-0 ${
+              selectedCategory === cat
                 ? 'bg-brand text-white border-transparent shadow-xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            All
+            {cat}
           </button>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border shrink-0 ${
-                selectedCategory === cat
-                  ? 'bg-brand text-white border-transparent shadow-xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        ))}
+      </div>
 
-        {/* Search Input */}
-        <div className="relative md:w-72 shrink-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-          <input 
-            type="search" 
-            placeholder="Search category or remarks..."
-            className="input-base pl-9 text-xs py-2 w-full"
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      {/* Search Input (below category tabs) */}
+      <div className="relative w-full sm:max-w-md">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+        <input 
+          type="search" 
+          placeholder="Search category or remarks..."
+          className="input-base pl-9 text-xs py-2 w-full"
+          value={search} 
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* ERP Expense Table */}
