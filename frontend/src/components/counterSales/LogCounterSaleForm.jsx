@@ -45,9 +45,6 @@ export default function LogCounterSaleForm({
   // Map of cartKey -> overridden price: e.g. "itemId_PACK" -> 360
   const [customPrices, setCustomPrices] = useState({});
 
-  // Water refill mode: '19L' | 'CUSTOM'
-  const [waterMode, setWaterMode] = useState('19L');
-
   // Dedicated 19L Water Refill (Customer Bottle - 0 bottle stock deducted)
   const [refillQty, setRefillQty] = useState(0);
   const [refillPrice, setRefillPrice] = useState(80);
@@ -56,9 +53,8 @@ export default function LogCounterSaleForm({
   const [customWaterLitres, setCustomWaterLitres] = useState(0);
   const [customWaterRate, setCustomWaterRate] = useState(10);
 
-  // Standalone extra items (Delivery fee, custom charges)
+  // Standalone extra items (custom charges)
   const [extraItems, setExtraItems] = useState({});
-  const [extraSeq, setExtraSeq] = useState(0);
 
   // Payment & Customer state
   const [amountPaid, setAmountPaid] = useState('');
@@ -81,20 +77,6 @@ export default function LogCounterSaleForm({
   // When customer changes
   const handleCustomerChange = (newCustId) => {
     setCustomerId(newCustId);
-  };
-
-  const addExtraItem = (type, name, price) => {
-    const existingKey = Object.keys(extraItems).find(k => extraItems[k]?.type === type && extraItems[k]?.name === name);
-    if (existingKey && cartMap[existingKey]) {
-      updateItemQty(existingKey, 1);
-      return;
-    }
-    const nextSeq = extraSeq + 1;
-    setExtraSeq(nextSeq);
-    const extraKey = `EXTRA_${nextSeq}`;
-    setCartMap(prev => ({ ...prev, [extraKey]: 1 }));
-    setCustomPrices(prev => ({ ...prev, [extraKey]: price }));
-    setExtraItems(prev => ({ ...prev, [extraKey]: { type, name, isExtra: true } }));
   };
 
   const getItemPrice = (item, isPack) => {
@@ -581,62 +563,51 @@ export default function LogCounterSaleForm({
             )}
           </div>
 
-          {/* 2. Water Dispenser & Refill */}
-          <div className="p-3 bg-gradient-to-r from-blue-50/70 to-sky-50/60 border border-blue-200 rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                  <Droplets size={14} />
+          {/* 2. Water Dispenser & Refill (Separated 19L Bottle Refill & Custom Litres) */}
+          <div className="space-y-2">
+            {/* 19L Bottle Refill Card */}
+            <div
+              className={`p-2.5 rounded-lg border transition-all ${
+                refillQty > 0
+                  ? 'bg-blue-50/70 border-blue-400 ring-1 ring-blue-300'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                {/* Title & Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                    <Droplets size={14} className="text-blue-600 shrink-0" />
+                    <span className="truncate">19L Bottle Refill</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                    Customer Bottle Refill <span className="text-slate-400">(0 bottle stock deducted)</span>
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-slate-900">
-                  {waterMode === '19L' ? '19L Bottle Refill' : 'Custom Water Litres'}
-                </span>
-              </div>
 
-              {/* Mode switch */}
-              <div className="flex items-center bg-white p-0.5 rounded border border-slate-200 text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setWaterMode('19L')}
-                  className={`px-2 py-0.5 rounded ${waterMode === '19L' ? 'bg-blue-600 text-white' : 'text-slate-600'}`}
-                >
-                  19L Refill
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWaterMode('CUSTOM')}
-                  className={`px-2 py-0.5 rounded ${waterMode === 'CUSTOM' ? 'bg-teal-600 text-white' : 'text-slate-600'}`}
-                >
-                  Custom Litres
-                </button>
-              </div>
-            </div>
-
-            {waterMode === '19L' ? (
-              <div className="flex items-center justify-between gap-2 pt-1">
-                {/* Rate */}
+                {/* Price Input */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-semibold text-slate-600">Rate:</span>
                   <span className="text-[11px] font-mono text-slate-400">Rs</span>
                   <input
                     type="number"
                     min="0"
                     step="any"
-                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-white text-slate-800 text-center focus:border-blue-500"
+                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-blue-500"
                     value={refillPrice}
                     onChange={(e) => setRefillPrice(e.target.value)}
+                    title="Rate per 19L"
                   />
-                  <span className="text-[10px] text-slate-400">/19L</span>
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">/19L</span>
                 </div>
 
-                {/* Stepper & Quick */}
-                <div className="flex items-center gap-1.5">
+                {/* Stepper & Quick Add */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
                       onClick={() => setRefillQty(prev => Math.max(0, prev - 1))}
                       disabled={refillQty <= 0}
-                      className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                      className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                     >
                       <Minus size={11} />
                     </button>
@@ -646,7 +617,7 @@ export default function LogCounterSaleForm({
                       step="1"
                       placeholder="0"
                       className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
-                        refillQty > 0 ? 'border-blue-600 bg-white text-blue-700 font-extrabold' : 'border-slate-200 bg-white text-slate-800'
+                        refillQty > 0 ? 'border-blue-600 bg-white text-blue-700 font-extrabold' : 'border-slate-200 bg-white text-slate-700'
                       }`}
                       value={refillQty > 0 ? refillQty : ''}
                       onChange={(e) => setRefillQty(Math.max(0, parseInt(e.target.value, 10) || 0))}
@@ -660,8 +631,8 @@ export default function LogCounterSaleForm({
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 5].map(q => (
+                  <div className="hidden sm:flex items-center gap-1">
+                    {[1, 5, 10].map(q => (
                       <button
                         type="button"
                         key={q}
@@ -674,30 +645,51 @@ export default function LogCounterSaleForm({
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-between gap-2 pt-1">
-                {/* Custom Litres Rate */}
+            </div>
+
+            {/* Custom Water Litres Card */}
+            <div
+              className={`p-2.5 rounded-lg border transition-all ${
+                customWaterLitres > 0
+                  ? 'bg-teal-50/70 border-teal-400 ring-1 ring-teal-300'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                {/* Title & Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                    <Droplets size={14} className="text-teal-600 shrink-0" />
+                    <span className="truncate">Custom Water Litres</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                    Dispenser Bulk Water <span className="text-slate-400">(sold by volume)</span>
+                  </div>
+                </div>
+
+                {/* Price Input */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-semibold text-slate-600">Rate:</span>
                   <span className="text-[11px] font-mono text-slate-400">Rs</span>
                   <input
                     type="number"
                     min="0"
                     step="any"
-                    className="w-14 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-white text-slate-800 text-center focus:border-teal-500"
+                    className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-teal-500"
                     value={customWaterRate}
                     onChange={(e) => setCustomWaterRate(e.target.value)}
+                    title="Rate per Litre"
                   />
-                  <span className="text-[10px] text-slate-400">/L</span>
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">/L</span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                {/* Stepper & Quick Add */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
                       onClick={() => setCustomWaterLitres(prev => Math.max(0, Math.round((prev - 1) * 10) / 10))}
                       disabled={customWaterLitres <= 0}
-                      className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                      className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                     >
                       <Minus size={11} />
                     </button>
@@ -706,8 +698,8 @@ export default function LogCounterSaleForm({
                       min="0"
                       step="any"
                       placeholder="0"
-                      className={`w-14 text-center font-mono font-bold text-xs border rounded p-0.5 ${
-                        customWaterLitres > 0 ? 'border-teal-600 bg-white text-teal-800 font-extrabold' : 'border-slate-200 bg-white text-slate-800'
+                      className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                        customWaterLitres > 0 ? 'border-teal-600 bg-white text-teal-800 font-extrabold' : 'border-slate-200 bg-white text-slate-700'
                       }`}
                       value={customWaterLitres > 0 ? customWaterLitres : ''}
                       onChange={(e) => setCustomWaterLitres(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -721,7 +713,7 @@ export default function LogCounterSaleForm({
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="hidden sm:flex items-center gap-1">
                     {[5, 10, 20].map(l => (
                       <button
                         type="button"
@@ -735,89 +727,118 @@ export default function LogCounterSaleForm({
                   </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* 3. Bottling Supplies / Raw Materials (Caps) & Extra Fee */}
+          {/* 3. Bottling Supplies / Raw Materials (Caps, Bottles, etc.) */}
           {(counterRawMaterials.length > 0 || onManageSupplies) && (
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-              <div className="flex items-center justify-between text-xs">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs px-0.5">
                 <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
                   Supplies & Extras
                 </span>
-                <div className="flex items-center gap-1.5">
-                  {onManageSupplies && (
-                    <button
-                      type="button"
-                      onClick={onManageSupplies}
-                      className="px-2 py-0.5 text-[11px] font-semibold rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1 transition shadow-2xs cursor-pointer"
-                    >
-                      <Plus size={11} /> Manage Supplies
-                    </button>
-                  )}
+                {onManageSupplies && (
                   <button
                     type="button"
-                    onClick={() => addExtraItem('DELIVERY', 'Delivery Fee', 100)}
-                    className="px-2 py-0.5 text-[11px] font-medium rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 flex items-center gap-1"
+                    onClick={onManageSupplies}
+                    className="px-2 py-0.5 text-[11px] font-semibold rounded border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center gap-1 transition shadow-2xs cursor-pointer"
                   >
-                    <Plus size={11} /> Delivery (Rs 100)
+                    <Plus size={11} /> Manage Supplies
                   </button>
-                </div>
+                )}
               </div>
 
               {counterRawMaterials.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-2">
                   {counterRawMaterials.map(rm => {
                     const rawKey = `${rm.id}_RAW`;
                     const currentQty = Number(cartMap[rawKey] || 0);
                     const defaultPrice = Number(rm.retailPrice || 0);
                     const currentPrice = customPrices[rawKey] !== undefined && customPrices[rawKey] !== '' ? customPrices[rawKey] : defaultPrice;
                     const stock = Number(rm.cachedQty || 0);
+                    const isInCart = currentQty > 0;
 
                     return (
-                      <div key={rm.id} className="p-2 rounded bg-white border border-slate-200 flex items-center justify-between gap-1 text-xs">
-                        <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-slate-800 truncate block text-[11px]">{rm.name}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">Stock: {stock}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-mono text-slate-400">Rs</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            className="w-12 px-1 py-0.5 text-[11px] font-mono font-bold border border-slate-200 rounded bg-slate-50 text-center"
-                            value={currentPrice}
-                            onChange={(e) => handlePriceChange(rawKey, e.target.value)}
-                          />
-                        </div>
-                        <div className="flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => updateItemQty(rawKey, -1)}
-                            disabled={currentQty <= 0}
-                            className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 flex items-center justify-center font-bold text-xs"
-                          >
-                            <Minus size={10} />
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="0"
-                            className={`w-9 text-center font-mono font-bold text-xs border rounded p-0.5 ${
-                              currentQty > 0 ? 'border-emerald-600 bg-white text-emerald-700' : 'border-slate-200 bg-white text-slate-700'
-                            }`}
-                            value={currentQty > 0 ? currentQty : ''}
-                            onChange={(e) => setItemQtyDirect(rawKey, e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateItemQty(rawKey, 1)}
-                            className="w-5 h-5 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center font-bold text-xs"
-                          >
-                            <Plus size={10} />
-                          </button>
+                      <div
+                        key={rm.id}
+                        className={`p-2.5 rounded-lg border transition-all ${
+                          isInCart
+                            ? 'bg-brand/5 border-brand ring-1 ring-brand/20'
+                            : 'bg-white border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          {/* Title & Stock */}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                              <Package size={14} className="text-emerald-600 shrink-0" />
+                              <span className="truncate">{rm.name}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              Stock: <strong className={stock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
+                                {stock} {rm.unit || 'units'}
+                              </strong>
+                            </div>
+                          </div>
+
+                          {/* Price Input */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[11px] font-mono text-slate-400">Rs</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
+                              value={currentPrice}
+                              onChange={(e) => handlePriceChange(rawKey, e.target.value)}
+                              title="Rate"
+                            />
+                          </div>
+
+                          {/* Stepper & Quick Add */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(rawKey, -1)}
+                                disabled={currentQty <= 0}
+                                className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                                  currentQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
+                                }`}
+                                value={currentQty > 0 ? currentQty : ''}
+                                onChange={(e) => setItemQtyDirect(rawKey, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(rawKey, 1)}
+                                className="w-6 h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+
+                            <div className="hidden sm:flex items-center gap-1">
+                              {[1, 5, 10].map(q => (
+                                <button
+                                  type="button"
+                                  key={q}
+                                  onClick={() => updateItemQty(rawKey, q)}
+                                  className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
+                                >
+                                  +{q}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
