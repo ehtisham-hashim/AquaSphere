@@ -90,8 +90,11 @@ async function seedAdminUsers() {
     create: { name: 'Wadaana TM', email: 'tm@wadaana.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
   });
 
-  console.log('Seeded Users successfully:');
-  console.log({ aqAdmin, aqOwner, aqPM, aqMM, aqAccountant, aqTM, wdAdmin, wdOwner, wdPM, wdMM, wdAccountant, wdTM });
+  console.log('✅ Seeded Users successfully:');
+  console.log({
+    AquaSphere: [aqAdmin.email, aqOwner.email, aqPM.email, aqMM.email, aqAccountant.email, aqTM.email],
+    Wadaana: [wdAdmin.email, wdOwner.email, wdPM.email, wdMM.email, wdAccountant.email, wdTM.email]
+  });
   await closeDatabaseConnections();
 }
 

@@ -12,6 +12,10 @@
     "db:format": "prisma format",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:wipe": "node scripts/wipe-database.js",
+    "seed:users": "node seed_users.js",
+    "seed:bom": "node scripts/seed-production-bom.js",
+    "seed": "node seed_users.js && node scripts/seed-production-bom.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

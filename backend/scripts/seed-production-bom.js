@@ -31,7 +31,6 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 import { prisma, closeDatabaseConnections } from '../src/config/db.js';
 
 const isDryRun = process.argv.includes('--dry-run');
-const shouldWipe = process.argv.includes('--wipe');
 
 // ============================================================================
 // 1. WADAANA DEFINITIONS
@@ -182,105 +181,6 @@ const AQUASPHERE_FINISHED_GOODS = [
   },
 ];
 
-// ============================================================================
-// WIPE ALL TRANSACTIONAL & MASTER DATA (Preserves Users)
-// ============================================================================
-async function wipeOldTestData() {
-  console.log(`\n🧹 Performing comprehensive wipe (preserves strictly user accounts)...`);
-  if (isDryRun) {
-    console.log('   [DryRun] Would wipe all transactions, ledgers, items, and customers.');
-    return;
-  }
-
-  // 1. Counter Sales & Items
-  await prisma.aquasphereSpotSaleItem.deleteMany().catch(() => {});
-  await prisma.wadaanaSpotSaleItem.deleteMany().catch(() => {});
-  await prisma.aquasphereSpotSale.deleteMany().catch(() => {});
-  await prisma.wadaanaSpotSale.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted spot sales and items');
-
-  // 2. Counter Audit Ledgers
-  await prisma.aquasphereCounterAuditLedger.deleteMany().catch(() => {});
-  await prisma.wadaanaCounterAuditLedger.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted counter audit ledgers');
-
-  // 3. Recipes
-  await prisma.aquasphereRecipeItem.deleteMany().catch(() => {});
-  await prisma.wadaanaRecipeItem.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted recipe items');
-
-  // 4. Production Batches & Consumptions
-  await prisma.aquasphereProductionBatchConsumption.deleteMany().catch(() => {});
-  await prisma.wadaanaProductionBatchConsumption.deleteMany().catch(() => {});
-  await prisma.aquasphereProductionBatch.deleteMany().catch(() => {});
-  await prisma.wadaanaProductionBatch.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted production batches and consumptions');
-
-  // 5. Orders, Items, Deliveries, Payments
-  await prisma.aquasphereDelivery.deleteMany().catch(() => {});
-  await prisma.wadaanaDelivery.deleteMany().catch(() => {});
-  await prisma.aquaspherePayment.deleteMany().catch(() => {});
-  await prisma.wadaanaPayment.deleteMany().catch(() => {});
-  await prisma.aquasphereOrderItem.deleteMany().catch(() => {});
-  await prisma.wadaanaOrderItem.deleteMany().catch(() => {});
-  await prisma.aquasphereOrder.deleteMany().catch(() => {});
-  await prisma.wadaanaOrder.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted orders, deliveries, and payments');
-
-  // 6. Bottle Transactions
-  await prisma.aquasphereBottleTransaction.deleteMany().catch(() => {});
-  await prisma.wadaanaBottleTransaction.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted bottle transactions');
-
-  // 7. Vendor Payments, Ledgers, Purchases
-  await prisma.aquasphereVendorPayment.deleteMany().catch(() => {});
-  await prisma.wadaanaVendorPayment.deleteMany().catch(() => {});
-  await prisma.aquasphereVendorLedgerEntry.deleteMany().catch(() => {});
-  await prisma.wadaanaVendorLedgerEntry.deleteMany().catch(() => {});
-  await prisma.aquaspherePurchaseItem.deleteMany().catch(() => {});
-  await prisma.wadaanaPurchaseItem.deleteMany().catch(() => {});
-  await prisma.aquaspherePurchase.deleteMany().catch(() => {});
-  await prisma.wadaanaPurchase.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted purchases and vendor ledgers');
-
-  // 8. Inventory Transactions
-  await prisma.aquasphereInventoryTransaction.deleteMany().catch(() => {});
-  await prisma.wadaanaInventoryTransaction.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted inventory transactions');
-
-  // 9. Expenses & Transport
-  await prisma.aquasphereTransportExpense.deleteMany().catch(() => {});
-  await prisma.wadaanaTransportExpense.deleteMany().catch(() => {});
-  await prisma.aquasphereExpense.deleteMany().catch(() => {});
-  await prisma.wadaanaExpense.deleteMany().catch(() => {});
-  await prisma.aquasphereVehicle.deleteMany().catch(() => {});
-  await prisma.wadaanaVehicle.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted expenses and vehicles');
-
-  // 10. Vendors
-  await prisma.aquasphereVendor.deleteMany().catch(() => {});
-  await prisma.wadaanaVendor.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted vendors');
-
-  // 11. Daily Closes & Audit Logs
-  await prisma.aquasphereDailyClose.deleteMany().catch(() => {});
-  await prisma.wadaanaDailyClose.deleteMany().catch(() => {});
-  await prisma.aquasphereAuditLog.deleteMany().catch(() => {});
-  await prisma.wadaanaAuditLog.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted daily closes and audit logs');
-
-  // 12. Customers
-  await prisma.aquasphereCustomer.deleteMany().catch(() => {});
-  await prisma.wadaanaCustomer.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted customers');
-
-  // 13. Items
-  await prisma.aquasphereItem.deleteMany().catch(() => {});
-  await prisma.wadaanaItem.deleteMany().catch(() => {});
-  console.log('  ✓ Deleted master items');
-
-  console.log('  🎉 All transactional and entity data wiped. Users preserved 100%.');
-}
 
 // ============================================================================
 // SEED ENGINE
@@ -420,18 +320,13 @@ async function syncTenant(prefix, rawDefs, fgDefs) {
 }
 
 async function main() {
-  console.log(`\n🚀 STARTING PRODUCTION BOM SEED (DryRun: ${isDryRun}, Wipe: ${shouldWipe})\n`);
-
-  if (shouldWipe) {
-    await wipeOldTestData();
-  }
+  console.log(`\n🚀 STARTING PRODUCTION BOM SEED (DryRun: ${isDryRun})\n`);
 
   await syncTenant('wadaana', WADAANA_RAW_MATERIALS, WADAANA_FINISHED_GOODS);
   await syncTenant('aquasphere', AQUASPHERE_RAW_MATERIALS, AQUASPHERE_FINISHED_GOODS);
 
   if (isDryRun) {
     console.log('\n💡 DRY RUN FINISHED: No changes were made to the database.');
-    console.log('   Run with --wipe to wipe old test data and seed fresh.');
   } else {
     console.log('\n✅ SEED COMPLETED SUCCESSFULLY!');
   }
