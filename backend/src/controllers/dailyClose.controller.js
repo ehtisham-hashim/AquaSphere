@@ -38,6 +38,15 @@ export const closeDay = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Counter Audit Ledger must be submitted and verified before daily close can be locked');
   }
 
+  // Multi-department verification check: PM, MM, TM must all confirm their checklists first
+  const pending = [];
+  if (!existing?.pmConfirmed) pending.push('Production (PM)');
+  if (!existing?.mmConfirmed) pending.push('Sales & Marketing (MM)');
+  if (!existing?.tmConfirmed) pending.push('Transport & Fleet (TM)');
+  if (pending.length > 0) {
+    throw new ApiError(400, `Cannot finalize day: All department verifications are required before final lock. Pending: ${pending.join(', ')}.`);
+  }
+
   // Calculate expected cash in drawer
   const [cashDeliveryPayments, spotSalesCashAgg, expensesAgg, vendorCashPayments] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
@@ -75,33 +84,12 @@ export const closeDay = asyncHandler(async (req, res) => {
     cashDifference: cashDifference,
     notes: notes || null,
     closedAt: now,
-    closedById: req.user.id,
-    ...(!existing?.pmConfirmed ? { pmConfirmed: true, pmConfirmedAt: now, pmConfirmedById: req.user.id } : {}),
-    ...(!existing?.mmConfirmed ? { mmConfirmed: true, mmConfirmedAt: now, mmConfirmedById: req.user.id } : {}),
-    ...(!existing?.tmConfirmed ? { tmConfirmed: true, tmConfirmedAt: now, tmConfirmedById: req.user.id } : {})
+    closedById: req.user.id
   };
 
-  const closedDay = await dailyCloseModel.upsert({
+  const closedDay = await dailyCloseModel.update({
     where: { date: targetDate },
-    update: updateFields,
-    create: {
-      date: targetDate,
-      actualCash: parsedActualCash,
-      expectedCash: expectedCash,
-      cashDifference: cashDifference,
-      notes: notes || null,
-      pmConfirmed: true,
-      pmConfirmedAt: now,
-      pmConfirmedById: req.user.id,
-      mmConfirmed: true,
-      mmConfirmedAt: now,
-      mmConfirmedById: req.user.id,
-      tmConfirmed: true,
-      tmConfirmedAt: now,
-      tmConfirmedById: req.user.id,
-      adminConfirmed: true,
-      closedById: req.user.id
-    }
+    data: updateFields
   });
 
   await createAuditLog(prefix, {

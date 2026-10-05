@@ -74,20 +74,27 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     // Strict cross-tenant entitlement check: only authorized role (OWNER) with target membership
     if (fallbackUser.role === 'OWNER') {
       // Check if user has an account in the target tenant with same email
-      const targetUser = await prisma[`${requestedPrefix}User`].findUnique({
+      let targetUser = await prisma[`${requestedPrefix}User`].findUnique({
         where: { email: fallbackUser.email },
         select: { id: true, email: true, name: true, role: true, isActive: true }
       });
 
+      // If no exact email match, bind to target tenant's active Owner or Admin to ensure FK validity
+      if (!targetUser) {
+        targetUser = await prisma[`${requestedPrefix}User`].findFirst({
+          where: { role: 'OWNER', isActive: true },
+          select: { id: true, email: true, name: true, role: true, isActive: true }
+        }) || await prisma[`${requestedPrefix}User`].findFirst({
+          where: { role: 'ADMIN', isActive: true },
+          select: { id: true, email: true, name: true, role: true, isActive: true }
+        });
+      }
+
       if (targetUser && targetUser.isActive) {
         user = targetUser;
         resolvedTenant = requestedPrefix;
-      } else if (fallbackUser.role === 'OWNER') {
-        // Global administrative authority granted access
-        user = fallbackUser;
-        resolvedTenant = requestedPrefix;
       } else {
-        throw new ApiError(403, 'Forbidden: User is not authorized to access this tenant');
+        throw new ApiError(403, 'Forbidden: No active administrative account in target tenant');
       }
     } else {
       // Reject cross-tenant access for non-owner roles

@@ -49,6 +49,10 @@ export default function AdminClose() {
   });
 
   const handleFinalize = async () => {
+    if (!allDepartmentsConfirmed) {
+      toast.error('Cannot finalize day: PM, MM, and TM must all confirm their department checklists first.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -217,7 +221,7 @@ export default function AdminClose() {
                 Double-verifying finalizes daily numbers and locks date records from unauthorized edits.
                 {!allDepartmentsConfirmed && (
                   <span className="block text-amber-700 font-bold text-[11px] mt-1 flex items-center gap-1">
-                    <AlertTriangle size={13} /> Some departments are pending verification. Admin lock will auto-confirm and finalize.
+                    <AlertTriangle size={13} className="shrink-0" /> All department verifications (PM, MM, TM) are required before final lock.
                   </span>
                 )}
               </p>
@@ -225,8 +229,9 @@ export default function AdminClose() {
 
             <button
               onClick={handleFinalize}
-              disabled={submitting}
-              className="btn-primary py-3 px-6 text-sm flex items-center gap-2 shrink-0 font-bold shadow-md hover:shadow-lg transition-all"
+              disabled={submitting || !allDepartmentsConfirmed}
+              title={!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : ''}
+              className={`btn-primary py-3 px-6 text-sm flex items-center gap-2 shrink-0 font-bold shadow-md transition-all ${!allDepartmentsConfirmed ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'}`}
             >
               {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Lock size={16} />}
               <span>{submitting ? 'Finalizing...' : 'Double-Verify & Lock Day'}</span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock, Truck, DollarSign } from 'lucide-react';
+import { Crown, Unlock, Calendar, ChevronDown, ChevronUp, Box, ShoppingBag, UserCheck, RefreshCw, Lock, Truck, DollarSign, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
 import { useLiveEvent } from '../../context/SSEContext';
@@ -49,7 +49,13 @@ export default function OwnerClose() {
     loadData();
   });
 
+  const allDepartmentsConfirmed = Boolean(pmConfirmed && mmConfirmed && tmConfirmed);
+
   const handleFinalize = async () => {
+    if (!allDepartmentsConfirmed) {
+      toast.error('Cannot finalize day: PM, MM, and TM must all confirm their department checklists first.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -256,12 +262,20 @@ export default function OwnerClose() {
 
       {/* 6. If open, Owner can also finalize */}
       {!isClosed && (
-        <div className="card-surface p-4 bg-slate-50 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-600">Day is currently open for operations.</span>
+        <div className="card-surface p-4 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <span className="text-xs font-semibold text-slate-700 block">Day is currently open for operations.</span>
+            {!allDepartmentsConfirmed && (
+              <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
+                <AlertTriangle size={12} className="shrink-0" /> Awaiting PM, MM, and TM department verifications before day can be locked.
+              </span>
+            )}
+          </div>
           <button
             onClick={handleFinalize}
-            disabled={submitting}
-            className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5"
+            disabled={submitting || !allDepartmentsConfirmed}
+            title={!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : ''}
+            className={`btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 shrink-0 ${!allDepartmentsConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Lock size={14} />
             <span>{submitting ? 'Finalizing...' : 'Finalize & Lock Day'}</span>
