@@ -1,6 +1,4 @@
-import { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLiveEvent } from '../context/SSEContext';
 import OwnerClose from '../components/dailyClose/OwnerClose';
 import AdminClose from '../components/dailyClose/AdminClose';
 import ProductionClose from '../components/dailyClose/ProductionClose';
@@ -10,13 +8,6 @@ import TransportClose from '../components/dailyClose/TransportClose';
 
 export default function DailyClosePage() {
   const { user, loading } = useAuth();
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const fetchData = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
-
-  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED'], () => fetchData(true));
 
   if (loading) {
     return (
@@ -44,7 +35,7 @@ export default function DailyClosePage() {
   }
 
   return (
-    <div key={refreshKey} className="space-y-4">
+    <div className="space-y-4">
       {content}
     </div>
   );

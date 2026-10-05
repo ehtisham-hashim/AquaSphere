@@ -23,6 +23,8 @@ import {
   LogOut
 } from 'lucide-react';
 
+import { checkForUpdate } from '../../utils/versionCheck';
+
 // ponytail: hover-prefetch — fires import() on mouse-enter so the JS chunk is already
 // downloaded when the user clicks. No lib, no state, browser handles dedup.
 const PREFETCH_MAP = {
@@ -41,6 +43,27 @@ const PREFETCH_MAP = {
   '/users': () => import('../../pages/Users'),
   '/transport': () => import('../../pages/Transport'),
   '/daily-close': () => import('../../pages/DailyClose'),
+};
+
+const safePrefetch = (path) => {
+  try {
+    const fn = PREFETCH_MAP[path];
+    if (fn) {
+      fn().catch((err) => {
+        const msg = String(err?.message || '');
+        if (
+          msg.includes('dynamically imported module') ||
+          msg.includes('Loading chunk') ||
+          msg.includes('Importing a module script failed')
+        ) {
+          // Stale chunk detected during prefetch: trigger background update sync
+          checkForUpdate(true);
+        }
+      });
+    }
+  } catch (_e) {
+    // Ignore safe prefetch errors
+  }
 };
 
 const navItems = [
@@ -117,8 +140,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
                   key={item.path}
                   to={item.path}
                   onClick={() => { if (isOpen) onClose(); }}
-                  onMouseEnter={() => PREFETCH_MAP[item.path]?.()}
-                  onFocus={() => PREFETCH_MAP[item.path]?.()}
+                  onMouseEnter={() => safePrefetch(item.path)}
+                  onFocus={() => safePrefetch(item.path)}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl text-sm transition-all duration-150 ${

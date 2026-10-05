@@ -9,6 +9,8 @@ function isChunkLoadingError(error) {
     msg.includes('loading chunk') ||
     msg.includes('error loading dynamically imported module') ||
     msg.includes('importing a module script failed') ||
+    msg.includes('network error') ||
+    msg.includes('failed to fetch') ||
     error?.name === 'ChunkLoadError'
   );
 }
@@ -27,10 +29,16 @@ export class RouteErrorBoundary extends Component {
     console.error('Route error caught by ErrorBoundary:', error, errorInfo);
 
     if (isChunkLoadingError(error)) {
-      const lastReload = Number(sessionStorage.getItem('chunk_reload_last_ts') || 0);
+      const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
       if (Date.now() - lastReload > 15000) {
-        sessionStorage.setItem('chunk_reload_last_ts', String(Date.now()));
+        sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
         window.location.reload();
+      } else {
+        // Fallback retry after brief pause
+        setTimeout(() => {
+          sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
+          window.location.reload();
+        }, 2000);
       }
     }
   }
@@ -43,7 +51,8 @@ export class RouteErrorBoundary extends Component {
         return (
           <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
             <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin mb-3"></div>
-            <p className="text-sm font-medium text-slate-600">Syncing application updates...</p>
+            <p className="text-sm font-semibold text-slate-800">Updating application...</p>
+            <p className="text-xs text-slate-400 mt-1">Syncing latest changes with server</p>
           </div>
         );
       }

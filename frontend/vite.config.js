@@ -5,9 +5,29 @@ import path from "path"
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const buildTimestamp = Date.now().toString()
+
+function versionPlugin() {
+  return {
+    name: 'generate-version-json',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({
+          version: buildTimestamp,
+          builtAt: new Date().toISOString()
+        }, null, 2)
+      })
+    }
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    __APP_BUILD_TIME__: JSON.stringify(buildTimestamp)
+  },
   plugins: [
     tailwindcss(),
     react({
@@ -18,6 +38,7 @@ export default defineConfig({
         ],
       },
     }),
+    versionPlugin(),
   ],
   resolve: {
     alias: {
