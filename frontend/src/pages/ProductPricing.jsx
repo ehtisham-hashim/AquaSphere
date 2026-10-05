@@ -273,7 +273,7 @@ export default function ProductPricing() {
     <div className="space-y-4 pb-12">
       {/* Top Header */}
       <PageHeader
-        title={activeTab === 'pricing' ? "Product & Catalog Pricing" : "Operational Defaults & Order Thresholds"}
+        title={activeTab === 'pricing' ? "Product Rates & Catalog" : "Order Defaults & Warnings"}
         badge={
           <span className="badge-warning inline-flex items-center gap-1">
             <Lock className="w-3 h-3" /> Owner Exclusive
@@ -281,8 +281,8 @@ export default function ProductPricing() {
         }
         subtitle={
           activeTab === 'pricing'
-            ? `Configure database-driven retail prices for all finished goods. Drives ${isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.`
-            : `Configure safety alerts for low inventory and unusual customer order quantities.`
+            ? `Configure database-driven rates for all finished goods. Drives ${isWadaana ? 'wholesale orders' : 'counter POS sales & bulk water'}.`
+            : `Set warning limits for low inventory and unusual customer order quantities.`
         }
         actions={
           activeTab === 'pricing' ? (
@@ -303,7 +303,7 @@ export default function ProductPricing() {
                 className="btn-primary"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{savingAll ? 'Saving...' : `Save All Changes (${Object.keys(editedPrices).length})`}</span>
+                <span>{savingAll ? 'Saving...' : `Save Rates (${Object.keys(editedPrices).length})`}</span>
               </button>
             </div>
           ) : (
@@ -324,7 +324,7 @@ export default function ProductPricing() {
                 className="btn-primary"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{savingSettings ? 'Saving...' : 'Save Operational Defaults'}</span>
+                <span>{savingSettings ? 'Saving...' : 'Save Defaults'}</span>
               </button>
             </div>
           )
@@ -343,7 +343,7 @@ export default function ProductPricing() {
           }`}
         >
           <Package size={15} className={activeTab === 'pricing' ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-400'} />
-          <span>Product Catalog Pricing</span>
+          <span>Product Rate List</span>
         </button>
 
         <button
@@ -356,7 +356,7 @@ export default function ProductPricing() {
           }`}
         >
           <Sliders size={15} className={activeTab === 'thresholds' ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-400'} />
-          <span>Order Thresholds & Warnings</span>
+          <span>Order Limits & Warnings</span>
         </button>
       </div>
 

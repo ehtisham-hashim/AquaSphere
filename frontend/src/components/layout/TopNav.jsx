@@ -17,7 +17,7 @@ const PAGE_TITLES = {
   '/vendors': { title: 'Vendors Directory', subtitle: 'Manage vendor accounts and purchase ledgers' },
   '/expenses': { title: 'Factory Expenses', subtitle: 'Track operational expenses and receipts' },
   '/counter-sales': { title: 'Counter Sales', subtitle: 'Retail sales and immediate stock dispatches' },
-  '/pricing': { title: 'Product & Water Pricing', subtitle: 'Manage retail catalog prices and bulk water rates' },
+  '/pricing': { title: 'Rates & Defaults', subtitle: 'Manage product rate lists, stock warnings, and order typo limits' },
   '/transport-expenses': { title: 'Transport Expenses', subtitle: 'Track fleet operations, fuel, and vehicle maintenance' },
   '/cars': { title: 'Vehicle Fleet', subtitle: 'Manage company vehicles, mileage, and service records' },
   '/transport': { title: 'Fleet & Transport', subtitle: 'Manage company vehicles, operational status, and expenses' },
