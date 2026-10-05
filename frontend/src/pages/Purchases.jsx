@@ -17,6 +17,8 @@ import {
 export default function Purchases() {
   const { user } = useAuth();
   const { tenant } = useTenant();
+  
+  // Role-based access control
   const isOwner = user?.role === 'OWNER';
   const isAccountant = user?.role === 'ACCOUNTANT';
   const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
