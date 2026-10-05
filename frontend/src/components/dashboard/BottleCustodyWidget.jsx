@@ -1,53 +1,57 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Package, MessageCircle, CheckCircle2, Search } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Package, MessageCircle, CheckCircle2, Search, RotateCcw } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
+import { useLiveEvent } from '../../context/SSEContext';
+import BottleAdjustmentModal from '../customer/BottleAdjustmentModal';
 import { toast } from 'sonner';
 
-export default function BottleCustodyWidget({ className = '' }) {
+export default function BottleCustodyWidget({ className = '', embedded = false, onCustodyUpdated }) {
   const { tenant, isWadaana } = useTenant();
   const [summary, setSummary] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [retrievalCustomer, setRetrievalCustomer] = useState(null);
 
   const companyName = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
-  useEffect(() => {
-    let isMounted = true;
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [sumRes, custRes] = await Promise.all([
-          fetch(`${API_URL}/bottles/summary`, {
-            headers: { 'x-tenant': tenant },
-            credentials: 'include'
-          }).catch(() => null),
-          fetch(`${API_URL}/customers?limit=200`, {
-            headers: { 'x-tenant': tenant },
-            credentials: 'include'
-          }).catch(() => null)
-        ]);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, custRes] = await Promise.all([
+        fetch(`${API_URL}/bottles/summary`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        }).catch(() => null),
+        fetch(`${API_URL}/customers?limit=200`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        }).catch(() => null)
+      ]);
 
-        if (sumRes?.ok) {
-          const sumJson = await sumRes.json();
-          if (sumJson.success && isMounted) setSummary(sumJson.data);
-        }
-        if (custRes?.ok) {
-          const custJson = await custRes.json();
-          if (custJson.success && isMounted) {
-            setCustomers(custJson.data || []);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching bottle custody data:', err);
-      } finally {
-        if (isMounted) setLoading(false);
+      if (sumRes?.ok) {
+        const sumJson = await sumRes.json();
+        if (sumJson.success) setSummary(sumJson.data);
       }
+      if (custRes?.ok) {
+        const custJson = await custRes.json();
+        if (custJson.success) {
+          setCustomers(custJson.data || []);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching bottle custody data:', err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
-    return () => { isMounted = false; };
   }, [tenant]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_CREATED', 'ORDER_UPDATED'], loadData);
 
   const [currentTimestamp] = useState(() => Date.now());
 
@@ -90,42 +94,65 @@ export default function BottleCustodyWidget({ className = '' }) {
   };
 
   return (
-    <div className={`card-surface p-4 sm:p-5 space-y-4 ${className}`}>
+    <div className={embedded ? `space-y-3.5 ${className}` : `card-surface p-4 sm:p-5 space-y-4 ${className}`}>
       {/* Header & KPI Summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
-            <Package size={18} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              19L Bottle Custody & Recovery
-              <span className="badge-brand text-[10px] py-0.5 px-2">Fleet Circulation</span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              Track unreturned 19L bottle inventory held by clients with 1-click recovery reminders
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="bg-sky-50/80 border border-sky-200/60 rounded-xl px-3.5 py-1.5 text-right">
-            <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">In Circulation</span>
-            <span className="text-lg font-mono font-black text-sky-900">
-              {totalInCirculation.toLocaleString()} <span className="text-xs font-semibold text-sky-600 font-sans">Bottles</span>
-            </span>
+      {!embedded ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
+              <Package size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                19L Bottle Custody & Recovery
+                <span className="badge-brand text-[10px] py-0.5 px-2">Fleet Circulation</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Track unreturned 19L bottle inventory held by clients with 1-click recovery reminders
+              </p>
+            </div>
           </div>
 
-          {summary?.atFactory !== undefined && (
-            <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-xl px-3.5 py-1.5 text-right hidden sm:block">
-              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">At Plant</span>
-              <span className="text-lg font-mono font-black text-emerald-900">
-                {Number(summary.atFactory).toLocaleString()} <span className="text-xs font-semibold text-emerald-600 font-sans">Bottles</span>
+          <div className="flex items-center gap-3">
+            <div className="bg-sky-50/80 border border-sky-200/60 rounded-xl px-3.5 py-1.5 text-right">
+              <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">In Circulation</span>
+              <span className="text-lg font-mono font-black text-sky-900">
+                {totalInCirculation.toLocaleString()} <span className="text-xs font-semibold text-sky-600 font-sans">Bottles</span>
               </span>
             </div>
-          )}
+
+            {summary?.atFactory !== undefined && (
+              <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-xl px-3.5 py-1.5 text-right hidden sm:block">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">At Plant</span>
+                <span className="text-lg font-mono font-black text-emerald-900">
+                  {Number(summary.atFactory).toLocaleString()} <span className="text-xs font-semibold text-emerald-600 font-sans">Bottles</span>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-800">19L Bottle Inventory in Circulation</span>
+            <span className="badge-brand text-[10px] py-0.5 px-2">Fleet Recovery</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-slate-500 font-medium">In Circulation:</span>
+            <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 text-xs">
+              {totalInCirculation.toLocaleString()} Bottles
+            </span>
+            {summary?.atFactory !== undefined && (
+              <>
+                <span className="text-xs text-slate-500 font-medium ml-1">At Plant:</span>
+                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-xs">
+                  {Number(summary.atFactory).toLocaleString()} Bottles
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Recovery List Search & Filter */}
       <div className="flex items-center justify-between gap-3">
@@ -147,7 +174,7 @@ export default function BottleCustodyWidget({ className = '' }) {
 
       {/* Customer Recovery Table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-        <div className="overflow-x-auto max-h-64">
+        <div className="overflow-x-auto max-h-72">
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0">
               <tr>
@@ -198,16 +225,27 @@ export default function BottleCustodyWidget({ className = '' }) {
                         ) : '—'}
                       </td>
                       <td className="p-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleWhatsAppReminder(c)}
-                          disabled={!c.phone}
-                          className="btn-secondary py-1 px-2.5 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Send WhatsApp recovery reminder"
-                        >
-                          <MessageCircle size={12} className="text-emerald-600" />
-                          <span>Remind</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setRetrievalCustomer(c)}
+                            className="btn-primary py-1 px-2.5 text-xs inline-flex items-center gap-1 shadow-2xs font-semibold"
+                            title="Directly retrieve empty bottles into plant stock"
+                          >
+                            <RotateCcw size={12} />
+                            <span>Retrieve</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleWhatsAppReminder(c)}
+                            disabled={!c.phone}
+                            className="btn-secondary py-1 px-2 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Send WhatsApp recovery reminder"
+                          >
+                            <MessageCircle size={12} className="text-emerald-600" />
+                            <span>Remind</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -217,6 +255,19 @@ export default function BottleCustodyWidget({ className = '' }) {
           </table>
         </div>
       </div>
+
+      {/* Direct Bottle Retrieval / Adjustment Modal */}
+      {retrievalCustomer && (
+        <BottleAdjustmentModal
+          customer={retrievalCustomer}
+          onClose={() => setRetrievalCustomer(null)}
+          onSuccess={() => {
+            setRetrievalCustomer(null);
+            loadData();
+            if (onCustodyUpdated) onCustodyUpdated();
+          }}
+        />
+      )}
     </div>
   );
 }

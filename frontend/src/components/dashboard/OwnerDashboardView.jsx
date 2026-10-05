@@ -19,7 +19,7 @@ import ModernKpiCard from './ModernKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
 import LowStockAlertGrid from './LowStockAlertGrid';
 import UnprocessedOrdersModal from './UnprocessedOrdersModal';
-import BottleCustodyWidget from './BottleCustodyWidget';
+import CustomerRiskHub from './CustomerRiskHub';
 import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
 import { useTenant } from '../../context/TenantContext';
 import { useLiveEvent } from '../../context/SSEContext';
@@ -536,8 +536,8 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </div>
 
-      {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) — Full Width */}
-      {!isWadaana && <BottleCustodyWidget />}
+      {/* Customer Risk & Bottle Intelligence Hub — Consolidated & Non-Bloated */}
+      <CustomerRiskHub />
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal
