@@ -169,11 +169,12 @@ export default function Orders() {
 
   const isOwner = user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN';
+  const isAccountant = user?.role === 'ACCOUNTANT';
   const isMarketingManager = user?.role === 'MARKETING_MANAGER';
   const isTransportManager = user?.role === 'TRANSPORT_MANAGER';
-  const canAddCustomer = !isTransportManager && (user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER');
-  const canCreateOrder = !isTransportManager && (user?.role === 'OWNER' || user?.role === 'MARKETING_MANAGER');
-  const canDeleteOrder = !isTransportManager && ['OWNER', 'MARKETING_MANAGER'].includes(user?.role);
+  const canAddCustomer = !isTransportManager && (isOwner || isAdmin || isMarketingManager);
+  const canCreateOrder = !isTransportManager && (isOwner || isAdmin || isAccountant || isMarketingManager);
+  const canDeleteOrder = isOwner;
 
   // Unpaid/Partial order count for quick alerts
   const unpaidOrdersCount = orders.filter(o => o.paymentStatus !== 'PAID' && o.deliveryStatus !== 'CANCELLED').length;
@@ -220,6 +221,7 @@ export default function Orders() {
         <OrderDetail
           order={selectedOrderDetails}
           onClose={() => setSelectedOrderDetails(null)}
+          onSettle={(order) => openDeliverModal(order)}
         />
       ) : (
         <>
@@ -350,11 +352,7 @@ export default function Orders() {
                 pagination.paginatedItems.map(o => {
                   const isFullyGreenlit = o.deliveryStatus === 'DELIVERED' && o.paymentStatus === 'PAID';
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
-                  const canProcess = !isAdmin && !isTransportManager && o.deliveryStatus !== 'CANCELLED' && (
-                    !isMarketingManager 
-                      ? !isFullyGreenlit 
-                      : o.deliveryStatus !== 'DELIVERED'
-                  );
+                  const canProcess = !isTransportManager && o.deliveryStatus !== 'CANCELLED' && !isFullyGreenlit;
 
                   return (
                     <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">

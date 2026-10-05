@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, AlertCircle } from 'lucide-react';
+import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
@@ -65,11 +65,18 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
   const isPaymentSettlementOnly = order.deliveryStatus === 'DELIVERED' && order.paymentStatus !== 'PAID';
 
+  const availableDeposit = Math.max(0, parseFloat(order.customer?.deposit || 0));
+  const [settleFromSecurity, setSettleFromSecurity] = useState(false);
+
+  const depositToApply = settleFromSecurity ? Math.min(availableDeposit, remainingOrderBalance) : 0;
+  const remainingCashRequired = Math.max(0, remainingOrderBalance - depositToApply);
+  const isFullyCoveredByDeposit = settleFromSecurity && depositToApply >= remainingOrderBalance;
+
   const [deliveryData, setDeliveryData] = useState({
     qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
-    cashReceived: isMarketingManager || isPaidInAdvance ? 0 : remainingOrderBalance,
+    cashReceived: (isMarketingManager && !isPaymentSettlementOnly) || isPaidInAdvance ? 0 : remainingOrderBalance,
     paymentMethod: 'CASH',
     remarks: ''
   });
@@ -121,8 +128,8 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
       return;
     }
 
-    const cashVal = isPaidInAdvance ? 0 : parseFloat(deliveryData.cashReceived || 0);
-    if (!isPaidInAdvance && cashVal > maxPayable) {
+    const cashVal = isPaidInAdvance || isFullyCoveredByDeposit ? 0 : parseFloat(deliveryData.cashReceived || 0);
+    if (!isPaidInAdvance && !isFullyCoveredByDeposit && cashVal > maxPayable) {
       toast.error(`Cash received (Rs. ${cashVal}) exceeds customer payable balance (Rs. ${maxPayable})`);
       return;
     }
@@ -141,7 +148,13 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
       const res = await fetch(`${API_URL}/orders/${order.id}/deliver`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...deliveryData, cashReceived: isPaidInAdvance ? 0 : deliveryData.cashReceived, bypassBottleCheck }),
+        body: JSON.stringify({ 
+          ...deliveryData, 
+          cashReceived: isPaidInAdvance || isFullyCoveredByDeposit ? 0 : deliveryData.cashReceived, 
+          settleFromSecurity,
+          paymentMethod: settleFromSecurity && isFullyCoveredByDeposit ? 'SECURITY_DEPOSIT' : deliveryData.paymentMethod,
+          bypassBottleCheck 
+        }),
         credentials: 'include'
       });
 
@@ -296,37 +309,104 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                     <div className="text-[11px] font-medium text-emerald-700">Rs. 0 Due • No additional cash collection required.</div>
                   </div>
                 </div>
-              ) : isMarketingManager ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
-                  <span className="font-bold">Pending Settlement: Rs. {remainingOrderBalance.toLocaleString()}</span>
-                  <p className="text-[11px] text-amber-800 mt-0.5">Payment collection will be confirmed by Accounts.</p>
-                </div>
               ) : (
                 <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-xs font-bold text-slate-700">Cash Received (Rs.)</label>
-                      <span className="text-[11px] text-slate-500 font-medium">Due: Rs. {remainingOrderBalance.toLocaleString()}</span>
+                  {/* Option to Settle from Security Deposit if customer has deposit balance */}
+                  {availableDeposit > 0 && (
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={settleFromSecurity}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setSettleFromSecurity(checked);
+                          const depApplied = checked ? Math.min(availableDeposit, remainingOrderBalance) : 0;
+                          const rem = Math.max(0, remainingOrderBalance - depApplied);
+                          setDeliveryData(prev => ({
+                            ...prev,
+                            cashReceived: rem
+                          }));
+                        }}
+                        className="w-4 h-4 mt-0.5 rounded text-brand focus:ring-brand border-slate-300"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-800">Settle from Security Deposit</span>
+                          <span className="font-mono font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 text-[11px]">
+                            Available: Rs. {availableDeposit.toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Deduct order from customer&apos;s refundable deposit balance.
+                        </p>
+                      </div>
+                    </label>
+                  )}
+
+                  {/* Case A: Fully Covered by Security Deposit */}
+                  {isFullyCoveredByDeposit ? (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-900 font-semibold">
+                      <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+                      <div>
+                        <div>Full Order Balance Covered by Security Deposit</div>
+                        <div className="text-[11px] font-medium text-emerald-700 mt-0.5">
+                          Rs. {depositToApply.toLocaleString()} will be deducted from deposit. Cash demanded: <strong className="font-mono font-bold">Rs. 0</strong>.
+                        </div>
+                      </div>
                     </div>
-                    <input 
-                      name="cashReceived" 
-                      type="number" 
-                      step="0.01" 
-                      min="0" 
-                      max={maxPayable} 
-                      className="input-base font-mono font-bold text-slate-800 text-sm" 
-                      value={deliveryData.cashReceived} 
-                      onChange={handleChange} 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
-                    <select name="paymentMethod" className="select-base text-xs" value={deliveryData.paymentMethod} onChange={handleChange}>
-                      <option value="CASH">Cash</option>
-                      <option value="BANK_TRANSFER">Bank Transfer / Online</option>
-                      <option value="CHEQUE">Cheque</option>
-                    </select>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Case B: Partial Deposit Applied */}
+                      {settleFromSecurity && depositToApply > 0 && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <Info size={14} className="text-amber-700" />
+                            <span>Partial Deposit Coverage</span>
+                          </div>
+                          <p className="text-[11px] text-amber-800">
+                            Rs. {depositToApply.toLocaleString()} applied from Security Deposit. Remaining balance to collect: <strong className="font-mono font-bold">Rs. {remainingCashRequired.toLocaleString()}</strong>.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Cash collection input */}
+                      {isMarketingManager && !isPaymentSettlementOnly && !settleFromSecurity ? (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+                          <span className="font-bold">Pending Settlement: Rs. {remainingOrderBalance.toLocaleString()}</span>
+                          <p className="text-[11px] text-amber-800 mt-0.5">Payment collection will be confirmed by Accounts.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="block text-xs font-bold text-slate-700">Cash Received (Rs.)</label>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                Due: Rs. {(settleFromSecurity ? remainingCashRequired : remainingOrderBalance).toLocaleString()}
+                              </span>
+                            </div>
+                            <input 
+                              name="cashReceived" 
+                              type="number" 
+                              step="0.01" 
+                              min="0" 
+                              max={maxPayable} 
+                              className="input-base font-mono font-bold text-slate-800 text-sm" 
+                              value={deliveryData.cashReceived} 
+                              onChange={handleChange} 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+                            <select name="paymentMethod" className="select-base text-xs" value={deliveryData.paymentMethod} onChange={handleChange}>
+                              <option value="CASH">Cash</option>
+                              <option value="BANK_TRANSFER">Bank Transfer / Online</option>
+                              <option value="CHEQUE">Cheque</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>

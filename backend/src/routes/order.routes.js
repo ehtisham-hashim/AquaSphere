@@ -10,11 +10,11 @@ router.use(verifyJWT);
 router.get('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getOrders);
 router.get('/:id/pdf', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER', 'TRANSPORT_MANAGER'), getOrderPDF);
 
-// Write Orders: OWNER, ACCOUNTANT, MARKETING_MANAGER (Admin is read-only)
-router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), createOrder);
-router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), updateOrder);
-router.post('/:id/deliver', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), deliverOrder);
-router.post('/:id/payment', requireRoles('OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'), recordOrderPayment);
+// Write Orders: OWNER, ADMIN, ACCOUNTANT, MARKETING_MANAGER
+router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), createOrder);
+router.put('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), updateOrder);
+router.post('/:id/deliver', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), deliverOrder);
+router.post('/:id/payment', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), recordOrderPayment);
 router.delete('/:id', requireRoles('OWNER'), deleteOrder);
 
 export default router;

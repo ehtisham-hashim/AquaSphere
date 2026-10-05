@@ -518,6 +518,7 @@ enum AquaspherePaymentType {
   CASH
   BANK_TRANSFER
   CHEQUE
+  SECURITY_DEPOSIT
 
   @@map("payment_types")
   @@schema("aquasphere")
@@ -1164,6 +1165,7 @@ enum WadaanaPaymentType {
   CASH
   BANK_TRANSFER
   CHEQUE
+  SECURITY_DEPOSIT
 
   @@map("payment_types")
   @@schema("wadaana")

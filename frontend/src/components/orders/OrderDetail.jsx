@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
   FileText, ExternalLink, ShoppingBag, User, Share2,
-  Copy, CheckCircle2, Clock, Truck, Navigation, Camera
+  Copy, CheckCircle2, Clock, Truck, Navigation, Camera, DollarSign
 } from 'lucide-react';
 import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,7 @@ import { useTenant } from '../../context/TenantContext';
 import { getOrderCleanName as formatItemName } from '../../constants/orders';
 
 // ponytail: layout mirrors CustomerDetails flat pattern; avoids modal bloat with inline swap view
-export default function OrderDetail({ order, onClose }) {
+export default function OrderDetail({ order, onClose, onSettle }) {
   const { user } = useAuth();
   const { isWadaana } = useTenant();
   const [previewImage, setPreviewImage] = useState(null);
@@ -25,6 +25,7 @@ export default function OrderDetail({ order, onClose }) {
   const grandTotal = items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
+  const canSettle = balanceDue > 0 && order.deliveryStatus !== 'CANCELLED' && user?.role !== 'TRANSPORT_MANAGER';
   const totalQty = items.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
 
   const orderDate = order.createdAt 
@@ -264,14 +265,26 @@ export default function OrderDetail({ order, onClose }) {
               <p className="text-slate-500 text-xs mt-0.5">Delivery dispatch profile & order items breakdown</p>
             </div>
             
-            <button
-              onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-xs transition-colors shadow-2xs"
-              title="Close Details"
-            >
-              <span>Back to Orders</span>
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              {canSettle && onSettle && (
+                <button
+                  onClick={() => onSettle(order)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-colors shadow-2xs"
+                  title="Settle Payment (Cash, Bank, or Security Deposit)"
+                >
+                  <DollarSign size={14} />
+                  <span>Settle Payment</span>
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-xs transition-colors shadow-2xs"
+                title="Close Details"
+              >
+                <span>Back to Orders</span>
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Quick Dispatch to Driver Box (Primary Feature for TM) */}
@@ -342,6 +355,15 @@ export default function OrderDetail({ order, onClose }) {
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
                   {balanceDue > 0 ? 'Pending collection' : 'Fully Settled'}
                 </span>
+                {canSettle && onSettle && (
+                  <button
+                    onClick={() => onSettle(order)}
+                    className="mt-2 w-full py-1 px-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded-lg transition-colors shadow-2xs flex items-center justify-center gap-1"
+                  >
+                    <DollarSign size={12} />
+                    <span>Settle Now</span>
+                  </button>
+                )}
               </div>
 
               <div className="p-2">

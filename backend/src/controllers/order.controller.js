@@ -202,6 +202,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     bottlesReturnedBroken = 0, 
     cashReceived = 0, 
     paymentMethod = 'CASH', 
+    settleFromSecurity = false,
     remarks,
     bypassBottleCheck
   } = req.body;
@@ -232,13 +233,19 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       throw new ApiError(400, `Cash received (Rs. ${cash}) cannot exceed total customer payable balance (Rs. ${maxPayable}).`);
     }
 
+    // Available security deposit check
+    const availableDeposit = Math.max(0, parseFloat(o.customer?.deposit || 0));
+    const depositToApply = (settleFromSecurity || paymentMethod === 'SECURITY_DEPOSIT')
+      ? Math.min(availableDeposit, remainingOrderBalance)
+      : 0;
+
     // CASE 1: Order is ALREADY DELIVERED — Settle payment
     if (o.deliveryStatus === 'DELIVERED') {
-      if (o.paymentStatus === 'PAID' && cash <= 0) {
+      if (o.paymentStatus === 'PAID' && cash <= 0 && depositToApply <= 0) {
         return o;
       }
-      if (cash <= 0 && retGood <= 0 && retBroken <= 0) {
-        throw new ApiError(400, 'Order is already delivered. Enter cash received to settle payment.');
+      if (cash <= 0 && depositToApply <= 0 && retGood <= 0 && retBroken <= 0) {
+        throw new ApiError(400, 'Order is already delivered. Enter cash received or select settle from security deposit.');
       }
 
       const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
@@ -255,19 +262,36 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       });
       const currentCustomerDebt = Math.max(0, Number(customerSnapshot.currentBalance || 0));
 
-      let debtReduction = 0;
-      let depositRestored = 0;
-      if (cash > 0) {
-        debtReduction = Math.min(currentCustomerDebt, cash);
-        depositRestored = Math.max(0, cash - debtReduction);
+      const customerUpdateData = {};
+
+      // 1. Apply deposit if requested
+      if (depositToApply > 0) {
+        customerUpdateData.deposit = { decrement: depositToApply };
         await tx[`${prefix}Payment`].create({
-          data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
+          data: { orderId: o.id, customerId: o.customerId, amount: depositToApply, type: 'SECURITY_DEPOSIT' }
         });
       }
 
-      const customerUpdateData = {};
-      if (debtReduction > 0) customerUpdateData.currentBalance = { decrement: debtReduction };
-      if (depositRestored > 0) customerUpdateData.deposit = { increment: depositRestored };
+      // 2. Apply cash received
+      let debtReduction = 0;
+      if (cash > 0) {
+        debtReduction = Math.min(currentCustomerDebt, cash);
+        await tx[`${prefix}Payment`].create({
+          data: { 
+            orderId: o.id, 
+            customerId: o.customerId, 
+            amount: cash, 
+            type: paymentMethod === 'SECURITY_DEPOSIT' ? 'CASH' : paymentMethod 
+          }
+        });
+      }
+
+      // Total debt reduction includes any debt cleared by deposit or cash
+      const totalDebtReduction = Math.min(currentCustomerDebt, debtReduction + (depositToApply > 0 ? Math.min(currentCustomerDebt - debtReduction, depositToApply) : 0));
+      if (totalDebtReduction > 0) {
+        customerUpdateData.currentBalance = { decrement: totalDebtReduction };
+      }
+
       if (retGood + retBroken > 0) customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
 
       if (Object.keys(customerUpdateData).length > 0) {
@@ -298,7 +322,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
       }
 
-      const newTotalPaid = alreadyPaid + cash;
+      const newTotalPaid = alreadyPaid + depositToApply + cash;
       const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
       const updated = await tx[`${prefix}Order`].update({
@@ -312,7 +336,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         entityType: 'Order',
         entityId: updated.id,
         performedBy: req.user?.id || 'Unknown',
-        details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, debtReduction, depositRestored, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
+        details: JSON.stringify({ cashReceived: cash, depositApplied: depositToApply, newTotalPaid, newPaymentStatus, debtReduction, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
       });
 
       return updated;
@@ -359,7 +383,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     if (cash > 0) {
       initialCreates.push(
         tx[`${prefix}Payment`].create({
-          data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
+          data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod === 'SECURITY_DEPOSIT' ? 'CASH' : paymentMethod }
         })
       );
     } else if (o.paymentStatus === 'PAID' && (!o.payments || o.payments.length === 0)) {
@@ -439,25 +463,28 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       await Promise.all(inventoryUpdates);
     }
 
-    // Customer financial & balance updates
-    const totalPaidForOrder = alreadyPaid + cash;
-    const unpaidAmount = (o.paymentStatus === 'PAID') ? 0 : Math.max(0, orderTotal - totalPaidForOrder);
-    const existingDeposit = parseFloat(o.customer?.deposit || 0);
-
-    let depositDeduction = 0;
-    let debtAddition = 0;
-    if (unpaidAmount > 0) {
-      if (existingDeposit > 0) {
-        depositDeduction = Math.min(existingDeposit, unpaidAmount);
-        debtAddition = unpaidAmount - depositDeduction;
-      } else {
-        debtAddition = unpaidAmount;
-      }
+    // Customer financial & balance updates (depositToApply already computed at top of function)
+    if (depositToApply > 0) {
+      await tx[`${prefix}Payment`].create({
+        data: {
+          orderId: o.id,
+          customerId: o.customerId,
+          amount: depositToApply,
+          type: 'SECURITY_DEPOSIT'
+        }
+      });
     }
 
+    const totalPaidForOrder = alreadyPaid + depositToApply + cash;
+    const unpaidAmount = (o.paymentStatus === 'PAID') ? 0 : Math.max(0, orderTotal - totalPaidForOrder);
+
     const customerUpdateData = { lastDeliveryAt: new Date() };
-    if (depositDeduction > 0) customerUpdateData.deposit = { decrement: depositDeduction };
-    if (debtAddition > 0) customerUpdateData.currentBalance = { increment: debtAddition };
+    if (depositToApply > 0) {
+      customerUpdateData.deposit = { decrement: depositToApply };
+    }
+    if (unpaidAmount > 0) {
+      customerUpdateData.currentBalance = { increment: unpaidAmount };
+    }
 
     if (prefix !== 'wadaana') {
       customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
@@ -496,12 +523,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 export const recordOrderPayment = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
-  const { amount, paymentMethod = 'CASH', remarks } = req.body;
+  const { amount = 0, paymentMethod = 'CASH', settleFromSecurity = false, remarks } = req.body;
   const cash = parseFloat(amount || 0);
-
-  if (cash <= 0) {
-    throw new ApiError(400, 'Payment amount must be greater than 0');
-  }
 
   const o = await prisma[`${prefix}Order`].findUnique({
     where: { id },
@@ -511,6 +534,16 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
 
   const alreadyPaid = o.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const orderTotal = o.items.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+  const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
+
+  const availableDeposit = Math.max(0, parseFloat(o.customer?.deposit || 0));
+  const depositToApply = (settleFromSecurity || paymentMethod === 'SECURITY_DEPOSIT')
+    ? Math.min(availableDeposit, remainingOrderBalance)
+    : 0;
+
+  if (cash <= 0 && depositToApply <= 0) {
+    throw new ApiError(400, 'Payment amount must be greater than 0 or settled from security deposit');
+  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
@@ -519,22 +552,38 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
     });
     const currentCustomerDebt = Math.max(0, Number(customerSnapshot?.currentBalance || 0));
 
-    const debtReduction = Math.min(currentCustomerDebt, cash);
-    const depositRestored = Math.max(0, cash - debtReduction);
-
-    await tx[`${prefix}Payment`].create({
-      data: { orderId: o.id, customerId: o.customerId, amount: cash, type: paymentMethod }
-    });
-
     const customerUpdateData = {};
-    if (debtReduction > 0) customerUpdateData.currentBalance = { decrement: debtReduction };
-    if (depositRestored > 0) customerUpdateData.deposit = { increment: depositRestored };
+
+    if (depositToApply > 0) {
+      customerUpdateData.deposit = { decrement: depositToApply };
+      await tx[`${prefix}Payment`].create({
+        data: { orderId: o.id, customerId: o.customerId, amount: depositToApply, type: 'SECURITY_DEPOSIT' }
+      });
+    }
+
+    let debtReduction = 0;
+    if (cash > 0) {
+      debtReduction = Math.min(currentCustomerDebt, cash);
+      await tx[`${prefix}Payment`].create({
+        data: { 
+          orderId: o.id, 
+          customerId: o.customerId, 
+          amount: cash, 
+          type: paymentMethod === 'SECURITY_DEPOSIT' ? 'CASH' : paymentMethod 
+        }
+      });
+    }
+
+    const totalDebtReduction = Math.min(currentCustomerDebt, debtReduction + (depositToApply > 0 ? Math.min(currentCustomerDebt - debtReduction, depositToApply) : 0));
+    if (totalDebtReduction > 0) {
+      customerUpdateData.currentBalance = { decrement: totalDebtReduction };
+    }
 
     if (Object.keys(customerUpdateData).length > 0) {
       await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
     }
 
-    const newTotalPaid = alreadyPaid + cash;
+    const newTotalPaid = alreadyPaid + depositToApply + cash;
     const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
     const orderUpdated = await tx[`${prefix}Order`].update({
@@ -548,7 +597,7 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
       entityType: 'Order',
       entityId: orderUpdated.id,
       performedBy: req.user?.id || 'Unknown',
-      details: JSON.stringify({ cashReceived: cash, newTotalPaid, newPaymentStatus, debtReduction, depositRestored, remarks })
+      details: JSON.stringify({ cashReceived: cash, depositApplied: depositToApply, newTotalPaid, newPaymentStatus, debtReduction: totalDebtReduction, remarks })
     });
 
     return orderUpdated;
