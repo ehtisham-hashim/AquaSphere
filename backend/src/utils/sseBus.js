@@ -29,6 +29,7 @@ export function streamEvents(req, res) {
   const heartbeatTimer = setInterval(() => {
     try {
       res.write(': heartbeat\n\n');
+      res.write(`event: PING\ndata: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
       if (typeof res.flush === 'function') {
         res.flush();
       }

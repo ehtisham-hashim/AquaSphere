@@ -1,6 +1,18 @@
 import { Component } from 'react';
 import { RotateCw, AlertTriangle } from 'lucide-react';
 
+function isChunkLoadingError(error) {
+  if (!error) return false;
+  const msg = String(error?.message || error || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('loading chunk') ||
+    msg.includes('error loading dynamically imported module') ||
+    msg.includes('importing a module script failed') ||
+    error?.name === 'ChunkLoadError'
+  );
+}
+
 export class RouteErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -12,11 +24,30 @@ export class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Route lazy loading error caught by ErrorBoundary:', error, errorInfo);
+    console.error('Route error caught by ErrorBoundary:', error, errorInfo);
+
+    if (isChunkLoadingError(error)) {
+      const lastReload = Number(sessionStorage.getItem('chunk_reload_last_ts') || 0);
+      if (Date.now() - lastReload > 15000) {
+        sessionStorage.setItem('chunk_reload_last_ts', String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      const chunkError = isChunkLoadingError(this.state.error);
+
+      if (chunkError) {
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
+            <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin mb-3"></div>
+            <p className="text-sm font-medium text-slate-600">Syncing application updates...</p>
+          </div>
+        );
+      }
+
       return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
           <div className="card-surface p-6 max-w-md shadow-lg space-y-3">
@@ -25,7 +56,7 @@ export class RouteErrorBoundary extends Component {
             </div>
             <h3 className="text-sm font-bold text-slate-800">Something went wrong loading this view</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              {this.state.error?.message || 'A component update failed to load. Please try again or reload the page.'}
+              {this.state.error?.message || 'A component update failed to load. Please try again or refresh.'}
             </p>
             <div className="flex items-center justify-center gap-2 pt-1">
               <button
@@ -39,7 +70,7 @@ export class RouteErrorBoundary extends Component {
                 className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
               >
                 <RotateCw size={14} />
-                <span>Reload Application</span>
+                <span>Refresh View</span>
               </button>
             </div>
           </div>
@@ -49,3 +80,4 @@ export class RouteErrorBoundary extends Component {
     return this.props.children;
   }
 }
+

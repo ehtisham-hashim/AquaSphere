@@ -23,6 +23,7 @@ const EVENT_CACHE_MAP = {
 
 const KNOWN_EVENTS = [
   'CONNECTED',
+  'PING',
   'ORDER_UPDATED',
   'INVENTORY_CHANGED',
   'PRODUCTION_UPDATED',
@@ -42,8 +43,14 @@ export function SSEProvider({ children }) {
   const listenersRef = useRef(new Map());
   const attachedEventsRef = useRef(new Set());
   const eventSourceRef = useRef(null);
+  const lastActivityRef = useRef(0);
+  const reconnectTimeoutRef = useRef(null);
+  const connectRef = useRef(null);
 
   const dispatchEvent = useCallback((type, data) => {
+    lastActivityRef.current = Date.now();
+    if (type === 'PING') return;
+
     // Invalidate relevant cache groups first so any callback fetching fresh data gets server state
     const cacheTargets = EVENT_CACHE_MAP[type];
     if (cacheTargets && Array.isArray(cacheTargets)) {
@@ -67,6 +74,7 @@ export function SSEProvider({ children }) {
     attachedEventsRef.current.add(type);
 
     sse.addEventListener(type, (event) => {
+      lastActivityRef.current = Date.now();
       try {
         const parsed = event.data ? JSON.parse(event.data) : {};
         dispatchEvent(type, parsed);
@@ -76,22 +84,24 @@ export function SSEProvider({ children }) {
     });
   }, [dispatchEvent]);
 
-  useEffect(() => {
-    if (!user) {
-      if (eventSourceRef.current) {
+  const connect = useCallback(() => {
+    if (!user) return;
+
+    if (eventSourceRef.current) {
+      try {
         eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      } catch (_e) {
+        // Safe close ignore
       }
-      attachedEventsRef.current.clear();
-      return;
+      eventSourceRef.current = null;
     }
+    attachedEventsRef.current.clear();
 
     const currentTenant = tenant || 'aquasphere';
     const streamUrl = `${API_URL}/events/stream?tenant=${currentTenant}`;
     const sse = new EventSource(streamUrl, { withCredentials: true });
     eventSourceRef.current = sse;
-    const attachedEvents = attachedEventsRef.current;
-    attachedEvents.clear();
+    lastActivityRef.current = Date.now();
 
     // Attach all known events
     KNOWN_EVENTS.forEach((t) => attachListener(sse, t));
@@ -102,6 +112,7 @@ export function SSEProvider({ children }) {
     });
 
     sse.onmessage = (event) => {
+      lastActivityRef.current = Date.now();
       try {
         const parsed = JSON.parse(event.data);
         if (parsed?.type) {
@@ -113,15 +124,79 @@ export function SSEProvider({ children }) {
     };
 
     sse.onerror = () => {
-      // EventSource automatically reconnects on error/disconnect
-    };
-
-    return () => {
-      sse.close();
-      eventSourceRef.current = null;
-      attachedEvents.clear();
+      if (sse.readyState === EventSource.CLOSED) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+            connectRef.current?.();
+          }
+        }, 3000);
+      }
     };
   }, [tenant, user, attachListener, dispatchEvent]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  // Main lifecycle: connect on mount/user change, cleanup on unmount
+  useEffect(() => {
+    const attachedEvents = attachedEventsRef.current;
+    if (!user) {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      attachedEvents.clear();
+      return;
+    }
+
+    connect();
+
+    return () => {
+      clearTimeout(reconnectTimeoutRef.current);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      attachedEvents.clear();
+    };
+  }, [connect, user]);
+
+  // Watchdog & sleeping tab wakeup handlers
+  useEffect(() => {
+    const handleVisibilityOrOnline = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && user) {
+        const now = Date.now();
+        const isInactive = now - lastActivityRef.current > 40000;
+        const isClosed = !eventSourceRef.current || eventSourceRef.current.readyState === EventSource.CLOSED;
+
+        if (isInactive || isClosed) {
+          connect();
+          clearCache();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrOnline);
+    window.addEventListener('online', handleVisibilityOrOnline);
+
+    // Watchdog check every 20 seconds for frozen background tabs returning to focus
+    const watchdogInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && user) {
+        const now = Date.now();
+        if (now - lastActivityRef.current > 50000) {
+          connect();
+        }
+      }
+    }, 20000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrOnline);
+      window.removeEventListener('online', handleVisibilityOrOnline);
+      clearInterval(watchdogInterval);
+    };
+  }, [connect, user]);
 
   const subscribe = useCallback((eventType, callback) => {
     if (!listenersRef.current.has(eventType)) {
