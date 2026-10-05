@@ -5,6 +5,7 @@ import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
+import { formatRole } from '../constants/roleAccess';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
@@ -184,7 +185,7 @@ export default function Users() {
                   </td>
                   <td className="table-td">
                     <span className="badge-neutral inline-flex items-center gap-1 text-[11px] font-bold">
-                      <ShieldCheck size={12} className="text-brand-primary" /> {u.role}
+                      <ShieldCheck size={12} className="text-brand-primary" /> {formatRole(u.role)}
                     </span>
                   </td>
                   <td className="table-td">
@@ -268,11 +269,11 @@ export default function Users() {
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">System Role *</label>
                     <select name="role" className="select-base text-xs py-2 w-full" value={formData.role} onChange={handleChange}>
                       <option value="OWNER">Owner (Full Access)</option>
-                      <option value="ADMIN">Admin (Manager)</option>
-                      <option value="PRODUCTION_MANAGER">Production Manager</option>
-                      <option value="ACCOUNTANT">Accountant</option>
-                      <option value="MARKETING_MANAGER">Marketing Manager</option>
-                      <option value="TRANSPORT_MANAGER">Transport Manager</option>
+                      <option value="ADMIN">Admin (Operations)</option>
+                      <option value="PRODUCTION_MANAGER">PM (Production)</option>
+                      <option value="ACCOUNTANT">Accounts (Ledger)</option>
+                      <option value="MARKETING_MANAGER">MM (Marketing)</option>
+                      <option value="TRANSPORT_MANAGER">TM (Transport)</option>
                     </select>
                   </div>
                   <div>

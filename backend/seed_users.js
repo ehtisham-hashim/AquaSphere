@@ -1,5 +1,12 @@
+import path from 'path';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
 import bcrypt from 'bcrypt';
-import { prisma } from './src/config/db.js';
+import { prisma, closeDatabaseConnections } from './src/config/db.js';
 
 async function seedAdminUsers() {
   const adminPassword = await bcrypt.hash('admin123', 10);
@@ -37,13 +44,13 @@ async function seedAdminUsers() {
   const aqAccountant = await prisma.aquasphereUser.upsert({
     where: { email: 'accountant@aquasphere.com' },
     update: { passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true },
-    create: { name: 'AquaSphere Accountant', email: 'accountant@aquasphere.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
+    create: { name: 'AquaSphere Accounts', email: 'accountant@aquasphere.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
   });
 
   const aqTM = await prisma.aquasphereUser.upsert({
     where: { email: 'tm@aquasphere.com' },
     update: { passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true },
-    create: { name: 'AquaSphere Transport Manager', email: 'tm@aquasphere.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
+    create: { name: 'AquaSphere TM', email: 'tm@aquasphere.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
   });
 
   // Wadaana Users
@@ -74,18 +81,18 @@ async function seedAdminUsers() {
   const wdAccountant = await prisma.wadaanaUser.upsert({
     where: { email: 'accountant@wadaana.com' },
     update: { passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true },
-    create: { name: 'Wadaana Accountant', email: 'accountant@wadaana.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
+    create: { name: 'Wadaana Accounts', email: 'accountant@wadaana.com', passwordHash: accountantPassword, role: 'ACCOUNTANT', isActive: true }
   });
 
   const wdTM = await prisma.wadaanaUser.upsert({
     where: { email: 'tm@wadaana.com' },
     update: { passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true },
-    create: { name: 'Wadaana Transport Manager', email: 'tm@wadaana.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
+    create: { name: 'Wadaana TM', email: 'tm@wadaana.com', passwordHash: tmPassword, role: 'TRANSPORT_MANAGER', isActive: true }
   });
 
-  console.log('Seeded Users:');
+  console.log('Seeded Users successfully:');
   console.log({ aqAdmin, aqOwner, aqPM, aqMM, aqAccountant, aqTM, wdAdmin, wdOwner, wdPM, wdMM, wdAccountant, wdTM });
-  await prisma.$disconnect();
+  await closeDatabaseConnections();
 }
 
 seedAdminUsers();

@@ -20,6 +20,17 @@ export const ROLES = Object.freeze({
   TRANSPORT_MANAGER: 'TRANSPORT_MANAGER',
 });
 
+export const ROLE_LABELS = Object.freeze({
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  PRODUCTION_MANAGER: 'PM',
+  ACCOUNTANT: 'Accounts',
+  MARKETING_MANAGER: 'MM',
+  TRANSPORT_MANAGER: 'TM',
+});
+
+export const formatRole = (role) => ROLE_LABELS[role] || (role ? role.replace(/_/g, ' ') : 'User');
+
 export const SIDEBAR_ROUTES = Object.freeze({
   DASHBOARD: '/',
   ORDERS: '/orders',

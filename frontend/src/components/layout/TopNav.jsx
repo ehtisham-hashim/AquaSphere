@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL, clearCache } from '../../utils/api';
 import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut } from 'lucide-react';
+import { formatRole } from '../../constants/roleAccess';
 
 const PAGE_TITLES = {
   '/': { title: 'Dashboard', subtitle: 'Fast access to company operations and alerts' },
@@ -311,8 +312,8 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
         {/* Role Display */}
         <div className="hidden sm:flex items-center gap-2 border-l border-slate-200/80 pl-3 md:pl-4">
-          <div className="flex items-center px-2.5 py-1 border border-slate-200/80 rounded-lg bg-slate-50 text-xs font-semibold capitalize text-slate-600">
-            {user?.role?.replace(/_/g, ' ').toLowerCase() || 'Loading...'}
+          <div className="flex items-center px-2.5 py-1 border border-slate-200/80 rounded-lg bg-slate-50 text-xs font-bold text-slate-700">
+            {formatRole(user?.role)}
           </div>
         </div>
 
