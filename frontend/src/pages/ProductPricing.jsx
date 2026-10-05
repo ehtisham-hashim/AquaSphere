@@ -646,7 +646,9 @@ export default function ProductPricing() {
                 <div className="space-y-0.5 max-w-xl">
                   <span className="text-sm font-bold text-slate-900 block">Low Finished Goods Stock Warning</span>
                   <span className="text-xs text-slate-500 block">
-                    Alerts when an order exceeds currently available inventory across all finished goods (19L, PET 0.5L, 1.5L, Preforms).
+                    {isWadaana
+                      ? 'Alerts when an order exceeds currently available inventory across all finished goods (0.5L & 1.5L Empty Bottles).'
+                      : 'Alerts when an order exceeds currently available inventory across all finished goods (19L Bottles, 0.5L & 1.5L PET Packs).'}
                   </span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -679,24 +681,26 @@ export default function ProductPricing() {
                 </label>
               </div>
 
-              {/* Toggle 3: Enforce Only On 19L */}
-              <div className="flex items-center justify-between pt-3">
-                <div className="space-y-0.5 max-w-xl">
-                  <span className="text-sm font-bold text-slate-900 block">Scope Quantity Warning Strictly to 19L Carboys</span>
-                  <span className="text-xs text-slate-500 block">
-                    Only applies typo limits to 19-liter water bottles. Exempts bulk packaged PET bottles and preforms.
-                  </span>
+              {/* Toggle 3: Enforce Only On 19L (AquaSphere Only) */}
+              {!isWadaana && (
+                <div className="flex items-center justify-between pt-3">
+                  <div className="space-y-0.5 max-w-xl">
+                    <span className="text-sm font-bold text-slate-900 block">Scope Quantity Warning Strictly to 19L Carboys</span>
+                    <span className="text-xs text-slate-500 block">
+                      Only applies typo limits to 19-liter water bottles. Exempts bulk packaged PET bottles.
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={Boolean(operationalSettings?.enforceOnlyOn19L)}
+                      onChange={(e) => setOperationalSettings(prev => ({ ...prev, enforceOnlyOn19L: e.target.checked }))}
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={Boolean(operationalSettings?.enforceOnlyOn19L)}
-                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enforceOnlyOn19L: e.target.checked }))}
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
+              )}
             </div>
           </div>
 
