@@ -1,4 +1,4 @@
-import { Search, Plus } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { TimeframeDropdown } from '../ui';
 
 const PURCHASE_TIMEFRAME_OPTIONS = [
@@ -9,7 +9,7 @@ const PURCHASE_TIMEFRAME_OPTIONS = [
   { value: '1_YEAR', label: '1 Year' }
 ];
 
-export default function PurchasesFilters({ searchQuery, setSearchQuery, dateFilter, setDateFilter, onOpenModal, canAddPurchase }) {
+export default function PurchasesFilters({ searchQuery, setSearchQuery, dateFilter, setDateFilter }) {
   return (
     <div className="card-surface p-3 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
       <div className="flex flex-1 gap-2.5 items-center">
@@ -32,16 +32,6 @@ export default function PurchasesFilters({ searchQuery, setSearchQuery, dateFilt
           options={PURCHASE_TIMEFRAME_OPTIONS}
         />
       </div>
-
-      {canAddPurchase && (
-        <button
-          onClick={onOpenModal}
-          className="btn-primary shrink-0"
-        >
-          <Plus size={16} />
-          <span>Record Purchase</span>
-        </button>
-      )}
     </div>
   );
 }

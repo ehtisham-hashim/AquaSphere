@@ -142,7 +142,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const {
     vendorId, invoiceNo, deliveryChallanNo, receivedBy, purchaseDate,
-    receiptUrl, remarks, items, deliveredTo, status = 'RECEIVED', paymentStatus = 'CREDIT'
+    receiptUrl, remarks, items, deliveredTo: _deliveredTo, status = 'RECEIVED', paymentStatus = 'CREDIT'
   } = req.body;
 
   if (!vendorId) throw new ApiError(400, 'Vendor is required');
@@ -151,7 +151,8 @@ export const createPurchase = asyncHandler(async (req, res) => {
   if (vendor.archivedAt) throw new ApiError(400, 'Cannot record purchase for an archived vendor');
   if (!Array.isArray(items) || items.length === 0) throw new ApiError(400, 'Purchase must contain at least one item');
 
-  const destination = (deliveredTo || 'FACTORY').toUpperCase();
+  // Per ERP Rule 4: Raw materials exist strictly at factory plant (cachedQty & factoryQty)
+  const destination = 'FACTORY';
   const itemIds = items.map(it => it.itemId).filter(Boolean);
   const rawMaterials = itemIds.length > 0
     ? await prisma[`${prefix}Item`].findMany({ where: { id: { in: itemIds } } })
@@ -228,9 +229,10 @@ export const createPurchase = asyncHandler(async (req, res) => {
         }
       });
 
-      const updateData = { cachedQty: { increment: vItem.quantity } };
-      if (destination === 'FACTORY') updateData.factoryQty = { increment: vItem.quantity };
-      else if (destination === 'WAREHOUSE') updateData.warehouseQty = { increment: vItem.quantity };
+      const updateData = { 
+        cachedQty: { increment: vItem.quantity },
+        factoryQty: { increment: vItem.quantity }
+      };
 
       await tx[`${prefix}Item`].update({ where: { id: vItem.itemId }, data: updateData });
 
@@ -311,7 +313,7 @@ export const updatePurchase = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     vendorId, deliveryChallanNo, receivedBy, purchaseDate,
-    receiptUrl, remarks, items, deliveredTo, status, paymentStatus
+    receiptUrl, remarks, items, deliveredTo: _deliveredTo, status, paymentStatus
   } = req.body;
 
   if (req.user?.role !== 'OWNER') {
@@ -329,7 +331,7 @@ export const updatePurchase = asyncHandler(async (req, res) => {
   if (!vendor) throw new ApiError(404, 'Vendor not found');
 
   const oldDestination = (existing.deliveredTo || 'FACTORY').toUpperCase();
-  const newDestination = (deliveredTo || existing.deliveredTo || 'FACTORY').toUpperCase();
+  const newDestination = 'FACTORY';
   const finalPurchaseDate = purchaseDate ? new Date(purchaseDate) : existing.purchaseDate;
   const finalPaymentStatus = paymentStatus ? (paymentStatus === 'PAID' ? 'PAID' : 'CREDIT') : existing.paymentStatus;
   const finalInvoiceNo = existing.invoiceNo; // Uneditable: strictly preserves existing invoice number
@@ -390,9 +392,10 @@ export const updatePurchase = asyncHandler(async (req, res) => {
           }
         });
 
-        const addData = { cachedQty: { increment: newItem.quantity } };
-        if (newDestination === 'FACTORY') addData.factoryQty = { increment: newItem.quantity };
-        else if (newDestination === 'WAREHOUSE') addData.warehouseQty = { increment: newItem.quantity };
+        const addData = { 
+          cachedQty: { increment: newItem.quantity },
+          factoryQty: { increment: newItem.quantity }
+        };
         await tx[`${prefix}Item`].update({ where: { id: newItem.itemId }, data: addData });
 
         await tx[`${prefix}InventoryTransaction`].create({

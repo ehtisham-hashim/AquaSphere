@@ -359,16 +359,11 @@ export default function AddEditPurchaseModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Delivered To *</label>
-              <select
-                className="select-base"
-                value={deliveredTo}
-                onChange={e => setDeliveredTo(e.target.value)}
-                required
-              >
-                <option value="FACTORY">Factory Floor</option>
-                <option value="WAREHOUSE">Warehouse</option>
-              </select>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Receiving Location</label>
+              <div className="input-base bg-slate-100 text-slate-700 font-semibold text-xs flex items-center justify-between border-slate-200 cursor-not-allowed select-none">
+                <span>Factory Plant (Raw Material Stock)</span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">Plant Stock</span>
+              </div>
             </div>
           </div>
 

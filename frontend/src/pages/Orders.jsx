@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -118,9 +119,19 @@ export default function Orders() {
 
   useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED'], () => fetchData(true));
 
+  const [searchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId') || searchParams.get('id');
+
   useEffect(() => { 
     fetchData(); 
   }, [fetchData]);
+
+  useEffect(() => {
+    if (orderIdParam && orders.length > 0) {
+      const match = orders.find(o => o.id === orderIdParam);
+      if (match) setSelectedOrderDetails(match);
+    }
+  }, [orderIdParam, orders]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {

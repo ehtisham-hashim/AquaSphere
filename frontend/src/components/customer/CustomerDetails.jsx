@@ -16,7 +16,7 @@ import { useTenant } from '../../context/TenantContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 // ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
-export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted }) {
+export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted, onViewOrder }) {
   const { user } = useAuth();
   const { tenant } = useTenant();
   const [c, setC] = useState(initialCustomer);
@@ -457,7 +457,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
             <span className="ml-2 text-slate-600">Loading customer history...</span>
           </div>
         ) : (
-          <CustomerHistory customer={c} isWadaana={isWadaana} />
+          <CustomerHistory customer={c} isWadaana={isWadaana} onViewOrder={onViewOrder} />
         )}
       </div>
 

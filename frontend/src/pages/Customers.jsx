@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { TableSkeleton } from '../components/common/Skeleton';
@@ -10,6 +11,8 @@ import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
 
 export default function Customers() {
+  const [searchParams] = useSearchParams();
+  const customerIdParam = searchParams.get('id') || searchParams.get('customerId');
   const { user } = useAuth();
   const { tenant } = useTenant();
   const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'].includes(user?.role);
@@ -44,6 +47,13 @@ export default function Customers() {
     fetchCustomers(search, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, tenant]);
+
+  useEffect(() => {
+    if (customerIdParam && customers.length > 0) {
+      const match = customers.find(c => c.id === customerIdParam);
+      if (match) setSelectedCustomer(match);
+    }
+  }, [customerIdParam, customers]);
 
   useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED'], () => fetchCustomers(search, activeTab, true));
 

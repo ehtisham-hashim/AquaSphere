@@ -187,8 +187,6 @@ export default function Purchases() {
         setSearchQuery={setSearchQuery}
         dateFilter={dateFilter}
         setDateFilter={setDateFilter}
-        onOpenModal={handleOpenAddModal}
-        canAddPurchase={canAddPurchase}
       />
 
       {/* Main Table */}
