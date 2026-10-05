@@ -5,6 +5,7 @@
 
 export const EXPENSE_CATEGORIES = [
   'Fuel / Transport',
+  'Raw Materials',
   'Salaries',
   'Electricity',
   'Plant Rent',
@@ -21,6 +22,7 @@ export const TRANSPORT_EXPENSE_CATEGORIES = [
 ];
 
 export const EXPENSE_CATEGORY_COLORS = {
+  'Raw Materials': 'bg-indigo-50 text-indigo-700 border border-indigo-200',
   'Fuel / Transport': 'bg-orange-50 text-orange-700 border border-orange-200',
   'Fuel': 'bg-orange-50 text-orange-700 border border-orange-200',
   'Salaries': 'bg-blue-50 text-blue-700 border border-blue-200',

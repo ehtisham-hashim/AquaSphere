@@ -9,6 +9,7 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 
 const VALID_CATEGORIES = [
+  'Raw Materials',
   'Fuel / Transport', 'Fuel',
   'Salaries',
   'Electricity',
@@ -55,6 +56,71 @@ export const getExpenses = asyncHandler(async (req, res) => {
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
 
+  const isTransportManager = req.user?.role === 'TRANSPORT_MANAGER';
+  const shouldIncludePurchases = !isTransportManager && !vehicleId && (!category || category === 'ALL' || category === 'Raw Materials');
+
+  // If filtering strictly for Raw Materials, query purchases only
+  if (category === 'Raw Materials') {
+    if (!shouldIncludePurchases) {
+      return sendSuccess(res, [], 200, {
+        nextCursor: null,
+        hasMore: false,
+        pagination: { page: pageNum, limit: pageSize, totalCount: 0, totalPages: 1, hasMore: false }
+      });
+    }
+
+    const purchaseWhere = {};
+    if (startDate || endDate) {
+      purchaseWhere.purchaseDate = {};
+      if (startDate) purchaseWhere.purchaseDate.gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        purchaseWhere.purchaseDate.lte = end;
+      }
+    }
+
+    const skip = (pageNum - 1) * pageSize;
+    const [pCount, rawPurchases] = await Promise.all([
+      prisma[`${prefix}Purchase`].count({ where: purchaseWhere }),
+      prisma[`${prefix}Purchase`].findMany({
+        where: purchaseWhere,
+        orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+        include: {
+          vendor: { select: { id: true, name: true } }
+        },
+        skip,
+        take: pageSize
+      })
+    ]);
+
+    const mapped = rawPurchases.map(pu => ({
+      id: `pur_${pu.id}`,
+      purchaseId: pu.id,
+      category: 'Raw Materials',
+      amount: Number(pu.grandTotal || 0),
+      remarks: `Invoice #${pu.invoiceNo || 'N/A'} • ${pu.vendor?.name || 'Vendor'}${pu.remarks ? ` — ${pu.remarks}` : ''}`,
+      receiptUrl: pu.receiptUrl || '',
+      createdAt: pu.purchaseDate || pu.createdAt,
+      createdBy: { name: pu.createdBy || 'Staff' },
+      isPurchase: true,
+      paymentStatus: pu.paymentStatus,
+      vendorName: pu.vendor?.name
+    }));
+
+    return sendSuccess(res, mapped, 200, {
+      nextCursor: null,
+      hasMore: skip + mapped.length < pCount,
+      pagination: {
+        page: pageNum,
+        limit: pageSize,
+        totalCount: pCount,
+        totalPages: Math.ceil(pCount / pageSize) || 1,
+        hasMore: skip + mapped.length < pCount
+      }
+    });
+  }
+
   let totalCount;
   let expenses;
   let hasMore;
@@ -85,6 +151,62 @@ export const getExpenses = asyncHandler(async (req, res) => {
         throw err;
       }
     }
+  } else if (shouldIncludePurchases && (!category || category === 'ALL')) {
+    const purchaseWhere = {};
+    if (startDate || endDate) {
+      purchaseWhere.purchaseDate = {};
+      if (startDate) purchaseWhere.purchaseDate.gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        purchaseWhere.purchaseDate.lte = end;
+      }
+    }
+
+    const [expCount, purCount, rawExpenses, rawPurchases] = await Promise.all([
+      prisma[`${prefix}Expense`].count({ where }),
+      prisma[`${prefix}Purchase`].count({ where: purchaseWhere }),
+      prisma[`${prefix}Expense`].findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: {
+          createdBy: { select: { id: true, name: true, role: true } },
+          vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+        },
+        take: pageSize * pageNum
+      }),
+      prisma[`${prefix}Purchase`].findMany({
+        where: purchaseWhere,
+        orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+        include: {
+          vendor: { select: { id: true, name: true } }
+        },
+        take: pageSize * pageNum
+      })
+    ]);
+
+    const mappedPurchases = rawPurchases.map(pu => ({
+      id: `pur_${pu.id}`,
+      purchaseId: pu.id,
+      category: 'Raw Materials',
+      amount: Number(pu.grandTotal || 0),
+      remarks: `Invoice #${pu.invoiceNo || 'N/A'} • ${pu.vendor?.name || 'Vendor'}${pu.remarks ? ` — ${pu.remarks}` : ''}`,
+      receiptUrl: pu.receiptUrl || '',
+      createdAt: pu.purchaseDate || pu.createdAt,
+      createdBy: { name: pu.createdBy || 'Staff' },
+      isPurchase: true,
+      paymentStatus: pu.paymentStatus,
+      vendorName: pu.vendor?.name
+    }));
+
+    const combined = [...rawExpenses, ...mappedPurchases]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    totalCount = expCount + purCount;
+    const skip = (pageNum - 1) * pageSize;
+    expenses = combined.slice(skip, skip + pageSize);
+    hasMore = skip + expenses.length < totalCount;
+    nextCursor = hasMore && expenses.length > 0 ? expenses[expenses.length - 1].id : null;
   } else {
     const skip = (pageNum - 1) * pageSize;
     const [count, rawExpenses] = await Promise.all([

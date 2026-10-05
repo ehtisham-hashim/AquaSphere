@@ -257,10 +257,12 @@ const computeDashboardAnalytics = async (prefix) => {
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.purchases += total;
+    day.expenses += total;
     month.purchases += total;
-    if (d >= startOfDay) { daily.purchases += total; daily.purchasesCount += 1; }
-    if (d >= startOfMonth) { monthly.purchases += total; monthly.purchasesCount += 1; }
-    if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; }
+    month.expenses += total;
+    if (d >= startOfDay) { daily.purchases += total; daily.purchasesCount += 1; daily.expenses += total; }
+    if (d >= startOfMonth) { monthly.purchases += total; monthly.purchasesCount += 1; monthly.expenses += total; }
+    if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; yearly.expenses += total; }
   }
 
   daily.credit = Math.max(0, daily.deliveredSales - (daily.orderCash || 0)) + daily.creditBilled;
