@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Package, MessageCircle, CheckCircle2, Search, RotateCcw } from 'lucide-react';
-import { API_URL } from '../../utils/api';
+import { API_URL, clearCache } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import BottleAdjustmentModal from '../customer/BottleAdjustmentModal';
@@ -21,11 +21,13 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
     try {
       const [sumRes, custRes] = await Promise.all([
         fetch(`${API_URL}/bottles/summary`, {
-          headers: { 'x-tenant': tenant },
+          headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
+          cache: 'no-store',
           credentials: 'include'
         }).catch(() => null),
         fetch(`${API_URL}/customers?limit=200`, {
-          headers: { 'x-tenant': tenant },
+          headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
+          cache: 'no-store',
           credentials: 'include'
         }).catch(() => null)
       ]);
@@ -51,7 +53,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
     loadData();
   }, [loadData]);
 
-  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_CREATED', 'ORDER_UPDATED'], loadData);
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_CREATED', 'ORDER_UPDATED', 'BOTTLE_UPDATED', 'INVENTORY_CHANGED'], loadData);
 
   const [currentTimestamp] = useState(() => Date.now());
 
@@ -95,82 +97,91 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
 
   return (
     <div className={embedded ? `space-y-3.5 ${className}` : `card-surface p-4 sm:p-5 space-y-4 ${className}`}>
-      {/* Header & KPI Summary */}
+      {/* Header & Controls */}
       {!embedded ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
-              <Package size={18} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                19L Bottle Custody & Recovery
-                <span className="badge-brand text-[10px] py-0.5 px-2">Fleet Circulation</span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Track unreturned 19L bottle inventory held by clients with 1-click recovery reminders
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="bg-sky-50/80 border border-sky-200/60 rounded-xl px-3.5 py-1.5 text-right">
-              <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">In Circulation</span>
-              <span className="text-lg font-mono font-black text-sky-900">
-                {totalInCirculation.toLocaleString()} <span className="text-xs font-semibold text-sky-600 font-sans">Bottles</span>
-              </span>
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
+                <Package size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  19L Bottle Custody & Recovery
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Bottles with customers and recovery reminders
+                </p>
+              </div>
             </div>
 
-            {summary?.atFactory !== undefined && (
-              <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-xl px-3.5 py-1.5 text-right hidden sm:block">
-                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">At Plant</span>
-                <span className="text-lg font-mono font-black text-emerald-900">
-                  {Number(summary.atFactory).toLocaleString()} <span className="text-xs font-semibold text-emerald-600 font-sans">Bottles</span>
+            <div className="flex items-center gap-2">
+              <div className="bg-sky-50 border border-sky-200/80 rounded-lg px-2.5 py-1 text-right">
+                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">In Market</span>
+                <span className="text-sm font-mono font-bold text-sky-900">
+                  {totalInCirculation.toLocaleString()} Bottles
                 </span>
               </div>
-            )}
+
+              {summary?.atFactory !== undefined && (
+                <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1 text-right">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">At Plant</span>
+                  <span className="text-sm font-mono font-bold text-emerald-900">
+                    {Number(summary.atFactory).toLocaleString()} Bottles
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+              <input
+                type="search"
+                placeholder="Search customer or phone..."
+                className="input-base pl-8 py-1.5 text-xs w-full"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <span className="text-xs font-medium text-slate-500">
+              <strong className="text-slate-800">{custodyCustomers.length}</strong> clients holding bottles
+            </span>
+          </div>
+        </>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-800">19L Bottle Inventory in Circulation</span>
-            <span className="badge-brand text-[10px] py-0.5 px-2">Fleet Recovery</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+            <input
+              type="search"
+              placeholder="Search customer or phone..."
+              className="input-base pl-8 py-1.5 text-xs w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs text-slate-500 font-medium">In Circulation:</span>
-            <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200 text-xs">
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-500 font-medium">In Market:</span>
+            <span className="font-mono font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
               {totalInCirculation.toLocaleString()} Bottles
             </span>
             {summary?.atFactory !== undefined && (
               <>
-                <span className="text-xs text-slate-500 font-medium ml-1">At Plant:</span>
-                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 text-xs">
-                  {Number(summary.atFactory).toLocaleString()} Bottles
+                <span className="text-slate-500 font-medium ml-1">At Plant:</span>
+                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  {Number(summary.atFactory).toLocaleString()}
                 </span>
               </>
             )}
+            <span className="text-slate-400 font-medium hidden sm:inline ml-1">
+              ({custodyCustomers.length} clients)
+            </span>
           </div>
         </div>
       )}
-
-      {/* Recovery List Search & Filter */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-          <input
-            type="search"
-            placeholder="Search customer or phone..."
-            className="input-base pl-8 py-1.5 text-xs w-full"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <span className="text-xs font-medium text-slate-500">
-          Showing <strong className="text-slate-800">{custodyCustomers.length}</strong> accounts holding bottles
-        </span>
-      </div>
 
       {/* Customer Recovery Table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
@@ -263,6 +274,8 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
           onClose={() => setRetrievalCustomer(null)}
           onSuccess={() => {
             setRetrievalCustomer(null);
+            clearCache('bottles');
+            clearCache('customers');
             loadData();
             if (onCustodyUpdated) onCustodyUpdated();
           }}

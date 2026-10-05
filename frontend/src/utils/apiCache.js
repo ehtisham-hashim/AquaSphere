@@ -19,7 +19,8 @@ const VOLATILE_ENDPOINTS = [
   'analytics',
   'daily-close',
   'purchases',
-  'customers'
+  'customers',
+  'bottles'
 ];
 
 function isVolatile(keyOrUrl) {
@@ -158,10 +159,11 @@ export function setupApiCache() {
         const rawSegment = match ? match[1] : '';
         const relatedMap = {
           production: ['production', 'items', 'analytics', 'inventory', 'raw-materials'],
-          orders: ['orders', 'items', 'customers', 'analytics', 'spot-sales', 'inventory'],
-          'spot-sales': ['spot-sales', 'items', 'customers', 'analytics', 'daily-close', 'inventory', 'raw-materials'],
-          items: ['items', 'inventory', 'production', 'raw-materials'],
-          customers: ['customers', 'orders', 'spot-sales'],
+          orders: ['orders', 'items', 'customers', 'bottles', 'analytics', 'spot-sales', 'inventory'],
+          'spot-sales': ['spot-sales', 'items', 'customers', 'bottles', 'analytics', 'daily-close', 'inventory', 'raw-materials'],
+          items: ['items', 'inventory', 'production', 'raw-materials', 'bottles'],
+          customers: ['customers', 'bottles', 'orders', 'spot-sales'],
+          bottles: ['bottles', 'customers', 'inventory', 'items', 'analytics'],
           purchases: ['purchases', 'items', 'vendors', 'expenses', 'analytics', 'inventory', 'raw-materials'],
           expenses: ['expenses', 'analytics', 'daily-close'],
           vendors: ['vendors', 'purchases']

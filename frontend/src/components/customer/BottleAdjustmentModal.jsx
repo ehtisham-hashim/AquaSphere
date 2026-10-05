@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Droplet, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_URL as API } from '../../utils/api';
+import { API_URL as API, clearCache } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 
 export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) {
@@ -49,6 +49,10 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
 
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message || 'Failed to record bottle transaction');
+
+      clearCache('bottles');
+      clearCache('customers');
+      clearCache('inventory');
 
       toast.success(`Successfully updated bottle ledger for ${customer.name}`);
       onSuccess && onSuccess();

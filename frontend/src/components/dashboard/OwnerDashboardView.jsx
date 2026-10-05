@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, PieChart as PieIcon, BarChart3, Fuel, Car, Clock, Users } from 'lucide-react';
+import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, BarChart3, Fuel, Car, Clock, Users } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -10,10 +10,7 @@ import {
   CartesianGrid, 
   Tooltip, 
   Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell 
+  ResponsiveContainer 
 } from 'recharts';
 import ModernKpiCard from './ModernKpiCard';
 import PurchasingSummaryTab from './PurchasingSummaryTab';
@@ -27,9 +24,6 @@ import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
 import ChartTooltip from './charts/ChartTooltip';
 import { formatCompactCurrency, formatCurrency } from '../../utils/chartFormatters';
-
-const COST_COLORS = ['#f43f5e', '#8b5cf6'];
-const REVENUE_COLORS = ['#10b981', '#0284c7'];
 
 export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const navigate = useNavigate();
@@ -160,30 +154,6 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
     }
   }, [data, chartTimeframe]);
 
-  const costBreakdownData = useMemo(() => {
-    const expensesVal = Number(activeData.expenses || 0);
-    const purchasesVal = Number(activeData.purchases || 0);
-    if (expensesVal === 0 && purchasesVal === 0) return [];
-    return [
-      { name: 'Operating Expenses', value: expensesVal },
-      { name: 'Material Purchases', value: purchasesVal }
-    ];
-  }, [activeData]);
-
-  const totalCost = (Number(activeData.expenses || 0) + Number(activeData.purchases || 0));
-
-  const revenueStreamData = useMemo(() => {
-    const orderCashVal = Number(activeData.orderCash || (activeData.cash * 0.7) || 0);
-    const spotCashVal = Number(activeData.spotSalesCash || (activeData.cash * 0.3) || 0);
-    if (orderCashVal === 0 && spotCashVal === 0) return [];
-    return [
-      { name: 'Order Collections', value: orderCashVal },
-      { name: 'Spot Counter Sales', value: spotCashVal }
-    ];
-  }, [activeData]);
-
-  const totalRevenue = Number(activeData.cash || 0);
-
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY' || timeframe === 'TODAY') return "Today's";
     if (timeframe === 'YESTERDAY') return "Yesterday's";
@@ -218,7 +188,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             Operations & Financials
           </h1>
           <p className="text-xs text-slate-500 mt-0.5 font-normal">
-            Real-time overview of sales revenue, cash inflow, operating expenses, and inventory health.
+            Sales, cash collections, operating expenses, and market balances.
           </p>
         </div>
 
@@ -228,7 +198,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </div>
 
-      {/* 1. Executive Financial Overview Grid (Option A: 4 Clean Flow Cards) */}
+      {/* 1. Executive Financial Overview Grid (4 Clean Flow Cards) */}
       <section className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           <ModernKpiCard 
@@ -266,21 +236,21 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           />
         </div>
 
-        {/* Outstanding Balances Container (Customer Debt & Vendor Payables) */}
+        {/* Outstanding Balances (Customer Market Udhaar & Supplier Payables) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
           <ModernKpiCard
             icon={Users}
-            title="Customer Market Debt (Receivables)"
+            title="Market Udhaar (Receivables)"
             value={`Rs. ${totalReceivables.toLocaleString()}`}
-            subtitle="Total outstanding customer orders & credit (Click to manage)"
+            subtitle="Customer unpaid orders & credit balance"
             variant="amber"
             onClick={() => navigate('/orders')}
           />
           <ModernKpiCard
             icon={ShoppingCart}
-            title="Vendor Payables (Unpaid Purchases)"
+            title="Supplier Udhaar (Payables)"
             value={`Rs. ${Number(data?.pendingVendorPayables || 0).toLocaleString()}`}
-            subtitle="Outstanding raw material purchases (Click to settle)"
+            subtitle="Pending raw material supplier bills"
             variant="rose"
             onClick={() => navigate('/purchases')}
           />
@@ -312,114 +282,42 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         )}
       </section>
 
-      {/* 2. Interactive Recharts Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-        
-        {/* Main Financial Trend Chart (8 Cols) */}
-        <div className="lg:col-span-8 card-surface p-4 sm:p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 size={17} className="text-slate-600" />
-              <h3 className="font-bold text-slate-800 text-xs sm:text-sm uppercase tracking-wider">
-                Financial Growth & Profitability Trajectory
-              </h3>
-            </div>
-            <select
-              value={chartTimeframe}
-              onChange={(e) => setChartTimeframe(e.target.value)}
-              className="select-base text-xs py-1 px-2.5 w-auto cursor-pointer"
-            >
-              <option value="7">Past 7 Days</option>
-              <option value="14">Past 14 Days</option>
-              <option value="30">Past 30 Days</option>
-              <option value="12m">Past 12 Months</option>
-            </select>
+      {/* 2. Interactive Recharts Analytics (Full-width clean card) */}
+      <div className="card-surface p-4 sm:p-5 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={17} className="text-slate-600" />
+            <h3 className="font-bold text-slate-800 text-xs sm:text-sm uppercase tracking-wider">
+              Sales, Cash Inflow & Profit Trajectory
+            </h3>
           </div>
-
-          <div className="w-full h-64 sm:h-72 pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trendData} margin={{ top: 10, right: 12, left: 16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={formatCompactCurrency} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
-                <Legend wrapperStyle={{ paddingTop: '8px', fontSize: '11px', fontWeight: 600 }} iconType="circle" />
-                <Bar dataKey="Sales Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="Cash Inflow" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                <Bar dataKey="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                <Line type="monotone" dataKey="Net Profit" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }} activeDot={{ r: 5 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+          <select
+            value={chartTimeframe}
+            onChange={(e) => setChartTimeframe(e.target.value)}
+            className="select-base text-xs py-1 px-2.5 w-auto cursor-pointer"
+          >
+            <option value="7">Past 7 Days</option>
+            <option value="14">Past 14 Days</option>
+            <option value="30">Past 30 Days</option>
+            <option value="12m">Past 12 Months</option>
+          </select>
         </div>
 
-        {/* Cost & Revenue Breakdown Donuts (4 Cols) */}
-        <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
-          
-          {/* Operating Cost Breakdown Donut */}
-          <div className="card-surface p-4 space-y-2 flex flex-col justify-between">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-              <PieIcon size={15} className="text-slate-600" />
-              <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Costs Breakdown</h3>
-            </div>
-            {costBreakdownData.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-xs text-slate-400 font-medium">
-                No cost entries recorded.
-              </div>
-            ) : (
-              <div className="relative w-full h-44 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={costBreakdownData} innerRadius={45} outerRadius={65} paddingAngle={4} dataKey="value">
-                      {costBreakdownData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COST_COLORS[index % COST_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
-                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 600 }} iconType="circle" />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
-                  <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Total</span>
-                  <span className="text-xs font-bold text-slate-900 font-mono">{formatCompactCurrency(totalCost)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Revenue Stream Breakdown Donut */}
-          <div className="card-surface p-4 space-y-2 flex flex-col justify-between">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-              <PieIcon size={15} className="text-slate-600" />
-              <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Revenue Distribution</h3>
-            </div>
-            {revenueStreamData.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-xs text-slate-400 font-medium">
-                No revenue entries recorded.
-              </div>
-            ) : (
-              <div className="relative w-full h-44 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={revenueStreamData} innerRadius={45} outerRadius={65} paddingAngle={4} dataKey="value">
-                      {revenueStreamData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={REVENUE_COLORS[index % REVENUE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
-                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 600 }} iconType="circle" />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
-                  <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Cash</span>
-                  <span className="text-xs font-bold text-slate-900 font-mono">{formatCompactCurrency(totalRevenue)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
+        <div className="w-full h-64 sm:h-72 pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={trendData} margin={{ top: 10, right: 12, left: 16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={formatCompactCurrency} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
+              <Legend wrapperStyle={{ paddingTop: '8px', fontSize: '11px', fontWeight: 600 }} iconType="circle" />
+              <Bar dataKey="Sales Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Cash Inflow" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Line type="monotone" dataKey="Net Profit" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }} activeDot={{ r: 5 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
-
       </div>
 
       {/* 3. Operational Cockpit: 2-Column Split for high-density overview with minimal scrolling */}

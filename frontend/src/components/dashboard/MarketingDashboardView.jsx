@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Wallet, CreditCard, ShieldAlert, ShoppingBag, BarChart3 } from 'lucide-react';
+import { Wallet, CreditCard, ShoppingBag, BarChart3 } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -11,10 +11,9 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import AlertsSection from './AlertsSection';
 import ModernKpiCard from './ModernKpiCard';
 import ChartTooltip from './charts/ChartTooltip';
-import BottleCustodyWidget from './BottleCustodyWidget';
+import CustomerRiskHub from './CustomerRiskHub';
 import { formatCompactCurrency, formatCompactNumber } from '../../utils/chartFormatters';
 import { useTenant } from '../../context/TenantContext';
 import { TimeframeDropdown } from '../ui';
@@ -132,9 +131,9 @@ export default function MarketingDashboardView({ data }) {
         />
         <ModernKpiCard
           icon={CreditCard}
-          title="Customer Receivables"
+          title="Market Udhaar (Receivables)"
           value={`Rs. ${totalReceivables.toLocaleString()}`}
-          subtitle="All-time customer credit debt"
+          subtitle="Customer unpaid balance"
           variant="amber"
         />
       </div>
@@ -189,17 +188,8 @@ export default function MarketingDashboardView({ data }) {
         </div>
       </div>
 
-      {/* 19L Bottle Custody & Recovery Fleet Widget (AquaSphere Only) */}
-      {!isWadaana && <BottleCustodyWidget />}
-
-      {/* 3. Customer Credit & Inactivity Alerts */}
-      <section className="space-y-2.5">
-        <div className="flex items-center gap-2">
-          <ShieldAlert size={16} className="text-slate-500" />
-          <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Customer Risk & Credit Alerts</h2>
-        </div>
-        <AlertsSection />
-      </section>
+      {/* 3. Customer Risk & Market Udhaar Hub */}
+      <CustomerRiskHub />
     </div>
   );
 }

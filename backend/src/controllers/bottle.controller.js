@@ -3,6 +3,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
+import { broadcastEvent } from '../utils/sseBus.js';
 
 /** Computes bottle fleet reconciliation statistics across factory, warehouse, and customers */
 async function computeBottleStats(client, prefix) {
@@ -178,6 +179,12 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
 
     return createdTxn;
   });
+
+  if (customerId) {
+    broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId });
+  }
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+  broadcastEvent(prefix, 'BOTTLE_UPDATED', { customerId, type, quantity: qty });
 
   return sendSuccess(res, txn, 201);
 });

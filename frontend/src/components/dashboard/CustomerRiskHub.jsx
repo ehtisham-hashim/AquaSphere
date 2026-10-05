@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   ShieldAlert, 
-  Truck, 
   Receipt, 
   Package, 
   Clock, 
@@ -9,8 +8,7 @@ import {
   MessageSquare, 
   CheckCircle2, 
   Search, 
-  RefreshCw, 
-  AlertTriangle 
+  RefreshCw 
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
@@ -74,7 +72,6 @@ export default function CustomerRiskHub({ className = '' }) {
   }, [mmAlerts]);
 
   const outstandingBottlesCount = mmAlerts?.outstandingBottles?.length || 0;
-  const depositRisksCount = mmAlerts?.securityDepositWarnings?.length || 0;
 
   const totalOverdueAmount = useMemo(() => {
     return overdueList.reduce((sum, c) => sum + Number(c.currentBalance || c.unpaidAmount || 0), 0);
@@ -128,129 +125,38 @@ export default function CustomerRiskHub({ className = '' }) {
             <ShieldAlert size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              Customer Risk & Credit Intelligence
-              <span className="badge-brand text-[10px] py-0.5 px-2">Operational Health</span>
+            <h3 className="text-sm font-bold text-slate-900">
+              {isWadaana ? 'Customer Credit & Accounts' : 'Market Udhaar & Bottle Recovery'}
             </h3>
             <p className="text-xs text-slate-500">
-              Real-time oversight on delivery pipeline, credit risk, overdue accounts, and 19L bottle custody
+              {isWadaana 
+                ? 'Overdue customer bills, inactive accounts, and collection reminders' 
+                : '19L bottles in circulation, overdue udhaar bills, and recovery reminders'}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={fetchRiskData}
-          disabled={loading}
-          className="btn-secondary py-1 px-2.5 text-xs text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 self-start sm:self-auto"
-          title="Refresh alerts"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin text-brand' : ''} />
-          <span>Refresh</span>
-        </button>
-      </div>
-
-      {/* 2. Top Compact KPI Ribbon (High-density single strip) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Today's Deliveries */}
-        <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-sky-100/70 text-sky-700 shrink-0">
-            <Truck size={16} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-base font-black text-slate-900">{deliverySummary.PENDING}</span>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending</span>
-            </div>
-            <p className="text-[10px] text-slate-500 truncate">
-              <strong className="text-emerald-700">{deliverySummary.DELIVERED}</strong> delivered · <strong className="text-rose-600">{deliverySummary.CANCELLED}</strong> cancelled
-            </p>
-          </div>
-        </div>
-
-        {/* Overdue Invoices */}
-        <div className={`p-3 rounded-xl border flex items-center gap-3 transition-colors ${
-          tabCounts.overdue > 0 ? 'bg-rose-50/40 border-rose-200/80' : 'bg-slate-50/80 border-slate-200/80'
-        }`}>
-          <div className={`p-2 rounded-lg shrink-0 ${
-            tabCounts.overdue > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
-          }`}>
-            <Receipt size={16} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-base font-black text-slate-900">Rs. {totalOverdueAmount.toLocaleString()}</span>
-            </div>
-            <p className="text-[10px] text-slate-500 truncate">
-              {tabCounts.overdue > 0 ? (
-                <span className="text-rose-700 font-bold">{tabCounts.overdue} overdue accounts (&gt;7d)</span>
-              ) : (
-                'Zero overdue bills detected'
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* 19L Bottle Custody (AquaSphere) or Pending Payments (Wadaana) */}
-        {!isWadaana ? (
-          <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-100/70 text-amber-700 shrink-0">
-              <Package size={16} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-mono text-base font-black text-slate-900">{tabCounts.bottles}</span>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Clients</span>
-              </div>
-              <p className="text-[10px] text-slate-500 truncate">
-                Accounts holding unreturned bottles
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-sky-100/70 text-sky-700 shrink-0">
-              <Clock size={16} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-mono text-base font-black text-slate-900">{mmAlerts?.pendingPayments?.length || 0}</span>
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Unpaid</span>
-              </div>
-              <p className="text-[10px] text-slate-500 truncate">
-                Delivered orders awaiting collection
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Deposit Risks */}
-        <div className={`p-3 rounded-xl border flex items-center gap-3 transition-colors ${
-          depositRisksCount > 0 ? 'bg-amber-50/40 border-amber-200/80' : 'bg-slate-50/80 border-slate-200/80'
-        }`}>
-          <div className={`p-2 rounded-lg shrink-0 ${
-            depositRisksCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-          }`}>
-            <AlertTriangle size={16} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-base font-black text-slate-900">{depositRisksCount}</span>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Accounts</span>
-            </div>
-            <p className="text-[10px] text-slate-500 truncate">
-              {depositRisksCount > 0 ? (
-                <span className="text-amber-700 font-bold">Bottle balance exceeds deposit</span>
-              ) : (
-                'All deposits cover bottle custody'
-              )}
-            </p>
-          </div>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          {deliverySummary.PENDING > 0 && (
+            <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">
+              Deliveries: <strong className="text-sky-700">{deliverySummary.PENDING}</strong> pending · <strong className="text-emerald-700">{deliverySummary.DELIVERED}</strong> done
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={fetchRiskData}
+            disabled={loading}
+            className="btn-secondary py-1 px-2.5 text-xs text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5"
+            title="Refresh alerts"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin text-brand' : ''} />
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
-      {/* 3. Tab Switcher & Integrated Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100">
+      {/* 2. Flat Tab Strip & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80">
           {!isWadaana && (
             <button
@@ -263,7 +169,7 @@ export default function CustomerRiskHub({ className = '' }) {
               }`}
             >
               <Package size={13} />
-              <span>19L Bottle Custody</span>
+              <span>19L Bottles</span>
               {tabCounts.bottles > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                   activeTab === 'bottles' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'
@@ -284,7 +190,7 @@ export default function CustomerRiskHub({ className = '' }) {
             }`}
           >
             <Receipt size={13} />
-            <span>Overdue Invoices (&gt;7d)</span>
+            <span>Overdue Udhaar</span>
             {tabCounts.overdue > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                 activeTab === 'overdue' ? 'bg-rose-100 text-rose-800' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -304,7 +210,7 @@ export default function CustomerRiskHub({ className = '' }) {
             }`}
           >
             <PhoneCall size={13} />
-            <span>Inactive Accounts (7+d)</span>
+            <span>Inactive Accounts</span>
             {tabCounts.inactive > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                 activeTab === 'inactive' ? 'bg-slate-200 text-slate-800' : 'bg-slate-200 text-slate-700'
@@ -324,7 +230,7 @@ export default function CustomerRiskHub({ className = '' }) {
             }`}
           >
             <Clock size={13} />
-            <span>Customer Reminders</span>
+            <span>Reminders</span>
             {tabCounts.reminders > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                 activeTab === 'reminders' ? 'bg-slate-200 text-slate-800' : 'bg-slate-200 text-slate-700'
@@ -349,7 +255,7 @@ export default function CustomerRiskHub({ className = '' }) {
         )}
       </div>
 
-      {/* 4. Tab Content Area */}
+      {/* 3. Tab Content Area */}
       <div className="pt-1">
         {/* Tab 1: 19L Bottle Custody & Recovery */}
         {activeTab === 'bottles' && !isWadaana && (
@@ -361,64 +267,72 @@ export default function CustomerRiskHub({ className = '' }) {
 
         {/* Tab 2: Overdue Invoices (>7 Days) */}
         {activeTab === 'overdue' && (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <div className="overflow-x-auto max-h-72">
-              <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0">
-                  <tr>
-                    <th className="p-2.5">Customer</th>
-                    <th className="p-2.5 text-right">Overdue Balance</th>
-                    <th className="p-2.5">Recommendation</th>
-                    <th className="p-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredOverdue.length === 0 ? (
+          <div className="space-y-2.5">
+            {totalOverdueAmount > 0 && (
+              <div className="flex items-center justify-between text-xs bg-rose-50/70 border border-rose-200/80 px-3 py-1.5 rounded-lg">
+                <span className="font-semibold text-rose-800">Total Overdue Udhaar:</span>
+                <span className="font-mono font-bold text-rose-900 text-sm">Rs. {totalOverdueAmount.toLocaleString()}</span>
+              </div>
+            )}
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <div className="overflow-x-auto max-h-72">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0">
                     <tr>
-                      <td colSpan="4" className="p-6 text-center text-slate-400">
-                        <CheckCircle2 size={20} className="mx-auto mb-1 text-emerald-500 opacity-60" />
-                        No overdue unpaid customer bills detected.
-                      </td>
+                      <th className="p-2.5">Customer</th>
+                      <th className="p-2.5 text-right">Overdue Balance</th>
+                      <th className="p-2.5">Recommendation</th>
+                      <th className="p-2.5 text-right">Action</th>
                     </tr>
-                  ) : (
-                    filteredOverdue.map((c, idx) => {
-                      const amount = Number(c.currentBalance || c.unpaidAmount || 0);
-                      return (
-                        <tr key={c.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="p-2.5">
-                            <div className="font-bold text-slate-900">{c.name}</div>
-                            <div className="text-[11px] text-slate-400 font-mono">{c.phone || 'No phone'}</div>
-                          </td>
-                          <td className="p-2.5 text-right font-mono font-bold text-rose-600">
-                            Rs. {amount.toLocaleString()}
-                          </td>
-                          <td className="p-2.5 text-slate-600 max-w-xs truncate">
-                            {c.recommendation || 'Payment pending follow-up'}
-                          </td>
-                          <td className="p-2.5 text-right">
-                            {c.phone ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const text = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
-                                  openWhatsAppWeb(c.phone, text);
-                                }}
-                                className="btn-secondary py-1 px-2.5 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1.5"
-                                title="Send WhatsApp Overdue Bill Reminder"
-                              >
-                                <MessageSquare size={12} className="text-emerald-600" />
-                                <span>Remind</span>
-                              </button>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic">No Phone</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOverdue.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="p-6 text-center text-slate-400">
+                          <CheckCircle2 size={20} className="mx-auto mb-1 text-emerald-500 opacity-60" />
+                          No overdue unpaid customer bills detected.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOverdue.map((c, idx) => {
+                        const amount = Number(c.currentBalance || c.unpaidAmount || 0);
+                        return (
+                          <tr key={c.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-2.5">
+                              <div className="font-bold text-slate-900">{c.name}</div>
+                              <div className="text-[11px] text-slate-400 font-mono">{c.phone || 'No phone'}</div>
+                            </td>
+                            <td className="p-2.5 text-right font-mono font-bold text-rose-600">
+                              Rs. {amount.toLocaleString()}
+                            </td>
+                            <td className="p-2.5 text-slate-600 max-w-xs truncate">
+                              {c.recommendation || 'Payment pending follow-up'}
+                            </td>
+                            <td className="p-2.5 text-right">
+                              {c.phone ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const text = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
+                                    openWhatsAppWeb(c.phone, text);
+                                  }}
+                                  className="btn-secondary py-1 px-2.5 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1.5"
+                                  title="Send WhatsApp Overdue Bill Reminder"
+                                >
+                                  <MessageSquare size={12} className="text-emerald-600" />
+                                  <span>Remind</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">No Phone</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
