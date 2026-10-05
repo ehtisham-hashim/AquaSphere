@@ -24,20 +24,22 @@ export function lazyWithRetry(importFn) {
         await new Promise((resolve) => setTimeout(resolve, 400));
         return await importFn();
       } catch (retryError) {
-        const errorMsg = String(retryError?.message || firstError?.message || '');
-        const isChunkError =
-          errorMsg.includes('Failed to fetch dynamically imported module') ||
-          errorMsg.includes('Loading chunk') ||
-          errorMsg.includes('error loading dynamically imported module') ||
-          errorMsg.includes('Importing a module script failed') ||
+        const errorLower = String(retryError?.message || firstError?.message || '').toLowerCase();
+        const isChunkOrNetworkError =
+          errorLower.includes('failed to fetch dynamically imported module') ||
+          errorLower.includes('loading chunk') ||
+          errorLower.includes('error loading dynamically imported module') ||
+          errorLower.includes('importing a module script failed') ||
+          errorLower.includes('network error') ||
+          errorLower.includes('failed to fetch') ||
           retryError?.name === 'ChunkLoadError';
 
         // 2. Check if we haven't already reloaded within the last 15 seconds to prevent reload loops
-        const lastReload = Number(sessionStorage.getItem('chunk_reload_last_ts') || 0);
+        const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
         const canReload = Date.now() - lastReload > 15000;
 
-        if (isChunkError && canReload) {
-          sessionStorage.setItem('chunk_reload_last_ts', String(Date.now()));
+        if (isChunkOrNetworkError && canReload) {
+          sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
           window.location.reload();
           // Return an empty component while the page reloads
           return { default: () => null };
