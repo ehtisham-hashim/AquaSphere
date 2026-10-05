@@ -12,6 +12,16 @@ import {
 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import { TimeframeDropdown } from '../ui';
+
+const COUNTER_TIMEFRAME_OPTIONS = [
+  { value: 'ALL', label: 'All Time' },
+  { value: 'TODAY', label: 'Today' },
+  { value: 'YESTERDAY', label: 'Yesterday' },
+  { value: '1_WEEK', label: '1 Week' },
+  { value: '1_MONTH', label: '1 Month' },
+  { value: '1_YEAR', label: '1 Year' }
+];
 
 const getPaymentBadge = (cash, credit) => {
   if (credit > 0 && cash > 0) {
@@ -83,6 +93,8 @@ const getSaleProducts = (sale) => {
 export default function CounterSalesHistoryTable({
   search,
   setSearch,
+  dateFilter,
+  setDateFilter,
   loading,
   filteredSales,
   isDateClosed,
@@ -94,16 +106,26 @@ export default function CounterSalesHistoryTable({
 
   return (
     <div className="space-y-3">
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-        <input 
-          type="search" 
-          placeholder="Search by sale ID, items, customer, or cashier..." 
-          className="input-base pl-10 text-xs"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Search & Date Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+          <input 
+            type="search" 
+            placeholder="Search by sale ID, items, customer, or cashier..." 
+            className="input-base pl-10 text-xs w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {setDateFilter && (
+          <TimeframeDropdown
+            value={dateFilter}
+            onChange={setDateFilter}
+            options={COUNTER_TIMEFRAME_OPTIONS}
+          />
+        )}
       </div>
 
       <div className="table-container">

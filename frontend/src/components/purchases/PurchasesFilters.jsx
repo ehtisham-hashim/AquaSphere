@@ -1,4 +1,13 @@
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
+import { TimeframeDropdown } from '../ui';
+
+const PURCHASE_TIMEFRAME_OPTIONS = [
+  { value: 'ALL', label: 'All Time' },
+  { value: 'TODAY', label: 'Today' },
+  { value: '1_WEEK', label: '1 Week' },
+  { value: '1_MONTH', label: '1 Month' },
+  { value: '1_YEAR', label: '1 Year' }
+];
 
 export default function PurchasesFilters({ searchQuery, setSearchQuery, dateFilter, setDateFilter, onOpenModal, canAddPurchase }) {
   return (
@@ -17,19 +26,11 @@ export default function PurchasesFilters({ searchQuery, setSearchQuery, dateFilt
         </div>
 
         {/* Date Filter */}
-        <div className="relative w-40 shrink-0">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={15} />
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="select-base pl-9"
-          >
-            <option value="ALL">All Time</option>
-            <option value="TODAY">Today</option>
-            <option value="WEEK">Last 7 Days</option>
-            <option value="MONTH">This Month</option>
-          </select>
-        </div>
+        <TimeframeDropdown
+          value={dateFilter}
+          onChange={setDateFilter}
+          options={PURCHASE_TIMEFRAME_OPTIONS}
+        />
       </div>
 
       {canAddPurchase && (

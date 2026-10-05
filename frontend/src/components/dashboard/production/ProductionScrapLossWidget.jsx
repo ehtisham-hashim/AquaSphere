@@ -7,17 +7,13 @@ import { TimeframeDropdown } from '../../ui';
 
 export default function ProductionScrapLossWidget({
   timeframe: propTimeframe,
-  showDropdown = true,
+  showDropdown,
   className = ''
 }) {
   const { tenant } = useTenant();
-  const [selectedTimeframe, setSelectedTimeframe] = useState(propTimeframe || '1_MONTH');
-
-  useEffect(() => {
-    if (propTimeframe) {
-      setSelectedTimeframe(propTimeframe);
-    }
-  }, [propTimeframe]);
+  const [internalTimeframe, setInternalTimeframe] = useState('1_MONTH');
+  const activeTimeframe = propTimeframe || internalTimeframe;
+  const shouldShowDropdown = showDropdown !== undefined ? showDropdown : !propTimeframe;
 
   const [lossData, setLossData] = useState({
     totalWasteBottles: 0,
@@ -28,7 +24,7 @@ export default function ProductionScrapLossWidget({
 
   const fetchLoss = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/analytics/production-loss?tenant=${tenant}&timeframe=${selectedTimeframe}`, {
+      const res = await fetch(`${API}/analytics/production-loss?tenant=${tenant}&timeframe=${activeTimeframe}`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
@@ -41,7 +37,7 @@ export default function ProductionScrapLossWidget({
     } finally {
       setLoading(false);
     }
-  }, [tenant, selectedTimeframe]);
+  }, [tenant, activeTimeframe]);
 
   useEffect(() => {
     setLoading(true);
@@ -72,10 +68,10 @@ export default function ProductionScrapLossWidget({
         </div>
 
         <div className="flex items-center gap-2">
-          {showDropdown && (
+          {shouldShowDropdown && (
             <TimeframeDropdown
-              value={selectedTimeframe}
-              onChange={setSelectedTimeframe}
+              value={activeTimeframe}
+              onChange={setInternalTimeframe}
             />
           )}
           {loading && (

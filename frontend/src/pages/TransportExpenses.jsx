@@ -17,6 +17,7 @@ export default function TransportExpenses() {
   const [loading, setLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [timeframe, setTimeframe] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedVehicleId, setSelectedVehicleId] = useState('ALL');
 
@@ -77,10 +78,29 @@ export default function TransportExpenses() {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  // Client-side filtering by search query & type
+  // Client-side filtering by search query, timeframe & type
   const filteredExpenses = useMemo(() => {
     return expenses.filter((ex) => {
       if (selectedType !== 'ALL' && ex.type !== selectedType) return false;
+      if (timeframe && timeframe !== 'ALL') {
+        const d = new Date(ex.date || ex.createdAt);
+        if (!isNaN(d.getTime())) {
+          const now = new Date();
+          const startOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 0, 0, 0, 0);
+          const endOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
+          if (timeframe === 'TODAY') {
+            if (d < startOfDay(0) || d > endOfDay(0)) return false;
+          } else if (timeframe === 'YESTERDAY') {
+            if (d < startOfDay(1) || d > endOfDay(1)) return false;
+          } else if (timeframe === '1_WEEK') {
+            if (d < startOfDay(6) || d > endOfDay(0)) return false;
+          } else if (timeframe === '1_MONTH') {
+            if (d < new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0) || d > endOfDay(0)) return false;
+          } else if (timeframe === '1_YEAR') {
+            if (d < new Date(now.getFullYear(), 0, 1, 0, 0, 0) || d > endOfDay(0)) return false;
+          }
+        }
+      }
       if (search.trim()) {
         const q = search.toLowerCase();
         const vName = ex.vehicle?.name?.toLowerCase() || '';
@@ -92,7 +112,7 @@ export default function TransportExpenses() {
       }
       return true;
     });
-  }, [expenses, selectedType, search]);
+  }, [expenses, selectedType, timeframe, search]);
 
   // Early loading UI for vehicles
   if (vehiclesLoading) {
@@ -156,6 +176,8 @@ export default function TransportExpenses() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <TransportExpensesHeader
+        timeframe={timeframe}
+        setTimeframe={setTimeframe}
         onOpenModal={() => setIsAddModalOpen(true)}
         onExportCSV={handleExportCSV}
         hasExpenses={filteredExpenses.length > 0}

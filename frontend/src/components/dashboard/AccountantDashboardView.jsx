@@ -1,18 +1,41 @@
-import { useState, useEffect } from 'react';
-import { CreditCard, Wallet, Receipt, ShoppingCart, Clock, Lock } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { CreditCard, Wallet, Receipt, Clock, Lock, ShoppingCart } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
+import { TimeframeDropdown } from '../ui';
 
 export default function AccountantDashboardView({ data }) {
   const { tenant, isWadaana } = useTenant();
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
+  const [timeframe, setTimeframe] = useState('TODAY');
   const [closeStatus, setCloseStatus] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [loadingExpenses, setLoadingExpenses] = useState(true);
 
-  const netCash = Number(data?.cash || 0) - Number(data?.expenses || 0);
+  const activeData = useMemo(() => {
+    if (!data) return {};
+    let tfKey;
+    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+      tfKey = 'daily';
+    } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+      tfKey = 'yearly';
+    } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+      tfKey = 'monthly';
+    } else {
+      tfKey = timeframe.toLowerCase();
+    }
+    const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
+    return {
+      sales: Number(tf.sales ?? data.sales ?? 0),
+      cash: Number(tf.cash ?? data.cash ?? 0),
+      expenses: Number(tf.expenses ?? data.expenses ?? 0),
+      credit: Number(tf.credit ?? data.credit ?? 0)
+    };
+  }, [data, timeframe]);
+
+  const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
   const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
   const today = new Date().toISOString().split('T')[0];
 
@@ -40,6 +63,13 @@ export default function AccountantDashboardView({ data }) {
     fetchFinanceDetails();
   }, [tenant, today]);
 
+  const getPeriodLabel = () => {
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'Today';
+    if (timeframe === '1_WEEK') return 'This Week';
+    if (timeframe === '1_YEAR') return 'This Year';
+    return 'This Month';
+  };
+
   return (
     <div className="space-y-4 pb-6">
       {/* Top Banner */}
@@ -54,15 +84,24 @@ export default function AccountantDashboardView({ data }) {
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-1">Finance & Cash Ledger</h1>
         </div>
 
-        {closeStatus?.isClosed ? (
-          <div className="badge-success px-2.5 py-1 text-xs font-bold">
-            <Lock size={13} /> Day Closed
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
           </div>
-        ) : (
-          <div className="badge-brand px-2.5 py-1 text-xs font-bold">
-            <Clock size={13} /> Day Open
-          </div>
-        )}
+
+          <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
+
+          {closeStatus?.isClosed ? (
+            <div className="badge-success px-2.5 py-1 text-xs font-bold">
+              <Lock size={13} /> Day Closed
+            </div>
+          ) : (
+            <div className="badge-brand px-2.5 py-1 text-xs font-bold">
+              <Clock size={13} /> Day Open
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 1. Financial & Cash Flow Cards */}
@@ -70,22 +109,22 @@ export default function AccountantDashboardView({ data }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           <ModernKpiCard
             icon={CreditCard}
-            title="Cash Collected"
-            value={`Rs. ${Number(data?.cash || 0).toLocaleString()}`}
-            subtitle="Cash received today"
+            title={`${getPeriodLabel()} Cash Inflow`}
+            value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`}
+            subtitle={`Cash collected ${getPeriodLabel().toLowerCase()}`}
             variant="emerald"
           />
           <ModernKpiCard
             icon={Wallet}
-            title="Today's Sales"
-            value={`Rs. ${Number(data?.sales || 0).toLocaleString()}`}
-            subtitle={`Credit: Rs. ${Number(data?.credit || 0).toLocaleString()}`}
+            title={`${getPeriodLabel()} Sales`}
+            value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`}
+            subtitle={`Credit: Rs. ${Number(activeData?.credit || 0).toLocaleString()}`}
             variant="sky"
           />
           <ModernKpiCard
             icon={Receipt}
-            title="Expenses Today"
-            value={`Rs. ${Number(data?.expenses || 0).toLocaleString()}`}
+            title={`${getPeriodLabel()} Expenses`}
+            value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`}
             subtitle="Operating cost logged"
             variant="rose"
           />

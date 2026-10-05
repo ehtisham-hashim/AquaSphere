@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
+import { TimeframeDropdown } from '../ui';
 
 // ponytail: lean TM dashboard - fleet metrics, fuel/maintenance, vehicle status & delivery queue
 export default function TransportDashboardView() {
   const { tenant, isWadaana } = useTenant();
+  const [timeframe, setTimeframe] = useState('1_MONTH');
   const [vehicles, setVehicles] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -101,7 +103,7 @@ export default function TransportDashboardView() {
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
-  const todayVehicleExpenses = useMemo(() => {
+  const _todayVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => {
         const d = new Date(e.date || e.createdAt);
@@ -110,7 +112,7 @@ export default function TransportDashboardView() {
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
   }, [expenses, todayStr]);
 
-  const monthVehicleExpenses = useMemo(() => {
+  const _monthVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => {
         const d = new Date(e.date || e.createdAt);
@@ -118,6 +120,39 @@ export default function TransportDashboardView() {
       })
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
   }, [expenses, currentMonth, currentYear]);
+
+  const timeframeVehicleExpenses = useMemo(() => {
+    const dNow = new Date();
+    let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0);
+    if (timeframe === 'YESTERDAY') {
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 0, 0, 0);
+    } else if (timeframe === 'LAST_3_DAYS') {
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 2, 0, 0, 0);
+    } else if (timeframe === '1_WEEK') {
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 6, 0, 0, 0);
+    } else if (timeframe === '1_MONTH') {
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), 1, 0, 0, 0);
+    } else if (timeframe === '1_YEAR') {
+      startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0);
+    }
+    const endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
+
+    return expenses
+      .filter(e => {
+        const d = new Date(e.date || e.createdAt);
+        return d >= startDate && d <= endOfDay;
+      })
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  }, [expenses, timeframe]);
+
+  const getPeriodLabel = () => {
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'Today';
+    if (timeframe === 'YESTERDAY') return 'Yesterday';
+    if (timeframe === 'LAST_3_DAYS') return 'Past 3 Days';
+    if (timeframe === '1_WEEK') return 'This Week';
+    if (timeframe === '1_YEAR') return 'This Year';
+    return 'This Month';
+  };
 
   // Delivery & Dispatch metrics
   const pendingDeliveries = useMemo(() => {
@@ -182,7 +217,14 @@ export default function TransportDashboardView() {
             Active fleet monitoring, fuel usage, and maintenance logs for {isWadaana ? 'Wadaana' : 'AquaSphere'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+          </div>
+
+          <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
+
           <button
             onClick={() => fetchData(true)}
             disabled={refreshing}
@@ -265,13 +307,10 @@ export default function TransportDashboardView() {
           </div>
           <div className="mt-2.5">
             <div className="text-2xl font-black text-slate-800 font-mono">
-              Rs. {Math.round(todayVehicleExpenses).toLocaleString()}
+              Rs. {Math.round(timeframeVehicleExpenses).toLocaleString()}
             </div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <span>This Month:</span>
-              <strong className="text-slate-700 font-mono font-bold">
-                Rs. {Math.round(monthVehicleExpenses).toLocaleString()}
-              </strong>
+              <span>{getPeriodLabel()} Spend</span>
             </div>
           </div>
         </div>

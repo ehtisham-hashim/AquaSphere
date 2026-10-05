@@ -16,13 +16,24 @@ import ProductionRecentRuns from './production/ProductionRecentRuns';
 import FinishedGoodsBreakdown from './production/FinishedGoodsBreakdown';
 import RawMaterialHealthPanel from './production/RawMaterialHealthPanel';
 import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
+import { TimeframeDropdown } from '../ui';
 
 export default function ProductionDashboardView() {
   const { tenant, isWadaana } = useTenant();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedDays, setSelectedDays] = useState('7');
+  const [timeframe, setTimeframe] = useState('1_MONTH');
+  const [selectedDays, setSelectedDays] = useState('30');
+
+  const handleTimeframeChange = (tf) => {
+    setTimeframe(tf);
+    if (tf === 'TODAY' || tf === 'DAILY' || tf === 'YESTERDAY') setSelectedDays('1');
+    else if (tf === 'LAST_3_DAYS') setSelectedDays('3');
+    else if (tf === '1_WEEK') setSelectedDays('7');
+    else if (tf === '1_MONTH') setSelectedDays('30');
+    else if (tf === '1_YEAR') setSelectedDays('365');
+  };
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
@@ -141,8 +152,15 @@ export default function ProductionDashboardView() {
           </p>
         </div>
 
-        {/* Action Bar */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action Bar & Timeframe */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={handleTimeframeChange} />
+          </div>
+
+          <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
+
           <Link to="/production" className="btn-primary text-xs">
             <Plus size={15} /> Log Batch
           </Link>
@@ -180,7 +198,7 @@ export default function ProductionDashboardView() {
 
         {/* Right: Scrap Loss & Raw Material Health (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
-          <ProductionScrapLossWidget showDropdown={true} />
+          <ProductionScrapLossWidget timeframe={timeframe} showDropdown={false} />
           <RawMaterialHealthPanel
             sortedRawMaterials={sortedRawMaterials}
             recentPurchases={recentPurchases}

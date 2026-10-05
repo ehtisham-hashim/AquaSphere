@@ -7,7 +7,7 @@ import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
-import { PageHeader, StatusBadge } from '../components/ui';
+import { PageHeader, StatusBadge, TimeframeDropdown } from '../components/ui';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
 import EditOrderModal from '../components/orders/EditOrderModal';
@@ -286,18 +286,11 @@ export default function Orders() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full lg:w-auto">
-            <div className="w-full sm:w-36">
-              <select 
-                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
-                value={dateFilter}
-                onChange={e => setDateFilter(e.target.value)}
-                aria-label="Filter orders by date"
-              >
-                {DATE_FILTER_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
+            <TimeframeDropdown 
+              value={dateFilter}
+              onChange={setDateFilter}
+              options={DATE_FILTER_OPTIONS}
+            />
 
             <div className="w-full sm:w-44">
               <select 

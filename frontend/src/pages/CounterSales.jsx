@@ -174,10 +174,30 @@ export default function CounterSales() {
     }
   };
 
+  const [dateFilter, setDateFilter] = useState('ALL');
+
   const filteredSales = useMemo(() => {
+    let list = sales;
+    if (dateFilter && dateFilter !== 'ALL') {
+      const now = new Date();
+      const startOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 0, 0, 0, 0);
+      const endOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
+
+      list = list.filter(s => {
+        const d = new Date(s.createdAt);
+        if (isNaN(d.getTime())) return true;
+        if (dateFilter === 'TODAY') return d >= startOfDay(0) && d <= endOfDay(0);
+        if (dateFilter === 'YESTERDAY') return d >= startOfDay(1) && d <= endOfDay(1);
+        if (dateFilter === '1_WEEK') return d >= startOfDay(6) && d <= endOfDay(0);
+        if (dateFilter === '1_MONTH') return d >= new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0) && d <= endOfDay(0);
+        if (dateFilter === '1_YEAR') return d >= new Date(now.getFullYear(), 0, 1, 0, 0, 0) && d <= endOfDay(0);
+        return true;
+      });
+    }
+
     const q = search.toLowerCase().trim();
-    if (!q) return sales;
-    return sales.filter(s => 
+    if (!q) return list;
+    return list.filter(s => 
       (s.saleNumber && s.saleNumber.toLowerCase().includes(q)) ||
       (s.productType && s.productType.toLowerCase().includes(q)) ||
       (Array.isArray(s.items) && s.items.some(i => (i.item?.name || '').toLowerCase().includes(q))) ||
@@ -186,7 +206,7 @@ export default function CounterSales() {
       (s.customer?.name && s.customer.name.toLowerCase().includes(q)) ||
       (s.createdBy?.name && s.createdBy.name.toLowerCase().includes(q))
     );
-  }, [sales, search]);
+  }, [sales, search, dateFilter]);
 
   const handleExportCSV = () => {
     if (filteredSales.length === 0) return;
@@ -295,6 +315,8 @@ export default function CounterSales() {
         <CounterSalesHistoryTable 
           search={search}
           setSearch={setSearch}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
           loading={loading}
           filteredSales={filteredSales}
           isDateClosed={isDateClosed}

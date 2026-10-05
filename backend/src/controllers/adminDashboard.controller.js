@@ -16,9 +16,21 @@ const getPrefix = getTenantPrefix;
  */
 export const getAdminDashboard = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
+  const timeframe = (req.query.timeframe || 'TODAY').toUpperCase();
 
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  let startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  if (timeframe === 'YESTERDAY') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+  } else if (timeframe === 'LAST_3_DAYS') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0);
+  } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+  } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+    startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+  }
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   const [
@@ -34,9 +46,9 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     spotSalesCash,
     customerReceivablesAgg
   ] = await Promise.all([
-    // Today's orders count + list
+    // Orders count + list in timeframe
     prisma[`${prefix}Order`].findMany({
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+      where: { createdAt: { gte: startDate, lte: endOfDay } },
       include: {
         customer: { select: { name: true, phone: true } },
         items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
@@ -57,13 +69,13 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     prisma[`${prefix}Order`].count({
       where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } }
     }),
-    // Today's completed deliveries count
+    // Completed deliveries count in timeframe
     prisma[`${prefix}Delivery`].count({
-      where: { deliveredAt: { gte: startOfDay, lte: endOfDay } }
+      where: { deliveredAt: { gte: startDate, lte: endOfDay } }
     }),
-    // Today's production batches
+    // Production batches in timeframe
     prisma[`${prefix}ProductionBatch`].findMany({
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+      where: { createdAt: { gte: startDate, lte: endOfDay } },
       include: { outputItem: { select: { name: true } } },
       orderBy: { createdAt: 'desc' }
     }),
@@ -79,19 +91,19 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       select: { id: true, name: true, unit: true, cachedQty: true, reorderLevel: true },
       orderBy: { name: 'asc' }
     }),
-    // Cash collected today (from payments only — NO profit calculation)
+    // Cash collected in timeframe (from payments only — NO profit calculation)
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+      where: { createdAt: { gte: startDate, lte: endOfDay } }
     }),
     // Today's daily close status
     prisma[`${prefix}DailyClose`].findFirst({
-      where: { date: { gte: startOfDay, lte: endOfDay } }
+      where: { date: { gte: startDate, lte: endOfDay } }
     }),
-    // Spot sales cash & water litres
+    // Spot sales cash & water litres in timeframe
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { cashCollected: true, totalLitres: true, litresSold: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+      where: { createdAt: { gte: startDate, lte: endOfDay } }
     }),
     // Total customer receivables
     prisma[`${prefix}Customer`].aggregate({

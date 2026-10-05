@@ -1,15 +1,27 @@
 import { Plus, Download, Fuel } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
+import { TimeframeDropdown } from '../ui';
+
+const TRANSPORT_TIMEFRAME_OPTIONS = [
+  { value: 'ALL', label: 'All Time' },
+  { value: 'TODAY', label: 'Today' },
+  { value: 'YESTERDAY', label: 'Yesterday' },
+  { value: '1_WEEK', label: '1 Week' },
+  { value: '1_MONTH', label: '1 Month' },
+  { value: '1_YEAR', label: '1 Year' }
+];
 
 export default function TransportExpensesHeader({
+  timeframe,
+  setTimeframe,
   onOpenModal,
   onExportCSV,
   hasExpenses = false
 }) {
   const { user } = useAuth();
   const { isWadaana } = useTenant();
-  const canAddExpense = user?.role === 'TRANSPORT_MANAGER';
+  const canAddExpense = user?.role === 'TRANSPORT_MANAGER' || user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   return (
     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
@@ -26,7 +38,15 @@ export default function TransportExpensesHeader({
         <p className="text-slate-500 text-xs sm:text-sm">Track vehicle fuel, repairs, and recurring operational costs</p>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+        {setTimeframe && (
+          <TimeframeDropdown
+            value={timeframe}
+            onChange={setTimeframe}
+            options={TRANSPORT_TIMEFRAME_OPTIONS}
+          />
+        )}
+
         {onExportCSV && (
           <button
             onClick={onExportCSV}

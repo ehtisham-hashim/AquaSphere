@@ -30,14 +30,19 @@ export const getPurchases = asyncHandler(async (req, res) => {
       const end = new Date(today);
       end.setHours(23, 59, 59, 999);
       where.purchaseDate = { gte: start, lte: end };
-    } else if (dateFilter === 'WEEK') {
+    } else if (dateFilter === 'WEEK' || dateFilter === '1_WEEK') {
       const past = new Date(today);
       past.setDate(past.getDate() - 7);
       past.setHours(0, 0, 0, 0);
       where.purchaseDate = { gte: past };
-    } else if (dateFilter === 'MONTH') {
+    } else if (dateFilter === 'MONTH' || dateFilter === '1_MONTH') {
       const past = new Date(today);
       past.setMonth(past.getMonth() - 1);
+      past.setHours(0, 0, 0, 0);
+      where.purchaseDate = { gte: past };
+    } else if (dateFilter === 'YEAR' || dateFilter === '1_YEAR') {
+      const past = new Date(today);
+      past.setFullYear(past.getFullYear() - 1);
       past.setHours(0, 0, 0, 0);
       where.purchaseDate = { gte: past };
     }

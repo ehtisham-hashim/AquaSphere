@@ -15,6 +15,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { API_URL as API } from '../../utils/api';
 import ModernKpiCard from './ModernKpiCard';
+import { TimeframeDropdown } from '../ui';
 
 export default function AdminDashboardView() {
   const { tenant, isWadaana } = useTenant();
@@ -23,6 +24,7 @@ export default function AdminDashboardView() {
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [timeframe, setTimeframe] = useState('TODAY');
 
   const companyTitle = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
@@ -31,8 +33,8 @@ export default function AdminDashboardView() {
     try {
       const headers = { 'x-tenant': tenant };
       const [dashRes, cashRes, alertRes] = await Promise.all([
-        fetch(`${API}/admin/dashboard?tenant=${tenant}`, { headers, credentials: 'include' }),
-        fetch(`${API}/admin/cash-summary?tenant=${tenant}`, { headers, credentials: 'include' }),
+        fetch(`${API}/admin/dashboard?tenant=${tenant}&timeframe=${timeframe}`, { headers, credentials: 'include' }),
+        fetch(`${API}/admin/cash-summary?tenant=${tenant}&timeframe=${timeframe}`, { headers, credentials: 'include' }),
         fetch(`${API}/admin/customer-alerts?tenant=${tenant}`, { headers, credentials: 'include' })
       ]);
 
@@ -48,11 +50,20 @@ export default function AdminDashboardView() {
     } finally {
       setLoading(false);
     }
-  }, [tenant]);
+  }, [tenant, timeframe]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const getPeriodLabel = () => {
+    if (timeframe === 'DAILY' || timeframe === 'TODAY') return "Today's";
+    if (timeframe === 'YESTERDAY') return "Yesterday's";
+    if (timeframe === 'LAST_3_DAYS') return "Last 3 Days";
+    if (timeframe === '1_WEEK') return "This Week's";
+    if (timeframe === '1_YEAR') return "This Year's";
+    return "This Month's";
+  };
 
   if (loading) {
     return (
@@ -80,21 +91,30 @@ export default function AdminDashboardView() {
           </div>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-slate-900">Admin Operations Control</h1>
           <p className="text-xs text-slate-500 mt-0.5 font-normal">
-            Monitor daily stock levels, production output, delivery status, cash collections, and customer credit alerts.
+            Monitor stock levels, production output, delivery status, cash collections, and customer credit alerts.
           </p>
         </div>
 
-        <Link to="/daily-close" className="btn-secondary text-xs">
-          <Lock size={14} className="text-emerald-600" />
-          <span>Daily Close &rarr;</span>
-        </Link>
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+          </div>
+
+          <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
+
+          <Link to="/daily-close" className="btn-secondary text-xs">
+            <Lock size={14} className="text-emerald-600" />
+            <span>Daily Close &rarr;</span>
+          </Link>
+        </div>
       </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         <ModernKpiCard
           icon={Truck}
-          title="Today's Orders"
+          title={`${getPeriodLabel()} Orders`}
           value={kpis.todaysOrdersCount || 0}
           subtitle={`${kpis.pendingOrdersCount || 0} Pending Delivery`}
           variant="sky"
@@ -102,7 +122,7 @@ export default function AdminDashboardView() {
 
         <ModernKpiCard
           icon={Factory}
-          title={isWadaana ? 'Good Yield Today' : 'Production Output'}
+          title={isWadaana ? `Yield (${getPeriodLabel()})` : `Output (${getPeriodLabel()})`}
           value={isWadaana ? `${kpis.totalProductionYield || 0} units` : `${kpis.packs05LProduced || 0} / ${kpis.packs15LProduced || 0}`}
           subtitle={`${kpis.productionWaste || 0} units waste`}
           variant="brand"
