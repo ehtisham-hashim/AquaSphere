@@ -115,6 +115,11 @@ export default function PurchasesTable({
                       </button>
                     )}
                   </div>
+                  {p.paymentStatus === 'PARTIAL' && (
+                    <div className="text-[10px] text-rose-600 font-mono font-bold mt-0.5">
+                      Due: Rs. {Number(p.outstandingAmount ?? Math.max(0, Number(p.grandTotal || 0) - Number(p.paidAmount || 0))).toLocaleString('en-PK')}
+                    </div>
+                  )}
                 </td>
                 <td className="table-td text-xs font-medium">
                   {p.verifiedBy ? (

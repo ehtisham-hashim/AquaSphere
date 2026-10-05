@@ -62,7 +62,7 @@ export const getPurchases = asyncHandler(async (req, res) => {
       },
       ledgerEntries: {
         where: { type: 'PAYMENT' },
-        select: { id: true, amount: true, createdAt: true, remarks: true }
+        select: { id: true, type: true, amount: true, createdAt: true, remarks: true }
       }
     },
     orderBy: [
@@ -71,8 +71,18 @@ export const getPurchases = asyncHandler(async (req, res) => {
     ]
   });
 
-  const nextCursor = purchases.length > 0 ? purchases[purchases.length - 1].id : null;
-  return sendSuccess(res, purchases, 200, { nextCursor });
+  const purchasesWithTotals = purchases.map(p => {
+    const paidAmount = (p.ledgerEntries || [])
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0) || (p.paymentStatus === 'PAID' ? Number(p.grandTotal || 0) : 0);
+    return {
+      ...p,
+      paidAmount,
+      outstandingAmount: Math.max(0, Number(p.grandTotal || 0) - paidAmount)
+    };
+  });
+
+  const nextCursor = purchasesWithTotals.length > 0 ? purchasesWithTotals[purchasesWithTotals.length - 1].id : null;
+  return sendSuccess(res, purchasesWithTotals, 200, { nextCursor });
 });
 
 /** Retrieves single purchase record */
@@ -92,7 +102,16 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
     }
   });
   if (!purchase) throw new ApiError(404, 'Purchase not found');
-  return sendSuccess(res, purchase);
+
+  const paidAmount = (purchase.ledgerEntries || [])
+    .filter(e => e.type === 'PAYMENT')
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0) || (purchase.paymentStatus === 'PAID' ? Number(purchase.grandTotal || 0) : 0);
+
+  return sendSuccess(res, {
+    ...purchase,
+    paidAmount,
+    outstandingAmount: Math.max(0, Number(purchase.grandTotal || 0) - paidAmount)
+  });
 });
 
 /** Generates a guaranteed unique invoice number candidate in PUR-YYYYMMDD-XXXX format */

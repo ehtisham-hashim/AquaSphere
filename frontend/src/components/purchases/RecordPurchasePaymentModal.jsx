@@ -21,10 +21,14 @@ export default function RecordPurchasePaymentModal({ purchase, onClose, onSucces
   if (!purchase) return null;
 
   const total = Number(purchase.grandTotal || 0);
-  const alreadyPaid = (purchase.ledgerEntries || [])
-    .filter(e => e.type === 'PAYMENT')
-    .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (purchase.paymentStatus === 'PAID' ? total : 0);
-  const outstanding = Math.max(0, total - alreadyPaid);
+  const alreadyPaid = purchase.paidAmount !== undefined
+    ? Number(purchase.paidAmount)
+    : (purchase.ledgerEntries || [])
+        .filter(e => !e.type || e.type === 'PAYMENT')
+        .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (purchase.paymentStatus === 'PAID' ? total : 0);
+  const outstanding = purchase.outstandingAmount !== undefined
+    ? Number(purchase.outstandingAmount)
+    : Math.max(0, total - alreadyPaid);
 
   const handleProofUpload = async (e) => {
     const file = e.target.files?.[0];

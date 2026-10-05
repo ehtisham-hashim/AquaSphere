@@ -30,6 +30,9 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecord
     if (pst === 'PAID') {
       return <span className="badge-success">Paid in Cash</span>;
     }
+    if (pst === 'PARTIAL') {
+      return <span className="badge-warning">Partial</span>;
+    }
     return <span className="badge-danger">Credit / Khata</span>;
   };
 
@@ -194,12 +197,12 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecord
           )}
 
           {/* Recorded Payments */}
-          {purchase.ledgerEntries?.filter(e => e.type === 'PAYMENT').length > 0 && (
+          {(purchase.ledgerEntries || []).filter(e => !e.type || e.type === 'PAYMENT').length > 0 && (
             <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-2">
               <span className="text-[10px] uppercase font-bold text-emerald-800 block">Recorded Payments</span>
               <div className="divide-y divide-emerald-100 text-xs">
-                {purchase.ledgerEntries
-                  .filter(e => e.type === 'PAYMENT')
+                {(purchase.ledgerEntries || [])
+                  .filter(e => !e.type || e.type === 'PAYMENT')
                   .map(p => (
                     <div key={p.id} className="py-1.5 flex justify-between items-center text-slate-700">
                       <div>
@@ -215,12 +218,30 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecord
             </div>
           )}
 
-          {/* Grand Total */}
-          <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-            <span className="font-bold text-slate-700 text-sm">Total Procurement Value</span>
-            <span className="text-2xl font-bold font-mono text-brand">
-              Rs {Number(purchase.grandTotal).toLocaleString('en-PK')}
-            </span>
+          {/* Grand Total & Balances */}
+          <div className="pt-3 border-t border-slate-100 space-y-1.5 font-mono text-xs">
+            <div className="flex justify-between items-center text-slate-600 font-sans">
+              <span className="font-bold">Total Procurement Value</span>
+              <span className="text-base font-bold font-mono text-slate-900">
+                Rs {Number(purchase.grandTotal).toLocaleString('en-PK')}
+              </span>
+            </div>
+            {purchase.paymentStatus !== 'PAID' && (
+              <>
+                <div className="flex justify-between items-center text-emerald-700">
+                  <span>Total Paid:</span>
+                  <span className="font-bold">
+                    Rs {Number(purchase.paidAmount ?? (purchase.ledgerEntries || []).filter(e => !e.type || e.type === 'PAYMENT').reduce((sum, p) => sum + Number(p.amount || 0), 0)).toLocaleString('en-PK')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-rose-600">
+                  <span className="font-bold">Remaining Outstanding:</span>
+                  <span className="text-base font-bold">
+                    Rs {Number(purchase.outstandingAmount ?? Math.max(0, Number(purchase.grandTotal || 0) - Number(purchase.paidAmount || 0))).toLocaleString('en-PK')}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
