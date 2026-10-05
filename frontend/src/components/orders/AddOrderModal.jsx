@@ -514,11 +514,12 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                 <AlertTriangle size={28} />
               </div>
               <h4 className="text-lg font-bold text-slate-800">
-                {softBlockData.blockReason === 'UNUSUAL_QUANTITY' ? 'Unusual Quantity Alert' : 
+                {softBlockData.blockReason === 'LOW_STOCK_WARNING' ? 'Low Finished Goods Stock' :
+                 softBlockData.blockReason === 'UNUSUAL_QUANTITY' ? 'Unusual Quantity Alert' : 
                  softBlockData.blockReason === 'BOTTLE_SECURITY_EXCEEDED' ? 'Bottle Security Warning' : 
-                 'Credit Limit Soft-Block'}
+                 'Order Notice'}
               </h4>
-              <p className="text-xs text-slate-600 bg-amber-50 border border-amber-100 p-3 rounded-xl font-medium">
+              <p className="text-xs text-slate-700 bg-amber-50 border border-amber-100 p-3.5 rounded-xl font-medium whitespace-pre-line text-left leading-relaxed">
                 {softBlockData.message}
               </p>
               <div className="flex gap-2 pt-2">

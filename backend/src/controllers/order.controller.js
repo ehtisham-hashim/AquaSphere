@@ -6,15 +6,7 @@ import { broadcastEvent } from '../utils/sseBus.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
-
-const QTY_THRESHOLDS = {
-  Home: 5,
-  Office: 20,
-  Shop: 30,
-  Restaurant: 50,
-  Commercial: 100,
-  Distributor: 500
-};
+import { getTenantOperationalDefaults } from './settings.controller.js';
 
 /** Resolves and standardizes items in an order payload */
 async function resolveOrderItems(prefix, items) {
@@ -76,25 +68,63 @@ export const createOrder = asyncHandler(async (req, res) => {
   const orderTotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
   const totalQty = resolvedItems.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Soft-block check for unusual quantity
-  const maxQty = QTY_THRESHOLDS[customer.type] || 20;
-  if (totalQty > maxQty && !bypassCreditCheck) {
-    return res.status(200).json({
-      success: false,
-      softBlock: true,
-      blockReason: 'UNUSUAL_QUANTITY',
-      message: `Unusual quantity detected. A ${customer.type} customer typically does not order ${totalQty} items at once (Limit: ${maxQty}). Are you sure you want to proceed?`
-    });
+  const opSettings = await getTenantOperationalDefaults(prefix);
+  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItems.map(i => i.itemId) } } });
+
+  // 1. Flexible Low Finished Goods Stock Warning (for all items, all tenants)
+  if (opSettings.enableLowStockWarning && !bypassCreditCheck) {
+    const lowStockItems = [];
+    for (const rItem of resolvedItems) {
+      const dbItem = dbItems.find(di => di.id === rItem.itemId);
+      if (dbItem) {
+        const availableStock = parseFloat(dbItem.cachedQty || 0);
+        if (rItem.quantity > availableStock) {
+          lowStockItems.push({
+            name: dbItem.name,
+            ordered: rItem.quantity,
+            available: Math.max(0, availableStock)
+          });
+        }
+      }
+    }
+
+    if (lowStockItems.length > 0) {
+      const listStr = lowStockItems
+        .map(it => `• ${it.name}: Ordered ${it.ordered}, Current Stock ${it.available}`)
+        .join('\n');
+      return res.status(200).json({
+        success: false,
+        softBlock: true,
+        blockReason: 'LOW_STOCK_WARNING',
+        message: `Low Finished Goods Stock Detected:\n${listStr}\n\nDo you want to proceed anyway (create backorder / schedule production)?`
+      });
+    }
   }
 
-
-  // Bottle security deposit check (for 19L orders)
-  const dbItems = await prisma[`${prefix}Item`].findMany({ where: { id: { in: resolvedItems.map(i => i.itemId) } } });
+  // 2. Unusual Quantity Typo Guard (configurable thresholds)
   const qty19LOrdered = resolvedItems.reduce((sum, i) => {
     const dbItem = dbItems.find(di => di.id === i.itemId);
     return dbItem?.name.toLowerCase().includes('19l') ? sum + i.quantity : sum;
   }, 0);
 
+  if (opSettings.enableQuantityAlert && !bypassCreditCheck) {
+    const maxQty = opSettings.orderThresholds?.[customer.type]
+      || opSettings.orderThresholds?.Corporate
+      || opSettings.orderThresholds?.Office
+      || 100;
+    const qtyToCheck = opSettings.enforceOnlyOn19L ? qty19LOrdered : totalQty;
+
+    if (qtyToCheck > maxQty) {
+      return res.status(200).json({
+        success: false,
+        softBlock: true,
+        blockReason: 'UNUSUAL_QUANTITY',
+        message: `Unusual quantity detected. A ${customer.type} customer typically does not order ${qtyToCheck} items at once (Limit: ${maxQty}). Are you sure you want to proceed?`
+      });
+    }
+  }
+
+  // 3. Bottle security deposit check (for 19L orders)
   if (qty19LOrdered > 0 && !bypassCreditCheck) {
     const currentBottles = parseInt(customer.cachedBottleBalance || 0, 10);
     const newBottleBalance = currentBottles + qty19LOrdered;

@@ -11,7 +11,9 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Sparkles,
-  Lock
+  Lock,
+  Sliders,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +33,61 @@ export default function ProductPricing() {
   const [searchQuery, setSearchQuery] = useState('');
   // Map of itemId -> price string
   const [editedPrices, setEditedPrices] = useState({});
+
+  // Operational Defaults State
+  const [activeTab, setActiveTab] = useState('pricing'); // 'pricing' | 'thresholds'
+  const [operationalSettings, setOperationalSettings] = useState(null);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const fetchSettings = useCallback(async () => {
+    setLoadingSettings(true);
+    try {
+      const res = await fetch(`${API_URL}/settings/operational-defaults`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        setOperationalSettings(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching operational settings:', err);
+    } finally {
+      setLoadingSettings(false);
+    }
+  }, [tenant]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const handleSaveOperationalSettings = async () => {
+    if (!operationalSettings) return;
+    setSavingSettings(true);
+    try {
+      const res = await fetch(`${API_URL}/settings/operational-defaults`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
+        credentials: 'include',
+        body: JSON.stringify(operationalSettings)
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success('Operational defaults and thresholds saved successfully!');
+        setOperationalSettings(json.data);
+      } else {
+        toast.error(json.message || 'Failed to save settings');
+      }
+    } catch {
+      toast.error('Network error saving settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -201,38 +258,95 @@ export default function ProductPricing() {
     <div className="space-y-4 pb-12">
       {/* Top Header */}
       <PageHeader
-        title="Product & Catalog Pricing"
+        title={activeTab === 'pricing' ? "Product & Catalog Pricing" : "Operational Defaults & Order Thresholds"}
         badge={
           <span className="badge-warning inline-flex items-center gap-1">
             <Lock className="w-3 h-3" /> Owner Exclusive
           </span>
         }
-        subtitle={`Configure database-driven retail prices for all finished goods. Drives ${isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.`}
+        subtitle={
+          activeTab === 'pricing'
+            ? `Configure database-driven retail prices for all finished goods. Drives ${isWadaana ? 'Wholesale Orders' : 'Counter POS Sales & Bulk Water'}.`
+            : `Configure soft warnings for low finished goods stock and customer purchasing quantity limits (Database Option B).`
+        }
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchItems}
-              disabled={loading}
-              className="btn-secondary"
-              title="Refresh items from database"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+          activeTab === 'pricing' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchItems}
+                disabled={loading}
+                className="btn-secondary"
+                title="Refresh items from database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
 
-            <button
-              onClick={handleSaveAll}
-              disabled={!hasUnsavedChanges || savingAll}
-              className="btn-primary"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{savingAll ? 'Saving...' : `Save All Changes (${Object.keys(editedPrices).length})`}</span>
-            </button>
-          </div>
+              <button
+                onClick={handleSaveAll}
+                disabled={!hasUnsavedChanges || savingAll}
+                className="btn-primary"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{savingAll ? 'Saving...' : `Save All Changes (${Object.keys(editedPrices).length})`}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchSettings}
+                disabled={loadingSettings}
+                className="btn-secondary"
+                title="Reload operational settings from database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingSettings ? 'animate-spin' : ''}`} />
+                <span>Reload</span>
+              </button>
+
+              <button
+                onClick={handleSaveOperationalSettings}
+                disabled={savingSettings || !operationalSettings}
+                className="btn-primary"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{savingSettings ? 'Saving...' : 'Save Operational Defaults'}</span>
+              </button>
+            </div>
+          )
         }
       />
 
-      {/* Metric Cards */}
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab('pricing')}
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'pricing'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+          }`}
+        >
+          <Package size={15} className={activeTab === 'pricing' ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-400'} />
+          <span>Product Catalog Pricing</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('thresholds')}
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'thresholds'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200 font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+          }`}
+        >
+          <Sliders size={15} className={activeTab === 'thresholds' ? (isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600') : 'text-slate-400'} />
+          <span>Order Thresholds & Warnings</span>
+        </button>
+      </div>
+
+      {activeTab === 'pricing' ? (
+        <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
@@ -502,6 +616,153 @@ export default function ProductPricing() {
           </table>
         </div>
       </div>
+        </>
+      ) : (
+        /* Operational Defaults & Soft Warnings Tab */
+        <div className="space-y-6">
+          {/* Main Notice Banner */}
+          <div className="p-4 rounded-2xl border bg-white border-slate-200 shadow-xs flex items-start gap-3.5">
+            <div className={`p-2.5 rounded-xl ${isWadaana ? 'bg-sky-50 text-[#0ea5e9]' : 'bg-emerald-50 text-emerald-600'}`}>
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Soft Warning Engine (No Order Blocking)</h3>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                These rules trigger confirmation dialogs during order placement to catch stock deficits or data-entry typos.
+                Cashiers and managers can always click <strong>&quot;Proceed Anyway&quot;</strong> to confirm orders or schedule backorders.
+              </p>
+            </div>
+          </div>
+
+          {/* Toggles Section */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <Sliders size={14} /> Warning Toggles
+            </h4>
+
+            <div className="space-y-4 divide-y divide-slate-100">
+              {/* Toggle 1: Low Finished Goods Stock */}
+              <div className="flex items-center justify-between pt-3">
+                <div className="space-y-0.5 max-w-xl">
+                  <span className="text-sm font-bold text-slate-900 block">Low Finished Goods Stock Warning</span>
+                  <span className="text-xs text-slate-500 block">
+                    Alerts when an order exceeds currently available inventory across all finished goods (19L, PET 0.5L, 1.5L, Preforms).
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={Boolean(operationalSettings?.enableLowStockWarning)}
+                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableLowStockWarning: e.target.checked }))}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {/* Toggle 2: Unusual Quantity Alert */}
+              <div className="flex items-center justify-between pt-3">
+                <div className="space-y-0.5 max-w-xl">
+                  <span className="text-sm font-bold text-slate-900 block">Unusual Purchasing Quantity Warning</span>
+                  <span className="text-xs text-slate-500 block">
+                    Alerts if customer order quantity exceeds their typical purchasing limit. Catches accidental keystroke typos (e.g. typing 111 instead of 11).
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={Boolean(operationalSettings?.enableQuantityAlert)}
+                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enableQuantityAlert: e.target.checked }))}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {/* Toggle 3: Enforce Only On 19L */}
+              <div className="flex items-center justify-between pt-3">
+                <div className="space-y-0.5 max-w-xl">
+                  <span className="text-sm font-bold text-slate-900 block">Scope Quantity Warning Strictly to 19L Carboys</span>
+                  <span className="text-xs text-slate-500 block">
+                    Only applies typo limits to 19-liter water bottles. Exempts bulk packaged PET bottles and preforms.
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={Boolean(operationalSettings?.enforceOnlyOn19L)}
+                    onChange={(e) => setOperationalSettings(prev => ({ ...prev, enforceOnlyOn19L: e.target.checked }))}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Purchasing Quantity Thresholds */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Package size={14} /> Customer Type Limits (Units per Order)
+              </h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Orders with quantity strictly greater than these thresholds trigger the soft confirmation warning.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+              {[
+                { key: 'Home', label: 'Home / Residential' },
+                { key: 'Office', label: 'Office' },
+                { key: 'Corporate', label: 'Corporate / Business' },
+                { key: 'Shop', label: 'Shop / Retail' },
+                { key: 'Restaurant', label: 'Restaurant / Hotel' },
+                { key: 'Commercial', label: 'Commercial' },
+                { key: 'Distributor', label: 'Distributor / Wholesale' }
+              ].map(({ key, label }) => {
+                const currentVal = operationalSettings?.orderThresholds?.[key] ?? '';
+                return (
+                  <div key={key} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 block">{label}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={currentVal}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setOperationalSettings(prev => ({
+                            ...prev,
+                            orderThresholds: {
+                              ...prev?.orderThresholds,
+                              [key]: isNaN(val) ? '' : val
+                            }
+                          }));
+                        }}
+                        className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
+                      />
+                      <span className="text-xs text-slate-400 font-semibold">units</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveOperationalSettings}
+                disabled={savingSettings || !operationalSettings}
+                className="btn-primary"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{savingSettings ? 'Saving...' : 'Save All Thresholds & Defaults'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

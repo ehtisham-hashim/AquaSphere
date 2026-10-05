@@ -31,6 +31,7 @@ import vehicleRoutes from './routes/vehicle.routes.js';
 import transportExpenseRoutes from './routes/transportExpense.routes.js';
 import eventRoutes from './routes/events.routes.js';
 import landingPageRoutes from './routes/landingPage.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -133,6 +134,8 @@ app.use('/api/v1/events', eventRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/v1/landing-page', landingPageRoutes);
 app.use('/api/landing-page', landingPageRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check endpoint
 app.get('/', (_req, res) => {

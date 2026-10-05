@@ -648,6 +648,17 @@ model AquasphereTransportExpense {
   @@schema("aquasphere")
 }
 
+model AquasphereTenantSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_settings")
+  @@schema("aquasphere")
+}
+
 // ==========================================
 // WADAANA SCHEMA
 // ==========================================
@@ -1292,5 +1303,16 @@ model WadaanaTransportExpense {
   @@index([vehicleId, date(sort: Desc)])
   @@index([date(sort: Desc)])
   @@map("transport_expenses")
+  @@schema("wadaana")
+}
+
+model WadaanaTenantSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_settings")
   @@schema("wadaana")
 }
