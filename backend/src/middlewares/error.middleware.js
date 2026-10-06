@@ -1,9 +1,16 @@
 import multer from 'multer';
 
 export const errorHandler = (err, req, res, _next) => {
+  const status = err.statusCode || err.status || 500;
+
+  // Always log full technical stack trace to server console for developers
+  if (status >= 500 || err.code?.startsWith?.('P') || err.name?.includes?.('Prisma')) {
+    console.error(`[Server Error] ${req.method} ${req.originalUrl}:`, err);
+  }
+
   // P2002: Unique constraint failed
   if (err.code === 'P2002') {
-    return res.status(409).json({ success: false, status: 409, message: 'Record already exists. Unique constraint failed.' });
+    return res.status(409).json({ success: false, status: 409, message: 'A record with this identifier already exists.' });
   }
 
   // P2003: Foreign key constraint failed
@@ -11,19 +18,17 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({
       success: false,
       status: 400,
-      message: 'Operation failed: A referenced user, department, or record does not exist in this company.',
-      error: 'Foreign key constraint violated'
+      message: 'Operation failed: A referenced user, department, or record does not exist in this company.'
     });
   }
 
   // P2025: Record not found
   if (err.code === 'P2025') {
-    return res.status(404).json({ success: false, status: 404, message: 'Record not found.' });
+    return res.status(404).json({ success: false, status: 404, message: 'The requested record was not found.' });
   }
 
   // Generic Prisma database errors: strip raw SQL, schema, and invocation dumps
-  if (err.name?.includes('Prisma') || err.code?.startsWith('P')) {
-    console.error('[Database Error]:', err.message || err);
+  if (err.name?.includes('Prisma') || (typeof err.code === 'string' && err.code.startsWith('P'))) {
     return res.status(400).json({
       success: false,
       status: 400,
@@ -31,7 +36,7 @@ export const errorHandler = (err, req, res, _next) => {
     });
   }
 
-  // Multer errors
+  // Multer file upload errors
   if (err instanceof multer.MulterError || err.name === 'MulterError') {
     const msg = err.code === 'LIMIT_FILE_SIZE'
       ? 'File too large. Maximum size is 15MB.'
@@ -39,17 +44,20 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({ success: false, status: 400, message: msg, error: msg });
   }
 
-  const status = err.statusCode || err.status || 500;
   let message = err.message || 'Internal Server Error';
 
-  // Prevent internal error traces from showing in 500 responses
-  if (status >= 500 && (message.includes('invocation:') || message.includes('at ') || message.includes('SELECT ') || message.includes('INSERT ') || message.includes('fkey'))) {
-    console.error('Server Internal Error:', err);
+  // Defensive shield: never leak raw Prisma/database traces to browser
+  if (typeof message === 'string' && (
+    message.includes('prisma.') ||
+    message.includes('Foreign key') ||
+    message.includes('invocation:') ||
+    message.includes('constraint:') ||
+    message.includes('SELECT ') ||
+    message.includes('INSERT ') ||
+    message.includes('fkey') ||
+    message.includes('at ')
+  )) {
     message = 'An unexpected system error occurred. Please try again or contact support.';
-  }
-
-  if (status >= 500) {
-    console.error('Error:', err.message || err);
   }
 
   res.status(status).json({
@@ -59,4 +67,3 @@ export const errorHandler = (err, req, res, _next) => {
     errors: err.errors || []
   });
 };
-

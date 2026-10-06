@@ -15,6 +15,18 @@ const parseDateRange = (dateStr) => {
   return { start, next, dateKey: start.toISOString().split('T')[0] };
 };
 
+/** Ensures authenticated user belongs to the active company tenant */
+const assertTenantUser = async (prefix, userId) => {
+  const tenantUser = await prisma[`${prefix}User`].findUnique({
+    where: { id: userId },
+    select: { id: true }
+  });
+  if (!tenantUser) {
+    throw new ApiError(403, 'You do not belong to this company. Daily close actions are restricted to company staff.');
+  }
+  return tenantUser;
+};
+
 /** Finalizes and locks daily operations by Admin or Owner */
 export const closeDay = asyncHandler(async (req, res) => {
   const { date, actualCash, notes } = req.body;
@@ -24,6 +36,7 @@ export const closeDay = asyncHandler(async (req, res) => {
   }
 
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, next: nextDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
@@ -248,6 +261,7 @@ export const pmConfirmDailyClose = asyncHandler(async (req, res) => {
   }
 
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
@@ -281,6 +295,7 @@ export const mmConfirmDailyClose = asyncHandler(async (req, res) => {
   }
 
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
@@ -314,6 +329,7 @@ export const tmConfirmDailyClose = asyncHandler(async (req, res) => {
   }
 
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
@@ -429,6 +445,7 @@ export const reopenDay = asyncHandler(async (req, res) => {
   if (req.user.role !== 'OWNER') throw new ApiError(403, 'Only OWNER can reopen a closed day');
 
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, dateKey } = parseDateRange(date);
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
@@ -470,6 +487,7 @@ export const submitCounterAuditLedger = asyncHandler(async (req, res) => {
   const { date, physicalCashInHand, recordedWaterLitres, countedBottles, countedCaps, cameraVerificationNotes, isVerified = true } = req.body;
   if (!date) throw new ApiError(400, 'Date is required');
   const prefix = getTenantPrefix(req);
+  await assertTenantUser(prefix, req.user.id);
   const { start: targetDate, dateKey } = parseDateRange(date);
 
   const ledger = await prisma[`${prefix}CounterAuditLedger`].upsert({
