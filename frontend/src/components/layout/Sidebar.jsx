@@ -93,13 +93,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
   const [waMode, setWaMode] = useState(() => getWhatsAppMode());
 
   const handleToggleWaMode = () => {
-    const nextMode = waMode === 'app' ? 'web' : 'app';
+    const nextMode = waMode === 'auto' ? 'app' : waMode === 'app' ? 'web' : 'auto';
     setWhatsAppMode(nextMode);
     setWaMode(nextMode);
     toast.success(
-      nextMode === 'app'
-        ? 'WhatsApp set to: Desktop App (whatsapp://)'
-        : 'WhatsApp set to: Web Tab (Single Reused Tab)'
+      nextMode === 'auto'
+        ? 'WhatsApp: Auto (Desktop App if open, otherwise Web Tab)'
+        : nextMode === 'app'
+        ? 'WhatsApp: Desktop App only (whatsapp://)'
+        : 'WhatsApp: Web Tab only (Single Reused Tab)'
     );
   };
 
@@ -194,11 +196,13 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
                 className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition border ${
                   waMode === 'app'
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-white text-slate-700 border-slate-300 shadow-2xs'
+                    : waMode === 'web'
+                    ? 'bg-sky-50 text-sky-800 border-sky-300'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 }`}
-                title="Toggle between WhatsApp Web (Single Reused Tab) and WhatsApp Desktop App"
+                title="Toggle between Auto (App then Web), Desktop App only, and Web Tab only"
               >
-                {waMode === 'app' ? '📱 App' : '🌐 Web Tab'}
+                {waMode === 'app' ? '📱 App' : waMode === 'web' ? '🌐 Web' : '⚡ Auto'}
               </button>
             </div>
           ) : (
@@ -206,9 +210,9 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
               type="button"
               onClick={handleToggleWaMode}
               className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition border border-slate-200"
-              title={`WhatsApp: ${waMode === 'app' ? 'Desktop App' : 'Web Tab'}. Click to toggle.`}
+              title={`WhatsApp: ${waMode === 'app' ? 'Desktop App only' : waMode === 'web' ? 'Web Tab only' : 'Auto (App if open, then Web)'}. Click to toggle.`}
             >
-              <MessageCircle size={16} className={waMode === 'app' ? 'text-emerald-600' : 'text-slate-500'} />
+              <MessageCircle size={16} className={waMode === 'app' || waMode === 'auto' ? 'text-emerald-600' : 'text-slate-500'} />
             </button>
           )}
 

@@ -21,22 +21,23 @@ export function normalizeWhatsAppPhone(phone) {
 }
 
 /**
- * Gets currently configured dispatch mode ('web' or 'app'). Defaults to 'web'.
+ * Gets currently configured dispatch mode ('auto', 'app', or 'web'). Defaults to 'auto'.
  */
 export function getWhatsAppMode() {
   try {
-    return localStorage.getItem('aquasphere_whatsapp_mode') || 'web';
+    return localStorage.getItem('aquasphere_whatsapp_mode') || 'auto';
   } catch {
-    return 'web';
+    return 'auto';
   }
 }
 
 /**
- * Sets dispatch mode preference ('web' or 'app').
+ * Sets dispatch mode preference ('auto', 'app', or 'web').
  */
 export function setWhatsAppMode(mode) {
   try {
-    localStorage.setItem('aquasphere_whatsapp_mode', mode === 'app' ? 'app' : 'web');
+    const valid = ['auto', 'app', 'web'].includes(mode) ? mode : 'auto';
+    localStorage.setItem('aquasphere_whatsapp_mode', valid);
   } catch {
     // ignore local storage errors
   }
@@ -57,36 +58,76 @@ export function sanitizeMapUrl(mapLink, address) {
 }
 
 /**
- * Opens WhatsApp Web or WhatsApp Desktop app with phone and optional message text.
- * Reuses existing browser tab ('AquaSphereWhatsAppTab') to prevent tab explosion and slow reloading.
- * Supports direct desktop protocol ('whatsapp://') when in app mode.
+ * Opens WhatsApp Desktop app if open/installed, otherwise automatically falls back to WhatsApp Web.
+ * Reuses existing browser tab ('AquaSphereWhatsAppTab') to prevent tab explosion.
+ * Copies message to clipboard automatically as a safety measure.
  */
 export function openWhatsAppWeb(phone, text = '', options = {}) {
   const mode = options.mode || getWhatsAppMode();
   const normPhone = normalizeWhatsAppPhone(phone);
   const encodedText = text ? encodeURIComponent(text) : '';
 
-  if (mode === 'app') {
-    // Launch installed WhatsApp Desktop app directly
-    const appUrl = normPhone
-      ? `whatsapp://send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
-      : `whatsapp://send?text=${encodedText}`;
-    
-    // Using window.location.assign triggers desktop protocol handler
-    window.location.assign(appUrl);
-    return;
+  // 1. Pre-copy text to clipboard for instant 1-click fallback
+  if (text && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
   }
 
-  // Web mode: reuse named window to eliminate opening duplicate tabs and reloading heavy data
-  // Using web.whatsapp.com directly bypasses intermediate api.whatsapp.com splash page
+  const appUrl = normPhone
+    ? `whatsapp://send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
+    : `whatsapp://send?text=${encodedText}`;
+
   const webUrl = normPhone
     ? `https://web.whatsapp.com/send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
     : `https://web.whatsapp.com/send?text=${encodedText}`;
 
-  const win = window.open(webUrl, 'AquaSphereWhatsAppTab');
-  if (win && win.focus) {
-    win.focus();
+  // Mode: Web Only
+  if (mode === 'web') {
+    const win = window.open(webUrl, 'AquaSphereWhatsAppTab');
+    if (win && win.focus) win.focus();
+    return;
   }
+
+  // Mode: App Only
+  if (mode === 'app') {
+    window.location.assign(appUrl);
+    return;
+  }
+
+  // Mode: Auto (Default: Try WhatsApp Desktop App first. If not open/handled, fallback to Web tab)
+  let appHandled = false;
+
+  const onBlur = () => {
+    appHandled = true;
+    cleanup();
+  };
+
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      appHandled = true;
+      cleanup();
+    }
+  };
+
+  const cleanup = () => {
+    window.removeEventListener('blur', onBlur);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (fallbackTimer) clearTimeout(fallbackTimer);
+  };
+
+  window.addEventListener('blur', onBlur, { once: true });
+  document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+
+  const fallbackTimer = setTimeout(() => {
+    cleanup();
+    // If the browser window stayed focused/visible, desktop app did not open -> Fallback to Web
+    if (!appHandled && !document.hidden) {
+      const win = window.open(webUrl, 'AquaSphereWhatsAppTab');
+      if (win && win.focus) win.focus();
+    }
+  }, 1200);
+
+  // Trigger desktop protocol
+  window.location.assign(appUrl);
 }
 
 /**
