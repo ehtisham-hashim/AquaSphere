@@ -32,6 +32,7 @@ import transportExpenseRoutes from './routes/transportExpense.routes.js';
 import eventRoutes from './routes/events.routes.js';
 import landingPageRoutes from './routes/landingPage.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
+import { ensureShrinkWrapMaterials } from './utils/autoMigrations.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -145,7 +146,10 @@ app.get('/', (_req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+  await ensureShrinkWrapMaterials();
+});
 
 // Graceful shutdown
 const shutdown = async (signal) => {

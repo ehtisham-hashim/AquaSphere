@@ -533,3 +533,13 @@ export const getNotificationAlerts = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, allNotificationAlerts, 'Notification alerts retrieved successfully'));
 });
+
+/**
+ * On-demand sync endpoint for shrink wrap materials and recipes
+ */
+export const syncShrinkWrap = asyncHandler(async (_req, res) => {
+  const { ensureShrinkWrapMaterials } = await import('../utils/autoMigrations.js');
+  await ensureShrinkWrapMaterials();
+  res.status(200).json(new ApiResponse(200, null, 'Shrink wrap materials synchronized successfully'));
+});
+

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
-import { getAdminDashboard, getAdminCashSummary, getCustomerAlerts, getNotificationAlerts } from '../controllers/adminDashboard.controller.js';
+import { getAdminDashboard, getAdminCashSummary, getCustomerAlerts, getNotificationAlerts, syncShrinkWrap } from '../controllers/adminDashboard.controller.js';
 
 const router = Router();
 
@@ -28,5 +28,8 @@ router.get('/customer-alerts', getCustomerAlerts);
 
 // Feature 6: Notification Bar Alerts (Customer create, Stock low, Unpaid, Inactive)
 router.get('/notification-alerts', getNotificationAlerts);
+
+// Shrink Wrap Sync (Separates 0.5L and 1.5L shrink wrap in DB)
+router.all('/sync-shrink-wrap', syncShrinkWrap);
 
 export default router;
