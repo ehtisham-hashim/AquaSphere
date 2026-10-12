@@ -1,11 +1,22 @@
 import { Printer } from 'lucide-react';
+import { printReceiptElement } from '../../utils/receiptFormatter';
 
 export default function PrintPurchaseModal({ purchase, onClose }) {
   if (!purchase) return null;
 
+  const handlePrint = () => {
+    printReceiptElement('print-purchase-modal-printable', {
+      format: 'a4',
+      title: `Purchase_Invoice_${purchase.invoiceNo || purchase.id}`
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 p-8 space-y-6">
+      <div 
+        id="print-purchase-modal-printable"
+        className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 p-8 space-y-6 print-a4 print-full-width"
+      >
         <div className="flex justify-between items-start border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-xl font-bold text-brand">PURCHASE INVOICE</h2>
@@ -60,7 +71,7 @@ export default function PrintPurchaseModal({ purchase, onClose }) {
           <button onClick={onClose} className="btn-secondary">
             Close
           </button>
-          <button onClick={() => window.print()} className="btn-primary flex items-center gap-1.5">
+          <button onClick={handlePrint} className="btn-primary flex items-center gap-1.5">
             <Printer size={14} /> Print Now
           </button>
         </div>

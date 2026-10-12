@@ -39,7 +39,7 @@ export async function copyTextToClipboard(text) {
  * Uses 80mm thermal roll width with dynamic height measured from content length.
  * Zero wasted white space in PDF, native auto-cut on thermal roll printers.
  */
-export function printReceiptElement(elementId) {
+export function printReceiptElement(elementId, options = {}) {
   const element = document.getElementById(elementId);
   if (!element) {
     window.print();
@@ -65,6 +65,9 @@ export function printReceiptElement(elementId) {
     .map(style => style.outerHTML)
     .join('\n');
 
+  const isFullWidth = options.format === 'a4' || options.fullWidth || (options.format !== 'thermal' && !element.classList.contains('slip-only'));
+  const title = options.title || 'Receipt';
+
   const doc = iframe.contentWindow.document;
   doc.open();
   doc.write(`
@@ -72,19 +75,15 @@ export function printReceiptElement(elementId) {
     <html>
       <head>
         <meta charset="utf-8">
-        <title>Receipt</title>
+        <title>${title}</title>
         ${headStyles}
         <style>
           @page {
             size: auto;
-            margin: 6mm 10mm;
+            margin: ${isFullWidth ? '8mm 10mm' : '4mm 6mm'};
           }
           * {
             box-sizing: border-box;
-            color: #000000 !important;
-            border-color: #000000 !important;
-            background: transparent !important;
-            box-shadow: none !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -92,69 +91,37 @@ export function printReceiptElement(elementId) {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
-            font-family: 'Times New Roman', Times, 'Tinos', serif !important;
+            color: #0f172a !important;
             width: 100% !important;
+            font-family: ${isFullWidth ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' : '\'Times New Roman\', Times, \'Tinos\', serif'} !important;
           }
           @media print {
             body {
-              display: flex !important;
-              justify-content: center !important;
+              display: block !important;
+              width: 100% !important;
             }
           }
-          /* Print container: Responsive across A4, Letter, and 80mm roll printers */
+          /* Responsive Print container: Takes 100% full width of A4 page and fluidly scales down on small roll printers */
           .receipt-wrap {
             width: 100% !important;
-            max-width: 98mm !important;
-            margin: 4mm auto !important;
-            padding: 6mm 8mm !important;
-            border: 1px dashed #000000 !important;
-            border-radius: 3px !important;
+            max-width: ${isFullWidth ? '100%' : '98mm'} !important;
+            margin: ${isFullWidth ? '0' : '2mm auto'} !important;
+            padding: ${isFullWidth ? '0' : '4mm 6mm'} !important;
             box-sizing: border-box !important;
-            font-family: 'Times New Roman', Times, 'Tinos', serif !important;
             background: #ffffff !important;
-          }
-          .receipt-wrap h2 {
-            font-size: 16pt !important;
-            line-height: 1.2 !important;
-            margin-bottom: 2pt !important;
-            text-align: center !important;
-          }
-          .receipt-wrap p {
-            font-size: 10.5pt !important;
-            line-height: 1.3 !important;
-            margin: 1pt 0 !important;
+            ${isFullWidth ? '' : 'border: 1px dashed #000000 !important; border-radius: 3px !important;'}
           }
           .receipt-wrap table {
             width: 100% !important;
-            font-size: 11pt !important;
             border-collapse: collapse !important;
           }
-          .receipt-wrap th {
-            font-size: 10.5pt !important;
-            padding: 3pt 2pt !important;
-          }
-          .receipt-wrap td {
-            font-size: 11pt !important;
-            padding: 3pt 2pt !important;
-          }
-          .receipt-wrap .text-xs,
-          .receipt-wrap .text-sm {
-            font-size: 11pt !important;
-          }
-          .receipt-wrap .text-lg {
-            font-size: 16pt !important;
-          }
-          .receipt-wrap .text-\\[11px\\],
-          .receipt-wrap .text-\\[10px\\] {
-            font-size: 10pt !important;
-          }
-          .no-print {
+          .no-print, .print\\:hidden {
             display: none !important;
           }
         </style>
       </head>
       <body>
-        <div class="receipt-wrap">
+        <div class="receipt-wrap ${isFullWidth ? 'print-a4' : ''}">
           ${element.innerHTML}
         </div>
       </body>

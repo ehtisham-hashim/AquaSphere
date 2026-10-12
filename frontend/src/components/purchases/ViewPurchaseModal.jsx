@@ -1,14 +1,17 @@
 import { X, Printer, ShieldCheck, MapPin, Truck, FileText, CreditCard } from 'lucide-react';
+import { useTenant } from '../../context/TenantContext';
+import { printReceiptElement } from '../../utils/receiptFormatter';
 
 export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecordPayment }) {
+  const { isWadaana } = useTenant();
+
   if (!purchase) return null;
 
   const handlePrint = () => {
-    if (onPrint) {
-      onPrint(purchase);
-    } else {
-      window.print();
-    }
+    printReceiptElement('purchase-voucher-printable', {
+      format: 'a4',
+      title: `Purchase_Invoice_${purchase.invoiceNo || purchase.id}`
+    });
   };
 
   const renderFulfillmentBadge = (st) => {
@@ -76,8 +79,34 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecord
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+        {/* Printable Voucher Body - Responsive across A4 Full-Width & Small Paper */}
+        <div 
+          id="purchase-voucher-printable" 
+          className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1 text-xs print:p-0 print:space-y-4 print-a4 print-full-width"
+        >
+          {/* Printable Official Header */}
+          <div className="border-b-2 border-slate-900 pb-3 flex justify-between items-start">
+            <div>
+              <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900">
+                {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
+              </h2>
+              <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">
+                Official Purchase Invoice & Material Receiving Voucher
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Plant Operations • Raw Material Procurement • STRN: E208741-4
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-sm font-mono font-black text-slate-900 block">
+                {purchase.invoiceNo || `#${purchase.id?.slice(0, 8)}`}
+              </span>
+              <span className="text-xs text-slate-600 block mt-0.5">
+                Date: {new Date(purchase.purchaseDate || purchase.createdAt).toLocaleDateString('en-GB')}
+              </span>
+            </div>
+          </div>
+
           {/* Top Meta Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/70 print:bg-transparent print:border print:border-slate-300">
             <div>
@@ -242,6 +271,22 @@ export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecord
                 </div>
               </>
             )}
+          </div>
+
+          {/* Verification & Signatures Block for Physical Audit / Printing */}
+          <div className="pt-6 mt-4 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
+            <div className="border-t border-dashed border-slate-400 pt-2">
+              <span className="font-bold text-slate-800 block">Prepared / Logged By</span>
+              <span className="text-slate-500 text-[10px]">{purchase.createdBy || 'Store Staff'}</span>
+            </div>
+            <div className="border-t border-dashed border-slate-400 pt-2">
+              <span className="font-bold text-slate-800 block">Store / Factory Receiver</span>
+              <span className="text-slate-500 text-[10px]">{purchase.deliveredTo === 'WAREHOUSE' ? 'Warehouse Stock' : 'Factory Floor'}</span>
+            </div>
+            <div className="border-t border-dashed border-slate-400 pt-2">
+              <span className="font-bold text-slate-800 block">Audited & Approved</span>
+              <span className="text-slate-500 text-[10px]">{purchase.verifiedBy ? `Verified: ${purchase.verifiedBy}` : 'Management Stamp'}</span>
+            </div>
           </div>
         </div>
       </div>
