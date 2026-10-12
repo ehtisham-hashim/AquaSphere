@@ -21,7 +21,7 @@ export default function Purchases() {
   // Role-based access control
   const isOwner = user?.role === 'OWNER';
   const isAccountant = user?.role === 'ACCOUNTANT';
-  const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+  const canAddPurchase = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
 
   const [purchases, setPurchases] = useState([]);
   const [vendors, setVendors] = useState([]);

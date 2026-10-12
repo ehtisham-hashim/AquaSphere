@@ -15,7 +15,7 @@ export default function Customers() {
   const customerIdParam = searchParams.get('id') || searchParams.get('customerId');
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN'].includes(user?.role);
+  const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'ADMIN'].includes(user?.role);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'

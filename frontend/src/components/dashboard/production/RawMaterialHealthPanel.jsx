@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ShoppingCart, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronRight } from 'lucide-react';
 
 const formatNum = (val) => {
   const num = Number(val || 0);
@@ -7,7 +7,7 @@ const formatNum = (val) => {
   return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
-export default function RawMaterialHealthPanel({ sortedRawMaterials, recentPurchases }) {
+export default function RawMaterialHealthPanel({ sortedRawMaterials }) {
   return (
     <div className="space-y-4">
       {/* Raw Material Stock Health (Top 5 Closest to Reorder Level) */}
@@ -53,38 +53,6 @@ export default function RawMaterialHealthPanel({ sortedRawMaterials, recentPurch
                       OK
                     </span>
                   )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Recent Raw Material Purchases */}
-      <div className="card-surface p-4 space-y-3">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <ShoppingCart size={15} className="text-brand-primary" />
-            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Recent Purchases</h3>
-          </div>
-          <Link to="/purchases" className="text-xs font-bold text-brand-primary hover:underline flex items-center gap-0.5">
-            View All <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        <div className="space-y-2 text-xs">
-          {(!recentPurchases || recentPurchases.length === 0) ? (
-            <div className="text-xs text-slate-400 text-center py-6 font-medium">No purchases logged recently.</div>
-          ) : (
-            recentPurchases.map(p => (
-              <div key={p.id} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
-                <div className="flex justify-between items-center font-bold text-slate-800">
-                  <span>{p.vendorName}</span>
-                  <span className="font-mono text-slate-500 text-[11px]">{p.invoiceNo}</span>
-                </div>
-                <div className="text-slate-500 font-medium flex justify-between text-[11px]">
-                  <span className="truncate max-w-[200px]">{p.items.map(i => `${i.name} (${i.qty} ${i.unit})`).join(', ')}</span>
-                  <span className="font-mono font-black text-slate-900 shrink-0">₨ {p.grandTotal.toLocaleString()}</span>
                 </div>
               </div>
             ))

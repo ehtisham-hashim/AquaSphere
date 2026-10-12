@@ -32,8 +32,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   // Other sides (PM, MM, ADMIN, ACCOUNTANT, etc.): Edit and Close/Cancel, but strictly NO Delete
   const userRole = (user?.role || '').toUpperCase();
   const isOwner = userRole === 'OWNER';
-  const canDelete = isOwner;
-  const canEdit = isOwner || ['MARKETING_MANAGER', 'PRODUCTION_MANAGER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER', 'MM', 'PM'].includes(userRole) || Boolean(user);
+  const canEdit = isOwner || ['MARKETING_MANAGER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER', 'MM'].includes(userRole);
 
   // Fetch full customer details with history
   useEffect(() => {

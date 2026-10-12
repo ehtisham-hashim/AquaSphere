@@ -623,7 +623,6 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
 
   const prodBatchModel = prisma[`${prefix}ProductionBatch`];
   const itemModel = prisma[`${prefix}Item`];
-  const purchaseModel = prisma[`${prefix}Purchase`];
   const dailyCloseModel = prisma[`${prefix}DailyClose`];
 
   const [
@@ -631,7 +630,6 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     recentBatches,
     finishedGoods,
     rawMaterials,
-    recentPurchases,
     dailyCloseStatus,
     pendingBatchesCount,
     pastWeekBatches
@@ -650,14 +648,6 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     prodBatchModel.findMany({ take: 6, orderBy: { createdAt: 'desc' } }),
     itemModel.findMany({ where: { type: 'FINISHED_GOOD', archivedAt: null }, orderBy: { name: 'asc' } }),
     itemModel.findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null }, orderBy: { name: 'asc' } }),
-    purchaseModel.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        vendor: { select: { name: true } },
-        items: { include: { item: { select: { name: true, unit: true } } } }
-      }
-    }),
     dailyCloseModel.findFirst({ where: { date: startOfDay } }),
     prodBatchModel.count({ where: { batchDate: { gte: startOfDay, lte: endOfDay }, status: 'PENDING' } }),
     prodBatchModel.findMany({ where: { batchDate: { gte: startDate } }, orderBy: { batchDate: 'asc' } })
@@ -791,21 +781,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0)
       })
     })),
-    recentPurchases: recentPurchases.map(p => ({
-      id: p.id,
-      invoiceNo: p.invoiceNo || `INV-${p.id.substring(0, 6).toUpperCase()}`,
-      vendorName: p.vendor?.name || 'Supplier',
-      purchaseDate: p.purchaseDate,
-      deliveredTo: p.deliveredTo,
-      status: p.status,
-      grandTotal: Number(p.grandTotal || 0),
-      itemCount: p.items.length,
-      items: p.items.map(i => ({
-        name: i.item?.name || 'Material',
-        qty: Number(i.quantity),
-        unit: i.item?.unit || ''
-      }))
-    })),
+    recentPurchases: [],
     dailyClose: {
       isClosed: dailyCloseStatus?.adminConfirmed || false,
       pmConfirmed: dailyCloseStatus?.pmConfirmed || false,

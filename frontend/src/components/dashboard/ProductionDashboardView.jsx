@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { 
   Plus, 
   ArrowRightLeft, 
-  ShoppingCart, 
   AlertTriangle, 
   Factory, 
   RefreshCw 
@@ -68,7 +67,6 @@ export default function ProductionDashboardView() {
     lowStockCount = 0,
     pendingBatchesCount = 0,
     recentBatches = [],
-    recentPurchases = [],
     dailyClose = {},
     mineralMetrics = {}
   } = data || {};
@@ -167,9 +165,6 @@ export default function ProductionDashboardView() {
           <Link to="/inventory" className="btn-secondary text-xs">
             <ArrowRightLeft size={15} className="text-slate-400" /> Transfer Stock
           </Link>
-          <Link to="/purchases" className="btn-secondary text-xs">
-            <ShoppingCart size={15} className="text-slate-400" /> Record Purchase
-          </Link>
         </div>
       </div>
 
@@ -201,7 +196,6 @@ export default function ProductionDashboardView() {
           <ProductionScrapLossWidget timeframe={timeframe} showDropdown={false} />
           <RawMaterialHealthPanel
             sortedRawMaterials={sortedRawMaterials}
-            recentPurchases={recentPurchases}
           />
         </div>
       </div>

@@ -17,7 +17,7 @@ export default function PurchasesTable({
   user,
   onOpenModal
 }) {
-  const canAddPurchase = ['OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
+  const canAddPurchase = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
   const pagination = usePagination(purchases || [], 50);
 
   if (!purchases || purchases.length === 0) {

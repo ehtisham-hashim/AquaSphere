@@ -19,13 +19,13 @@ const router = Router();
 
 router.use(verifyJWT);
 
-// GET routes: OWNER, PRODUCTION_MANAGER, ACCOUNTANT, ADMIN
-router.get('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchases);
-router.get('/:id', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), getPurchaseById);
+// GET routes: OWNER, ACCOUNTANT, ADMIN
+router.get('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getPurchases);
+router.get('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), getPurchaseById);
 
 // POST routes: Staff & Managers can record purchases and upload receipts
-router.post('/', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, createPurchase);
-router.post('/upload-receipt', requireRoles('OWNER', 'PRODUCTION_MANAGER', 'ACCOUNTANT', 'ADMIN'), upload.single('receipt'), uploadReceipt);
+router.post('/', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, createPurchase);
+router.post('/upload-receipt', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), upload.single('receipt'), uploadReceipt);
 router.post('/:id/payment', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, recordPurchasePayment);
 
 // PUT route: Strictly OWNER can edit purchase records

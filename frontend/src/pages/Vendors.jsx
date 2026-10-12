@@ -21,10 +21,9 @@ export default function Vendors() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
 
-  const isPM = user?.role === 'PRODUCTION_MANAGER';
   const isOwnerOrAccountant = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT';
   const isAdmin = user?.role === 'ADMIN';
-  const canAddEdit = isOwnerOrAccountant || isPM || isAdmin;
+  const canAddEdit = isOwnerOrAccountant || isAdmin;
   const canPayOrArchive = isOwnerOrAccountant || isAdmin;
 
   const [selectedVendorDetail, setSelectedVendorDetail] = useState(null);
