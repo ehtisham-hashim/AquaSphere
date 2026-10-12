@@ -575,7 +575,7 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
   const cashier = sale.createdBy?.name || user?.name || 'Staff';
 
   const header = withGst 
-    ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') 
+    ? company 
     : 'CUSTOMER CARE';
 
   let msg = `*${header}*\n`;
@@ -632,7 +632,7 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
   const phone = order.customer?.phone || '—';
 
   const header = withGst 
-    ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') 
+    ? company 
     : 'CUSTOMER CARE';
 
   let msg = `*${header}*\n`;

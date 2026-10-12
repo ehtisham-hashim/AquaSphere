@@ -33,6 +33,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const userRole = (user?.role || '').toUpperCase();
   const isOwner = userRole === 'OWNER';
   const canEdit = isOwner || ['MARKETING_MANAGER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER', 'MM'].includes(userRole);
+  const canDelete = isOwner;
 
   // Fetch full customer details with history
   useEffect(() => {

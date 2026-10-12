@@ -2,7 +2,7 @@ import { X, Printer, ShieldCheck, MapPin, Truck, FileText, CreditCard } from 'lu
 import { useTenant } from '../../context/TenantContext';
 import { printReceiptElement } from '../../utils/receiptFormatter';
 
-export default function ViewPurchaseModal({ purchase, onClose, onPrint, onRecordPayment }) {
+export default function ViewPurchaseModal({ purchase, onClose, _onPrint, onRecordPayment }) {
   const { isWadaana } = useTenant();
 
   if (!purchase) return null;

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL, clearCache } from '../../utils/api';
-import { Menu, Bell, X, Clock, AlertTriangle, UserPlus, LogOut, Receipt } from 'lucide-react';
+import { Menu, Bell, X, Clock, AlertTriangle, UserPlus, LogOut, Receipt, CheckCircle } from 'lucide-react';
 import { formatRole } from '../../constants/roleAccess';
 
 const PAGE_TITLES = {

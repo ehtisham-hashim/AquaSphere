@@ -70,7 +70,7 @@ const orderMatchesDate = (o, filter) => {
 
 export default function Orders() {
   const { user } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, isWadaana } = useTenant();
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);

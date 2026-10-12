@@ -11,7 +11,7 @@ import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { getOrderCleanName as formatItemName } from '../../constants/orders';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 // ponytail: tabbed detail view groups actions logically; generous spacing prevents visual fatigue
 export default function OrderDetail({ order, onClose, onSettle }) {
