@@ -9,7 +9,8 @@ async function main() {
     { name: 'Large Caps', unit: 'pcs' },
     { name: 'Labels (500ml)', unit: 'pcs' },
     { name: 'Labels (1500ml)', unit: 'pcs' },
-    { name: 'Shrink Wrap', unit: 'kg' },
+    { name: '0.5L Shrink Wrap Film', unit: 'kg' },
+    { name: '1.5L Shrink Wrap Film', unit: 'kg' },
     { name: 'Sodium', unit: 'kg' },
     { name: 'Calcium', unit: 'kg' },
     { name: 'Magnesium', unit: 'kg' }
@@ -69,7 +70,7 @@ async function main() {
   await createRecipe(fg500, 'PET Bottles (500ml)', 12);
   await createRecipe(fg500, 'Small Caps', 12);
   await createRecipe(fg500, 'Labels (500ml)', 12);
-  await createRecipe(fg500, 'Shrink Wrap', 0.02273);  // 1 kg = 44 packs (0.5L / 12 bottles)
+  await createRecipe(fg500, '0.5L Shrink Wrap Film', 0.02273);  // 1 kg = 44 packs (0.5L / 12 bottles)
   await createRecipe(fg500, 'Sodium', 0.01);
   await createRecipe(fg500, 'Calcium', 0.005);
   await createRecipe(fg500, 'Magnesium', 0.002);
@@ -79,7 +80,7 @@ async function main() {
   await createRecipe(fg1500, 'PET Bottles (1500ml)', 6);
   await createRecipe(fg1500, 'Small Caps', 6);
   await createRecipe(fg1500, 'Labels (1500ml)', 6);
-  await createRecipe(fg1500, 'Shrink Wrap', 0.025);    // 1 kg = 40 packs (1.5L / 6 bottles)
+  await createRecipe(fg1500, '1.5L Shrink Wrap Film', 0.025);    // 1 kg = 40 packs (1.5L / 6 bottles)
   await createRecipe(fg1500, 'Sodium', 0.012);
   await createRecipe(fg1500, 'Calcium', 0.006);
   await createRecipe(fg1500, 'Magnesium', 0.003);

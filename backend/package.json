@@ -16,6 +16,7 @@
     "seed:users": "node seed_users.js",
     "seed:bom": "node scripts/seed-production-bom.js",
     "seed": "node seed_users.js && node scripts/seed-production-bom.js",
+    "migrate:shrink-wrap": "node scripts/migrate-shrink-wrap.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

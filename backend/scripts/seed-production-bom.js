@@ -114,7 +114,8 @@ const AQUASPHERE_RAW_MATERIALS = [
   { name: 'Big 19L Caps', aliases: ['Large Caps', 'Big Caps', '19L Caps'], unit: 'cap', packSize: 1, reorderLevel: 500 },
   { name: '0.5L Labels', aliases: ['Labels 0.5L', 'Labels (500ml)', 'Label 0.5'], unit: 'kg', packSize: 1, reorderLevel: 10 },
   { name: '1.5L Labels', aliases: ['Labels 1.5L', 'Labels (1500ml)', 'Label 1.5'], unit: 'kg', packSize: 1, reorderLevel: 15 },
-  { name: 'Shrink Wrap Film', aliases: ['Shrink Wrap', 'Wrap'], unit: 'kg', packSize: 1, reorderLevel: 10 },
+  { name: '0.5L Shrink Wrap Film', aliases: ['Shrink Wrap 0.5L', '0.5L Shrink Film', '0.5L Film', '0.5L Shrink Wrap'], unit: 'kg', packSize: 1, reorderLevel: 10 },
+  { name: '1.5L Shrink Wrap Film', aliases: ['Shrink Wrap 1.5L', '1.5L Shrink Film', '1.5L Film', '1.5L Shrink Wrap'], unit: 'kg', packSize: 1, reorderLevel: 15 },
   { name: 'Calcium', aliases: ['Ca'], unit: 'kg', packSize: 1, reorderLevel: 10 },
   { name: 'Magnesium', aliases: ['Mg'], unit: 'kg', packSize: 1, reorderLevel: 5 },
   { name: 'Sodium', aliases: ['Na'], unit: 'kg', packSize: 1, reorderLevel: 3 },
@@ -141,7 +142,7 @@ const AQUASPHERE_FINISHED_GOODS = [
       { rmName: '0.5L Empty Bottles', qty: 12 },
       { rmName: 'Small Caps', qty: 12 },
       { rmName: '0.5L Labels', qty: 0.00672 }, // 6.72g per pack of 12
-      { rmName: 'Shrink Wrap Film', qty: 0.02273 }, // 1 kg = 44 packs of 12 bottles
+      { rmName: '0.5L Shrink Wrap Film', qty: 0.02273 }, // 1 kg = 44 packs of 12 bottles
       { rmName: 'Calcium', qty: 0.00118884 }, // 9L * 2 / 15141
       { rmName: 'Magnesium', qty: 0.00059436 }, // 9L * 1 / 15141
       { rmName: 'Sodium', qty: 0.00029724 }, // 9L * 0.5 / 15141
@@ -158,7 +159,7 @@ const AQUASPHERE_FINISHED_GOODS = [
       { rmName: '1.5L Empty Bottles', qty: 6 },
       { rmName: 'Small Caps', qty: 6 },
       { rmName: '1.5L Labels', qty: 0.00780 }, // 7.80g per pack of 6
-      { rmName: 'Shrink Wrap Film', qty: 0.02500 }, // 1 kg = 40 packs of 6 bottles
+      { rmName: '1.5L Shrink Wrap Film', qty: 0.02500 }, // 1 kg = 40 packs of 6 bottles
       { rmName: 'Calcium', qty: 0.001585 }, // 12L * 2 / 15141
       { rmName: 'Magnesium', qty: 0.000793 }, // 12L * 1 / 15141
       { rmName: 'Sodium', qty: 0.000396 }, // 12L * 0.5 / 15141

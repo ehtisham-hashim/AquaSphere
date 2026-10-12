@@ -119,7 +119,22 @@ export const SHRINK_WRAP = {
   // 1.5L Pack: 1 kg = 40 packs (6 bottles each)
   PER_PACK_15L: 1 / 40,      // = 0.025 kg per pack
 
-  SEARCH_KEYWORDS: ['shrink', 'wrap']
+  SEARCH_KEYWORDS: ['shrink', 'wrap'],
+
+  ITEMS: {
+    PET_05L: {
+      name: '0.5L Shrink Wrap Film',
+      unit: 'kg',
+      packsPerKg: 44,
+      kgPerPack: 1 / 44
+    },
+    PET_15L: {
+      name: '1.5L Shrink Wrap Film',
+      unit: 'kg',
+      packsPerKg: 40,
+      kgPerPack: 1 / 40
+    }
+  }
 };
 
 /**
