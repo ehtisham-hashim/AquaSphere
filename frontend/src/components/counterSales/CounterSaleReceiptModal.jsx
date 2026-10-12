@@ -108,7 +108,7 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
       ...(debt > 0 ? [{ label: 'Customer Debt', value: debt }] : [])
     ],
     netTotal: netTotal,
-    footerNote: withGst ? (isWadaana ? 'THANK YOU FOR CHOOSING WADAANA' : 'THANK YOU FOR CHOOSING AQUASPHERE') : 'THANK YOU FOR CHOOSING US'
+    footerNote: withGst ? (isWadaana ? 'THANK YOU FOR CHOOSING WADAANA' : 'THANK YOU FOR CHOOSING AQUASPHERE') : 'Thanks for choosing us'
   });
 
   const handleCopyImage = async () => {
@@ -314,7 +314,7 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
             <p className="font-bold">
               {withGst 
                 ? (isWadaana ? 'THANK YOU FOR CHOOSING WADAANA' : 'THANK YOU FOR CHOOSING AQUASPHERE') 
-                : 'THANK YOU FOR CHOOSING US'}
+                : 'Thanks for choosing us'}
             </p>
             <p className="mt-0.5">This is a computer generated receipt</p>
           </div>

@@ -37,7 +37,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
   };
 
   const getInvoiceData = () => ({
-    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    title: withGst ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') : 'CUSTOMER CARE',
     subtitle: withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice',
     tagline: 'Pure Quality • Safe & Healthy Water',
     withGst,
@@ -69,7 +69,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
     ],
     netTotal: netTotal,
     remarks: order.remarks || '',
-    footerNote: 'THANK YOU FOR CHOOSING AQUASPHERE!'
+    footerNote: withGst ? `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!` : 'Thanks for choosing us'
   });
 
   const handleCopyImage = async () => {
@@ -113,7 +113,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
     await handleCopyImage();
 
     // 2. Build summary message text
-    const summaryText = WhatsAppTemplates.invoiceSummary(order, netTotal, balanceDue, isWadaana);
+    const summaryText = WhatsAppTemplates.invoiceSummary(order, netTotal, balanceDue, isWadaana, withGst);
 
     // 3. Open WhatsApp Web directly with prefilled text
     openWhatsAppWeb(order.customer?.phone, summaryText);
@@ -167,18 +167,16 @@ export default function OrderInvoiceModal({ order, onClose }) {
           {/* Company Header */}
           <div className="text-center pb-2">
             <h2 className="text-lg font-bold uppercase tracking-wider text-black">
-              {isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER'}
+              {withGst ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') : 'CUSTOMER CARE'}
             </h2>
             <p className="text-xs font-bold text-black uppercase tracking-widest mt-1">
               {withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice'}
             </p>
-            {withGst ? (
+            {withGst && (
               <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
                 <p>STRN #: E208741-4</p>
                 <p className="text-slate-700 font-normal">Tel: 051-5454438 | Cell: 0300-9149143</p>
               </div>
-            ) : (
-              <p className="text-[11px] font-bold text-emerald-700 mt-1">Customer Care</p>
             )}
             <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
             <div className="border-b border-dashed border-black/80 my-2.5"></div>
@@ -275,7 +273,9 @@ export default function OrderInvoiceModal({ order, onClose }) {
 
           {/* Bottom Invoice Notice */}
           <div className="text-center pt-3 border-t border-dashed border-black/80 text-[11px] italic text-slate-700 mt-3">
-            THANK YOU FOR CHOOSING {isWadaana ? 'WADAANA' : 'AQUASPHERE'}!
+            {withGst 
+              ? `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!` 
+              : 'Thanks for choosing us'}
           </div>
         </div>
 

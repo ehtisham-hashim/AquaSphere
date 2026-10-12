@@ -307,8 +307,6 @@ export function renderReceiptToCanvas({
   if (withGst) {
     calcHeight += 16; // STRN
     calcHeight += 16; // Contacts
-  } else {
-    calcHeight += 16; // Customer Care
   }
   calcHeight += 16; // tagline
   calcHeight += 12; // gap & dashed line
@@ -386,12 +384,6 @@ export function renderReceiptToCanvas({
     ctx.font = '10px "Times New Roman", Times, "Tinos", serif';
     ctx.fillStyle = '#1e293b';
     ctx.fillText(`Tel: ${contactInfo}`, width / 2, y + 9);
-    ctx.fillStyle = '#000000';
-    y += 16;
-  } else {
-    ctx.font = 'bold 10px "Times New Roman", Times, "Tinos", serif';
-    ctx.fillStyle = '#059669';
-    ctx.fillText('Customer Care', width / 2, y + 9);
     ctx.fillStyle = '#000000';
     y += 16;
   }
@@ -615,12 +607,16 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
   const customer = sale.customer?.name || 'Walk-In Cash Customer';
   const cashier = sale.createdBy?.name || user?.name || 'Staff';
 
-  let msg = `*${company}*\n`;
+  const header = withGst 
+    ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') 
+    : 'CUSTOMER CARE';
+
+  let msg = `*${header}*\n`;
   if (withGst) {
     msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Retail & Counter Dispatch (With 18% GST)\n`;
   } else {
-    msg += `Customer Care | Retail & Counter Dispatch\n`;
+    msg += `Retail & Counter Dispatch\n`;
   }
   msg += `----------------------------------------\n`;
   msg += `*Receipt No:* ${saleId}\n`;
@@ -650,7 +646,9 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
     msg += `*Customer Debt:* Rs. ${debt.toLocaleString()}\n`;
   }
   msg += `----------------------------------------\n`;
-  msg += `Thank you for your business!`;
+  msg += withGst 
+    ? (isWadaana ? 'Thank you for choosing Wadaana!' : 'Thank you for choosing AquaSphere!') 
+    : 'Thanks for choosing us';
   return msg;
 }
 
@@ -666,12 +664,16 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
   const customer = order.customer?.name || '—';
   const phone = order.customer?.phone || '—';
 
-  let msg = `*${company}*\n`;
+  const header = withGst 
+    ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') 
+    : 'CUSTOMER CARE';
+
+  let msg = `*${header}*\n`;
   if (withGst) {
     msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Sales Invoice (With 18% GST)\n`;
   } else {
-    msg += `Customer Care | Sales Invoice\n`;
+    msg += `Sales Invoice\n`;
   }
   msg += `----------------------------------------\n`;
   msg += `*Order ID:* #${orderId}\n`;
@@ -705,7 +707,9 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
   }
   if (order.remarks) msg += `*Remarks:* ${order.remarks}\n`;
   msg += `----------------------------------------\n`;
-  msg += `Thank you for your business!`;
+  msg += withGst 
+    ? (isWadaana ? 'Thank you for choosing Wadaana!' : 'Thank you for choosing AquaSphere!') 
+    : 'Thanks for choosing us';
   return msg;
 }
 

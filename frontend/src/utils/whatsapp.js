@@ -36,9 +36,14 @@ export function openWhatsAppWeb(phone, text = '') {
  * Templates for standardized customer messaging.
  */
 export const WhatsAppTemplates = {
-  invoiceSummary: (order, grandTotal, balanceDue, isWadaana) => {
-    const brand = isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water';
+  invoiceSummary: (order, grandTotal, balanceDue, isWadaana, withGst = false) => {
+    const brand = withGst 
+      ? (isWadaana ? 'Wadaana Water & Beverages' : 'AquaSphere Pure Water') 
+      : 'Customer Care';
     const orderNo = order.id ? order.id.substring(0, 8).toUpperCase() : 'N/A';
+    const thanksMsg = withGst 
+      ? `Thank you for choosing ${isWadaana ? 'Wadaana' : 'AquaSphere'}!` 
+      : 'Thanks for choosing us';
     return [
       `*${brand} — Order Invoice #${orderNo}*`,
       `Customer: ${order.customer?.name || 'Valued Customer'}`,
@@ -46,7 +51,7 @@ export const WhatsAppTemplates = {
       `Balance Due: Rs. ${Number(balanceDue).toLocaleString()}`,
       `Delivery Status: ${order.deliveryStatus || 'Pending'}`,
       ``,
-      `Your digital invoice image is ready. Thank you for your business!`,
+      `Your digital invoice image is ready. ${thanksMsg}`,
       `Helpline: 051-5454438 | 0300-9149143`
     ].join('\n');
   },

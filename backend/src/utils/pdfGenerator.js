@@ -15,8 +15,12 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
       const isWadaana = tenant.toLowerCase() === 'wadaana';
       const withGst = options.withGst !== undefined ? Boolean(options.withGst) : Boolean(order.withGst);
 
-      const companyName = isWadaana ? 'WADAANA INDUSTRIES B2B' : 'AQUASPHERE WATER PURIFICATION';
-      const companySub = isWadaana ? 'PET Bottle Blowing & B2B Distribution' : '19L & PET Mineral Water Supply';
+      const companyName = withGst 
+        ? (isWadaana ? 'WADAANA INDUSTRIES B2B' : 'AQUASPHERE WATER PURIFICATION')
+        : 'CUSTOMER CARE';
+      const companySub = withGst
+        ? (isWadaana ? 'PET Bottle Blowing & B2B Distribution' : '19L & PET Mineral Water Supply')
+        : 'Pure Quality • Safe & Healthy Water';
 
       // Header
       doc.fillColor('#0f172a').fontSize(20).text(companyName, { align: 'left' });
@@ -26,10 +30,6 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
         doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold');
         doc.text('STRN #: E208741-4', { align: 'left' });
         doc.font('Helvetica').fontSize(9).text('Tel: 051-5454438 | Cell: 0300-9149143', { align: 'left' });
-      } else {
-        doc.fillColor('#059669').fontSize(10).font('Helvetica-Bold');
-        doc.text('Customer Care', { align: 'left' });
-        doc.font('Helvetica');
       }
 
       doc.moveDown(1);
@@ -108,7 +108,10 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
       }
 
       doc.moveDown(3);
-      doc.font('Helvetica-Oblique').fontSize(9).fillColor('#94a3b8').text('Thank you for your business! AQUA Sphere OS Automated Billing.', 50, doc.y, { align: 'center' });
+      const footerMsg = withGst 
+        ? `Thank you for choosing ${isWadaana ? 'Wadaana' : 'AquaSphere'}!` 
+        : 'Thanks for choosing us';
+      doc.font('Helvetica-Oblique').fontSize(9).fillColor('#94a3b8').text(footerMsg, 50, doc.y, { align: 'center' });
 
       doc.end();
     } catch (err) {
