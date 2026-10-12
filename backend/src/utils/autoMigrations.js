@@ -97,65 +97,150 @@ export async function ensureShrinkWrapMaterials() {
       });
     }
 
-    // Ensure finished goods recipes are correctly linked
+    // Ensure all finished goods recipes are correctly linked
+    const rawMaterials = await prisma.aquasphereItem.findMany({
+      where: { type: 'RAW_MATERIAL', archivedAt: null }
+    });
     const finishedGoods = await prisma.aquasphereItem.findMany({
       where: { type: 'FINISHED_GOOD', archivedAt: null }
     });
 
+    const findRm = (terms) => rawMaterials.find(r => terms.every(t => r.name.toLowerCase().includes(t.toLowerCase())));
+
+    const rm05Shrink = item05;
+    const rm15Shrink = item15;
+    const rmSmallCaps = findRm(['small', 'cap']);
+    const rmBigCaps = findRm(['19l', 'cap']) || findRm(['large', 'cap']);
+    const rm05Bottle = findRm(['0.5', 'bottle']) || findRm(['500', 'bottle']);
+    const rm15Bottle = findRm(['1.5', 'bottle']) || findRm(['1500', 'bottle']);
+    const rm19Bottle = findRm(['19', 'bottle']);
+    const rm05Label = findRm(['0.5', 'label']) || findRm(['500', 'label']);
+    const rm15Label = findRm(['1.5', 'label']) || findRm(['1500', 'label']);
+    const rmCalcium = findRm(['calcium']) || findRm(['ca']);
+    const rmMagnesium = findRm(['magnesium']) || findRm(['mg']);
+    const rmSodium = findRm(['sodium']) || findRm(['na']);
+
+    const upsertRecipe = async (fgId, rmId, qty) => {
+      if (!fgId || !rmId) return;
+      const existing = await prisma.aquasphereRecipeItem.findFirst({
+        where: { finishedGoodId: fgId, rawMaterialId: rmId }
+      });
+      if (existing) {
+        await prisma.aquasphereRecipeItem.update({
+          where: { id: existing.id },
+          data: { quantityPerUnit: qty }
+        });
+      } else {
+        await prisma.aquasphereRecipeItem.create({
+          data: { finishedGoodId: fgId, rawMaterialId: rmId, quantityPerUnit: qty }
+        });
+      }
+    };
+
     for (const fg of finishedGoods) {
       const fgNameLower = fg.name.toLowerCase();
-      if (fgNameLower.includes('0.5') && item05) {
-        if (genericShrink && genericShrink.id !== item05.id) {
+
+      // 0.5L PET Pack
+      if (fgNameLower.includes('0.5') || fgNameLower.includes('500')) {
+        // Clean up wrong shrink wrap references
+        if (genericShrink && genericShrink.id !== rm05Shrink?.id) {
           await prisma.aquasphereRecipeItem.deleteMany({
             where: { finishedGoodId: fg.id, rawMaterialId: genericShrink.id }
           });
         }
-        if (item15) {
+        if (rm15Shrink) {
           await prisma.aquasphereRecipeItem.deleteMany({
-            where: { finishedGoodId: fg.id, rawMaterialId: item15.id }
+            where: { finishedGoodId: fg.id, rawMaterialId: rm15Shrink.id }
           });
         }
-        const existing = await prisma.aquasphereRecipeItem.findFirst({
-          where: { finishedGoodId: fg.id, rawMaterialId: item05.id }
-        });
-        if (existing) {
-          await prisma.aquasphereRecipeItem.update({
-            where: { id: existing.id },
-            data: { quantityPerUnit: 0.02273 }
-          });
-        } else {
-          await prisma.aquasphereRecipeItem.create({
-            data: { finishedGoodId: fg.id, rawMaterialId: item05.id, quantityPerUnit: 0.02273 }
-          });
-        }
-      } else if (fgNameLower.includes('1.5') && item15) {
-        if (genericShrink && genericShrink.id !== item15.id) {
+
+        // Apply full 0.5L formula
+        if (rm05Shrink) await upsertRecipe(fg.id, rm05Shrink.id, 0.02273); // 44 packs / kg
+        if (rmSmallCaps) await upsertRecipe(fg.id, rmSmallCaps.id, 12);     // 12 caps / pack
+        if (rm05Bottle) await upsertRecipe(fg.id, rm05Bottle.id, 12);       // 12 bottles / pack
+        if (rm05Label) await upsertRecipe(fg.id, rm05Label.id, 0.00672);    // 6.72g / pack
+        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.00118884);
+        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.00059436);
+        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.00029724);
+      } 
+      // 1.5L PET Pack
+      else if (fgNameLower.includes('1.5') || fgNameLower.includes('1500')) {
+        // Clean up wrong shrink wrap references
+        if (genericShrink && genericShrink.id !== rm15Shrink?.id) {
           await prisma.aquasphereRecipeItem.deleteMany({
             where: { finishedGoodId: fg.id, rawMaterialId: genericShrink.id }
           });
         }
-        if (item05) {
+        if (rm05Shrink) {
           await prisma.aquasphereRecipeItem.deleteMany({
-            where: { finishedGoodId: fg.id, rawMaterialId: item05.id }
+            where: { finishedGoodId: fg.id, rawMaterialId: rm05Shrink.id }
           });
         }
-        const existing = await prisma.aquasphereRecipeItem.findFirst({
-          where: { finishedGoodId: fg.id, rawMaterialId: item15.id }
-        });
-        if (existing) {
-          await prisma.aquasphereRecipeItem.update({
-            where: { id: existing.id },
-            data: { quantityPerUnit: 0.02500 }
-          });
-        } else {
-          await prisma.aquasphereRecipeItem.create({
-            data: { finishedGoodId: fg.id, rawMaterialId: item15.id, quantityPerUnit: 0.02500 }
-          });
-        }
+
+        // Apply full 1.5L formula
+        if (rm15Shrink) await upsertRecipe(fg.id, rm15Shrink.id, 0.02500); // 40 packs / kg
+        if (rmSmallCaps) await upsertRecipe(fg.id, rmSmallCaps.id, 6);      // 6 caps / pack
+        if (rm15Bottle) await upsertRecipe(fg.id, rm15Bottle.id, 6);        // 6 bottles / pack
+        if (rm15Label) await upsertRecipe(fg.id, rm15Label.id, 0.00780);    // 7.80g / pack
+        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.001585);
+        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.000793);
+        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.000396);
+      }
+      // 19L Refill Bottle
+      else if (fgNameLower.includes('19')) {
+        if (rm19Bottle) await upsertRecipe(fg.id, rm19Bottle.id, 1);
+        if (rmBigCaps) await upsertRecipe(fg.id, rmBigCaps.id, 1);
+        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.003170);
+        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.001585);
+        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.000793);
       }
     }
-    console.log('[AutoMigrate] Shrink wrap separation verified.');
+
+    // Verify Wadaana Preform Recipes
+    try {
+      const wadaanaRMs = await prisma.wadaanaItem.findMany({
+        where: { type: 'RAW_MATERIAL', archivedAt: null }
+      });
+      const wadaanaFGs = await prisma.wadaanaItem.findMany({
+        where: { type: 'FINISHED_GOOD', archivedAt: null }
+      });
+
+      const findWadaanaRm = (terms) => wadaanaRMs.find(r => terms.every(t => r.name.toLowerCase().includes(t.toLowerCase())));
+
+      const wadaanaBOM = [
+        { fgMatch: ['aquasphere', '0.5'], rmMatch: ['pure', '0.5'], qty: 0.015 },
+        { fgMatch: ['aquasphere', '1.5'], rmMatch: ['pure', '1.5'], qty: 0.030 },
+        { fgMatch: ['dasani', '0.5'], rmMatch: ['mix', '0.5'], qty: 0.013 },
+        { fgMatch: ['dasani', '1.5'], rmMatch: ['mix', '1.5'], qty: 0.027 },
+        { fgMatch: ['pivrifine', '0.5'], rmMatch: ['pure', '0.5', 'white'], qty: 0.015 },
+        { fgMatch: ['pivrifine', '1.5'], rmMatch: ['pure', '1.5', 'white'], qty: 0.030 }
+      ];
+
+      for (const mapping of wadaanaBOM) {
+        const fg = wadaanaFGs.find(f => mapping.fgMatch.every(t => f.name.toLowerCase().includes(t.toLowerCase())));
+        const rm = findWadaanaRm(mapping.rmMatch) || findWadaanaRm(mapping.rmMatch.slice(0, 2));
+        if (fg && rm) {
+          const existing = await prisma.wadaanaRecipeItem.findFirst({
+            where: { finishedGoodId: fg.id, rawMaterialId: rm.id }
+          });
+          if (existing) {
+            await prisma.wadaanaRecipeItem.update({
+              where: { id: existing.id },
+              data: { quantityPerUnit: mapping.qty }
+            });
+          } else {
+            await prisma.wadaanaRecipeItem.create({
+              data: { finishedGoodId: fg.id, rawMaterialId: rm.id, quantityPerUnit: mapping.qty }
+            });
+          }
+        }
+      }
+    } catch (_wErr) {
+      // Non-fatal if Wadaana items table is unseeded
+    }
+
+    console.log('[AutoMigrate] ✅ All production BOM formulas (shrink wrap, caps, bottles, labels, minerals, preforms) verified.');
   } catch (err) {
-    console.error('[AutoMigrate] Error verifying shrink wrap materials:', err);
+    console.error('[AutoMigrate] Error verifying production BOM recipes:', err);
   }
 }
