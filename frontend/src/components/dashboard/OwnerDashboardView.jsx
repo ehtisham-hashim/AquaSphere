@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, BarChart3, Fuel, Car, Clock, Users } from 'lucide-react';
+import { Wallet, Receipt, ShoppingCart, CreditCard, Sparkles, BarChart3, Fuel, Car, Users } from 'lucide-react';
 import { 
   ComposedChart, 
   Bar, 
@@ -255,31 +255,6 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             onClick={() => navigate('/purchases')}
           />
         </div>
-
-        {/* Unprocessed / Pending Orders Operational Alert */}
-        {activeData?.unprocessedOrdersCount > 0 && (
-          <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded-lg bg-amber-100 text-amber-700 shrink-0">
-                <Clock size={15} />
-              </span>
-              <span className="text-amber-900 font-medium">
-                <strong className="font-bold">{activeData.unprocessedOrdersCount} order(s)</strong> worth{' '}
-                <strong className="font-bold font-mono">Rs. {Number(activeData.unprocessedSales || 0).toLocaleString()}</strong> are pending delivery.
-                <span className="text-amber-700 text-[11px] ml-1.5 hidden md:inline">
-                  (Delivered Realized Sales: Rs. {Number(activeData.deliveredSales || 0).toLocaleString()})
-                </span>
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowUnprocessedModal(true)}
-              className="text-amber-800 font-bold hover:underline flex items-center gap-1 cursor-pointer shrink-0 text-xs self-end sm:self-center"
-            >
-              View Unprocessed Orders &rarr;
-            </button>
-          </div>
-        )}
       </section>
 
       {/* 2. Interactive Recharts Analytics (Full-width clean card) */}

@@ -417,6 +417,7 @@ export const getNotificationAlerts = asyncHandler(async (req, res) => {
         name: true,
         phone: true,
         currentBalance: true,
+        creditDuration: true,
         lastDeliveryAt: true,
         createdAt: true,
         orders: {
@@ -473,11 +474,15 @@ export const getNotificationAlerts = asyncHandler(async (req, res) => {
       createdAt: i.updatedAt || new Date().toISOString()
     }));
 
-  // 3. Customer Unpaid Alerts (unpaid bills older than 7 days or current balance overdue)
+  // 3. Customer Unpaid & Dues Pending Alerts (custom creditDuration per customer, default 7 days)
   const unpaidAlerts = [];
   allCustomers.forEach(c => {
+    const durationDays = Number(c.creditDuration) > 0 ? Number(c.creditDuration) : 7;
+    const durationThreshold = new Date();
+    durationThreshold.setDate(durationThreshold.getDate() - durationDays);
+
     const oldUnpaid = c.orders.filter(
-      o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < sevenDaysAgo
+      o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < durationThreshold
     );
     const unpaidSum = oldUnpaid.reduce(
       (sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0),
@@ -489,14 +494,14 @@ export const getNotificationAlerts = asyncHandler(async (req, res) => {
       const oldestDate = oldUnpaid.length > 0 ? oldUnpaid[oldUnpaid.length - 1].createdAt : null;
       const daysOverdue = oldestDate
         ? Math.floor((Date.now() - new Date(oldestDate).getTime()) / (1000 * 60 * 60 * 24))
-        : 7;
+        : durationDays;
 
       unpaidAlerts.push({
         id: `unpaid-${c.id}`,
         action: 'CUSTOMER_UNPAID',
         entityId: c.id,
         performedBy: 'Accounts Monitor',
-        details: `Customer "${c.name}" has unpaid balance of Rs. ${totalDue.toLocaleString()} (${daysOverdue} days overdue)`,
+        details: `Customer "${c.name}" has pending dues of Rs. ${totalDue.toLocaleString()} (${daysOverdue} days overdue, limit: ${durationDays} days)`,
         createdAt: oldestDate || new Date().toISOString()
       });
     }

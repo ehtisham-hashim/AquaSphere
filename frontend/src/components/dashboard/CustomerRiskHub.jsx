@@ -114,8 +114,6 @@ export default function CustomerRiskHub({ className = '' }) {
     );
   }, [remindersList, searchQuery]);
 
-  const deliverySummary = mmAlerts?.todaysDeliverySummary || { PENDING: 0, DELIVERED: 0, CANCELLED: 0 };
-
   return (
     <div className={`card-surface p-4 sm:p-5 space-y-4 ${className}`}>
       {/* 1. Header & Live Indicator */}
@@ -137,11 +135,6 @@ export default function CustomerRiskHub({ className = '' }) {
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          {deliverySummary.PENDING > 0 && (
-            <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg">
-              Deliveries: <strong className="text-sky-700">{deliverySummary.PENDING}</strong> pending · <strong className="text-emerald-700">{deliverySummary.DELIVERED}</strong> done
-            </span>
-          )}
           <button
             type="button"
             onClick={fetchRiskData}

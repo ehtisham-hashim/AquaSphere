@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL, clearCache } from '../../utils/api';
-import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut, Receipt } from 'lucide-react';
+import { Menu, Bell, X, Clock, AlertTriangle, UserPlus, LogOut, Receipt } from 'lucide-react';
 import { formatRole } from '../../constants/roleAccess';
 
 const PAGE_TITLES = {
@@ -31,16 +31,18 @@ const PAGE_TITLES = {
 const ACTION_CONFIG = {
   CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
   CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
-  STOCK_LOW: { title: 'Low Stock Warning', icon: AlertTriangle, color: 'text-amber-600' },
-  CUSTOMER_UNPAID: { title: 'Customer Unpaid Balance', icon: Receipt, color: 'text-rose-600' },
-  CUSTOMER_INACTIVE: { title: 'Customer Inactive (No Repeat)', icon: Clock, color: 'text-amber-600' },
-  ORDER_CREATED: { title: 'New Order Created', icon: AlertTriangle, color: 'text-amber-600' },
-  ORDER_DELIVERED: { title: 'Order Delivered', icon: CheckCircle, color: 'text-emerald-600' },
-  ORDER_PAYMENT_SETTLED: { title: 'Payment Settled', icon: CheckCircle, color: 'text-emerald-600' },
-  CUSTOMER_DELETED: { title: 'Customer Record Deleted', icon: Trash2, color: 'text-rose-600' },
-  PRODUCTION_BATCH_CREATED: { title: 'Production Batch Initiated', icon: Factory, color: 'text-sky-600' },
-  PRODUCTION_BATCH_COMPLETED: { title: 'Production Batch Completed', icon: Factory, color: 'text-emerald-600' }
+  STOCK_LOW: { title: 'Low Stock Alert', icon: AlertTriangle, color: 'text-amber-600' },
+  CUSTOMER_UNPAID: { title: 'Pending Customer Dues / Unpaid', icon: Receipt, color: 'text-rose-600' },
+  CUSTOMER_INACTIVE: { title: 'Inactive Customer (No Repeat)', icon: Clock, color: 'text-amber-600' }
 };
+
+const ALLOWED_ALERT_ACTIONS = [
+  'CUSTOMER_ADDED',
+  'CUSTOMER_CREATED',
+  'STOCK_LOW',
+  'CUSTOMER_UNPAID',
+  'CUSTOMER_INACTIVE'
+];
 
 const formatAlertDetails = (log) => {
   if (!log || !log.details) return 'Business activity logged';
@@ -49,46 +51,9 @@ const formatAlertDetails = (log) => {
   if (typeof raw === 'string' && raw.trim().startsWith('{')) {
     try {
       const parsed = JSON.parse(raw);
-      const shortId = log.entityId ? `#${log.entityId.slice(0, 6).toUpperCase()}` : '';
-
-      if (log.action === 'ORDER_CREATED') {
-        const qty = parsed.items ? parsed.items.reduce((sum, i) => sum + (i.quantity || 0), 0) : 1;
-        const cust = parsed.customerName ? ` for ${parsed.customerName}` : '';
-        return `Order ${shortId}${cust} created (${qty} unit${qty > 1 ? 's' : ''})`;
-      }
-
-      if (log.action === 'ORDER_DELIVERED') {
-        const cash = parsed.cashReceived ? ` • Cash: Rs. ${Number(parsed.cashReceived).toLocaleString()}` : '';
-        const ret = parsed.returnedGood ? ` (${parsed.returnedGood} bottle(s) returned)` : '';
-        return `Order ${shortId} delivered${cash}${ret}`;
-      }
-
-      if (log.action === 'ORDER_PAYMENT_SETTLED') {
-        return `Order ${shortId} payment recorded (Rs. ${Number(parsed.cashReceived || parsed.amount || 0).toLocaleString()} received)`;
-      }
-
-      if (log.action === 'PRODUCTION_BATCH_COMPLETED' || log.action === 'PRODUCTION_BATCH_CREATED') {
-        const isCompleted = log.action.includes('COMPLETED') || parsed.status === 'COMPLETED';
-        const parts = [];
-        if (parsed.qtyPure05L) parts.push(`${parsed.qtyPure05L}x 0.5L Pure`);
-        if (parsed.qtyPure15L) parts.push(`${parsed.qtyPure15L}x 1.5L Pure`);
-        if (parsed.qtyMix05L) parts.push(`${parsed.qtyMix05L}x 0.5L Mix`);
-        if (parsed.qtyMix15L) parts.push(`${parsed.qtyMix15L}x 1.5L Mix`);
-        if (parsed.quantity) parts.push(`${parsed.quantity}x 19L Refill Bottles`);
-        if (parsed.packs05L) parts.push(`${parsed.packs05L}x 0.5L Packs`);
-        if (parsed.packs15L) parts.push(`${parsed.packs15L}x 1.5L Packs`);
-
-        const outputStr = parts.length > 0 ? parts.join(', ') : `${parsed.quantity || 1} units produced`;
-        return `Production batch ${isCompleted ? 'completed' : 'logged'}: ${outputStr}`;
-      }
-
       if (log.action === 'CUSTOMER_ADDED' || log.action === 'CUSTOMER_CREATED') {
         const custName = parsed.name || parsed.customerName || 'New Customer';
         return `Registered new customer: "${custName}"`;
-      }
-
-      if (log.action === 'CUSTOMER_DELETED') {
-        return `Removed customer account ${shortId}`;
       }
     } catch {
       // Fallback
@@ -167,6 +132,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   };
 
   const activeAlerts = alerts.filter(a => {
+    if (!ALLOWED_ALERT_ACTIONS.includes(a.action)) return false;
     if (confirmedAlerts.includes(a.id)) return false;
     const snoozeTime = snoozedAlerts[a.id];
     if (snoozeTime && snoozeTime > now) return false;
