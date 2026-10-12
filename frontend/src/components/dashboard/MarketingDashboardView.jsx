@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Wallet, CreditCard, ShoppingBag, BarChart3 } from 'lucide-react';
+import { ShoppingBag, Truck, CheckCircle2, Package, BarChart3 } from 'lucide-react';
 import { 
-  ComposedChart, 
+  BarChart, 
   Bar, 
-  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -14,7 +13,7 @@ import {
 import ModernKpiCard from './ModernKpiCard';
 import ChartTooltip from './charts/ChartTooltip';
 import CustomerRiskHub from './CustomerRiskHub';
-import { formatCompactCurrency, formatCompactNumber } from '../../utils/chartFormatters';
+import { formatCompactNumber } from '../../utils/chartFormatters';
 import { useTenant } from '../../context/TenantContext';
 import { TimeframeDropdown } from '../ui';
 
@@ -24,7 +23,6 @@ export default function MarketingDashboardView({ data }) {
 
   const [timeframe, setTimeframe] = useState('1_MONTH');
   const [selectedDays, setSelectedDays] = useState('30');
-  const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
 
   const handleTimeframeChange = (tf) => {
     setTimeframe(tf);
@@ -49,9 +47,6 @@ export default function MarketingDashboardView({ data }) {
     }
     const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
     return {
-      sales: Number(tf.sales ?? data.sales ?? 0),
-      cash: Number(tf.cash ?? data.cash ?? 0),
-      credit: Number(tf.credit ?? data.credit ?? 0),
       bottlesSold: Number(tf.bottlesSold ?? data.bottlesSold ?? 0)
     };
   }, [data, timeframe]);
@@ -65,6 +60,10 @@ export default function MarketingDashboardView({ data }) {
     return "This Month's";
   };
 
+  const pendingCount = Number(data?.unprocessedOrders?.length || 0);
+  const totalOrders = Number(activeData?.bottlesSold || 0);
+  const deliveredCount = Math.max(0, totalOrders - pendingCount);
+
   const chartData = useMemo(() => {
     const rawHistory = data?.dailySalesHistory || [];
     const daysNum = parseInt(selectedDays, 10);
@@ -73,9 +72,7 @@ export default function MarketingDashboardView({ data }) {
     return sliced.map(d => ({
       day: daysNum > 14 ? d.date?.substring(5) : d.day,
       date: d.date,
-      'Orders Count': Number(d.ordersCount || 0),
-      'Cash Collected (Rs)': Number(d.cashCollected || 0),
-      'Credit Billed (Rs)': Number(d.creditBilled || 0)
+      'Orders Placed': Number(d.ordersCount || 0)
     }));
   }, [data, selectedDays]);
 
@@ -92,7 +89,7 @@ export default function MarketingDashboardView({ data }) {
               <span className="badge-brand">
                 {companyTitle} • MARKETING
               </span>
-              <span className="text-xs text-slate-400 font-medium">Sales Operations</span>
+              <span className="text-xs text-slate-400 font-medium">Sales & Order Operations</span>
             </div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight mt-0.5">
               Marketing & Order Performance
@@ -106,44 +103,44 @@ export default function MarketingDashboardView({ data }) {
         </div>
       </div>
 
-      {/* 1. Sales & Commercial KPIs */}
+      {/* 1. Operational Order & Delivery KPIs (No financial sales/cash/expenses) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <ModernKpiCard
-          icon={Wallet}
-          title={`${getPeriodLabel()} Sales`}
-          value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`}
-          subtitle={`${activeData?.bottlesSold || 0} orders recorded`}
+          icon={ShoppingBag}
+          title={`${getPeriodLabel()} Orders`}
+          value={`${totalOrders} Orders`}
+          subtitle="Customer orders recorded"
           variant="brand"
         />
         <ModernKpiCard
-          icon={CreditCard}
-          title={`${getPeriodLabel()} Cash`}
-          value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`}
-          subtitle="Received in cash"
+          icon={CheckCircle2}
+          title={`${getPeriodLabel()} Delivered`}
+          value={`${deliveredCount} Delivered`}
+          subtitle="Successfully dispatched"
           variant="emerald"
         />
         <ModernKpiCard
-          icon={CreditCard}
-          title={`${getPeriodLabel()} Credit`}
-          value={`Rs. ${Number(activeData?.credit || 0).toLocaleString()}`}
-          subtitle="Billed on credit"
+          icon={Truck}
+          title="Pending Dispatches"
+          value={`${pendingCount} Pending`}
+          subtitle="Awaiting delivery to customer"
           variant="amber"
         />
         <ModernKpiCard
-          icon={CreditCard}
-          title="Market Udhaar (Receivables)"
-          value={`Rs. ${totalReceivables.toLocaleString()}`}
-          subtitle="Customer unpaid balance"
-          variant="amber"
+          icon={Package}
+          title={isWadaana ? "Order Pipeline" : "Bottles In Circulation"}
+          value={isWadaana ? `${totalOrders} Active` : `${Number(data?.bottleCustody?.totalInCirculation || 0).toLocaleString()} Bottles`}
+          subtitle={isWadaana ? "Current order activity" : "19L bottles with clients"}
+          variant="sky"
         />
       </div>
 
-      {/* 2. Recharts Composed Chart (Bar: Cash, Line: Orders) */}
+      {/* 2. Order Volume & Activity Trend */}
       <div className="card-surface p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-2">
             <BarChart3 size={16} className="text-slate-600" />
-            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Orders & Cash Collections</h3>
+            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Order Volume & Activity Trends</h3>
           </div>
           <select
             value={selectedDays}
@@ -158,21 +155,11 @@ export default function MarketingDashboardView({ data }) {
 
         <div className="w-full h-56 sm:h-64 pt-1">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 16, left: 16, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 16, left: 16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <YAxis 
-                yAxisId="left" 
-                orientation="left" 
-                tickFormatter={formatCompactCurrency} 
-                stroke="#10b981" 
-                tick={{ fontSize: 10, fill: '#10b981', fontWeight: 600 }} 
-                axisLine={false} 
-                tickLine={false} 
-              />
-              <YAxis 
-                yAxisId="right" 
-                orientation="right" 
+                allowDecimals={false}
                 tickFormatter={formatCompactNumber} 
                 stroke="#0284c7" 
                 tick={{ fontSize: 10, fill: '#0284c7', fontWeight: 600 }} 
@@ -181,9 +168,8 @@ export default function MarketingDashboardView({ data }) {
               />
               <Tooltip content={<ChartTooltip />} />
               <Legend wrapperStyle={{ paddingTop: '8px', fontSize: '11px', fontWeight: 600 }} iconType="circle" />
-              <Bar yAxisId="left" dataKey="Cash Collected (Rs)" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
-              <Line yAxisId="right" type="monotone" dataKey="Orders Count" stroke="#0284c7" strokeWidth={2.5} dot={{ r: 3, fill: '#0284c7' }} activeDot={{ r: 5 }} />
-            </ComposedChart>
+              <Bar dataKey="Orders Placed" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
