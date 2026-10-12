@@ -138,9 +138,9 @@ export default function AdminDashboardView() {
 
         <ModernKpiCard
           icon={Banknote}
-          title="Cash Collected"
+          title={`${getPeriodLabel()} Cash`}
           value={`Rs. ${(kpis.totalCashCollected || 0).toLocaleString()}`}
-          subtitle="Orders + Spot Sales"
+          subtitle={`${getPeriodLabel()} Orders + Spot`}
           variant="brand"
         />
 

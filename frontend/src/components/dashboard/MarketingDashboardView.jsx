@@ -36,8 +36,14 @@ export default function MarketingDashboardView({ data }) {
   const activeData = useMemo(() => {
     if (!data) return {};
     let tfKey;
-    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+    if (timeframe === 'TODAY' || timeframe === 'DAILY') {
       tfKey = 'daily';
+    } else if (timeframe === 'YESTERDAY') {
+      tfKey = 'yesterday';
+    } else if (timeframe === 'LAST_3_DAYS') {
+      tfKey = 'last3Days';
+    } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+      tfKey = 'week';
     } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
       tfKey = 'yearly';
     } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
@@ -45,9 +51,39 @@ export default function MarketingDashboardView({ data }) {
     } else {
       tfKey = timeframe.toLowerCase();
     }
-    const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
+
+    if (data[tfKey]) {
+      return {
+        bottlesSold: Number(data[tfKey].bottlesSold ?? 0)
+      };
+    }
+
+    const history = data.dailySalesHistory || [];
+    if (history.length > 0) {
+      const now = new Date();
+      const getDStr = (offset) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - offset);
+        return d.toISOString().split('T')[0];
+      };
+
+      if (timeframe === 'YESTERDAY') {
+        const yStr = getDStr(1);
+        const yItem = history.find(h => h.date === yStr);
+        if (yItem) return { bottlesSold: Number(yItem.ordersCount || 0) };
+      } else if (timeframe === 'LAST_3_DAYS') {
+        const d0 = getDStr(0), d1 = getDStr(1), d2 = getDStr(2);
+        const matched = history.filter(h => [d0, d1, d2].includes(h.date));
+        if (matched.length > 0) return { bottlesSold: matched.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0) };
+      } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+        const last7 = history.slice(-7);
+        if (last7.length > 0) return { bottlesSold: last7.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0) };
+      }
+    }
+
+    const tf = tfKey === 'monthly' ? (data.monthly || data) : (data.daily || data);
     return {
-      bottlesSold: Number(tf.bottlesSold ?? data.bottlesSold ?? 0)
+      bottlesSold: Number(tf?.bottlesSold ?? data.bottlesSold ?? 0)
     };
   }, [data, timeframe]);
 

@@ -36,8 +36,14 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const activeData = useMemo(() => {
     if (!data) return {};
     let tfKey;
-    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+    if (timeframe === 'TODAY' || timeframe === 'DAILY') {
       tfKey = 'daily';
+    } else if (timeframe === 'YESTERDAY') {
+      tfKey = 'yesterday';
+    } else if (timeframe === 'LAST_3_DAYS') {
+      tfKey = 'last3Days';
+    } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+      tfKey = 'week';
     } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
       tfKey = 'yearly';
     } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
@@ -45,7 +51,116 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
     } else {
       tfKey = timeframe.toLowerCase();
     }
-    const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
+
+    if (data[tfKey]) {
+      const tf = data[tfKey];
+      return {
+        sales: Number(tf.sales ?? 0),
+        deliveredSales: Number(tf.deliveredSales ?? 0),
+        unprocessedSales: Number(tf.unprocessedSales ?? 0),
+        unprocessedOrdersCount: Number(tf.unprocessedOrdersCount ?? 0),
+        cash: Number(tf.cash ?? 0),
+        expenses: Number(tf.expenses ?? 0),
+        netCash: Number(tf.netCash ?? ((Number(tf.cash ?? 0)) - (Number(tf.expenses ?? 0)))),
+        purchases: Number(tf.purchases ?? 0),
+        purchasesCount: Number(tf.purchasesCount ?? 0),
+        bottlesSold: Number(tf.bottlesSold ?? 0),
+        credit: Number(tf.credit ?? 0),
+        creditBilled: Number(tf.creditBilled ?? 0),
+        waterLitres: Number(tf.waterLitres ?? 0),
+        customWaterLitres: Number(tf.customWaterLitres ?? 0),
+        refillWaterLitres: Number(tf.refillWaterLitres ?? 0)
+      };
+    }
+
+    const history = data.dailySalesHistory || [];
+    if (history.length > 0) {
+      const now = new Date();
+      const getDStr = (offset) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - offset);
+        return d.toISOString().split('T')[0];
+      };
+
+      if (timeframe === 'YESTERDAY') {
+        const yStr = getDStr(1);
+        const yItem = history.find(h => h.date === yStr);
+        if (yItem) {
+          return {
+            sales: Number(yItem.sales || 0),
+            deliveredSales: Number(yItem.deliveredSales || yItem.sales || 0),
+            unprocessedSales: 0,
+            unprocessedOrdersCount: 0,
+            cash: Number(yItem.cashCollected || yItem.cash || 0),
+            expenses: Number(yItem.expenses || 0),
+            netCash: Number(yItem.netCash ?? ((Number(yItem.cashCollected || 0)) - (Number(yItem.expenses || 0)))),
+            purchases: Number(yItem.purchases || 0),
+            purchasesCount: 0,
+            bottlesSold: Number(yItem.ordersCount || 0),
+            credit: Number(yItem.creditBilled || yItem.credit || 0),
+            creditBilled: Number(yItem.creditBilled || 0),
+            waterLitres: Number(yItem.waterLitres || 0),
+            customWaterLitres: 0,
+            refillWaterLitres: 0
+          };
+        }
+      } else if (timeframe === 'LAST_3_DAYS') {
+        const d0 = getDStr(0), d1 = getDStr(1), d2 = getDStr(2);
+        const matched = history.filter(h => [d0, d1, d2].includes(h.date));
+        if (matched.length > 0) {
+          const s = matched.reduce((acc, h) => acc + Number(h.sales || 0), 0);
+          const c = matched.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0);
+          const e = matched.reduce((acc, h) => acc + Number(h.expenses || 0), 0);
+          const cr = matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0);
+          const ord = matched.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0);
+          return {
+            sales: s,
+            deliveredSales: s,
+            unprocessedSales: 0,
+            unprocessedOrdersCount: 0,
+            cash: c,
+            expenses: e,
+            netCash: c - e,
+            purchases: matched.reduce((acc, h) => acc + Number(h.purchases || 0), 0),
+            purchasesCount: 0,
+            bottlesSold: ord,
+            credit: cr,
+            creditBilled: cr,
+            waterLitres: matched.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
+            customWaterLitres: 0,
+            refillWaterLitres: 0
+          };
+        }
+      } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+        const last7 = history.slice(-7);
+        if (last7.length > 0) {
+          const s = last7.reduce((acc, h) => acc + Number(h.sales || 0), 0);
+          const c = last7.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0);
+          const e = last7.reduce((acc, h) => acc + Number(h.expenses || 0), 0);
+          const cr = last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0);
+          const ord = last7.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0);
+          return {
+            sales: s,
+            deliveredSales: s,
+            unprocessedSales: 0,
+            unprocessedOrdersCount: 0,
+            cash: c,
+            expenses: e,
+            netCash: c - e,
+            purchases: last7.reduce((acc, h) => acc + Number(h.purchases || 0), 0),
+            purchasesCount: 0,
+            bottlesSold: ord,
+            credit: cr,
+            creditBilled: cr,
+            waterLitres: last7.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
+            customWaterLitres: 0,
+            refillWaterLitres: 0
+          };
+        }
+      }
+    }
+
+    const tf = tfKey === 'monthly' ? (data.monthly || data) : (data.daily || data);
     return {
       sales: Number(tf.sales ?? data.sales ?? 0),
       deliveredSales: Number(tf.deliveredSales ?? data.deliveredSales ?? 0),
@@ -215,23 +330,23 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           />
           <ModernKpiCard 
             icon={CreditCard} 
-            title="Cash Inflow" 
+            title={`${getPeriodLabel()} Cash Inflow`} 
             value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`} 
-            subtitle={`Receivables: Rs. ${totalReceivables.toLocaleString()}`} 
+            subtitle={`Cash collected (${getPeriodText()})`} 
             variant="emerald"
           />
           <ModernKpiCard 
             icon={Receipt} 
             title={`${getPeriodLabel()} Expenses`} 
             value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`} 
-            subtitle="Logged operating cost" 
+            subtitle={`Logged operating cost (${getPeriodText()})`} 
             variant="rose"
           />
           <ModernKpiCard 
             icon={Wallet} 
-            title="Net Cash" 
+            title={`${getPeriodLabel()} Net Cash`} 
             value={`Rs. ${netCash.toLocaleString()}`} 
-            subtitle="Cash Inflow - Expenses" 
+            subtitle={`${getPeriodLabel()} (Cash Inflow - Expenses)`} 
             variant={netCash >= 0 ? "emerald" : "rose"}
           />
         </div>

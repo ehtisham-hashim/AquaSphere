@@ -121,8 +121,10 @@ export default function TransportDashboardView() {
   const timeframeVehicleExpenses = useMemo(() => {
     const dNow = new Date();
     let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0);
+    let endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
     if (timeframe === 'YESTERDAY') {
       startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 0, 0, 0);
+      endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 23, 59, 59, 999);
     } else if (timeframe === 'LAST_3_DAYS') {
       startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 2, 0, 0, 0);
     } else if (timeframe === '1_WEEK') {
@@ -132,7 +134,6 @@ export default function TransportDashboardView() {
     } else if (timeframe === '1_YEAR') {
       startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0);
     }
-    const endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
 
     return expenses
       .filter(e => {

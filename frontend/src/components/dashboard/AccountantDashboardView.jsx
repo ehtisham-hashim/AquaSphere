@@ -19,8 +19,14 @@ export default function AccountantDashboardView({ data }) {
   const activeData = useMemo(() => {
     if (!data) return {};
     let tfKey;
-    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY' || timeframe === 'LAST_3_DAYS' || timeframe === '1_WEEK') {
+    if (timeframe === 'TODAY' || timeframe === 'DAILY') {
       tfKey = 'daily';
+    } else if (timeframe === 'YESTERDAY') {
+      tfKey = 'yesterday';
+    } else if (timeframe === 'LAST_3_DAYS') {
+      tfKey = 'last3Days';
+    } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+      tfKey = 'week';
     } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
       tfKey = 'yearly';
     } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
@@ -28,12 +34,67 @@ export default function AccountantDashboardView({ data }) {
     } else {
       tfKey = timeframe.toLowerCase();
     }
-    const tf = data[tfKey] || (tfKey === 'monthly' ? (data.monthly || data) : data.daily || data);
+
+    if (data[tfKey]) {
+      const tf = data[tfKey];
+      return {
+        sales: Number(tf.sales ?? 0),
+        cash: Number(tf.cash ?? 0),
+        expenses: Number(tf.expenses ?? 0),
+        credit: Number(tf.credit ?? 0)
+      };
+    }
+
+    const history = data.dailySalesHistory || [];
+    if (history.length > 0) {
+      const now = new Date();
+      const getDStr = (offset) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - offset);
+        return d.toISOString().split('T')[0];
+      };
+
+      if (timeframe === 'YESTERDAY') {
+        const yStr = getDStr(1);
+        const yItem = history.find(h => h.date === yStr);
+        if (yItem) {
+          return {
+            sales: Number(yItem.sales || 0),
+            cash: Number(yItem.cashCollected || yItem.cash || 0),
+            expenses: Number(yItem.expenses || 0),
+            credit: Number(yItem.creditBilled || yItem.credit || 0)
+          };
+        }
+      } else if (timeframe === 'LAST_3_DAYS') {
+        const d0 = getDStr(0), d1 = getDStr(1), d2 = getDStr(2);
+        const matched = history.filter(h => [d0, d1, d2].includes(h.date));
+        if (matched.length > 0) {
+          return {
+            sales: matched.reduce((acc, h) => acc + Number(h.sales || 0), 0),
+            cash: matched.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
+            expenses: matched.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
+            credit: matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0)
+          };
+        }
+      } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+        const last7 = history.slice(-7);
+        if (last7.length > 0) {
+          return {
+            sales: last7.reduce((acc, h) => acc + Number(h.sales || 0), 0),
+            cash: last7.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
+            expenses: last7.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
+            credit: last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0)
+          };
+        }
+      }
+    }
+
+    const tf = tfKey === 'monthly' ? (data.monthly || data) : (data.daily || data);
     return {
-      sales: Number(tf.sales ?? data.sales ?? 0),
-      cash: Number(tf.cash ?? data.cash ?? 0),
-      expenses: Number(tf.expenses ?? data.expenses ?? 0),
-      credit: Number(tf.credit ?? data.credit ?? 0)
+      sales: Number(tf?.sales ?? data.sales ?? 0),
+      cash: Number(tf?.cash ?? data.cash ?? 0),
+      expenses: Number(tf?.expenses ?? data.expenses ?? 0),
+      credit: Number(tf?.credit ?? data.credit ?? 0)
     };
   }, [data, timeframe]);
 
@@ -67,8 +128,10 @@ export default function AccountantDashboardView({ data }) {
 
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'Today';
-    if (timeframe === '1_WEEK') return 'This Week';
-    if (timeframe === '1_YEAR') return 'This Year';
+    if (timeframe === 'YESTERDAY') return 'Yesterday';
+    if (timeframe === 'LAST_3_DAYS') return 'Last 3 Days';
+    if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') return 'This Week';
+    if (timeframe === '1_YEAR' || timeframe === 'YEARLY') return 'This Year';
     return 'This Month';
   };
 
@@ -113,7 +176,7 @@ export default function AccountantDashboardView({ data }) {
             icon={CreditCard}
             title={`${getPeriodLabel()} Cash Inflow`}
             value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`}
-            subtitle={`Cash collected ${getPeriodLabel().toLowerCase()}`}
+            subtitle={`Cash collected (${getPeriodLabel().toLowerCase()})`}
             variant="emerald"
           />
           <ModernKpiCard
@@ -127,14 +190,14 @@ export default function AccountantDashboardView({ data }) {
             icon={Receipt}
             title={`${getPeriodLabel()} Expenses`}
             value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`}
-            subtitle="Operating cost logged"
+            subtitle={`Operating cost (${getPeriodLabel().toLowerCase()})`}
             variant="rose"
           />
           <ModernKpiCard
             icon={Wallet}
-            title="Net Cash"
+            title={`${getPeriodLabel()} Net Cash`}
             value={`Rs. ${netCash.toLocaleString()}`}
-            subtitle="Cash - Expenses"
+            subtitle={`${getPeriodLabel()} (Cash - Expenses)`}
             variant={netCash >= 0 ? 'emerald' : 'rose'}
           />
         </div>

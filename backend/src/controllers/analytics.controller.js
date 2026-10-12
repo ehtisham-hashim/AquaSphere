@@ -10,6 +10,10 @@ const computeDashboardAnalytics = async (prefix) => {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+  const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+  const startOfLast3Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0);
+  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
   const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
@@ -96,9 +100,44 @@ const computeDashboardAnalytics = async (prefix) => {
   const dayMap = Object.create(null);
   const monthMap = Object.create(null);
 
-  const daily = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
-  const monthly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
-  const yearly = { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, cash: 0, expenses: 0, credit: 0, bottlesSold: 0, purchases: 0, purchasesCount: 0, netCash: 0, waterLitres: 0, customWaterLitres: 0, refillWaterLitres: 0, bottledWaterLitres: 0, creditBilled: 0 };
+  const createMetricBucket = () => ({
+    sales: 0,
+    deliveredSales: 0,
+    unprocessedSales: 0,
+    unprocessedOrdersCount: 0,
+    cash: 0,
+    orderCash: 0,
+    spotSalesCash: 0,
+    expenses: 0,
+    credit: 0,
+    bottlesSold: 0,
+    purchases: 0,
+    purchasesCount: 0,
+    netCash: 0,
+    waterLitres: 0,
+    customWaterLitres: 0,
+    refillWaterLitres: 0,
+    bottledWaterLitres: 0,
+    creditBilled: 0
+  });
+
+  const daily = createMetricBucket();
+  const yesterday = createMetricBucket();
+  const last3Days = createMetricBucket();
+  const week = createMetricBucket();
+  const monthly = createMetricBucket();
+  const yearly = createMetricBucket();
+
+  const getBucketsForDate = (d) => {
+    const list = [];
+    if (d >= startOfDay && d <= endOfDay) list.push(daily);
+    if (d >= startOfYesterday && d <= endOfYesterday) list.push(yesterday);
+    if (d >= startOfLast3Days && d <= endOfDay) list.push(last3Days);
+    if (d >= startOfWeek && d <= endOfDay) list.push(week);
+    if (d >= startOfMonth && d <= endOfDay) list.push(monthly);
+    if (d >= startOfYear && d <= endOfDay) list.push(yearly);
+    return list;
+  };
 
   const getDKey = (d) => d.toISOString().split('T')[0];
   const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -143,37 +182,16 @@ const computeDashboardAnalytics = async (prefix) => {
       month.unprocessedOrdersCount += 1;
     }
 
-    if (d >= startOfDay) { 
-      daily.sales += total; 
-      daily.bottlesSold += 1; 
-      daily.waterLitres += orderLitres;
-      daily.bottledWaterLitres += orderLitres;
-      if (isDelivered) daily.deliveredSales += total;
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.sales += total;
+      b.bottlesSold += 1;
+      b.waterLitres += orderLitres;
+      b.bottledWaterLitres += orderLitres;
+      if (isDelivered) b.deliveredSales += total;
       if (isUnprocessed) {
-        daily.unprocessedSales += total;
-        daily.unprocessedOrdersCount += 1;
-      }
-    }
-    if (d >= startOfMonth) { 
-      monthly.sales += total; 
-      monthly.bottlesSold += 1; 
-      monthly.waterLitres += orderLitres;
-      monthly.bottledWaterLitres += orderLitres;
-      if (isDelivered) monthly.deliveredSales += total;
-      if (isUnprocessed) {
-        monthly.unprocessedSales += total;
-        monthly.unprocessedOrdersCount += 1;
-      }
-    }
-    if (d >= startOfYear) { 
-      yearly.sales += total; 
-      yearly.bottlesSold += 1; 
-      yearly.waterLitres += orderLitres;
-      yearly.bottledWaterLitres += orderLitres;
-      if (isDelivered) yearly.deliveredSales += total;
-      if (isUnprocessed) {
-        yearly.unprocessedSales += total;
-        yearly.unprocessedOrdersCount += 1;
+        b.unprocessedSales += total;
+        b.unprocessedOrdersCount += 1;
       }
     }
   }
@@ -187,9 +205,12 @@ const computeDashboardAnalytics = async (prefix) => {
     day.cashCollected += amt;
     month.orderCash += amt;
     month.cash += amt;
-    if (d >= startOfDay) daily.cash += amt;
-    if (d >= startOfMonth) monthly.cash += amt;
-    if (d >= startOfYear) yearly.cash += amt;
+
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.orderCash += amt;
+      b.cash += amt;
+    }
   }
 
   for (const st of spotSales) {
@@ -216,26 +237,15 @@ const computeDashboardAnalytics = async (prefix) => {
     month.spotSalesCash += cashAmt;
     month.cash += cashAmt;
     month.waterLitres = (month.waterLitres || 0) + totalLit;
-    if (d >= startOfDay) { 
-      daily.cash += cashAmt; 
-      daily.creditBilled += creditAmt; 
-      daily.waterLitres += totalLit;
-      daily.customWaterLitres += customLit;
-      daily.refillWaterLitres += refillLit;
-    }
-    if (d >= startOfMonth) { 
-      monthly.cash += cashAmt; 
-      monthly.creditBilled += creditAmt; 
-      monthly.waterLitres += totalLit;
-      monthly.customWaterLitres += customLit;
-      monthly.refillWaterLitres += refillLit;
-    }
-    if (d >= startOfYear) { 
-      yearly.cash += cashAmt; 
-      yearly.creditBilled += creditAmt; 
-      yearly.waterLitres += totalLit;
-      yearly.customWaterLitres += customLit;
-      yearly.refillWaterLitres += refillLit;
+
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.spotSalesCash += cashAmt;
+      b.cash += cashAmt;
+      b.creditBilled += creditAmt;
+      b.waterLitres += totalLit;
+      b.customWaterLitres += customLit;
+      b.refillWaterLitres += refillLit;
     }
   }
 
@@ -246,9 +256,11 @@ const computeDashboardAnalytics = async (prefix) => {
     const month = ensureMonth(getMKey(d));
     day.expenses += amt;
     month.expenses += amt;
-    if (d >= startOfDay) daily.expenses += amt;
-    if (d >= startOfMonth) monthly.expenses += amt;
-    if (d >= startOfYear) yearly.expenses += amt;
+
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.expenses += amt;
+    }
   }
 
   for (const pu of purchases) {
@@ -260,18 +272,20 @@ const computeDashboardAnalytics = async (prefix) => {
     day.expenses += total;
     month.purchases += total;
     month.expenses += total;
-    if (d >= startOfDay) { daily.purchases += total; daily.purchasesCount += 1; daily.expenses += total; }
-    if (d >= startOfMonth) { monthly.purchases += total; monthly.purchasesCount += 1; monthly.expenses += total; }
-    if (d >= startOfYear) { yearly.purchases += total; yearly.purchasesCount += 1; yearly.expenses += total; }
+
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.purchases += total;
+      b.purchasesCount += 1;
+      b.expenses += total;
+    }
   }
 
-  daily.credit = Math.max(0, daily.deliveredSales - (daily.orderCash || 0)) + daily.creditBilled;
-  monthly.credit = Math.max(0, monthly.deliveredSales - (monthly.orderCash || 0)) + monthly.creditBilled;
-  yearly.credit = Math.max(0, yearly.deliveredSales - (yearly.orderCash || 0)) + yearly.creditBilled;
-
-  daily.netCash = daily.cash - daily.expenses;
-  monthly.netCash = monthly.cash - monthly.expenses;
-  yearly.netCash = yearly.cash - yearly.expenses;
+  const allBuckets = [daily, yesterday, last3Days, week, monthly, yearly];
+  for (const b of allBuckets) {
+    b.credit = Math.max(0, b.deliveredSales - (b.orderCash || 0)) + b.creditBilled;
+    b.netCash = b.cash - b.expenses;
+  }
 
   const totalBottlesInCirculation = customersWithBottles.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
   const bottleCustodyList = customersWithBottles.map(c => {
@@ -370,8 +384,16 @@ const computeDashboardAnalytics = async (prefix) => {
   return {
     ...daily,
     daily,
+    today: daily,
+    yesterday,
+    last3Days,
+    last_3_days: last3Days,
+    week,
+    '1_week': week,
     monthly,
+    '1_month': monthly,
     yearly,
+    '1_year': yearly,
     totalReceivables: totalOutstandingReceivables,
     totalOutstandingReceivables,
     mineralMetrics: prefix === 'wadaana' ? null : {
@@ -845,6 +867,7 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
 
   const now = new Date();
   let startDate = new Date();
+  let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   switch (timeframe.toUpperCase()) {
     case 'TODAY':
@@ -852,15 +875,14 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
       startDate.setHours(0, 0, 0, 0);
       break;
     case 'YESTERDAY':
-      startDate.setDate(now.getDate() - 1);
-      startDate.setHours(0, 0, 0, 0);
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
       break;
     case 'LAST_3_DAYS':
-      startDate.setDate(now.getDate() - 3);
-      startDate.setHours(0, 0, 0, 0);
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0);
       break;
     case '1_WEEK':
-      startDate.setDate(now.getDate() - 7);
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
       break;
     case '1_YEAR':
     case 'YEARLY':
@@ -877,8 +899,8 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
     where: {
       status: 'COMPLETED',
       OR: [
-        { createdAt: { gte: startDate } },
-        { batchDate: { gte: startDate } }
+        { createdAt: { gte: startDate, lte: endDate } },
+        { batchDate: { gte: startDate, lte: endDate } }
       ]
     },
     select: isWadaana ? {

@@ -20,8 +20,10 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
 
   const now = new Date();
   let startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  let endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   if (timeframe === 'YESTERDAY') {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+    endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
   } else if (timeframe === 'LAST_3_DAYS') {
     startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0);
   } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
@@ -31,7 +33,6 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
     startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
   }
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   const [
     todaysOrders,
@@ -234,11 +235,31 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
  */
 export const getAdminCashSummary = asyncHandler(async (req, res) => {
   const prefix = getPrefix(req);
-  const { date } = req.query;
+  const { date, timeframe } = req.query;
 
-  const targetDate = date ? new Date(date) : new Date();
-  const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-  const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+  const now = new Date();
+  let startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  let endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  if (date) {
+    const targetDate = new Date(date);
+    startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+    endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+  } else if (timeframe) {
+    const tf = timeframe.toUpperCase();
+    if (tf === 'YESTERDAY') {
+      startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+      endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+    } else if (tf === 'LAST_3_DAYS') {
+      startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 0, 0, 0);
+    } else if (tf === '1_WEEK' || tf === 'WEEKLY') {
+      startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    } else if (tf === '1_MONTH' || tf === 'MONTHLY') {
+      startOfDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+    } else if (tf === '1_YEAR' || tf === 'YEARLY') {
+      startOfDay = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+    }
+  }
 
   const [paymentsSum, spotSalesSum, paymentsByMethodList, paymentsCount, spotSalesCount] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
