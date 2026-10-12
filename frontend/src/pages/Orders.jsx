@@ -9,6 +9,7 @@ import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
 import { PageHeader, StatusBadge, TimeframeDropdown } from '../components/ui';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../utils/whatsapp';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
 import EditOrderModal from '../components/orders/EditOrderModal';
@@ -427,27 +428,20 @@ export default function Orders() {
                             <>
                               <button
                                 onClick={() => {
-                                  const cust = o.customer || {};
-                                  const mapLink = cust.mapLink?.trim()
-                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
-                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
+                                  const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
                                   navigator.clipboard.writeText(text);
-                                  toast.success('Order summary copied for driver!');
+                                  toast.success('Complete driver order dispatch copied!');
                                 }}
                                 className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                                title="Quick copy order for driver"
+                                title="Quick copy order dispatch for driver"
                               >
                                 <Copy size={13} />
                               </button>
                               <button
                                 onClick={() => {
-                                  const cust = o.customer || {};
-                                  const mapLink = cust.mapLink?.trim()
-                                    ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
-                                    : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
-                                  const text = `📦 Order #${o.id.substring(0,6).toUpperCase()}\n👤 Customer: ${cust.name || 'N/A'}\n📞 Phone: ${cust.phone || 'N/A'}\n📍 Address: ${cust.address || 'N/A'}\n${mapLink ? `🗺️ Location: ${mapLink}\n` : ''}Items: ${(o.items || []).map(i => `${i.quantity}x ${formatItemName(i.item?.name)}`).join(', ')}`;
-                                  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                                  const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
+                                  openWhatsAppWeb('', text);
+                                  toast.success('Opening WhatsApp to dispatch order to driver.');
                                 }}
                                 className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                                 title="Share to driver via WhatsApp"

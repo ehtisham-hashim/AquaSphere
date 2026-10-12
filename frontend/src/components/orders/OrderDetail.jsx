@@ -11,6 +11,7 @@ import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { getOrderCleanName as formatItemName } from '../../constants/orders';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 // ponytail: tabbed detail view groups actions logically; generous spacing prevents visual fatigue
 export default function OrderDetail({ order, onClose, onSettle }) {
@@ -125,8 +126,7 @@ export default function OrderDetail({ order, onClose, onSettle }) {
   };
 
   const handleShareWhatsAppDriver = () => {
-    const text = encodeURIComponent(buildDriverMessage());
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    openWhatsAppWeb('', buildDriverMessage());
   };
 
   return (
@@ -190,7 +190,7 @@ export default function OrderDetail({ order, onClose, onSettle }) {
                     <Copy size={15} />
                   </button>
                   <button
-                    onClick={() => window.open(`https://api.whatsapp.com/send?phone=${customer.phone.replace(/[^0-9]/g, '')}`, '_blank')}
+                    onClick={() => openWhatsAppWeb(customer.phone, '')}
                     className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
                     title="Open WhatsApp chat"
                   >

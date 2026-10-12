@@ -5,6 +5,7 @@ import { useTenant } from '../../context/TenantContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import BottleAdjustmentModal from '../customer/BottleAdjustmentModal';
 import { toast } from 'sonner';
+import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 export default function BottleCustodyWidget({ className = '', embedded = false, onCustodyUpdated }) {
   const { tenant, isWadaana } = useTenant();
@@ -89,10 +90,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
     const bottles = Number(c.cachedBottleBalance || 0);
     const deposit = Number(c.deposit || 0);
     const text = `Assalam-o-Alaikum *${c.name}*,\nThis is a friendly reminder from *${companyName}* regarding *${bottles} unreturned 19L empty bottles* under your account.${deposit > 0 ? ` (Security Deposit on record: Rs. ${deposit.toLocaleString()})` : ''}\n\nPlease have the empty bottles ready for our retrieval vehicle on our next delivery run. Thank you!`;
-    const cleanPhone = String(c.phone || '').replace(/\D/g, '');
-    const phoneParam = cleanPhone.startsWith('92') ? cleanPhone : cleanPhone.startsWith('0') ? '92' + cleanPhone.slice(1) : cleanPhone;
-    const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    openWhatsAppWeb(c.phone, text);
   };
 
   return (

@@ -1,7 +1,8 @@
-import { MapPin, Phone, Package, MessageCircle } from 'lucide-react';
+import { MapPin, Phone, Package, MessageCircle, Share2 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function CustomersTable({ customers = [], isLoading = false, onRowClick }) {
   const { tenant } = useTenant();
@@ -9,14 +10,16 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
 
   const pagination = usePagination(customers, 50);
 
-  const handleWhatsAppReengage = (e, c) => {
+  const handleShareWhatsAppCustomer = (e, c) => {
     e.stopPropagation();
-    const phone = (c.phone || '').replace(/[^0-9]/g, '');
-    const cleanPhone = phone.startsWith('0') ? '92' + phone.slice(1) : phone;
-    const msg = encodeURIComponent(
-      `*Assalam-o-Alaikum / Hello ${c.name},*\n\nWe wanted to check in from AquaSphere to see if you need your pure water bottles replenished!\nIf you have any feedback or require assistance, please let us know.\n\nWould you like us to schedule a delivery for you today?\n\nWarm regards,\n*AquaSphere Team*`
-    );
-    window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_blank');
+    const msg = WhatsAppTemplates.customerProfile(c, isWadaana);
+    openWhatsAppWeb(c.phone, msg);
+  };
+
+  const handleDispatchToDriver = (e, c) => {
+    e.stopPropagation();
+    const msg = WhatsAppTemplates.customerProfile(c, isWadaana);
+    openWhatsAppWeb('', msg);
   };
 
   return (
@@ -138,13 +141,21 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                         {c.phone && (
                           <button
                             type="button"
-                            onClick={(e) => handleWhatsAppReengage(e, c)}
-                            className="p-1 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition"
-                            title="WhatsApp Chat / Re-engage"
+                            onClick={(e) => handleShareWhatsAppCustomer(e, c)}
+                            className="p-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition"
+                            title="Share Customer Profile via WhatsApp"
                           >
                             <MessageCircle size={13} />
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDispatchToDriver(e, c)}
+                          className="p-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
+                          title="Dispatch Customer Details to Driver via WhatsApp"
+                        >
+                          <Share2 size={13} />
+                        </button>
                         {c.archivedAt ? (
                           <button 
                             onClick={() => onRowClick && onRowClick(c, 'restore')}

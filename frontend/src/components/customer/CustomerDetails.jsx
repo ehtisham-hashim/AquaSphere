@@ -178,37 +178,24 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
             <Phone size={16} className="text-slate-400 flex-shrink-0" />
             <span className="font-semibold flex-1">{c.phone || 'No phone provided'}</span>
             {c.phone && (() => {
-              const buildText = () => {
-                const mapUrl = c.mapLink?.trim()
-                  ? (c.mapLink.trim().startsWith('http') ? c.mapLink.trim() : `https://${c.mapLink.trim()}`)
-                  : (c.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}` : null);
-
-                return [
-                  `📋 *Customer Details*`,
-                  `👤 Name: ${c.name}`,
-                  `📞 Phone: ${c.phone}`,
-                  c.address ? `📍 Address: ${c.address}` : null,
-                  mapUrl ? `🗺️ Location: ${mapUrl}` : null,
-                  c.homePictureUrl ? `📸 Photo: ${c.homePictureUrl}` : null,
-                ].filter(Boolean).join('\n');
-              };
+              const fullDetails = WhatsAppTemplates.customerProfile(c, isWadaana);
 
               return (
                 <>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(buildText());
-                      toast.success('Customer details copied to clipboard!');
+                      navigator.clipboard.writeText(fullDetails);
+                      toast.success('Customer profile copied to clipboard!');
                     }}
                     className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0"
-                    title="Copy customer details"
+                    title="Copy customer profile"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
                   <button
-                    onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(buildText())}`, '_blank')}
+                    onClick={() => openWhatsAppWeb('', fullDetails)}
                     className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex-shrink-0"
-                    title="Share customer details via WhatsApp"
+                    title="Share customer profile via WhatsApp (Driver / Fleet)"
                   >
                     <Share2 size={18} />
                   </button>

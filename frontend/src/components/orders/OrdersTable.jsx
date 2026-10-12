@@ -1,7 +1,9 @@
 import { Truck, CheckCircle, MessageCircle, Printer, CreditCard, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -34,21 +36,13 @@ export default function OrdersTable({
   onRecordPayment,
   showCustomerName
 }) {
+  const { isWadaana } = useTenant();
+
   const handleShareWhatsApp = (order) => {
     try {
-      const cust = order.customer || {};
-      const mapLink = cust.mapLink?.trim()
-        ? (cust.mapLink.trim().startsWith('http') ? cust.mapLink.trim() : `https://${cust.mapLink.trim()}`)
-        : (cust.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cust.address)}` : null);
-      const text = `📦 *New Delivery*\nOrder: #${order.id.slice(0, 6).toUpperCase()}\n👤 Customer: ${cust.name || 'Unknown'}\n📞 Phone: ${cust.phone || 'Unknown'}\nTotal: Rs. ${order.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0}\n📍 Address: ${cust.address || 'See customer profile'}${mapLink ? `\n🗺️ Location: ${mapLink}` : ''}`;
-      const encoded = encodeURIComponent(text);
-      const url = `https://api.whatsapp.com/send?text=${encoded}`;
-      const win = window.open(url, '_blank');
-      if (win) {
-        toast.success('Order details ready to send to driver.');
-      } else {
-        toast.error('WhatsApp could not be opened.');
-      }
+      const text = WhatsAppTemplates.orderDispatch(order, isWadaana);
+      openWhatsAppWeb('', text);
+      toast.success('Order details dispatched via WhatsApp.');
     } catch {
       toast.error('WhatsApp could not be opened.');
     }

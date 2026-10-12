@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { isPageAllowedForRole } from '../../constants/roleAccess';
+import { toast } from 'sonner';
+import { getWhatsAppMode, setWhatsAppMode } from '../../utils/whatsapp';
 import { 
   BarChart3, 
   Truck, 
@@ -20,7 +23,8 @@ import {
   Boxes,
   Car,
   Tag,
-  LogOut
+  LogOut,
+  MessageCircle
 } from 'lucide-react';
 
 import { checkForUpdate } from '../../utils/versionCheck';
@@ -86,6 +90,18 @@ const navItems = [
 export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
   const { user, logout } = useAuth();
   const { tenant, isWadaana } = useTenant();
+  const [waMode, setWaMode] = useState(() => getWhatsAppMode());
+
+  const handleToggleWaMode = () => {
+    const nextMode = waMode === 'app' ? 'web' : 'app';
+    setWhatsAppMode(nextMode);
+    setWaMode(nextMode);
+    toast.success(
+      nextMode === 'app'
+        ? 'WhatsApp set to: Desktop App (whatsapp://)'
+        : 'WhatsApp set to: Web Tab (Single Reused Tab)'
+    );
+  };
 
   return (
     <>
@@ -165,7 +181,37 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
         </nav>
 
         {/* Footer Company / Sign Out */}
-        <div className="p-3 border-t border-slate-100 bg-white">
+        <div className="p-3 border-t border-slate-100 bg-white space-y-2">
+          {(!isCollapsed || isOpen) ? (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
+              <span className="text-slate-600 font-medium flex items-center gap-1.5">
+                <MessageCircle size={13} className="text-emerald-600" />
+                WhatsApp
+              </span>
+              <button
+                type="button"
+                onClick={handleToggleWaMode}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition border ${
+                  waMode === 'app'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-white text-slate-700 border-slate-300 shadow-2xs'
+                }`}
+                title="Toggle between WhatsApp Web (Single Reused Tab) and WhatsApp Desktop App"
+              >
+                {waMode === 'app' ? '📱 App' : '🌐 Web Tab'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleToggleWaMode}
+              className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition border border-slate-200"
+              title={`WhatsApp: ${waMode === 'app' ? 'Desktop App' : 'Web Tab'}. Click to toggle.`}
+            >
+              <MessageCircle size={16} className={waMode === 'app' ? 'text-emerald-600' : 'text-slate-500'} />
+            </button>
+          )}
+
           <button 
             onClick={logout}
             title={isCollapsed ? 'Sign Out' : undefined}
