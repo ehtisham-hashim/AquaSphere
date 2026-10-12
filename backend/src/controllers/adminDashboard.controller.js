@@ -376,3 +376,160 @@ export const getCustomerAlerts = asyncHandler(async (req, res) => {
     totalAlerts: creditBreaches.length + unpaidBillOver7Days.length + inactiveCustomers.length
   }, 'Customer alerts fetched successfully'));
 });
+
+/**
+ * Feature: Notification Bar Alerts
+ * Returns strictly the 4 operational alert categories for TopNav:
+ * 1. Customer create (new customer registrations from audit logs)
+ * 2. Stock low (raw materials & finished goods below reorder level)
+ * 3. Customer who didn't pay yet (unpaid balance / bills older than 7 days)
+ * 4. Customer who didn't repeat to buy (inactive customers with no repeat order in 7+ days)
+ *
+ * Excludes noisy activity: order create, order deliver, payment settlements, production batches.
+ *
+ * @param {import('express').Request} req - Express request object.
+ * @param {import('express').Response} res - Express response object.
+ * @returns {Promise<void>}
+ */
+export const getNotificationAlerts = asyncHandler(async (req, res) => {
+  const prefix = getPrefix(req);
+
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  // Consolidated parallel fetch across multi-tenant models
+  const [customerLogs, items, allCustomers] = await Promise.all([
+    prisma[`${prefix}AuditLog`].findMany({
+      where: {
+        action: { in: ['CUSTOMER_ADDED', 'CUSTOMER_CREATED'] }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    }),
+    prisma[`${prefix}Item`].findMany({
+      where: { archivedAt: null },
+      select: { id: true, name: true, unit: true, cachedQty: true, reorderLevel: true, updatedAt: true }
+    }),
+    prisma[`${prefix}Customer`].findMany({
+      where: { archivedAt: null },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        currentBalance: true,
+        lastDeliveryAt: true,
+        createdAt: true,
+        orders: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            createdAt: true,
+            deliveryStatus: true,
+            paymentStatus: true,
+            items: { select: { quantity: true, price: true } }
+          }
+        }
+      }
+    })
+  ]);
+
+  // Extract user names for audit logs
+  const userIds = [...new Set(customerLogs.map(l => l.performedBy).filter(Boolean))];
+  const userMap = {};
+  if (userIds.length > 0) {
+    try {
+      const users = await prisma[`${prefix}User`].findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, role: true }
+      });
+      users.forEach(u => {
+        userMap[u.id] = `${u.name} (${u.role.replace('_', ' ')})`;
+      });
+    } catch {
+      // Ignore user lookup error
+    }
+  }
+
+  // 1. Customer Create Alerts
+  const customerCreateAlerts = customerLogs.map(l => ({
+    id: `cust-create-${l.id}`,
+    action: 'CUSTOMER_CREATED',
+    entityId: l.entityId,
+    performedBy: userMap[l.performedBy] || l.performedBy || 'System',
+    details: l.details,
+    createdAt: l.createdAt
+  }));
+
+  // 2. Stock Low Alerts (raw materials and finished goods where reorderLevel > 0 and cachedQty < reorderLevel)
+  const lowStockAlerts = items
+    .filter(i => Number(i.reorderLevel || 0) > 0 && Number(i.cachedQty || 0) < Number(i.reorderLevel || 0))
+    .map(i => ({
+      id: `low-stock-${i.id}`,
+      action: 'STOCK_LOW',
+      entityId: i.id,
+      performedBy: 'Inventory Monitor',
+      details: `${i.name} stock is low: ${Number(i.cachedQty || 0).toLocaleString()} ${i.unit} (Reorder threshold: ${i.reorderLevel} ${i.unit})`,
+      createdAt: i.updatedAt || new Date().toISOString()
+    }));
+
+  // 3. Customer Unpaid Alerts (unpaid bills older than 7 days or current balance overdue)
+  const unpaidAlerts = [];
+  allCustomers.forEach(c => {
+    const oldUnpaid = c.orders.filter(
+      o => (o.paymentStatus === 'UNPAID' || o.paymentStatus === 'PARTIAL') && new Date(o.createdAt) < sevenDaysAgo
+    );
+    const unpaidSum = oldUnpaid.reduce(
+      (sum, o) => sum + (o.items?.reduce((s, i) => s + (Number(i.quantity || 0) * Number(i.price || 0)), 0) || 0),
+      0
+    );
+    const totalDue = Math.max(unpaidSum, Number(c.currentBalance || 0));
+
+    if (totalDue > 0 && (oldUnpaid.length > 0 || Number(c.currentBalance || 0) > 0)) {
+      const oldestDate = oldUnpaid.length > 0 ? oldUnpaid[oldUnpaid.length - 1].createdAt : null;
+      const daysOverdue = oldestDate
+        ? Math.floor((Date.now() - new Date(oldestDate).getTime()) / (1000 * 60 * 60 * 24))
+        : 7;
+
+      unpaidAlerts.push({
+        id: `unpaid-${c.id}`,
+        action: 'CUSTOMER_UNPAID',
+        entityId: c.id,
+        performedBy: 'Accounts Monitor',
+        details: `Customer "${c.name}" has unpaid balance of Rs. ${totalDue.toLocaleString()} (${daysOverdue} days overdue)`,
+        createdAt: oldestDate || new Date().toISOString()
+      });
+    }
+  });
+
+  // 4. Inactive / No Repeat Purchase in 7+ days
+  const inactiveAlerts = allCustomers
+    .filter(c => {
+      const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+      if (!lastDate) return new Date(c.createdAt) < sevenDaysAgo;
+      return new Date(lastDate) < sevenDaysAgo;
+    })
+    .slice(0, 20)
+    .map(c => {
+      const lastDate = c.lastDeliveryAt || c.orders[0]?.createdAt;
+      const days = lastDate ? Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)) : '7+';
+      return {
+        id: `inactive-${c.id}`,
+        action: 'CUSTOMER_INACTIVE',
+        entityId: c.id,
+        performedBy: 'CRM Monitor',
+        details: `Customer "${c.name}" has not repeated order in ${days} days`,
+        createdAt: lastDate || c.createdAt
+      };
+    });
+
+  // Combine and sort by createdAt descending
+  const allNotificationAlerts = [
+    ...customerCreateAlerts,
+    ...lowStockAlerts,
+    ...unpaidAlerts,
+    ...inactiveAlerts
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  res.status(200).json(new ApiResponse(200, allNotificationAlerts, 'Notification alerts retrieved successfully'));
+});

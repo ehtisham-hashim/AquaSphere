@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL, clearCache } from '../../utils/api';
-import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut } from 'lucide-react';
+import { Menu, Bell, X, Clock, CheckCircle, AlertTriangle, UserPlus, Trash2, Factory, LogOut, Receipt } from 'lucide-react';
 import { formatRole } from '../../constants/roleAccess';
 
 const PAGE_TITLES = {
@@ -29,11 +29,14 @@ const PAGE_TITLES = {
 };
 
 const ACTION_CONFIG = {
+  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
+  STOCK_LOW: { title: 'Low Stock Warning', icon: AlertTriangle, color: 'text-amber-600' },
+  CUSTOMER_UNPAID: { title: 'Customer Unpaid Balance', icon: Receipt, color: 'text-rose-600' },
+  CUSTOMER_INACTIVE: { title: 'Customer Inactive (No Repeat)', icon: Clock, color: 'text-amber-600' },
   ORDER_CREATED: { title: 'New Order Created', icon: AlertTriangle, color: 'text-amber-600' },
   ORDER_DELIVERED: { title: 'Order Delivered', icon: CheckCircle, color: 'text-emerald-600' },
   ORDER_PAYMENT_SETTLED: { title: 'Payment Settled', icon: CheckCircle, color: 'text-emerald-600' },
-  CUSTOMER_ADDED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
-  CUSTOMER_CREATED: { title: 'New Customer Registered', icon: UserPlus, color: 'text-blue-600' },
   CUSTOMER_DELETED: { title: 'Customer Record Deleted', icon: Trash2, color: 'text-rose-600' },
   PRODUCTION_BATCH_CREATED: { title: 'Production Batch Initiated', icon: Factory, color: 'text-sky-600' },
   PRODUCTION_BATCH_COMPLETED: { title: 'Production Batch Completed', icon: Factory, color: 'text-emerald-600' }
@@ -132,22 +135,17 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
     const fetchAuditAlerts = async () => {
       try {
-        const res = await fetch(`${API_URL}/audit-logs`, {
+        const res = await fetch(`${API_URL}/admin/notification-alerts`, {
           headers: { 'x-tenant': currentTenant },
           credentials: 'include'
         });
         if (!res.ok) return;
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          const tracked = [
-            'CUSTOMER_ADDED', 'CUSTOMER_CREATED', 'CUSTOMER_DELETED',
-            'ORDER_CREATED', 'ORDER_DELIVERED', 'ORDER_PAYMENT_SETTLED',
-            'PRODUCTION_BATCH_CREATED', 'PRODUCTION_BATCH_COMPLETED'
-          ];
-          setAlerts(json.data.filter(log => tracked.includes(log.action)));
+          setAlerts(json.data);
         }
       } catch (err) {
-        console.error('Error fetching audit alerts:', err);
+        console.error('Error fetching notification alerts:', err);
       }
     };
     fetchAuditAlerts();

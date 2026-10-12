@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
-import { getAdminDashboard, getAdminCashSummary, getCustomerAlerts } from '../controllers/adminDashboard.controller.js';
+import { getAdminDashboard, getAdminCashSummary, getCustomerAlerts, getNotificationAlerts } from '../controllers/adminDashboard.controller.js';
 
 const router = Router();
 
@@ -25,5 +25,8 @@ router.get('/cash-summary', getAdminCashSummary);
 
 // Feature 5: Customer Alert Monitoring (read-only)
 router.get('/customer-alerts', getCustomerAlerts);
+
+// Feature 6: Notification Bar Alerts (Customer create, Stock low, Unpaid, Inactive)
+router.get('/notification-alerts', getNotificationAlerts);
 
 export default router;
