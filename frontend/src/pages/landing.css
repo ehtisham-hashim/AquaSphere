@@ -1,15 +1,19 @@
 /* ==========================================================================
-   AquaSphere Instrumental Monotonic Landing Page
+   AquaSphere Instrumental Monotonic Pure-Water Landing Page
    Aesthetic: Architectural, Technical Instrumentation, Editorial Precision
-   Colorway: Monochromatic / Monotonic (Zinc / Obsidian / High-Contrast White)
+   Colorway: Light Monotonic Water (Clean White, Soft Ice Blue, Ocean Navy, Sky Blue)
    Typography: Instrument Serif, Instrument Sans, JetBrains Mono
-   Controls: Geometric, Zero-Radius Rectangular (No Rounded Buttons)
+   Controls: Geometric, Zero-Radius Rectangular (Strictly No Rounded Buttons)
    ========================================================================== */
 
 .lp-root {
   font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #f4f4f5;
-  background-color: #09090b;
+  color: #0f172a;
+  background: 
+    radial-gradient(circle at 12% 10%, rgba(56, 189, 248, 0.12), transparent 32%),
+    radial-gradient(circle at 88% 14%, rgba(2, 132, 199, 0.08), transparent 30%),
+    linear-gradient(180deg, #f8fcff 0%, #ffffff 35%, #f0f9ff 100%);
+  background-attachment: fixed;
   position: relative;
   isolation: isolate;
   overflow-x: hidden;
@@ -17,7 +21,7 @@
   max-width: 100%;
 }
 
-/* Subtle Technical Grid Background */
+/* Subtle Technical Precision Water Grid */
 .lp-root::before {
   content: "";
   position: fixed;
@@ -25,10 +29,10 @@
   pointer-events: none;
   z-index: -1;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(2, 132, 199, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(2, 132, 199, 0.04) 1px, transparent 1px);
   background-size: 40px 40px;
-  mask-image: radial-gradient(circle at 50% 30%, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.25) 75%, transparent 100%);
+  mask-image: radial-gradient(circle at 50% 25%, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 75%, transparent 100%);
 }
 
 /* Typography Helpers */
@@ -48,9 +52,9 @@
 .lp-btn,
 .lp-btn-primary,
 .lp-btn-secondary,
+.lp-btn-outline,
 .lp-btn-ghost,
 .lp-btn-accent,
-.lp-btn-whatsapp,
 .lp-input,
 .lp-textarea,
 .lp-select,
@@ -58,166 +62,143 @@
   border-radius: 0px !important;
 }
 
-/* Primary Instrumental Button */
+/* Primary Instrumental Monotonic Button */
 .lp-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #ffffff;
-  color: #09090b;
+  padding: 0.75rem 1.6rem;
+  background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+  color: #ffffff;
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border: 1px solid #ffffff;
+  border: 1px solid #0284c7;
   border-radius: 0px !important;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
 }
 
 .lp-btn-primary:hover {
-  background-color: #d4d4d8;
-  border-color: #d4d4d8;
-  color: #000000;
+  background: linear-gradient(135deg, #075985 0%, #0369a1 100%);
+  border-color: #075985;
+  color: #ffffff;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.35);
 }
 
 .lp-btn-primary:active {
   transform: translateY(0);
 }
 
-/* Secondary / Ghost Instrumental Button */
+/* Secondary Sharp Outline Button */
 .lp-btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  background-color: rgba(24, 24, 27, 0.75);
-  color: #f4f4f5;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 0px !important;
-  backdrop-filter: blur(12px);
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.lp-btn-secondary:hover {
-  background-color: rgba(39, 39, 42, 0.9);
-  border-color: rgba(255, 255, 255, 0.36);
-  color: #ffffff;
-  transform: translateY(-1px);
-}
-
-/* Accent Green Action Button (Precision Order) */
-.lp-btn-accent {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #059669;
-  color: #ffffff;
+  background-color: #ffffff;
+  color: #0369a1;
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  border: 1px solid #10b981;
+  border: 1px solid #bae6fd;
   border-radius: 0px !important;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.lp-btn-secondary:hover {
+  background-color: #f0f9ff;
+  border-color: #0284c7;
+  color: #075985;
+  transform: translateY(-1px);
+}
+
+/* Dark Navy Header Button (e.g., ERP Portal) */
+.lp-btn-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: #082f49;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid #0c4a6e;
+  border-radius: 0px !important;
+  transition: all 0.2s ease;
   cursor: pointer;
   text-decoration: none;
 }
 
-.lp-btn-accent:hover {
-  background-color: #047857;
-  border-color: #34d399;
+.lp-btn-dark:hover {
+  background-color: #0c4a6e;
+  border-color: #38bdf8;
+  color: #ffffff;
   transform: translateY(-1px);
 }
 
-/* Technical Telemetry Card */
+/* Precision Technical Telemetry Card */
 .lp-card-tech {
-  background-color: #121215;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #ffffff;
+  border: 1px solid #e0f2fe;
   position: relative;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.06);
 }
 
 .lp-card-tech:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background-color: #16161b;
+  border-color: #7dd3fc;
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.12);
 }
 
-/* Corner Crosshair Accents for Instrumental Blueprint Vibe */
-.lp-corner-markers {
-  position: relative;
-}
-
-.lp-corner-markers::before,
-.lp-corner-markers::after {
-  content: "+";
-  position: absolute;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  pointer-events: none;
-  line-height: 1;
-}
-
-.lp-corner-markers::before {
-  top: 8px;
-  left: 8px;
-}
-
-.lp-corner-markers::after {
-  bottom: 8px;
-  right: 8px;
-}
-
-/* Form Controls with Sharp Corners */
+/* Form Controls with Strict Zero Radius */
 .lp-input,
 .lp-textarea {
   width: 100%;
-  background-color: #0e0e11;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #f4f4f5;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   border-radius: 0px !important;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .lp-input:focus,
 .lp-textarea:focus {
   outline: none;
-  border-color: #ffffff;
-  background-color: #131317;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
 .lp-input::placeholder,
 .lp-textarea::placeholder {
-  color: #71717a;
+  color: #94a3b8;
 }
 
-/* Pulse indicator dot */
-@keyframes techPulse {
+/* Live Operational Pulse Indicator */
+@keyframes waterPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 0.4; transform: scale(0.85); }
 }
 
 .lp-indicator-live {
-  width: 6px;
-  height: 6px;
-  background-color: #10b981;
+  width: 7px;
+  height: 7px;
+  background-color: #0284c7;
   display: inline-block;
-  animation: techPulse 2s infinite ease-in-out;
+  animation: waterPulse 2s infinite ease-in-out;
 }
