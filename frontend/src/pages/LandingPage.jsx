@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS = {
   opening_hours: "Monday to Saturday - 8AM to 5PM",
   location: "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt",
   whatsapp: "923015072233",
-  logo_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005735/logo.png",
+  logo_url: "https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png",
   hero_bg_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005808/hero-bg.jpg",
   hero_title: "Always want safe",
   hero_subtitle: "and good water for healthy life",
@@ -163,9 +163,9 @@ export default function LandingPage() {
           {/* Logo */}
           <a href="#hero" className="flex items-center group py-2">
             <img 
-              src={optImg(settings.logo_url, 600)} 
+              src={optImg(settings.logo_url, 800)} 
               alt={settings.site_name} 
-              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
+              className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
               loading="eager"
             />
           </a>
@@ -381,11 +381,11 @@ export default function LandingPage() {
             
             {/* Col 1: About Aqua Sphere & Logo */}
             <div className="space-y-4">
-              <div className="inline-flex items-center bg-white p-3 shadow-lg">
+              <div className="inline-flex items-center bg-white p-3.5 shadow-xl">
                 <img 
-                  src={optImg(settings.logo_url, 600)} 
+                  src={optImg(settings.logo_url, 800)} 
                   alt={settings.site_name} 
-                  className="h-16 sm:h-20 w-auto object-contain" 
+                  className="h-28 sm:h-32 md:h-36 w-auto object-contain transition-transform duration-300 hover:scale-105" 
                 />
               </div>
               <p className="text-slate-400 text-sm leading-relaxed font-normal">
