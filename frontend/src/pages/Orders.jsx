@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
@@ -8,7 +8,7 @@ import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
-import { PageHeader, StatusBadge, TimeframeDropdown } from '../components/ui';
+import { PageHeader, StatusBadge, TimeframeDropdown, DeleteConfirmationModal } from '../components/ui';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../utils/whatsapp';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
@@ -146,6 +146,7 @@ export default function Orders() {
   }, []);
 
   const [orderToCancel, setOrderToCancel] = useState(null);
+  const [orderToDelete, setOrderToDelete] = useState(null);
 
   const openDeliverModal = (order) => {
     setSelectedOrder(order);
@@ -172,10 +173,32 @@ export default function Orders() {
       } else {
         toast.error(json.message || 'Failed to cancel order');
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error('Error cancelling order');
     } finally {
       setOrderToCancel(null);
+    }
+  };
+
+  const confirmDeleteOrder = async (id) => {
+    try {
+      const tenant = getCompanyFromCookie();
+      const res = await fetch(`${API_URL}/orders/${id}`, { 
+        method: 'DELETE', 
+        headers: { 'x-tenant': tenant },
+        credentials: 'include' 
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Order permanently deleted');
+        fetchData();
+      } else {
+        toast.error(json.message || 'Failed to delete order');
+      }
+    } catch (_err) {
+      toast.error('Error deleting order');
+    } finally {
+      setOrderToDelete(null);
     }
   };
 
@@ -476,9 +499,18 @@ export default function Orders() {
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
                             </button>
                           )}
-                          {canDeleteOrder && !isAdmin && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
+                          {!isOwner && isMarketingManager && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => setOrderToCancel(o)} className="btn-danger py-1 px-2 text-xs">
                               Cancel
+                            </button>
+                          )}
+                          {isOwner && (
+                            <button
+                              onClick={() => setOrderToDelete(o)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              title="Permanently Delete Order (Owner Only)"
+                            >
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>
@@ -584,6 +616,17 @@ export default function Orders() {
           </div>
         </div>
       )}
+
+      {/* Permanent Delete Order Modal (Owner Only) */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(orderToDelete)}
+        title={`Delete Order #${orderToDelete?.id?.substring(0, 8).toUpperCase()}`}
+        message={`Are you sure you want to permanently delete order #${orderToDelete?.id?.substring(0, 8).toUpperCase()} for ${orderToDelete?.customer?.name || 'Customer'}? This will remove all records and roll back any delivered stock and customer balances.`}
+        confirmText="Delete Order"
+        onConfirm={() => confirmDeleteOrder(orderToDelete.id)}
+        onClose={() => setOrderToDelete(null)}
+      />
     </div>
   );
 }
+

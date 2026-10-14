@@ -1,10 +1,13 @@
-import { MapPin, Phone, Package, MessageCircle, Share2 } from 'lucide-react';
+import { MapPin, Phone, Package, MessageCircle, Share2, Trash2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
-export default function CustomersTable({ customers = [], isLoading = false, onRowClick }) {
+export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer }) {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
   const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
 
@@ -169,6 +172,19 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                             className="btn-secondary py-1 px-2.5 text-xs"
                           >
                             View Details
+                          </button>
+                        )}
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteCustomer && onDeleteCustomer(c);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            title="Delete Customer (Owner Only)"
+                          >
+                            <Trash2 size={13} />
                           </button>
                         )}
                       </div>

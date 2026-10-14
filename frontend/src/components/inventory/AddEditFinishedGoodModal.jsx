@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
-import { X, PackageCheck, Loader2, Info } from 'lucide-react';
+import { X, PackageCheck, Loader2, Info, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AddEditFinishedGoodModal({
   isOpen,
   onClose,
   onSaved,
   tenant = 'aquasphere',
-  itemToEdit = null
+  itemToEdit = null,
+  onDeleteItem = null
 }) {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('packs');
   const [packSize, setPackSize] = useState('1');
@@ -386,23 +390,38 @@ export default function AddEditFinishedGoodModal({
           </div>
 
           {/* Footer Action Buttons */}
-          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="btn-secondary text-xs py-2 px-4"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}
-              {saving ? 'Saving...' : itemToEdit ? 'Update Finished Good' : 'Create Finished Good'}
-            </button>
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+            {itemToEdit && isOwner && onDeleteItem ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteItem(itemToEdit);
+                  onClose();
+                }}
+                disabled={saving}
+                className="btn-danger text-xs py-2 px-3 flex items-center gap-1.5"
+              >
+                <Trash2 size={13} /> Delete Item
+              </button>
+            ) : <div />}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={saving}
+                className="btn-secondary text-xs py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}
+                {saving ? 'Saving...' : itemToEdit ? 'Update Finished Good' : 'Create Finished Good'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

@@ -8,7 +8,7 @@ import {
   Download
 } from 'lucide-react';
 import { API_URL } from '../utils/api';
-import { PageHeader } from '../components/ui';
+import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
 import { useLiveEvent } from '../context/SSEContext';
@@ -111,7 +111,34 @@ export default function Transport() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [isDeletingExpense, setIsDeletingExpense] = useState(false);
   const hasExpensesLoadedRef = useRef(false);
+
+  const handleConfirmDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    setIsDeletingExpense(true);
+    try {
+      const res = await fetch(`${API_URL}/expenses/${expenseToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success('Vehicle expense deleted successfully');
+        setExpenseToDelete(null);
+        fetchExpenses();
+      } else {
+        toast.error(data.message || 'Failed to delete vehicle expense');
+      }
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+      toast.error('Failed to delete expense');
+    } finally {
+      setIsDeletingExpense(false);
+    }
+  };
 
   const fetchExpenses = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasExpensesLoadedRef.current) setLoadingExpenses(true);
@@ -365,6 +392,8 @@ export default function Transport() {
             setSearch={setExpenseSearch}
             userName={user?.name}
             categories={TRANSPORT_EXPENSE_CATEGORIES}
+            onDeleteExpense={setExpenseToDelete}
+            canDelete={user?.role === 'OWNER' || user?.role === 'TRANSPORT_MANAGER'}
           />
 
           {/* Log Expense Modal (Transport-only categories) */}
@@ -379,6 +408,16 @@ export default function Transport() {
               }}
             />
           )}
+
+          <DeleteConfirmationModal
+            isOpen={!!expenseToDelete}
+            onClose={() => setExpenseToDelete(null)}
+            onConfirm={handleConfirmDeleteExpense}
+            loading={isDeletingExpense}
+            title="Delete Vehicle Expense"
+            message={`Are you sure you want to delete this vehicle expense of Rs. ${Math.round(Number(expenseToDelete?.amount || 0)).toLocaleString()} (${expenseToDelete?.category})?`}
+            confirmText="Delete Expense"
+          />
         </div>
       )}
     </div>

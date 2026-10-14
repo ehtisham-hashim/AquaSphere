@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { RawMaterialsHeader, RawMaterialsTable, AddEditRawMaterialModal } from '../components/rawMaterials';
+import { DeleteConfirmationModal } from '../components/ui';
 import { toast } from 'sonner';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
@@ -22,6 +23,8 @@ export default function RawMaterials() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [materialToDelete, setMaterialToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const fetchMaterials = useCallback(async (isBackground = false) => {
@@ -99,6 +102,31 @@ export default function RawMaterials() {
     }
   };
 
+  const handleConfirmDeleteMaterial = async () => {
+    if (!materialToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API}/items/${materialToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Raw material "${materialToDelete.name}" deleted successfully`);
+        setMaterialToDelete(null);
+        fetchMaterials();
+      } else {
+        toast.error(data.message || 'Failed to delete raw material');
+      }
+    } catch (err) {
+      console.error('Failed to delete raw material:', err);
+      toast.error('Failed to delete raw material');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredMaterials = useMemo(() => {
     return materials.filter(m =>
       m.name.toLowerCase().includes(search.toLowerCase())
@@ -122,6 +150,8 @@ export default function RawMaterials() {
         isLoading={isLoading}
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
+        onDelete={setMaterialToDelete}
+        isOwner={isOwner}
         tenant={tenant}
         isReadOnly={isReadOnly}
         canArchive={canArchiveMaterial}
@@ -135,8 +165,20 @@ export default function RawMaterials() {
           fetchMaterials();
         }}
         editingItem={editingItem}
+        onDeleteItem={setMaterialToDelete}
+        isOwner={isOwner}
         existingMaterials={materials}
         tenant={tenant}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!materialToDelete}
+        onClose={() => setMaterialToDelete(null)}
+        onConfirm={handleConfirmDeleteMaterial}
+        loading={isDeleting}
+        title="Delete Raw Material"
+        message={`Are you sure you want to permanently delete "${materialToDelete?.name}"? All associated inventory transactions and recipe references will be safely removed.`}
+        confirmText="Delete Material"
       />
     </div>
   );

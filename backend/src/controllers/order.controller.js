@@ -658,35 +658,185 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   res.send(pdfBuffer);
 });
 
-/** Soft cancels an undelivered sales order */
+/** Deletes sales order permanently (Owner) or soft cancels undelivered orders (Marketing Manager) */
 export const deleteOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
+  const isOwner = req.user?.role === 'OWNER';
+  const isMarketingManager = req.user?.role === 'MARKETING_MANAGER';
 
-  if (!['OWNER', 'MARKETING_MANAGER'].includes(req.user?.role)) {
-    throw new ApiError(403, 'Only Owner or Marketing Manager can delete orders');
+  if (!isOwner && !isMarketingManager) {
+    throw new ApiError(403, 'Only Owner or Marketing Manager can delete or cancel orders');
   }
 
-  const order = await prisma[`${prefix}Order`].findUnique({ where: { id } });
-  if (!order) throw new ApiError(404, 'Order not found');
-  if (order.deliveryStatus === 'DELIVERED') {
-    throw new ApiError(400, 'Cannot cancel/delete an order that has already been delivered.');
-  }
-
-  await prisma[`${prefix}Order`].update({
+  const order = await prisma[`${prefix}Order`].findUnique({
     where: { id },
-    data: { deliveryStatus: 'CANCELLED', paymentStatus: 'UNPAID' }
+    include: {
+      items: { include: { item: true } },
+      deliveries: true,
+      payments: true,
+      customer: true
+    }
   });
+  if (!order) throw new ApiError(404, 'Order not found');
 
-  await createAuditLog(prefix, {
-    action: 'ORDER_CANCELLED',
-    entityType: 'Order',
-    entityId: id,
-    performedBy: req.user?.id || 'Unknown',
-    details: `Order ${id} soft-deleted and marked as CANCELLED`
-  });
+  // Non-owner (Marketing Manager) can only soft-cancel undelivered orders
+  if (!isOwner) {
+    if (order.deliveryStatus === 'DELIVERED') {
+      throw new ApiError(400, 'Cannot cancel an order that has already been delivered.');
+    }
+
+    await prisma[`${prefix}Order`].update({
+      where: { id },
+      data: { deliveryStatus: 'CANCELLED', paymentStatus: 'UNPAID' }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_CANCELLED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Marketing Manager',
+      details: `Order #${id.slice(0, 6).toUpperCase()} soft-cancelled by Marketing Manager`
+    });
+
+    broadcastDashboardUpdate(prefix);
+    broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: id });
+    return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
+  }
+
+  // Strictly OWNER: Permanent deletion with comprehensive symmetrical rollback
+  await prisma.$transaction(async (tx) => {
+    // 1. If the order was DELIVERED, roll back physical inventory and balance mutations
+    if (order.deliveryStatus === 'DELIVERED') {
+      // 1a. Revert finished goods deduction (restore to factory floor)
+      for (const orderItem of order.items) {
+        if (orderItem.itemId) {
+          const packMultiplier = Number(orderItem.item?.packSize || 1);
+          const qtyToRestore = Number(orderItem.quantity || 0) * packMultiplier;
+
+          await tx[`${prefix}Item`].update({
+            where: { id: orderItem.itemId },
+            data: {
+              cachedQty: { increment: qtyToRestore },
+              factoryQty: { increment: qtyToRestore }
+            }
+          });
+
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: orderItem.itemId,
+              quantity: qtyToRestore,
+              direction: 'IN',
+              reason: 'ORDER_DELETED_STOCK_RESTORE',
+              refType: 'ORDER',
+              refId: order.id,
+              location: 'FACTORY'
+            }
+          });
+        }
+      }
+
+      // 1b. Revert empty bottle returns retrieved during delivery
+      const retGoodTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0), 0) || 0;
+      const retBrokenTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedBroken || 0), 0) || 0;
+
+      if (retGoodTotal > 0) {
+        const emptyBottle = await tx[`${prefix}Item`].findFirst({
+          where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+        });
+        if (emptyBottle) {
+          await tx[`${prefix}Item`].update({
+            where: { id: emptyBottle.id },
+            data: {
+              cachedQty: { decrement: retGoodTotal },
+              factoryQty: { decrement: retGoodTotal }
+            }
+          });
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: emptyBottle.id,
+              quantity: retGoodTotal,
+              direction: 'OUT',
+              reason: 'ORDER_DELETED_EMPTY_BOTTLE_REVERSAL',
+              refType: 'ORDER',
+              refId: order.id,
+              location: 'FACTORY'
+            }
+          });
+        }
+      }
+
+      // 1c. Revert customer debt and bottle custody
+      const customerUpdateData = {};
+      const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+      const depositPaid = order.payments?.filter(p => p.type === 'SECURITY_DEPOSIT').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+      const cashPaid = order.payments?.filter(p => p.type !== 'SECURITY_DEPOSIT').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+      const totalPaid = depositPaid + cashPaid;
+      const unpaidDebtAdded = (order.paymentStatus === 'PAID' && order.payments.length === 0) ? 0 : Math.max(0, orderTotal - totalPaid);
+
+      if (depositPaid > 0) {
+        customerUpdateData.deposit = { increment: depositPaid };
+      }
+      if (unpaidDebtAdded > 0) {
+        customerUpdateData.currentBalance = { decrement: unpaidDebtAdded };
+      }
+
+      if (prefix !== 'wadaana') {
+        const qty19L = order.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
+        const custodyAdded = qty19L - retGoodTotal - retBrokenTotal;
+        if (custodyAdded !== 0) {
+          customerUpdateData.cachedBottleBalance = { decrement: custodyAdded };
+        }
+      }
+
+      if (Object.keys(customerUpdateData).length > 0) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: order.customerId },
+          data: customerUpdateData
+        });
+      }
+    } else {
+      // Order was NOT delivered, but check if security deposit was applied in advance
+      const depositPaid = order.payments?.filter(p => p.type === 'SECURITY_DEPOSIT').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
+      if (depositPaid > 0) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: order.customerId },
+          data: { deposit: { increment: depositPaid } }
+        });
+      }
+    }
+
+    // 2. Delete all related transactions & child records cleanly
+    await tx[`${prefix}BottleTransaction`].deleteMany({
+      where: {
+        OR: [
+          { orderId: id },
+          { reason: { contains: id } }
+        ]
+      }
+    });
+
+    await tx[`${prefix}InventoryTransaction`].deleteMany({
+      where: { refType: 'ORDER', refId: id }
+    });
+
+    await tx[`${prefix}Delivery`].deleteMany({ where: { orderId: id } });
+    await tx[`${prefix}Payment`].deleteMany({ where: { orderId: id } });
+    await tx[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
+    await tx[`${prefix}Order`].delete({ where: { id } });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_DELETED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'OWNER',
+      details: `Order #${id.slice(0, 6).toUpperCase()} permanently deleted and all inventory/balance effects reversed by Owner`
+    });
+  }, { maxWait: 10000, timeout: 30000 });
 
   broadcastDashboardUpdate(prefix);
-  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: id });
-  return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
+  broadcastEvent(prefix, 'ORDER_UPDATED', { deletedOrderId: id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: order.customerId });
+  return sendSuccess(res, null, 200, { message: 'Order and associated records permanently deleted' });
 });

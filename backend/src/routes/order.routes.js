@@ -15,6 +15,6 @@ router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER
 router.put('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), updateOrder);
 router.post('/:id/deliver', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), deliverOrder);
 router.post('/:id/payment', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), recordOrderPayment);
-router.delete('/:id', requireRoles('OWNER'), deleteOrder);
+router.delete('/:id', requireRoles('OWNER', 'MARKETING_MANAGER'), deleteOrder);
 
 export default router;

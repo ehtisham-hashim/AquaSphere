@@ -331,4 +331,77 @@ export const uploadPaymentProof = asyncHandler(async (req, res) => {
     proofUrl: secure_url,
     publicId: public_id
   });
-});
+});
+
+/** Permanently deletes a vendor and reverses linked purchases/inventory (Owner only) */
+export const deleteVendor = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only the OWNER can delete vendor records');
+  }
+
+  const vendor = await prisma[`${prefix}Vendor`].findUnique({
+    where: { id },
+    include: {
+      purchases: { include: { items: true } },
+      payments: true,
+      ledgerEntries: true
+    }
+  });
+
+  if (!vendor) throw new ApiError(404, 'Vendor not found');
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Revert inventory additions for all purchases of this vendor
+    for (const p of vendor.purchases) {
+      const destination = (p.deliveredTo || 'FACTORY').toUpperCase();
+      for (const pItem of p.items) {
+        const updateData = { cachedQty: { decrement: pItem.quantity } };
+        if (destination === 'FACTORY') updateData.factoryQty = { decrement: pItem.quantity };
+        else if (destination === 'WAREHOUSE') updateData.warehouseQty = { decrement: pItem.quantity };
+
+        await tx[`${prefix}Item`].update({ where: { id: pItem.itemId }, data: updateData });
+
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: pItem.itemId,
+            quantity: pItem.quantity,
+            direction: 'OUT',
+            reason: 'VENDOR_DELETED_PURCHASE_REVERSAL',
+            refType: 'PURCHASE',
+            refId: p.id
+          }
+        });
+      }
+
+      await tx[`${prefix}PurchaseItem`].deleteMany({ where: { purchaseId: p.id } });
+    }
+
+    // 2. Delete vendor ledger entries
+    await tx[`${prefix}VendorLedgerEntry`].deleteMany({ where: { vendorId: id } });
+
+    // 3. Delete vendor payments
+    await tx[`${prefix}VendorPayment`].deleteMany({ where: { vendorId: id } });
+
+    // 4. Delete vendor purchases
+    await tx[`${prefix}Purchase`].deleteMany({ where: { vendorId: id } });
+
+    // 5. Delete vendor
+    await tx[`${prefix}Vendor`].delete({ where: { id } });
+
+    await createAuditLog(prefix, {
+      action: 'VENDOR_DELETED',
+      entityType: 'VENDOR',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'OWNER',
+      details: `Vendor "${vendor.name}" (${vendor.phone}) and all linked purchases/ledger entries deleted by Owner`
+    });
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastEvent(prefix, 'VENDOR_UPDATED', { deletedVendorId: id });
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+  return sendSuccess(res, null, 200, { message: `Vendor "${vendor.name}" and associated records deleted successfully` });
+});
+

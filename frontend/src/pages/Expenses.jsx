@@ -5,6 +5,8 @@ import {
   ExpensesTable, 
   LogExpenseModal 
 } from '../components/expenses';
+import { DeleteConfirmationModal } from '../components/ui';
+import { toast } from 'sonner';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +24,11 @@ export default function Expenses() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const hasLoadedRef = useRef(false);
+
+  const canDeleteExpense = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT' || user?.role === 'TRANSPORT_MANAGER';
 
   const fetchExpenses = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) setLoading(true);
@@ -90,6 +96,31 @@ export default function Expenses() {
     document.body.removeChild(link);
   };
 
+  const handleConfirmDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API}/expenses/${expenseToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.data?.message || 'Expense deleted successfully');
+        setExpenseToDelete(null);
+        fetchExpenses();
+      } else {
+        toast.error(data.message || 'Failed to delete expense');
+      }
+    } catch (err) {
+      console.error('Failed to delete expense:', err);
+      toast.error('Failed to delete expense');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <ExpensesHeader 
@@ -115,6 +146,8 @@ export default function Expenses() {
         search={search}
         setSearch={setSearch}
         userName={user?.name}
+        onDeleteExpense={setExpenseToDelete}
+        canDelete={canDeleteExpense}
       />
 
       <LogExpenseModal 
@@ -125,6 +158,20 @@ export default function Expenses() {
           fetchExpenses();
         }}
         tenant={tenant}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!expenseToDelete}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={handleConfirmDeleteExpense}
+        loading={isDeleting}
+        title="Delete Expense"
+        message={
+          expenseToDelete?.isPurchase
+            ? `Are you sure you want to delete raw material purchase expense "${expenseToDelete?.remarks || 'Purchase'}"? This will reverse factory/warehouse raw material inventory and remove related vendor ledger entries.`
+            : `Are you sure you want to delete this expense of Rs. ${Math.round(Number(expenseToDelete?.amount || 0)).toLocaleString()} (${expenseToDelete?.category})?`
+        }
+        confirmText="Delete Expense"
       />
     </div>
   );

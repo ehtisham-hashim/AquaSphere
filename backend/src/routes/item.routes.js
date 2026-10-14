@@ -13,7 +13,8 @@ import {
   transferStock,
   reconcileInventory,
   updateItemPrice,
-  updateItemPricingBatch
+  updateItemPricingBatch,
+  deleteItem
 } from '../controllers/item.controller.js';
 
 const router = Router();
@@ -42,5 +43,8 @@ router.post('/:id/reconcile', requireRoles('OWNER'), reconcileInventory);
 // Archiving & restoring items remain restricted to OWNER only
 router.patch('/:id/archive', requireRoles('OWNER'), archiveItem);
 router.patch('/:id/restore', requireRoles('OWNER'), restoreItem);
+
+// Permanently delete item (OWNER only)
+router.delete('/:id', requireRoles('OWNER'), deleteItem);
 
 export default router;

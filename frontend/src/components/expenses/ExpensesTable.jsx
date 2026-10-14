@@ -1,4 +1,4 @@
-import { Search, Loader2, Calendar, CheckCircle, AlertCircle, UserCheck, Car } from 'lucide-react';
+import { Search, Loader2, Calendar, CheckCircle, AlertCircle, UserCheck, Car, Trash2 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, getExpenseCategoryColor } from '../../constants/expenses';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
@@ -12,7 +12,9 @@ export default function ExpensesTable({
   search = '',
   setSearch,
   userName = '',
-  categories = EXPENSE_CATEGORIES
+  categories = EXPENSE_CATEGORIES,
+  onDeleteExpense,
+  canDelete = false
 }) {
   const { isWadaana } = useTenant();
   const pagination = usePagination(filteredExpenses, 50, search);
@@ -70,12 +72,13 @@ export default function ExpensesTable({
                 <th className="table-th">Description</th>
                 <th className="table-th text-center">Receipt Status</th>
                 <th className="table-th">Created By</th>
+                {canDelete && <th className="table-th text-center">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="p-10 text-center text-slate-400">
+                  <td colSpan={canDelete ? 7 : 6} className="p-10 text-center text-slate-400">
                     <Loader2 className={`w-6 h-6 animate-spin mx-auto mb-2 ${isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'}`} />
                     Loading expenses...
                   </td>
@@ -133,12 +136,24 @@ export default function ExpensesTable({
                       {ex.createdBy?.name || userName || 'System'}
                     </div>
                   </td>
+
+                  {canDelete && (
+                    <td className="table-td text-center">
+                      <button
+                        onClick={() => onDeleteExpense(ex)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        title="Delete Expense"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
 
               {!loading && filteredExpenses.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="p-10 text-center text-slate-400 text-sm">
+                  <td colSpan={canDelete ? 7 : 6} className="p-10 text-center text-slate-400 text-sm">
                     No matching expense logs found.
                   </td>
                 </tr>

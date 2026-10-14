@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
 import { TableSkeleton } from '../components/common/Skeleton';
-import { PageHeader } from '../components/ui';
+import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 import { API_URL } from '../utils/api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +21,7 @@ export default function Customers() {
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const debounceTimerRef = useRef(null);
 
@@ -91,6 +92,27 @@ export default function Customers() {
       handleRestoreCustomer(customer);
     } else {
       setSelectedCustomer(customer);
+    }
+  };
+
+  const handleConfirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    try {
+      const res = await fetch(`${API_URL}/customers/${customerToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Customer "${customerToDelete.name}" permanently deleted`);
+        fetchCustomers(search, activeTab);
+        setCustomerToDelete(null);
+      } else {
+        toast.error(json.message || 'Failed to delete customer');
+      }
+    } catch (_err) {
+      toast.error('Error deleting customer');
     }
   };
 
@@ -177,6 +199,7 @@ export default function Customers() {
               customers={customers}
               isLoading={isLoading}
               onRowClick={handleRowClick}
+              onDeleteCustomer={setCustomerToDelete}
             />
           )}
         </>
@@ -189,6 +212,17 @@ export default function Customers() {
           onCustomerAdded={() => fetchCustomers(search, activeTab)} 
         />
       )}
+
+      {/* Delete Confirmation Modal for Customer */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(customerToDelete)}
+        title={`Delete Customer: ${customerToDelete?.name || ''}`}
+        message={`Are you sure you want to permanently delete customer "${customerToDelete?.name}"? This will permanently remove the customer and all associated test orders, payments, and transactions.`}
+        confirmText="Delete Customer"
+        onConfirm={handleConfirmDeleteCustomer}
+        onClose={() => setCustomerToDelete(null)}
+      />
     </div>
   );
 }
+

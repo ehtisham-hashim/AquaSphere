@@ -8,7 +8,7 @@ import { useLiveEvent } from '../context/SSEContext';
 import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
 import VendorDetailModal from '../components/vendors/VendorDetailModal';
-import { PageHeader } from '../components/ui';
+import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 
 export default function Vendors() {
   const { user } = useAuth();
@@ -20,8 +20,11 @@ export default function Vendors() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
+  const [vendorToDelete, setVendorToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const isOwnerOrAccountant = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT';
+  const isOwner = user?.role === 'OWNER';
+  const isOwnerOrAccountant = isOwner || user?.role === 'ACCOUNTANT';
   const isAdmin = user?.role === 'ADMIN';
   const canAddEdit = isOwnerOrAccountant || isAdmin;
   const canPayOrArchive = isOwnerOrAccountant || isAdmin;
@@ -176,6 +179,34 @@ export default function Vendors() {
     }
   };
 
+  const handleConfirmDeleteVendor = async () => {
+    if (!vendorToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/vendors/${vendorToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Vendor "${vendorToDelete.name}" deleted successfully`);
+        setVendorToDelete(null);
+        if (selectedVendorDetail?.id === vendorToDelete.id) {
+          setSelectedVendorDetail(null);
+        }
+        fetchVendors();
+      } else {
+        toast.error(data.message || 'Failed to delete vendor');
+      }
+    } catch (err) {
+      console.error('Failed to delete vendor:', err);
+      toast.error('Failed to delete vendor');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredVendors = vendors.filter(v =>
     v.name.toLowerCase().includes(search.toLowerCase()) ||
     (v.phone && v.phone.includes(search))
@@ -234,6 +265,8 @@ export default function Vendors() {
         onView={handleViewDetails}
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
+        onDeleteVendor={setVendorToDelete}
+        isOwner={isOwner}
       />
 
       {/* Add / Edit Vendor Modal */}
@@ -252,6 +285,18 @@ export default function Vendors() {
         selectedVendorDetail={selectedVendorDetail}
         onClose={() => setSelectedVendorDetail(null)}
         canPayOrArchive={canPayOrArchive}
+        onDeleteVendor={setVendorToDelete}
+        isOwner={isOwner}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!vendorToDelete}
+        onClose={() => setVendorToDelete(null)}
+        onConfirm={handleConfirmDeleteVendor}
+        loading={isDeleting}
+        title="Delete Vendor"
+        message={`Are you sure you want to permanently delete vendor "${vendorToDelete?.name}"? All associated purchases, ledger entries, and vendor payments will be permanently removed, and inventory increments will be reversed.`}
+        confirmText="Delete Vendor"
       />
     </div>
   );

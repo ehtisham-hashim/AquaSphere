@@ -18,7 +18,7 @@ export default function TransportExpensesTable({
 }) {
   const { user } = useAuth();
   const { isWadaana } = useTenant();
-  const canDelete = user?.role === 'TRANSPORT_MANAGER';
+  const canDelete = user?.role === 'OWNER' || user?.role === 'TRANSPORT_MANAGER';
   const pagination = usePagination(expenses || [], 50, search);
 
   const expenseTypes = ['ALL', 'DAILY', 'REPAIRS', 'OTHER'];

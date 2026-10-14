@@ -6,6 +6,7 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import { broadcastDashboardUpdate } from './analytics.controller.js';
 
 export const sanitizeGoogleMapsUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
@@ -217,33 +218,133 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   return sendSuccess(res, customer);
 });
 
-/** Soft deletes a customer */
+/** Deletes a customer permanently (cascading child data) or archives if requested */
 export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
+  const isArchiveOnly = req.query.archive === 'true';
 
   if (req.user?.role !== 'OWNER') {
     throw new ApiError(403, 'Only Owner can delete customer records (Anti-Corruption Feature)');
   }
 
-  const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id } });
+  const customer = await prisma[`${prefix}Customer`].findUnique({
+    where: { id },
+    include: {
+      orders: {
+        include: {
+          items: { include: { item: true } },
+          deliveries: true,
+          payments: true
+        }
+      },
+      spotSales: {
+        include: { items: true }
+      }
+    }
+  });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
-  await prisma[`${prefix}Customer`].update({
-    where: { id },
-    data: { archivedAt: new Date(), phone: `${customer.phone}_archived_${Date.now()}` }
-  });
+  if (isArchiveOnly) {
+    await prisma[`${prefix}Customer`].update({
+      where: { id },
+      data: { archivedAt: new Date(), phone: `${customer.phone}_archived_${Date.now()}` }
+    });
 
-  await createAuditLog(prefix, {
-    action: 'CUSTOMER_DELETED',
-    entityType: 'Customer',
-    entityId: id,
-    performedBy: req.user?.name || req.user?.id || 'Admin',
-    details: `Customer ${customer.name} (${customer.phone}) soft deleted`
-  });
+    await createAuditLog(prefix, {
+      action: 'CUSTOMER_ARCHIVED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Admin',
+      details: `Customer ${customer.name} (${customer.phone}) soft-archived`
+    });
 
-  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: id });
-  return sendSuccess(res, null, 200, { message: 'Customer deleted successfully' });
+    broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: id });
+    return sendSuccess(res, null, 200, { message: 'Customer archived successfully' });
+  }
+
+  // Permanent Deletion: Cleanly cascade all relations so foreign key constraints never fail
+  await prisma.$transaction(async (tx) => {
+    // 1. Revert & clean up all customer orders
+    for (const ord of customer.orders) {
+      if (ord.deliveryStatus === 'DELIVERED') {
+        for (const item of ord.items) {
+          if (item.itemId) {
+            const packMultiplier = Number(item.item?.packSize || 1);
+            const qtyToRestore = Number(item.quantity || 0) * packMultiplier;
+            await tx[`${prefix}Item`].update({
+              where: { id: item.itemId },
+              data: { cachedQty: { increment: qtyToRestore }, factoryQty: { increment: qtyToRestore } }
+            });
+            await tx[`${prefix}InventoryTransaction`].create({
+              data: {
+                itemId: item.itemId,
+                quantity: qtyToRestore,
+                direction: 'IN',
+                reason: 'CUSTOMER_DELETED_STOCK_RESTORE',
+                refType: 'ORDER',
+                refId: ord.id,
+                location: 'FACTORY'
+              }
+            });
+          }
+        }
+
+        const retGoodTotal = ord.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0), 0) || 0;
+        if (retGoodTotal > 0) {
+          const emptyBottle = await tx[`${prefix}Item`].findFirst({
+            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+          });
+          if (emptyBottle) {
+            await tx[`${prefix}Item`].update({
+              where: { id: emptyBottle.id },
+              data: { cachedQty: { decrement: retGoodTotal }, factoryQty: { decrement: retGoodTotal } }
+            });
+          }
+        }
+      }
+
+      await tx[`${prefix}BottleTransaction`].deleteMany({
+        where: { OR: [{ orderId: ord.id }, { reason: { contains: ord.id } }] }
+      });
+      await tx[`${prefix}InventoryTransaction`].deleteMany({
+        where: { refType: 'ORDER', refId: ord.id }
+      });
+      await tx[`${prefix}Delivery`].deleteMany({ where: { orderId: ord.id } });
+      await tx[`${prefix}Payment`].deleteMany({ where: { orderId: ord.id } });
+      await tx[`${prefix}OrderItem`].deleteMany({ where: { orderId: ord.id } });
+      await tx[`${prefix}Order`].delete({ where: { id: ord.id } });
+    }
+
+    // 2. Clean up bottle transactions for this customer
+    await tx[`${prefix}BottleTransaction`].deleteMany({ where: { customerId: id } });
+
+    // 3. Clean up payments for this customer
+    await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
+
+    // 4. Clean up spot sales for this customer
+    for (const ss of customer.spotSales) {
+      await tx[`${prefix}SpotSaleItem`].deleteMany({ where: { spotSaleId: ss.id } });
+      await tx[`${prefix}SpotSale`].delete({ where: { id: ss.id } });
+    }
+
+    // 5. Delete Customer record
+    await tx[`${prefix}Customer`].delete({ where: { id } });
+
+    await createAuditLog(prefix, {
+      action: 'CUSTOMER_DELETED',
+      entityType: 'Customer',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'OWNER',
+      details: `Customer ${customer.name} (${customer.phone}) and all associated orders/payments permanently deleted`
+    });
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { deletedCustomerId: id });
+  broadcastEvent(prefix, 'ORDER_UPDATED');
+  broadcastEvent(prefix, 'INVENTORY_CHANGED');
+  return sendSuccess(res, null, 200, { message: 'Customer and all associated records permanently deleted successfully' });
 });
 
 /** Restores an archived customer */

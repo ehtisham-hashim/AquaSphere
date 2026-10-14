@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { X, Calendar, FileText, ShoppingCart, Receipt } from 'lucide-react';
+import { X, Calendar, FileText, ShoppingCart, Receipt, Trash2 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
 export default function VendorDetailModal({
   selectedVendorDetail,
-  onClose
+  onClose,
+  onDeleteVendor,
+  isOwner = false
 }) {
   const [profileTab, setProfileTab] = useState('ledger');
 
@@ -253,7 +255,19 @@ export default function VendorDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 border-t border-slate-100 px-6 py-3 flex justify-end shrink-0">
+        <div className="bg-slate-50 border-t border-slate-100 px-6 py-3 flex justify-between items-center shrink-0">
+          {isOwner && onDeleteVendor ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onDeleteVendor(selectedVendorDetail);
+              }}
+              className="btn-danger text-xs py-2 px-3 flex items-center gap-1.5"
+            >
+              <Trash2 size={13} /> Delete Vendor
+            </button>
+          ) : <div />}
           <button onClick={onClose} className="btn-secondary">
             Close Profile
           </button>

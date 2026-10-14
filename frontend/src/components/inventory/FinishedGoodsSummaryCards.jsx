@@ -1,6 +1,9 @@
-import { Warehouse, Factory } from 'lucide-react';
+import { Warehouse, Factory, Trash2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-export default function FinishedGoodsSummaryCards({ items = [], onEditItem = null }) {
+export default function FinishedGoodsSummaryCards({ items = [], onEditItem = null, onDeleteItem = null }) {
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
   const fgList = items.filter(i => i.type === 'FINISHED_GOOD' || !i.type);
 
   const getBadge = (qty, reorder = 20) => {
@@ -52,21 +55,36 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
               </div>
 
               <div className="flex flex-col items-end gap-1">
-                <button
-                  type="button"
-                  onClick={() => onEditItem && onEditItem(item)}
-                  disabled={!onEditItem}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase border transition ${
-                    onEditItem ? 'hover:scale-105 cursor-pointer' : ''
-                  } ${
-                    status.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                    status.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  }`}
-                  title={onEditItem ? 'Click to edit item' : undefined}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
-                  {status.label}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onEditItem && onEditItem(item)}
+                    disabled={!onEditItem}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold uppercase border transition ${
+                      onEditItem ? 'hover:scale-105 cursor-pointer' : ''
+                    } ${
+                      status.label === 'Out of Stock' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      status.label === 'Low Stock' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                    title={onEditItem ? 'Click to edit item' : undefined}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
+                    {status.label}
+                  </button>
+                  {isOwner && onDeleteItem && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteItem(item);
+                      }}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Delete Finished Good (Owner Only)"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
                 <span className="text-[10px] text-slate-400 font-medium">
                   Alert: {formatQty(reorder, packSize, unit)}
                 </span>

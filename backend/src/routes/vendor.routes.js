@@ -10,7 +10,8 @@ import {
   archiveVendor,
   restoreVendor,
   recordVendorPayment,
-  uploadPaymentProof
+  uploadPaymentProof,
+  deleteVendor
 } from '../controllers/vendor.controller.js';
 
 const router = Router();
@@ -30,5 +31,8 @@ router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'
 router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), recordVendorPayment);
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), archiveVendor);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), restoreVendor);
+
+// Delete Vendor: strictly OWNER only
+router.delete('/:id', requireRoles('OWNER'), deleteVendor);
 
 export default router;

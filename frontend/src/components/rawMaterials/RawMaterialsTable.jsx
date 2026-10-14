@@ -1,4 +1,4 @@
-import { Package, Edit2, Archive, RefreshCw, AlertTriangle, CheckCircle2, Flame } from 'lucide-react';
+import { Package, Edit2, Archive, RefreshCw, AlertTriangle, CheckCircle2, Flame, Trash2 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
@@ -7,12 +7,14 @@ export default function RawMaterialsTable({
   isLoading = false, 
   onEdit, 
   onToggleArchive, 
+  onDelete,
+  isOwner = false,
   tenant = 'aquasphere',
   isReadOnly = false,
   canArchive = false
 }) {
   const isWadaana = tenant === 'wadaana';
-  const showActions = !isReadOnly || canArchive;
+  const showActions = !isReadOnly || canArchive || (isOwner && !!onDelete);
   const pagination = usePagination(materials || [], 50);
 
   const getBadge = (name) => {
@@ -152,6 +154,15 @@ export default function RawMaterialsTable({
                               title={m.archivedAt ? 'Restore Material (Owner Only)' : 'Archive Material (Owner Only)'}
                             >
                               {m.archivedAt ? <RefreshCw size={13} /> : <Archive size={13} />}
+                            </button>
+                          )}
+                          {isOwner && onDelete && (
+                            <button
+                              onClick={() => onDelete(m)}
+                              className="p-1.5 rounded-lg border text-xs transition bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
+                              title="Delete Material (Owner Only)"
+                            >
+                              <Trash2 size={13} />
                             </button>
                           )}
                         </div>

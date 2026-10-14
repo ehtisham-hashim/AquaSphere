@@ -11,13 +11,15 @@ import { useTenant } from '../context/TenantContext';
 import { API_URL as API } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useLiveEvent } from '../context/SSEContext';
+import { DeleteConfirmationModal } from '../components/ui';
 
 export default function Inventory() {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
+  const isOwner = user?.role === 'OWNER';
 
-  const canTransferStock = user?.role === 'OWNER' || user?.role === 'PRODUCTION_MANAGER';
-  const canAddFinishedGood = user?.role === 'OWNER' || user?.role === 'ADMIN';
+  const canTransferStock = isOwner || user?.role === 'PRODUCTION_MANAGER';
+  const canAddFinishedGood = isOwner || user?.role === 'ADMIN';
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -26,6 +28,7 @@ export default function Inventory() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
+  const [itemToDelete, setItemToDelete] = useState(null);
   const hasLoadedRef = useRef(false);
 
   const fetchInventoryData = useCallback(async (isBackground = false) => {
@@ -82,6 +85,27 @@ export default function Inventory() {
   const negativeStockItems = items.filter(i => Number(i.cachedQty || 0) < 0);
   const hasNegativeStock = negativeStockItems.length > 0;
 
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+    try {
+      const res = await fetch(`${API}/items/${itemToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Finished good "${itemToDelete.name}" permanently deleted`);
+        fetchInventoryData();
+        setItemToDelete(null);
+      } else {
+        toast.error(json.message || 'Failed to delete item');
+      }
+    } catch (_err) {
+      toast.error('Error deleting item');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Module 1: Inventory Header */}
@@ -129,6 +153,7 @@ export default function Inventory() {
           setItemToEdit(item);
           setIsAddModalOpen(true);
         } : null}
+        onDeleteItem={isOwner ? setItemToDelete : null}
       />
 
       {/* Module 4: Audit Ledger & Transaction History Table */}
@@ -163,8 +188,20 @@ export default function Inventory() {
           }}
           onSaved={fetchInventoryData}
           tenant={tenant}
+          onDeleteItem={isOwner ? setItemToDelete : null}
         />
       )}
+
+      {/* Delete Confirmation Modal for Finished Goods */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(itemToDelete)}
+        title={`Delete Finished Good: ${itemToDelete?.name || ''}`}
+        message={`Are you sure you want to permanently delete finished good "${itemToDelete?.name}"? This will remove the item, its recipe configuration, and associated inventory logs.`}
+        confirmText="Delete Finished Good"
+        onConfirm={handleConfirmDeleteItem}
+        onClose={() => setItemToDelete(null)}
+      />
     </div>
   );
 }
+

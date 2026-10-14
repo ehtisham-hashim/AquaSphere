@@ -5,6 +5,7 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import { broadcastDashboardUpdate } from './analytics.controller.js';
 
 /** Retrieves catalog items with recipe relations */
 export const getItems = asyncHandler(async (req, res) => {
@@ -601,5 +602,81 @@ export const updateItemPricingBatch = asyncHandler(async (req, res) => {
   broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, updatedItems, 200, { message: `${updatedItems.length} product prices updated successfully` });
 });
+
+/** Permanently deletes an item and cleanly cascades relations (Owner only) */
+export const deleteItem = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const prefix = getTenantPrefix(req);
+
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only the OWNER can permanently delete items');
+  }
+
+  const item = await prisma[`${prefix}Item`].findUnique({
+    where: { id }
+  });
+
+  if (!item) throw new ApiError(404, 'Item not found');
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Delete recipe entries where this is finished good or raw material
+    await tx[`${prefix}RecipeItem`].deleteMany({
+      where: { OR: [{ finishedGoodId: id }, { rawMaterialId: id }] }
+    });
+
+    // 2. Clean up inventory transactions
+    await tx[`${prefix}InventoryTransaction`].deleteMany({
+      where: { itemId: id }
+    });
+
+    // 3. Clean up batch consumptions
+    await tx[`${prefix}ProductionBatchConsumption`].deleteMany({
+      where: { itemId: id }
+    });
+
+    // 4. Nullify batch output/input references so production batch records remain intact
+    await tx[`${prefix}ProductionBatch`].updateMany({
+      where: { outputItemId: id },
+      data: { outputItemId: null }
+    });
+    await tx[`${prefix}ProductionBatch`].updateMany({
+      where: { inputItemId: id },
+      data: { inputItemId: null }
+    });
+
+    // 5. Clean up spot sale items
+    await tx[`${prefix}SpotSaleItem`].deleteMany({
+      where: { itemId: id }
+    });
+
+    // 6. Clean up purchase items
+    await tx[`${prefix}PurchaseItem`].deleteMany({
+      where: { itemId: id }
+    });
+
+    // 7. Clean up order items
+    await tx[`${prefix}OrderItem`].deleteMany({
+      where: { itemId: id }
+    });
+
+    // 8. Delete the item
+    await tx[`${prefix}Item`].delete({
+      where: { id }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'ITEM_DELETED',
+      entityType: 'ITEM',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'OWNER',
+      details: `Item "${item.name}" (${item.type}) permanently deleted with associated transactions by Owner`
+    });
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastEvent(prefix, 'INVENTORY_CHANGED', { deletedItemId: id });
+  broadcastDashboardUpdate(prefix);
+  return sendSuccess(res, null, 200, { message: `Item "${item.name}" permanently deleted successfully` });
+});
+
 
 

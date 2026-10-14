@@ -312,10 +312,72 @@ export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   return sendSuccess(res, { receiptUrl: secure_url }, 200, { receiptUrl: secure_url });
 });
 
-/** Deletes an expense record */
+/** Deletes an expense record (or purchase-derived expense) */
 export const deleteExpense = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
+  const isOwner = req.user?.role === 'OWNER';
+
+  // Handle purchase-derived expense (e.g. id = "pur_uuid")
+  if (id.startsWith('pur_')) {
+    const purchaseId = id.replace('pur_', '');
+    const purchase = await prisma[`${prefix}Purchase`].findUnique({
+      where: { id: purchaseId },
+      include: { items: true }
+    });
+
+    if (purchase) {
+      if (!isOwner && req.user?.role !== 'ACCOUNTANT') {
+        throw new ApiError(403, 'Only Owner or Accountant can delete purchase expenses');
+      }
+
+      const destination = (purchase.deliveredTo || 'FACTORY').toUpperCase();
+      await prisma.$transaction(async (tx) => {
+        for (const pItem of purchase.items) {
+          const updateData = { cachedQty: { decrement: pItem.quantity } };
+          if (destination === 'FACTORY') updateData.factoryQty = { decrement: pItem.quantity };
+          else if (destination === 'WAREHOUSE') updateData.warehouseQty = { decrement: pItem.quantity };
+
+          await tx[`${prefix}Item`].update({ where: { id: pItem.itemId }, data: updateData });
+
+          await tx[`${prefix}InventoryTransaction`].create({
+            data: {
+              itemId: pItem.itemId,
+              quantity: pItem.quantity,
+              direction: 'OUT',
+              reason: 'PURCHASE_DELETED_REVERSAL',
+              refType: 'PURCHASE',
+              refId: purchase.id
+            }
+          });
+        }
+
+        await tx[`${prefix}VendorLedgerEntry`].deleteMany({ where: { purchaseId: purchase.id } });
+        if (purchase.invoiceNo) {
+          await tx[`${prefix}VendorPayment`].deleteMany({
+            where: { vendorId: purchase.vendorId, referenceNo: purchase.invoiceNo }
+          });
+        }
+
+        await tx[`${prefix}PurchaseItem`].deleteMany({ where: { purchaseId: purchase.id } });
+        await tx[`${prefix}Purchase`].delete({ where: { id: purchase.id } });
+
+        await createAuditLog(prefix, {
+          action: 'PURCHASE_DELETED_VIA_EXPENSES',
+          entityType: 'PURCHASE',
+          entityId: purchaseId,
+          performedBy: req.user?.name || req.user?.id || 'OWNER',
+          details: `Raw material purchase #${purchase.invoiceNo || purchaseId.slice(0, 8)} deleted via expenses ledger`
+        });
+      }, { maxWait: 10000, timeout: 30000 });
+
+      broadcastEvent(prefix, 'PURCHASE_CREATED', { deletedPurchaseId: purchaseId });
+      broadcastEvent(prefix, 'EXPENSE_LOGGED', { deletedExpenseId: id });
+      broadcastEvent(prefix, 'INVENTORY_CHANGED');
+      broadcastDashboardUpdate(prefix);
+      return sendSuccess(res, { message: 'Raw material purchase expense and inventory reversed successfully' }, 200);
+    }
+  }
 
   const existing = await prisma[`${prefix}Expense`].findUnique({
     where: { id }
@@ -362,3 +424,4 @@ export const deleteExpense = asyncHandler(async (req, res) => {
 
   throw new ApiError(404, 'Expense not found');
 });
+

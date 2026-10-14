@@ -1,4 +1,4 @@
-import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, Eye, Loader2 } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, Eye, Loader2, Trash2 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
@@ -9,7 +9,9 @@ export default function VendorTable({
   canPayOrArchive,
   onView,
   onEdit,
-  onToggleArchive
+  onToggleArchive,
+  onDeleteVendor,
+  isOwner = false
 }) {
   const pagination = usePagination(vendors || [], 50);
 
@@ -131,6 +133,16 @@ export default function VendorTable({
                         title={v.archivedAt ? 'Restore Vendor' : 'Archive Vendor'}
                       >
                         {v.archivedAt ? <RefreshCw size={14} /> : <Archive size={14} />}
+                      </button>
+                    )}
+
+                    {isOwner && onDeleteVendor && (
+                      <button
+                        onClick={() => onDeleteVendor(v)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        title="Delete Vendor (Owner Only)"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     )}
                   </div>
