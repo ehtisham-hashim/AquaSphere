@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { 
   Search, 
   Calendar, 
@@ -8,8 +9,13 @@ import {
   Eye,
   Droplets,
   Package,
-  Shield
+  Shield,
+  Camera,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { API_URL } from '../../utils/api';
+import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { TimeframeDropdown } from '../ui';
@@ -100,9 +106,55 @@ export default function CounterSalesHistoryTable({
   isDateClosed,
   isOwner,
   onPrintReceipt,
-  onDeleteSale
+  onDeleteSale,
+  onUpdateSale
 }) {
+  const { tenant } = useTenant();
+  const [uploadingSaleId, setUploadingSaleId] = useState(null);
   const pagination = usePagination(filteredSales, 50, search);
+
+  const handleRowUpload = async (e, sale) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Only JPG, PNG, and WEBP image files are supported.');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Image file must be under 15MB.');
+      return;
+    }
+
+    setUploadingSaleId(sale.id);
+    try {
+      const fd = new FormData();
+      fd.append('receipt', file);
+
+      const res = await fetch(`${API_URL}/spot-sales/upload-receipt`, {
+        method: 'POST',
+        headers: { 'x-tenant': tenant },
+        body: fd,
+        credentials: 'include'
+      });
+      const json = await res.json();
+      const uploadedUrl = json.data?.receiptUrl || json.receiptUrl;
+      if (!json.success || !uploadedUrl) {
+        toast.error(json.message || 'Failed to upload ledger photo');
+        return;
+      }
+
+      if (onUpdateSale) {
+        await onUpdateSale(sale.id, { receiptUrl: uploadedUrl });
+        toast.success(`Ledger picture attached to sale #${sale.saleNumber || sale.id}!`);
+      }
+    } catch {
+      toast.error('Error attaching ledger photo');
+    } finally {
+      setUploadingSaleId(null);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -138,6 +190,7 @@ export default function CounterSalesHistoryTable({
                 <th className="table-th">Items Sold</th>
                 <th className="table-th">Total & Paid</th>
                 <th className="table-th">Payment</th>
+                <th className="table-th text-center">Ledger Pic</th>
                 <th className="table-th">Cashier</th>
                 <th className="table-th text-right">Actions</th>
               </tr>
@@ -172,6 +225,9 @@ export default function CounterSalesHistoryTable({
                     <td className="table-td">
                       <div className="h-5 bg-slate-200 rounded-full w-14"></div>
                     </td>
+                    <td className="table-td text-center">
+                      <div className="h-5 bg-slate-200 rounded w-16 mx-auto"></div>
+                    </td>
                     <td className="table-td">
                       <div className="h-3.5 bg-slate-200 rounded w-16 mb-1"></div>
                       <div className="h-2.5 bg-slate-200 rounded w-10"></div>
@@ -183,7 +239,7 @@ export default function CounterSalesHistoryTable({
                 ))
               ) : filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center text-slate-500">
+                  <td colSpan="8" className="p-12 text-center text-slate-500">
                     <div className="max-w-md mx-auto flex flex-col items-center">
                       <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
                         <ShoppingBag size={24} />
@@ -307,6 +363,52 @@ export default function CounterSalesHistoryTable({
                       {/* Clean Payment Badge */}
                       <td className="table-td">
                         {getPaymentBadge(paid, debt)}
+                      </td>
+
+                      {/* Physical Ledger Pic */}
+                      <td className="table-td text-center">
+                        {sale.receiptUrl ? (
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <img
+                              src={sale.receiptUrl}
+                              alt="Ledger"
+                              onClick={() => window.open(sale.receiptUrl, '_blank')}
+                              className="w-7 h-7 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition shrink-0"
+                              title="Click to view full image"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => window.open(sale.receiptUrl, '_blank')}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                              title="View paper ledger picture"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center justify-center">
+                            <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-50 text-slate-500 border border-dashed border-slate-300 hover:bg-brand/5 hover:text-brand hover:border-brand/40 transition cursor-pointer select-none">
+                              {uploadingSaleId === sale.id ? (
+                                <>
+                                  <Loader2 size={11} className="animate-spin text-brand" />
+                                  <span>Uploading...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Camera size={11} className="text-slate-400" />
+                                  <span>+ Attach</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingSaleId === sale.id}
+                                    onChange={(e) => handleRowUpload(e, sale)}
+                                  />
+                                </>
+                              )}
+                            </label>
+                          </div>
+                        )}
                       </td>
 
                       {/* Cashier / Operator */}

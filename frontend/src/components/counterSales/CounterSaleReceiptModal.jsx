@@ -320,6 +320,33 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           </div>
         </div>
 
+        {/* Attached Physical Ledger Photo (Night Entry Verification) */}
+        {receiptSale.receiptUrl && (
+          <div className="mx-4 my-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img 
+                src={receiptSale.receiptUrl} 
+                alt="Physical Ledger" 
+                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 cursor-pointer hover:opacity-90 transition"
+                onClick={() => window.open(receiptSale.receiptUrl, '_blank')}
+                title="Click to view full photo"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800">Physical Paper Ledger Photo</p>
+                <p className="text-[10px] text-slate-500">Night entry verification slip attached</p>
+              </div>
+            </div>
+            <a
+              href={receiptSale.receiptUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-brand/30 text-brand bg-white hover:bg-brand/5 transition shrink-0"
+            >
+              View Full Photo
+            </a>
+          </div>
+        )}
+
         {/* Modal Actions */}
         <div className="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50 shrink-0 flex-wrap">
           <button

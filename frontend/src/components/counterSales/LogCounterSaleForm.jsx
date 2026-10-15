@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   DollarSign, 
   CheckCircle2, 
@@ -13,8 +13,12 @@ import {
   AlertCircle, 
   Package, 
   Droplets, 
-  Phone
+  Phone,
+  Camera
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { API_URL } from '../../utils/api';
+import { useTenant } from '../../context/TenantContext';
 import { PAYMENT_METHODS } from '../../constants/counterSale';
 
 const getPackSize = (item) => {
@@ -62,6 +66,53 @@ export default function LogCounterSaleForm({
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [customerId, setCustomerId] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  // Physical paper ledger / sheet photo upload
+  const { tenant } = useTenant();
+  const fileInputRef = useRef(null);
+  const [receiptUrl, setReceiptUrl] = useState(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+
+  const handleReceiptFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Only JPG, PNG, and WEBP image files are supported.');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Image file must be under 15MB.');
+      return;
+    }
+
+    setIsUploadingReceipt(true);
+    try {
+      const fd = new FormData();
+      fd.append('receipt', file);
+
+      const res = await fetch(`${API_URL}/spot-sales/upload-receipt`, {
+        method: 'POST',
+        headers: { 'x-tenant': tenant },
+        body: fd,
+        credentials: 'include'
+      });
+      const json = await res.json();
+      const uploadedUrl = json.data?.receiptUrl || json.receiptUrl;
+      if (json.success && uploadedUrl) {
+        setReceiptUrl(uploadedUrl);
+        toast.success('Ledger sheet photo attached!');
+      } else {
+        toast.error(json.message || 'Failed to upload ledger photo');
+      }
+    } catch {
+      toast.error('Network error uploading ledger photo');
+    } finally {
+      setIsUploadingReceipt(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Default refill price from catalog
   useEffect(() => {
@@ -378,6 +429,7 @@ export default function LogCounterSaleForm({
       paymentMethod,
       customerId: customerId || null,
       remarks,
+      receiptUrl: receiptUrl || null,
       allowNegativeStock: allowStockOverride
     });
 
@@ -390,6 +442,7 @@ export default function LogCounterSaleForm({
     setIsAmountPaidManual(false);
     setAllowStockOverride(false);
     setRemarks('');
+    setReceiptUrl(null);
   };
 
   return (
@@ -1043,6 +1096,78 @@ export default function LogCounterSaleForm({
                   placeholder="Optional..."
                 />
               </div>
+            </div>
+
+            {/* Physical Ledger / Sheet Photo Attachment */}
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <Camera size={13} className="text-brand" />
+                  <span>Physical Ledger Pic (Night Verification)</span>
+                </label>
+                {receiptUrl && (
+                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                    <CheckCircle2 size={11} /> Attached
+                  </span>
+                )}
+              </div>
+
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleReceiptFileChange} 
+                accept="image/*" 
+                className="hidden" 
+              />
+
+              {receiptUrl ? (
+                <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-md">
+                  <img 
+                    src={receiptUrl} 
+                    alt="Ledger Sheet" 
+                    className="w-12 h-12 object-cover rounded border border-slate-200 cursor-pointer hover:opacity-90 transition shrink-0"
+                    onClick={() => window.open(receiptUrl, '_blank')}
+                    title="Click to view full image"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-700 truncate">Ledger photo attached</p>
+                    <button
+                      type="button"
+                      onClick={() => window.open(receiptUrl, '_blank')}
+                      className="text-[10px] text-brand hover:underline font-semibold"
+                    >
+                      View Full Size
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptUrl(null)}
+                    className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0"
+                    title="Remove attached photo"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingReceipt}
+                  className="w-full py-2 px-3 border border-dashed border-slate-300 rounded-lg bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium flex items-center justify-center gap-2 transition hover:border-brand/60"
+                >
+                  {isUploadingReceipt ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin text-brand" />
+                      <span>Uploading ledger photo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={14} className="text-slate-400" />
+                      <span>Attach Ledger Sheet Photo</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Flexible Stock Override Confirmation Banner */}

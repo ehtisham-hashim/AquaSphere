@@ -564,6 +564,7 @@ model AquasphereSpotSale {
   debtAmount       Decimal                  @default(0.0) @map("debt_amount")
   paymentMethod    String                   @default("CASH") @map("payment_method")
   remarks          String?
+  receiptUrl       String?                  @map("receipt_url")
   customerId       String?                  @map("customer_id")
   customer         AquasphereCustomer?      @relation(fields: [customerId], references: [id])
   createdById      String?                  @map("created_by_id")
@@ -1222,6 +1223,7 @@ model WadaanaSpotSale {
   debtAmount       Decimal               @default(0.0) @map("debt_amount")
   paymentMethod    String                @default("CASH") @map("payment_method")
   remarks          String?
+  receiptUrl       String?               @map("receipt_url")
   customerId       String?               @map("customer_id")
   customer         WadaanaCustomer?      @relation(fields: [customerId], references: [id])
   createdById      String?               @map("created_by_id")

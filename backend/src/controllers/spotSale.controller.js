@@ -6,6 +6,7 @@ import { broadcastEvent } from '../utils/sseBus.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
+import { uploadImage } from '../utils/cloudinaryUpload.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
@@ -124,6 +125,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     paymentMethod = 'CASH',
     customerId,
     remarks,
+    receiptUrl,
     allowNegativeStock = false
   } = req.body;
 
@@ -492,6 +494,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         creditAmount: numericDebtAmount,
         paymentMethod: paymentMethod || 'CASH',
         remarks: remarks || null,
+        receiptUrl: receiptUrl || null,
         customerId: customerId || null,
         createdById: req.user?.id || null
       }
@@ -578,13 +581,14 @@ export const updateSpotSale = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'This sale date has been Daily Closed. Only Owner can modify records after Daily Close.');
   }
 
-  const { remarks, paymentMethod } = req.body;
+  const { remarks, paymentMethod, receiptUrl } = req.body;
 
   const updated = await prisma[`${prefix}SpotSale`].update({
     where: { id },
     data: {
       ...(remarks !== undefined && { remarks }),
-      ...(paymentMethod !== undefined && { paymentMethod })
+      ...(paymentMethod !== undefined && { paymentMethod }),
+      ...(receiptUrl !== undefined && { receiptUrl })
     },
     include: {
       customer: { select: { id: true, name: true, phone: true } },
@@ -734,5 +738,13 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
   broadcastEvent(prefix, 'COUNTER_SALE_CREATED', { saleId: id, deleted: true });
   broadcastEvent(prefix, 'INVENTORY_CHANGED');
   return sendSuccess(res, null, 200, { message: 'Counter sale deleted and inventory restored successfully.' });
+});
+
+/** Uploads a photo of the physical paper ledger or cash slip for verification */
+export const uploadSpotSaleReceipt = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, 'Receipt file is required');
+  const prefix = getTenantPrefix(req);
+  const { secure_url } = await uploadImage(req.file, `${prefix}/counter-sales`);
+  return sendSuccess(res, { receiptUrl: secure_url }, 200, { receiptUrl: secure_url });
 });
 

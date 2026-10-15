@@ -174,6 +174,31 @@ export default function CounterSales() {
     }
   };
 
+  const handleUpdateSale = async (id, updatePayload) => {
+    try {
+      const res = await fetch(`${API_URL}/spot-sales/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
+        body: JSON.stringify(updatePayload),
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.message || 'Failed to update sale');
+        return false;
+      }
+      setSales(prev => prev.map(s => s.id === id ? { ...s, ...json.data } : s));
+      clearCache('spot-sales');
+      return true;
+    } catch {
+      toast.error('Network error updating sale');
+      return false;
+    }
+  };
+
   const [dateFilter, setDateFilter] = useState('ALL');
 
   const filteredSales = useMemo(() => {
@@ -323,6 +348,7 @@ export default function CounterSales() {
           isOwner={isOwner}
           onPrintReceipt={setReceiptSale}
           onDeleteSale={handleDeleteSale}
+          onUpdateSale={handleUpdateSale}
           userName={user?.name}
         />
       </div>
