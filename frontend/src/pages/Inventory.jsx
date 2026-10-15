@@ -121,14 +121,6 @@ export default function Inventory() {
       });
     }
 
-    // 4. Inbound / Outbound to Top Sorting
-    if (selectedMovement === 'IN_FIRST') {
-      return [...list].sort((a, b) => (b.direction === 'IN' ? 1 : 0) - (a.direction === 'IN' ? 1 : 0) || new Date(b.createdAt) - new Date(a.createdAt));
-    }
-    if (selectedMovement === 'OUT_FIRST') {
-      return [...list].sort((a, b) => (b.direction === 'OUT' ? 1 : 0) - (a.direction === 'OUT' ? 1 : 0) || new Date(b.createdAt) - new Date(a.createdAt));
-    }
-
     return list;
   }, [transactions, selectedProduct, selectedMovement, selectedTimeframe]);
 

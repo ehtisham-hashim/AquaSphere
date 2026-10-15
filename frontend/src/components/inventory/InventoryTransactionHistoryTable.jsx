@@ -41,8 +41,6 @@ export default function InventoryTransactionHistoryTable({
               <option value="ALL">All Movements</option>
               <option value="IN">Inbound</option>
               <option value="OUT">Outbound</option>
-              <option value="IN_FIRST">Inbound to Top</option>
-              <option value="OUT_FIRST">Outbound to Top</option>
             </select>
           </div>
 
