@@ -356,16 +356,19 @@ export const adjustInventory = asyncHandler(async (req, res) => {
 /** Retrieves inventory ledger transactions */
 export const getInventoryTransactions = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { type, limit = 100 } = req.query;
+  const { type, direction, limit = 200 } = req.query;
 
-  const whereClause = type ? { item: { type } } : {};
+  const whereClause = {};
+  if (type) whereClause.item = { type };
+  if (direction) whereClause.direction = direction;
+
   const txns = await prisma[`${prefix}InventoryTransaction`].findMany({
     where: whereClause,
     include: {
-      item: { select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true } }
+      item: { select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true, packSize: true } }
     },
     orderBy: { createdAt: 'desc' },
-    take: parseInt(limit, 10) || 100
+    take: Math.min(parseInt(limit, 10) || 200, 1000)
   });
 
   return sendSuccess(res, txns);

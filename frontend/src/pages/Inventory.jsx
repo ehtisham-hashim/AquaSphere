@@ -25,6 +25,8 @@ export default function Inventory() {
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState('ALL');
+  const [selectedMovement, setSelectedMovement] = useState('ALL');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('ALL');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
@@ -41,7 +43,7 @@ export default function Inventory() {
           headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         }),
-        fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=150`, { 
+        fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=300`, { 
           headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         })
@@ -76,11 +78,59 @@ export default function Inventory() {
 
   useLiveEvent(['INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'PURCHASE_CREATED', 'COUNTER_SALE_CREATED'], () => fetchInventoryData(true));
 
-  // Filter transactions by selected finished good product
+  // Filter and sort transactions by selected product, movement, and timeframe
   const filteredTransactions = useMemo(() => {
-    if (!selectedProduct || selectedProduct === 'ALL') return transactions;
-    return transactions.filter(t => t.itemId === selectedProduct || t.item?.id === selectedProduct);
-  }, [transactions, selectedProduct]);
+    let list = transactions;
+
+    // 1. Product Filter
+    if (selectedProduct && selectedProduct !== 'ALL') {
+      list = list.filter(t => t.itemId === selectedProduct || t.item?.id === selectedProduct);
+    }
+
+    // 2. Movement Filter (Inbound / Outbound)
+    if (selectedMovement === 'IN') {
+      list = list.filter(t => t.direction === 'IN');
+    } else if (selectedMovement === 'OUT') {
+      list = list.filter(t => t.direction === 'OUT');
+    }
+
+    // 3. Timeframe Filter
+    if (selectedTimeframe && selectedTimeframe !== 'ALL') {
+      const now = new Date();
+      const startOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 0, 0, 0, 0);
+      const endOfDay = (offset = 0) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 23, 59, 59, 999);
+
+      list = list.filter(t => {
+        const d = new Date(t.createdAt || t.date);
+        if (isNaN(d.getTime())) return true;
+
+        if (selectedTimeframe === 'TODAY') {
+          return d >= startOfDay(0) && d <= endOfDay(0);
+        } else if (selectedTimeframe === 'YESTERDAY') {
+          return d >= startOfDay(1) && d <= endOfDay(1);
+        } else if (selectedTimeframe === 'LAST_3_DAYS') {
+          return d >= startOfDay(2) && d <= endOfDay(0);
+        } else if (selectedTimeframe === '1_WEEK') {
+          return d >= startOfDay(6) && d <= endOfDay(0);
+        } else if (selectedTimeframe === '1_MONTH') {
+          return d >= startOfDay(30) && d <= endOfDay(0);
+        } else if (selectedTimeframe === '1_YEAR') {
+          return d >= startOfDay(365) && d <= endOfDay(0);
+        }
+        return true;
+      });
+    }
+
+    // 4. Inbound / Outbound to Top Sorting
+    if (selectedMovement === 'IN_FIRST') {
+      return [...list].sort((a, b) => (b.direction === 'IN' ? 1 : 0) - (a.direction === 'IN' ? 1 : 0) || new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    if (selectedMovement === 'OUT_FIRST') {
+      return [...list].sort((a, b) => (b.direction === 'OUT' ? 1 : 0) - (a.direction === 'OUT' ? 1 : 0) || new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    return list;
+  }, [transactions, selectedProduct, selectedMovement, selectedTimeframe]);
 
   const negativeStockItems = items.filter(i => Number(i.cachedQty || 0) < 0);
   const hasNegativeStock = negativeStockItems.length > 0;
@@ -163,6 +213,10 @@ export default function Inventory() {
         items={items}
         selectedItemId={selectedProduct}
         onSelectItemId={setSelectedProduct}
+        selectedMovement={selectedMovement}
+        onSelectMovement={setSelectedMovement}
+        selectedTimeframe={selectedTimeframe}
+        onSelectTimeframe={setSelectedTimeframe}
         isWadaana={isWadaana}
       />
 

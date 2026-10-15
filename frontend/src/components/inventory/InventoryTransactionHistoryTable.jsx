@@ -8,9 +8,13 @@ export default function InventoryTransactionHistoryTable({
   items = [],
   selectedItemId = 'ALL',
   onSelectItemId,
+  selectedMovement = 'ALL',
+  onSelectMovement,
+  selectedTimeframe = 'ALL',
+  onSelectTimeframe,
   _isWadaana = false
 }) {
-  const pagination = usePagination(transactions || [], 50);
+  const pagination = usePagination(transactions || [], 50, `${selectedItemId}_${selectedMovement}_${selectedTimeframe}`);
 
   // Group finished goods for clean dropdown
   const finishedGoods = items.filter(i => i.type === 'FINISHED_GOOD' && !i.archivedAt);
@@ -25,9 +29,43 @@ export default function InventoryTransactionHistoryTable({
           </h3>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Movement Dropdown (Inbound / Outbound / All) */}
+          <div className="relative min-w-[130px]">
+            <select
+              value={selectedMovement}
+              onChange={(e) => onSelectMovement && onSelectMovement(e.target.value)}
+              className="w-full text-xs font-semibold py-1.5 px-3 bg-white border border-slate-300 rounded-lg text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand cursor-pointer"
+              aria-label="Filter by Movement"
+            >
+              <option value="ALL">All Movements</option>
+              <option value="IN">Inbound</option>
+              <option value="OUT">Outbound</option>
+              <option value="IN_FIRST">Inbound to Top</option>
+              <option value="OUT_FIRST">Outbound to Top</option>
+            </select>
+          </div>
+
+          {/* Timeframe Dropdown (Yesterday, Last 3 Days, Last Week, Month, Year, All) */}
+          <div className="relative min-w-[125px]">
+            <select
+              value={selectedTimeframe}
+              onChange={(e) => onSelectTimeframe && onSelectTimeframe(e.target.value)}
+              className="w-full text-xs font-semibold py-1.5 px-3 bg-white border border-slate-300 rounded-lg text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand cursor-pointer"
+              aria-label="Filter by Timeframe"
+            >
+              <option value="ALL">All Time</option>
+              <option value="TODAY">Today</option>
+              <option value="YESTERDAY">Yesterday</option>
+              <option value="LAST_3_DAYS">Last 3 Days</option>
+              <option value="1_WEEK">Last Week</option>
+              <option value="1_MONTH">One Month</option>
+              <option value="1_YEAR">Yearly</option>
+            </select>
+          </div>
+
           {/* Finished Goods Dropdown Filter */}
-          <div className="relative min-w-[200px]">
+          <div className="relative min-w-[180px]">
             <select
               value={selectedItemId}
               onChange={(e) => onSelectItemId && onSelectItemId(e.target.value)}

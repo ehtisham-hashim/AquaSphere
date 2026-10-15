@@ -52,6 +52,12 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                     {isPack ? 'Packs' : unit}
                   </span>
                 </div>
+
+                {item.createdAt && (
+                  <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                    Added: {new Date(item.createdAt).toLocaleDateString()}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col items-end gap-1">
