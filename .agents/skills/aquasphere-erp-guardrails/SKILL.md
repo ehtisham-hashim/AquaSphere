@@ -6,11 +6,12 @@ description: Core architectural standards and anti-corruption rules for AquaSphe
 # AquaSphere & Wadaana ERP Architectural Guardrails
 
 ## 1. Automated Dokploy & Container Deployment
-- Whenever editing `backend/Dockerfile` or deployment entrypoints, `npx prisma db push` MUST include the `--accept-data-loss` flag:
+- In production, `backend/Dockerfile` runs `CMD ["node", "src/index.js"]` directly to protect production data from unintended schema wipes or mutations on container restarts.
+- If schema synchronization (`npx prisma db push`) is ever re-introduced into deployment entrypoints, it MUST include the `--accept-data-loss` flag:
   ```dockerfile
   CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node src/index.js"]
   ```
-- Dokploy deployments are non-interactive. Omitting `--accept-data-loss` causes Prisma to wait for confirmation or crash with exit code 1.
+- Dokploy deployments are non-interactive. Omitting `--accept-data-loss` when running `db push` causes Prisma to wait for confirmation or crash with exit code 1.
 
 ## 2. Base Unit Storage Law
 - Database items are stored strictly in physical base units:

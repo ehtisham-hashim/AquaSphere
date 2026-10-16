@@ -27,5 +27,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
 
-# On container start, generate prisma client, push database schema to postgres, run idempotent shrink wrap separation, and start express
-CMD ["sh", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && node scripts/migrate-shrink-wrap.js && node src/index.js"]
+# On container start, start the express server directly
+CMD ["node", "src/index.js"]
