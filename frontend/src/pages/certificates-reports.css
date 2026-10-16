@@ -105,7 +105,7 @@
   align-items: center;
   justify-content: center;
   padding: 12px 26px;
-  border-radius: 999px;
+  border-radius: 0;
   background: linear-gradient(135deg, #0284c7, #06b6d4);
   color: #ffffff;
   text-decoration: none;

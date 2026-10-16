@@ -121,13 +121,13 @@ export default function Certificates({ initialTab = 'certificates' }) {
           </Link>
 
           {/* Desktop Nav Links (Reference capsule) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 shadow-inner">
-            <Link to="/" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Home</Link>
-            <Link to="/#products" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Products</Link>
-            <Link to="/#about" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">About</Link>
+          <nav className="hidden lg:flex items-center gap-1 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-none border border-white/15 shadow-inner">
+            <Link to="/" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Home</Link>
+            <Link to="/#products" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Products</Link>
+            <Link to="/#about" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">About</Link>
             <Link 
               to="/reports" 
-              className={`px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-none text-sm font-bold transition-all ${
                 isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
               }`}
             >
@@ -135,22 +135,21 @@ export default function Certificates({ initialTab = 'certificates' }) {
             </Link>
             <Link 
               to="/certificates" 
-              className={`px-3.5 py-1.5 rounded-full text-sm font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-none text-sm font-bold transition-all ${
                 !isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
               }`}
             >
               Certificates
             </Link>
-            <Link to="/#location" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Location</Link>
-            <Link to="/#contact" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Contact</Link>
-            <Link to="/login" className="px-3.5 py-1.5 rounded-full text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Admin</Link>
+            <Link to="/#location" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Location</Link>
+            <Link to="/#contact" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Contact</Link>
           </nav>
 
           {/* Header Action Buttons */}
           <div className="hidden sm:flex items-center gap-2.5">
             <Link 
               to="/website-admin" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 rounded-full transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 rounded-none transition-all shadow-sm"
               title="Edit Landing Page Content"
             >
               <Settings className="w-3.5 h-3.5 text-cyan-400" />
@@ -159,7 +158,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
             <a 
               href="https://theaquasphere.org/login" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-full transition-all shadow-sm shadow-sky-600/30"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-none transition-all shadow-sm shadow-sky-600/30"
               title="Open Software ERP Portal"
             >
               <LogIn className="w-3.5 h-3.5" />
@@ -170,7 +169,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
           {/* Mobile Menu Toggle */}
           <button 
             onClick={() => setMobileMenuOpen(prev => !prev)} 
-            className="lg:hidden p-2 text-white hover:text-cyan-400 rounded-lg focus:outline-none"
+            className="lg:hidden p-2 text-white hover:text-cyan-400 rounded-none focus:outline-none"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -203,7 +202,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
               <Link 
                 to="/website-admin" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-cyan-200 bg-cyan-950/60 border border-cyan-500/40 rounded-full"
+                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-cyan-200 bg-cyan-950/60 border border-cyan-500/40 rounded-none"
               >
                 <Settings className="w-4 h-4 text-cyan-400" />
                 <span>Website Admin</span>
@@ -211,7 +210,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
               <a 
                 href="https://theaquasphere.org/login" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-full shadow-sm"
+                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-none shadow-sm"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Software Admin</span>
@@ -350,13 +349,13 @@ export default function Certificates({ initialTab = 'certificates' }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-12 border-b border-slate-800">
             {/* Col 1 */}
             <div>
-              <div className="inline-flex items-center bg-white rounded-2xl px-6 py-3 shadow-lg shadow-cyan-500/10 mb-4">
+              <Link to="/" className="inline-block mb-4">
                 <img 
                   src={LOGO_URL} 
                   alt="Aqua Sphere" 
-                  className="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                  className="h-16 w-auto object-contain transition-transform duration-300 hover:scale-105"
                 />
-              </div>
+              </Link>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
                 Premium purified drinking water bottled with cutting-edge reverse osmosis, UV sterilization, and vital mineral replenishment for Islamabad & Rawalpindi.
               </p>
@@ -365,7 +364,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
                   href="https://wa.me/923015072233?text=Hello%20AquaSphere"
                   target="_blank"
                   rel="noreferrer"
-                  className="w-9 h-9 rounded-full bg-slate-800/80 hover:bg-[#25D366] text-white flex items-center justify-center transition-all"
+                  className="w-9 h-9 rounded-none bg-slate-800/80 hover:bg-[#25D366] text-white flex items-center justify-center transition-all"
                   title="WhatsApp"
                 >
                   <WhatsAppIcon className="w-4 h-4" />
@@ -420,7 +419,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
             <p>© {new Date().getFullYear()} Aqua Sphere Mineral Water. All rights reserved.</p>
             <div className="flex gap-6">
               <Link to="/website-admin" className="hover:text-cyan-400 transition-colors duration-200">Website Admin</Link>
-              <a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors duration-200">Software Login</a>
+              <a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors duration-200">Software Admin</a>
             </div>
           </div>
         </div>
@@ -457,7 +456,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
         href="https://wa.me/923015072233?text=Hello%20AquaSphere" 
         target="_blank" 
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold px-4 py-3 rounded-full shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold px-4 py-3 rounded-none shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40"
         title="Chat on WhatsApp"
       >
         <WhatsAppIcon className="w-6 h-6 text-white shrink-0" />

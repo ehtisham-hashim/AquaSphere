@@ -187,22 +187,21 @@ export default function LandingPage() {
           </a>
 
           {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center bg-white/5 backdrop-blur-md px-3 py-1.5 border border-white/15 rounded-full shadow-inner gap-1">
-            <a href="#hero" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Home</a>
-            <a href="#products" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Products</a>
-            <a href="#about" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">About</a>
-            <Link to="/reports" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Reports</Link>
-            <Link to="/certificates" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Certificates</Link>
-            <a href="#location" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Location</a>
-            <a href="#contact" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Contact</a>
-            <Link to="/login" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-full transition-all">Admin</Link>
+          <nav className="hidden lg:flex items-center bg-white/5 backdrop-blur-md px-3 py-1.5 border border-white/15 rounded-none shadow-inner gap-1">
+            <a href="#hero" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Home</a>
+            <a href="#products" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Products</a>
+            <a href="#about" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">About</a>
+            <Link to="/reports" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Reports</Link>
+            <Link to="/certificates" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Certificates</Link>
+            <a href="#location" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Location</a>
+            <a href="#contact" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Contact</a>
           </nav>
 
           {/* Header Action Buttons */}
           <div className="hidden sm:flex items-center gap-2.5">
             <Link 
               to="/website-admin" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded-full transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded-none transition-all shadow-sm"
               title="Edit Landing Page Content"
             >
               <Settings className="w-3.5 h-3.5 text-cyan-400" />
@@ -211,18 +210,18 @@ export default function LandingPage() {
 
             <a 
               href="https://theaquasphere.org/login" 
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-full transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-none transition-all shadow-sm"
               title="Open Software ERP Portal"
             >
               <LogIn className="w-3.5 h-3.5" />
-              <span>Software Portal</span>
+              <span>Software Admin</span>
             </a>
           </div>
 
           {/* Mobile Menu Toggle */}
           <button 
             onClick={() => setMobileMenuOpen(prev => !prev)} 
-            className="lg:hidden p-2 text-white hover:text-cyan-400 rounded-md focus:outline-none"
+            className="lg:hidden p-2 text-white hover:text-cyan-400 rounded-none focus:outline-none"
             aria-label="Toggle Navigation"
             type="button"
           >
@@ -245,7 +244,7 @@ export default function LandingPage() {
               <Link 
                 to="/website-admin" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-cyan-200 bg-cyan-950/60 border border-cyan-500/30 rounded-full"
+                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-cyan-200 bg-cyan-950/60 border border-cyan-500/30 rounded-none"
               >
                 <Settings className="w-4 h-4 text-cyan-400" />
                 <span>Website Admin</span>
@@ -253,10 +252,10 @@ export default function LandingPage() {
               <a 
                 href="https://theaquasphere.org/login" 
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-full shadow-sm"
+                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-none shadow-sm"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Software Portal</span>
+                <span>Software Admin</span>
               </a>
             </div>
           </div>
@@ -496,7 +495,7 @@ export default function LandingPage() {
                 href={settings.map_link} 
                 target="_blank" 
                 rel="noreferrer" 
-                className="absolute top-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-cyan-700 text-xs font-bold border border-slate-200/90 shadow-md hover:shadow-lg transition-all rounded-full"
+                className="absolute top-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 bg-white/95 hover:bg-white text-slate-800 hover:text-cyan-700 text-xs font-bold border border-slate-200/90 shadow-md hover:shadow-lg transition-all rounded-none"
                 title="Open location in Google Maps"
               >
                 <span>Open in Maps</span>
@@ -615,7 +614,7 @@ export default function LandingPage() {
       </section>
 
       {/* 9. FOOTER */}
-      <footer className="bg-[#030a16] text-slate-300 border-t border-white/10 pt-16 pb-8 px-4 sm:px-8 relative overflow-hidden w-full max-w-full">
+      <footer className="bg-[#030a16] text-slate-300 border-t border-white/10 pt-16 pb-0 px-4 sm:px-8 relative overflow-hidden w-full max-w-full">
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-white/10">
             
@@ -638,14 +637,14 @@ export default function LandingPage() {
                   target="_blank" 
                   rel="noreferrer" 
                   title="WhatsApp" 
-                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 text-[#25D366] flex items-center justify-center transition-all shadow-sm"
+                  className="w-10 h-10 rounded-none bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 text-[#25D366] flex items-center justify-center transition-all shadow-sm"
                 >
                   <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
                 </a>
                 <a 
                   href={`tel:${settings.phone}`} 
                   title="Call Us" 
-                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                  className="w-10 h-10 rounded-none bg-slate-900 border border-slate-800 hover:border-cyan-500 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
                 >
                   <Phone className="w-4 h-4" />
                 </a>
@@ -654,7 +653,7 @@ export default function LandingPage() {
                   target="_blank" 
                   rel="noreferrer" 
                   title="Open Location" 
-                  className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 hover:border-sky-500 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                  className="w-10 h-10 rounded-none bg-slate-900 border border-slate-800 hover:border-sky-500 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
                 >
                   <MapPin className="w-4 h-4" />
                 </a>
@@ -673,7 +672,7 @@ export default function LandingPage() {
                 <li><a href="#location" className="hover:text-cyan-400 transition-colors">Plant Location</a></li>
                 <li><a href="#contact" className="hover:text-cyan-400 transition-colors">Contact Support</a></li>
                 <li><Link to="/website-admin" className="hover:text-cyan-400 transition-colors">Website Content Admin</Link></li>
-                <li><a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors">Software ERP Portal</a></li>
+                <li><a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors">Software Admin</a></li>
               </ul>
             </div>
 
@@ -738,9 +737,35 @@ export default function LandingPage() {
             <p>© {new Date().getFullYear()} {settings.site_name} Mineral Water. All rights reserved. Purity in Every Drop.</p>
             <div className="flex gap-6">
               <Link to="/website-admin" className="hover:text-cyan-400 transition-colors">Website Admin</Link>
-              <a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors">Software Portal</a>
+              <a href="https://theaquasphere.org/login" className="hover:text-cyan-400 transition-colors">Software Admin</a>
             </div>
           </div>
+        </div>
+
+        {/* Half-cut outline AQUASPHERE */}
+        <div className="w-full max-w-full overflow-hidden select-none pointer-events-none relative flex justify-center mt-2">
+          <svg 
+            viewBox="0 0 1250 62" 
+            className="w-full max-w-full h-auto block select-none pointer-events-none"
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ overflow: 'hidden' }}
+          >
+            <text 
+              x="50%" 
+              y="112" 
+              textAnchor="middle" 
+              fontFamily="'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              fontWeight="900" 
+              fontSize="140" 
+              letterSpacing="0.08em"
+              stroke="rgba(255, 255, 255, 0.65)" 
+              strokeWidth="2.5" 
+              fill="rgba(255, 255, 255, 0.04)"
+            >
+              AQUASPHERE
+            </text>
+          </svg>
         </div>
       </footer>
 
@@ -749,7 +774,7 @@ export default function LandingPage() {
         href={getWhatsAppLink()} 
         target="_blank" 
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold px-4 py-3 rounded-full shadow-2xl transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold px-4 py-3 rounded-none shadow-2xl transition-all hover:scale-105"
         title="Chat on WhatsApp"
         aria-label="Order on WhatsApp"
       >

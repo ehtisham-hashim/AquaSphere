@@ -124,7 +124,7 @@
   justify-content: center;
   gap: 9px;
   padding: 13px 28px;
-  border-radius: var(--lp-radius-pill);
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.20);
   background: linear-gradient(135deg, var(--lp-blue-600) 0%, var(--lp-cyan-600) 100%);
   color: #ffffff;
@@ -150,7 +150,7 @@
   justify-content: center;
   gap: 8px;
   padding: 13px 26px;
-  border-radius: var(--lp-radius-pill);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -174,7 +174,7 @@
   justify-content: center;
   gap: 8px;
   padding: 11px 22px;
-  border-radius: var(--lp-radius-pill);
+  border-radius: 0;
   border: none;
   background: linear-gradient(135deg, var(--lp-emerald-600) 0%, #15803d 100%);
   color: #ffffff;
@@ -200,7 +200,7 @@
   justify-content: center;
   gap: 8px;
   padding: 13px 28px;
-  border-radius: var(--lp-radius-pill);
+  border-radius: 0;
   background: linear-gradient(135deg, var(--lp-blue-600) 0%, var(--lp-cyan-600) 100%);
   color: #ffffff;
   font-size: 14.5px;
