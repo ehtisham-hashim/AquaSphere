@@ -20,11 +20,11 @@ const generateSaleNumber = () => {
   return `CS-${d}${m}${y}-${ts}${rand}`;
 };
 
-/** Retrieves paginated spot/counter sales */
+/** Retrieves spot/counter sales with optional pagination */
 export const getSpotSales = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 50, search } = req.query;
-  const skip = (page - 1) * limit;
+  const { page, limit, search } = req.query;
   const prefix = getTenantPrefix(req);
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
 
   const where = {};
   if (search && search.trim()) {
@@ -36,28 +36,44 @@ export const getSpotSales = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [sales, total] = await Promise.all([
-    prisma[`${prefix}SpotSale`].findMany({
-      where,
-      skip,
-      take: Number(limit),
-      orderBy: { createdAt: 'desc' },
+  const include = {
+    customer: { select: { id: true, name: true, phone: true, currentBalance: true, deposit: true } },
+    createdBy: { select: { id: true, name: true, role: true } },
+    items: {
       include: {
-        customer: { select: { id: true, name: true, phone: true, currentBalance: true, deposit: true } },
-        createdBy: { select: { id: true, name: true, role: true } },
-        items: {
-          include: {
-            item: { select: { id: true, name: true, unit: true, retailPrice: true } }
-          }
-        }
+        item: { select: { id: true, name: true, unit: true, retailPrice: true } }
       }
-    }),
-    prisma[`${prefix}SpotSale`].count({ where })
-  ]);
+    }
+  };
 
-  return sendSuccess(res, sales, 200, {
-    pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) }
+  if (hasExplicitLimit) {
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
+    const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [sales, total] = await Promise.all([
+      prisma[`${prefix}SpotSale`].findMany({
+        where,
+        skip,
+        take: parsedLimit,
+        orderBy: { createdAt: 'desc' },
+        include
+      }),
+      prisma[`${prefix}SpotSale`].count({ where })
+    ]);
+
+    return sendSuccess(res, sales, 200, {
+      pagination: { total, page: parsedPage, limit: parsedLimit, pages: Math.ceil(total / parsedLimit) || 1 }
+    });
+  }
+
+  const sales = await prisma[`${prefix}SpotSale`].findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include
   });
+
+  return sendSuccess(res, sales);
 });
 
 /** Retrieves today's aggregate metrics directly from database */

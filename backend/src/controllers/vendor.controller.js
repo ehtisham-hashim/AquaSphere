@@ -53,16 +53,17 @@ export const getVendors = asyncHandler(async (req, res) => {
 export const getVendorById = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
+  const hasExplicitLimit = req.query.limit !== undefined && req.query.limit !== '' && req.query.limit !== 'all';
   const page = Math.max(1, parseInt(req.query.page || '1', 10));
-  const limit = Math.max(1, parseInt(req.query.limit || '100', 10));
-  const skip = (page - 1) * limit;
+  const limit = hasExplicitLimit ? Math.max(1, parseInt(req.query.limit, 10)) : null;
+  const skip = hasExplicitLimit ? (page - 1) * limit : 0;
 
   const [vendor, ledgerSums, totalLedgerCount, pageEntries] = await Promise.all([
     prisma[`${prefix}Vendor`].findUnique({
       where: { id },
       include: {
-        purchases: { orderBy: { createdAt: 'desc' }, take: 50, include: { items: { include: { item: true } } } },
-        payments: { orderBy: { createdAt: 'desc' }, take: 50 }
+        purchases: { orderBy: { createdAt: 'desc' }, include: { items: { include: { item: true } } } },
+        payments: { orderBy: { createdAt: 'desc' } }
       }
     }),
     prisma[`${prefix}VendorLedgerEntry`].groupBy({
@@ -74,8 +75,7 @@ export const getVendorById = asyncHandler(async (req, res) => {
     prisma[`${prefix}VendorLedgerEntry`].findMany({
       where: { vendorId: id },
       orderBy: { createdAt: 'asc' },
-      skip,
-      take: limit
+      ...(hasExplicitLimit ? { skip, take: limit } : {})
     })
   ]);
 
@@ -113,7 +113,9 @@ export const getVendorById = asyncHandler(async (req, res) => {
     payableBalance,
     lastPurchaseDate: vendor.purchases[0]?.createdAt || null,
     status: vendor.archivedAt ? 'ARCHIVED' : 'ACTIVE',
-    pagination: { page, limit, totalRecords: totalLedgerCount, totalPages: Math.ceil(totalLedgerCount / limit) || 1 }
+    pagination: hasExplicitLimit
+      ? { page, limit, totalRecords: totalLedgerCount, totalPages: Math.ceil(totalLedgerCount / limit) || 1 }
+      : { page: 1, limit: totalLedgerCount, totalRecords: totalLedgerCount, totalPages: 1 }
   });
 });
 

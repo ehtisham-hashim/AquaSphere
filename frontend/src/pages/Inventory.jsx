@@ -43,7 +43,7 @@ export default function Inventory() {
           headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         }),
-        fetch(`${API}/items/transactions?type=FINISHED_GOOD&limit=300`, { 
+        fetch(`${API}/items/transactions?type=FINISHED_GOOD`, { 
           headers: { 'x-tenant': tenant }, 
           credentials: 'include' 
         })

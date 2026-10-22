@@ -143,7 +143,7 @@ export default function Transport() {
   const fetchExpenses = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasExpensesLoadedRef.current) setLoadingExpenses(true);
     try {
-      const res = await fetch(`${API_URL}/expenses?limit=200`, {
+      const res = await fetch(`${API_URL}/expenses`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });

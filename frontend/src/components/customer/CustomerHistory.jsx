@@ -4,6 +4,8 @@ import {
   ShoppingBag, Truck, DollarSign, Droplet, FileText, 
   ArrowUpRight
 } from 'lucide-react';
+import { usePagination } from '../../hooks/usePagination';
+import TablePagination from '../common/TablePagination';
 
 // ponytail: tabbed table eliminates vertical accordion scroll; generous padding prevents eye fatigue
 const BOTTLE_TYPE_LABELS = {
@@ -39,6 +41,12 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
   const payments = customer?.payments || [];
   const bottleTransactions = customer?.bottleTransactions || [];
   const auditLogs = customer?.auditLogs || [];
+
+  const ordersPagination = usePagination(orders, 10, `${customer?.id}_orders`);
+  const deliveriesPagination = usePagination(deliveries, 10, `${customer?.id}_deliveries`);
+  const paymentsPagination = usePagination(payments, 10, `${customer?.id}_payments`);
+  const bottlePagination = usePagination(bottleTransactions, 10, `${customer?.id}_bottles`);
+  const auditPagination = usePagination(auditLogs, 10, `${customer?.id}_audit`);
 
   const showBottleLedger = !isWadaana || bottleTransactions.length > 0;
 
@@ -187,7 +195,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                     </td>
                   </tr>
                 ) : (
-                  orders.map((order) => {
+                  ordersPagination.paginatedItems.map((order) => {
                     const totalBill = (order.items || []).reduce(
                       (sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 
                       0
@@ -238,6 +246,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pagination={ordersPagination} />
         </div>
       )}
 
@@ -264,7 +273,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                     </td>
                   </tr>
                 ) : (
-                  deliveries.map((delivery) => {
+                  deliveriesPagination.paginatedItems.map((delivery) => {
                     const cash = parseFloat(delivery.cashReceived || 0);
                     return (
                       <tr key={delivery.id} className="hover:bg-slate-50/70 transition-colors">
@@ -324,6 +333,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pagination={deliveriesPagination} />
         </div>
       )}
 
@@ -348,7 +358,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                     </td>
                   </tr>
                 ) : (
-                  payments.map((payment) => (
+                  paymentsPagination.paginatedItems.map((payment) => (
                     <tr key={payment.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4 text-slate-700 text-xs whitespace-nowrap">
                         {formatDate(payment.createdAt)}
@@ -370,6 +380,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pagination={paymentsPagination} />
         </div>
       )}
 
@@ -394,7 +405,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                     </td>
                   </tr>
                 ) : (
-                  bottleTransactions.map((tx) => {
+                  bottlePagination.paginatedItems.map((tx) => {
                     const isIncrease = ['DELIVERED_TO_CUSTOMER', 'NEW_PURCHASE'].includes(tx.type);
                     const isDecrease = ['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(tx.type);
                     return (
@@ -426,6 +437,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pagination={bottlePagination} />
         </div>
       )}
 
@@ -450,7 +462,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                     </td>
                   </tr>
                 ) : (
-                  auditLogs.map((log) => {
+                  auditPagination.paginatedItems.map((log) => {
                     const getActionBadge = (action) => {
                       switch (action) {
                         case 'CUSTOMER_CREATED':
@@ -487,6 +499,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pagination={auditPagination} />
         </div>
       )}
     </div>

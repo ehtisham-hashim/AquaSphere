@@ -53,8 +53,9 @@ export const getExpenses = asyncHandler(async (req, res) => {
     where.category = { in: TM_ALLOWED_CATEGORIES };
   }
 
+  const hasPagination = Boolean(limit || page || cursor);
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const pageSize = limit ? Math.min(200, Math.max(1, parseInt(limit, 10) || 200)) : 200;
+  const pageSize = limit ? Math.max(1, parseInt(limit, 10)) : 50;
 
   const isTransportManager = req.user?.role === 'TRANSPORT_MANAGER';
   const shouldIncludePurchases = !isTransportManager && !vehicleId && (!category || category === 'ALL' || category === 'Raw Materials');
@@ -80,19 +81,56 @@ export const getExpenses = asyncHandler(async (req, res) => {
       }
     }
 
-    const skip = (pageNum - 1) * pageSize;
-    const [pCount, rawPurchases] = await Promise.all([
-      prisma[`${prefix}Purchase`].count({ where: purchaseWhere }),
-      prisma[`${prefix}Purchase`].findMany({
-        where: purchaseWhere,
-        orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
-        include: {
-          vendor: { select: { id: true, name: true } }
-        },
-        skip,
-        take: pageSize
-      })
-    ]);
+    if (hasPagination) {
+      const skip = (pageNum - 1) * pageSize;
+      const [pCount, rawPurchases] = await Promise.all([
+        prisma[`${prefix}Purchase`].count({ where: purchaseWhere }),
+        prisma[`${prefix}Purchase`].findMany({
+          where: purchaseWhere,
+          orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+          include: {
+            vendor: { select: { id: true, name: true } }
+          },
+          skip,
+          take: pageSize
+        })
+      ]);
+
+      const mapped = rawPurchases.map(pu => ({
+        id: `pur_${pu.id}`,
+        purchaseId: pu.id,
+        category: 'Raw Materials',
+        amount: Number(pu.grandTotal || 0),
+        remarks: `Invoice #${pu.invoiceNo || 'N/A'} • ${pu.vendor?.name || 'Vendor'}${pu.remarks ? ` — ${pu.remarks}` : ''}`,
+        receiptUrl: pu.receiptUrl || '',
+        createdAt: pu.purchaseDate || pu.createdAt,
+        createdBy: { name: pu.createdBy || 'Staff' },
+        isPurchase: true,
+        paymentStatus: pu.paymentStatus,
+        vendorName: pu.vendor?.name
+      }));
+
+      return sendSuccess(res, mapped, 200, {
+        nextCursor: null,
+        hasMore: skip + mapped.length < pCount,
+        pagination: {
+          page: pageNum,
+          limit: pageSize,
+          totalCount: pCount,
+          totalPages: Math.ceil(pCount / pageSize) || 1,
+          hasMore: skip + mapped.length < pCount
+        }
+      });
+    }
+
+    // Uncapped Raw Materials
+    const rawPurchases = await prisma[`${prefix}Purchase`].findMany({
+      where: purchaseWhere,
+      orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+      include: {
+        vendor: { select: { id: true, name: true } }
+      }
+    });
 
     const mapped = rawPurchases.map(pu => ({
       id: `pur_${pu.id}`,
@@ -110,13 +148,13 @@ export const getExpenses = asyncHandler(async (req, res) => {
 
     return sendSuccess(res, mapped, 200, {
       nextCursor: null,
-      hasMore: skip + mapped.length < pCount,
+      hasMore: false,
       pagination: {
-        page: pageNum,
-        limit: pageSize,
-        totalCount: pCount,
-        totalPages: Math.ceil(pCount / pageSize) || 1,
-        hasMore: skip + mapped.length < pCount
+        page: 1,
+        limit: mapped.length,
+        totalCount: mapped.length,
+        totalPages: 1,
+        hasMore: false
       }
     });
   }
@@ -150,6 +188,70 @@ export const getExpenses = asyncHandler(async (req, res) => {
       } else {
         throw err;
       }
+    }
+  } else if (!hasPagination) {
+    // Uncapped fetch
+    if (shouldIncludePurchases && (!category || category === 'ALL')) {
+      const purchaseWhere = {};
+      if (startDate || endDate) {
+        purchaseWhere.purchaseDate = {};
+        if (startDate) purchaseWhere.purchaseDate.gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setUTCHours(23, 59, 59, 999);
+          purchaseWhere.purchaseDate.lte = end;
+        }
+      }
+
+      const [rawExpenses, rawPurchases] = await Promise.all([
+        prisma[`${prefix}Expense`].findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          include: {
+            createdBy: { select: { id: true, name: true, role: true } },
+            vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+          }
+        }),
+        prisma[`${prefix}Purchase`].findMany({
+          where: purchaseWhere,
+          orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+          include: {
+            vendor: { select: { id: true, name: true } }
+          }
+        })
+      ]);
+
+      const mappedPurchases = rawPurchases.map(pu => ({
+        id: `pur_${pu.id}`,
+        purchaseId: pu.id,
+        category: 'Raw Materials',
+        amount: Number(pu.grandTotal || 0),
+        remarks: `Invoice #${pu.invoiceNo || 'N/A'} • ${pu.vendor?.name || 'Vendor'}${pu.remarks ? ` — ${pu.remarks}` : ''}`,
+        receiptUrl: pu.receiptUrl || '',
+        createdAt: pu.purchaseDate || pu.createdAt,
+        createdBy: { name: pu.createdBy || 'Staff' },
+        isPurchase: true,
+        paymentStatus: pu.paymentStatus,
+        vendorName: pu.vendor?.name
+      }));
+
+      expenses = [...rawExpenses, ...mappedPurchases]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      totalCount = expenses.length;
+      hasMore = false;
+      nextCursor = null;
+    } else {
+      expenses = await prisma[`${prefix}Expense`].findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: {
+          createdBy: { select: { id: true, name: true, role: true } },
+          vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
+        }
+      });
+      totalCount = expenses.length;
+      hasMore = false;
+      nextCursor = null;
     }
   } else if (shouldIncludePurchases && (!category || category === 'ALL')) {
     const purchaseWhere = {};
@@ -232,10 +334,10 @@ export const getExpenses = asyncHandler(async (req, res) => {
     nextCursor,
     hasMore,
     pagination: {
-      page: pageNum,
-      limit: pageSize,
+      page: hasPagination ? pageNum : 1,
+      limit: hasPagination ? pageSize : (totalCount ?? expenses.length),
       totalCount: totalCount ?? expenses.length,
-      totalPages: totalCount ? (Math.ceil(totalCount / pageSize) || 1) : 1,
+      totalPages: hasPagination && totalCount ? (Math.ceil(totalCount / pageSize) || 1) : 1,
       hasMore
     }
   });

@@ -52,7 +52,7 @@ const extractTenantProductFields = (prefix, body) => {
 
 /** Retrieves customers with optional search filtering */
 export const getCustomers = asyncHandler(async (req, res) => {
-  const { search, status } = req.query;
+  const { search, status, page, limit } = req.query;
   const prefix = getTenantPrefix(req);
 
   let archivedFilter = { archivedAt: null };
@@ -67,9 +67,35 @@ export const getCustomers = asyncHandler(async (req, res) => {
     ]
   } : archivedFilter;
 
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
+
+  if (hasExplicitLimit) {
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
+    const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [customers, total] = await Promise.all([
+      prisma[`${prefix}Customer`].findMany({
+        where,
+        skip,
+        take: parsedLimit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma[`${prefix}Customer`].count({ where })
+    ]);
+
+    return sendSuccess(res, customers, 200, {
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil(total / parsedLimit) || 1
+      }
+    });
+  }
+
   const customers = await prisma[`${prefix}Customer`].findMany({
     where,
-    take: 50,
     orderBy: { createdAt: 'desc' }
   });
 
@@ -92,25 +118,21 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
             deliveries: { select: { id: true, qtyDelivered: true, bottlesReturnedGood: true, bottlesReturnedBroken: true, cashReceived: true, paymentMethod: true, deliveredAt: true, remarks: true } },
             payments: { select: { id: true, amount: true, type: true, createdAt: true } }
           },
-          orderBy: { createdAt: 'desc' },
-          take: 50
+          orderBy: { createdAt: 'desc' }
         },
         bottleTransactions: {
           select: { id: true, type: true, quantity: true, reason: true, runningBalance: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
-          take: 50
+          orderBy: { createdAt: 'desc' }
         },
         payments: {
           select: { id: true, amount: true, type: true, createdAt: true },
-          orderBy: { createdAt: 'desc' },
-          take: 50
+          orderBy: { createdAt: 'desc' }
         }
       }
     }),
     prisma[`${prefix}AuditLog`].findMany({
       where: { entityType: 'Customer', entityId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 50
+      orderBy: { createdAt: 'desc' }
     })
   ]);
 

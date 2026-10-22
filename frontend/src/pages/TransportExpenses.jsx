@@ -50,9 +50,8 @@ export default function TransportExpenses() {
       if (selectedVehicleId && selectedVehicleId !== 'ALL') {
         queryParams.set('vehicleId', selectedVehicleId);
       }
-      queryParams.set('limit', '100');
-
-      const url = `${API_URL}/transport-expenses?${queryParams.toString()}`;
+      const queryString = queryParams.toString();
+      const url = `${API_URL}/transport-expenses${queryString ? `?${queryString}` : ''}`;
       const res = await fetch(url, {
         headers: { 'x-tenant': tenant },
         credentials: 'include',

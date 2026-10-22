@@ -5,13 +5,13 @@ import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
-export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer }) {
+export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer, resetTrigger }) {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
 
-  const pagination = usePagination(customers, 50);
+  const pagination = usePagination(customers, 50, resetTrigger);
 
   const handleShareWhatsAppCustomer = (e, c) => {
     e.stopPropagation();

@@ -27,10 +27,13 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     'PRODUCTION_BATCH_COMPLETED'
   ];
   
+  const { limit } = req.query;
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
+
   const logs = await auditLogsModel.findMany({
     where: { action: { in: trackedActions } },
     orderBy: { createdAt: 'desc' },
-    take: 50
+    ...(hasExplicitLimit ? { take: Math.max(1, parseInt(limit, 10)) } : {})
   });
 
   // Extract unique user IDs and lookup human user names

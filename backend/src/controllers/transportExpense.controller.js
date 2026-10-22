@@ -21,13 +21,41 @@ export const getTransportExpenses = asyncHandler(async (req, res) => {
     where.vehicleId = vehicleId;
   }
 
-  const { take, skip, cursor } = paginationArgs(req.query);
+  const pagArgs = paginationArgs(req.query);
+
+  if (pagArgs.take) {
+    const expenses = await prisma[`${prefix}TransportExpense`].findMany({
+      where,
+      take: pagArgs.take + 1,
+      skip: pagArgs.skip,
+      ...(pagArgs.cursor && { cursor: pagArgs.cursor }),
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        date: true,
+        amount: true,
+        type: true,
+        period: true,
+        note: true,
+        vehicle: {
+          select: {
+            id: true,
+            name: true,
+            plateNumber: true
+          }
+        }
+      }
+    });
+
+    const hasMore = expenses.length > pagArgs.take;
+    const data = hasMore ? expenses.slice(0, pagArgs.take) : expenses;
+    const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null;
+
+    return sendSuccess(res, data, 200, { nextCursor, hasMore });
+  }
 
   const expenses = await prisma[`${prefix}TransportExpense`].findMany({
     where,
-    take: take + 1,
-    skip,
-    ...(cursor && { cursor }),
     orderBy: { date: 'desc' },
     select: {
       id: true,
@@ -46,11 +74,7 @@ export const getTransportExpenses = asyncHandler(async (req, res) => {
     }
   });
 
-  const hasMore = expenses.length > take;
-  const data = hasMore ? expenses.slice(0, take) : expenses;
-  const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null;
-
-  return sendSuccess(res, data, 200, { nextCursor, hasMore });
+  return sendSuccess(res, expenses, 200, { nextCursor: null, hasMore: false });
 });
 
 /**
@@ -77,13 +101,39 @@ export const getExpensesByVehicle = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Vehicle not found');
   }
 
-  const { take, skip, cursor } = paginationArgs(req.query);
+  const pagArgs = paginationArgs(req.query);
+
+  if (pagArgs.take) {
+    const expenses = await prisma[`${prefix}TransportExpense`].findMany({
+      where: { vehicleId: id },
+      take: pagArgs.take + 1,
+      skip: pagArgs.skip,
+      ...(pagArgs.cursor && { cursor: pagArgs.cursor }),
+      orderBy: { date: 'desc' },
+      select: {
+        id: true,
+        date: true,
+        amount: true,
+        type: true,
+        period: true,
+        note: true,
+        createdAt: true
+      }
+    });
+
+    const hasMore = expenses.length > pagArgs.take;
+    const data = hasMore ? expenses.slice(0, pagArgs.take) : expenses;
+    const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null;
+
+    return sendSuccess(res, data, 200, {
+      vehicle,
+      nextCursor,
+      hasMore
+    });
+  }
 
   const expenses = await prisma[`${prefix}TransportExpense`].findMany({
     where: { vehicleId: id },
-    take: take + 1,
-    skip,
-    ...(cursor && { cursor }),
     orderBy: { date: 'desc' },
     select: {
       id: true,
@@ -96,14 +146,10 @@ export const getExpensesByVehicle = asyncHandler(async (req, res) => {
     }
   });
 
-  const hasMore = expenses.length > take;
-  const data = hasMore ? expenses.slice(0, take) : expenses;
-  const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null;
-
-  return sendSuccess(res, data, 200, {
+  return sendSuccess(res, expenses, 200, {
     vehicle,
-    nextCursor,
-    hasMore
+    nextCursor: null,
+    hasMore: false
   });
 });
 

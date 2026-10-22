@@ -356,11 +356,13 @@ export const adjustInventory = asyncHandler(async (req, res) => {
 /** Retrieves inventory ledger transactions */
 export const getInventoryTransactions = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { type, direction, limit = 200 } = req.query;
+  const { type, direction, limit } = req.query;
 
   const whereClause = {};
   if (type) whereClause.item = { type };
   if (direction) whereClause.direction = direction;
+
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
 
   const txns = await prisma[`${prefix}InventoryTransaction`].findMany({
     where: whereClause,
@@ -368,7 +370,7 @@ export const getInventoryTransactions = asyncHandler(async (req, res) => {
       item: { select: { id: true, name: true, type: true, unit: true, cachedQty: true, factoryQty: true, warehouseQty: true, packSize: true } }
     },
     orderBy: { createdAt: 'desc' },
-    take: Math.min(parseInt(limit, 10) || 200, 1000)
+    ...(hasExplicitLimit ? { take: Math.max(1, parseInt(limit, 10)) } : {})
   });
 
   return sendSuccess(res, txns);

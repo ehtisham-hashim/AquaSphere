@@ -39,18 +39,48 @@ async function resolveOrderItems(prefix, items) {
   return resolved;
 }
 
-/** Retrieves latest 50 sales orders */
+/** Retrieves sales orders with optional pagination */
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
+  const { page, limit } = req.query;
+
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
+
+  const include = {
+    customer: true,
+    items: { include: { item: true } },
+    payments: true,
+    deliveries: true
+  };
+
+  if (hasExplicitLimit) {
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
+    const parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [orders, total] = await Promise.all([
+      prisma[`${prefix}Order`].findMany({
+        include,
+        skip,
+        take: parsedLimit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma[`${prefix}Order`].count()
+    ]);
+
+    return sendSuccess(res, orders, 200, {
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil(total / parsedLimit) || 1
+      }
+    });
+  }
+
   const orders = await prisma[`${prefix}Order`].findMany({
-    include: {
-      customer: true,
-      items: { include: { item: true } },
-      payments: true,
-      deliveries: true
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 50
+    include,
+    orderBy: { createdAt: 'desc' }
   });
   return sendSuccess(res, orders);
 });

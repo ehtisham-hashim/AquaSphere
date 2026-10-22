@@ -7,25 +7,44 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
 
-/** Retrieves paginated production batch runs */
+/** Retrieves production batch runs with optional pagination */
 export const getProductionBatches = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
-  const skip = (page - 1) * limit;
+  const { page, limit } = req.query;
   const prefix = getTenantPrefix(req);
+  const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
 
-  const [batches, total] = await Promise.all([
-    prisma[`${prefix}ProductionBatch`].findMany({
-      skip,
-      take: Number(limit),
+  const include = {
+    outputItem: { select: { id: true, name: true, unit: true } },
+    inputItem: { select: { id: true, name: true, unit: true } },
+    consumptions: { include: { item: true } }
+  };
+
+  let batches;
+  let total;
+  let parsedLimit;
+  let parsedPage;
+
+  if (hasExplicitLimit) {
+    parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
+    parsedPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    [batches, total] = await Promise.all([
+      prisma[`${prefix}ProductionBatch`].findMany({
+        skip,
+        take: parsedLimit,
+        orderBy: { createdAt: 'desc' },
+        include
+      }),
+      prisma[`${prefix}ProductionBatch`].count()
+    ]);
+  } else {
+    batches = await prisma[`${prefix}ProductionBatch`].findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        outputItem: { select: { id: true, name: true, unit: true } },
-        inputItem: { select: { id: true, name: true, unit: true } },
-        consumptions: { include: { item: true } }
-      }
-    }),
-    prisma[`${prefix}ProductionBatch`].count()
-  ]);
+      include
+    });
+    total = batches.length;
+  }
 
   const userIds = [...new Set(batches.map(b => b.producedBy).filter(Boolean))];
   const users = userIds.length > 0 ? await prisma[`${prefix}User`].findMany({
@@ -40,9 +59,11 @@ export const getProductionBatches = asyncHandler(async (req, res) => {
     createdBy: userMap[b.producedBy] || { name: 'Shift Operator', role: 'OPERATOR' }
   }));
 
-  return sendSuccess(res, enrichedBatches, 200, {
-    pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) }
-  });
+  const extra = hasExplicitLimit
+    ? { pagination: { total, page: parsedPage, limit: parsedLimit, pages: Math.ceil(total / parsedLimit) || 1 } }
+    : {};
+
+  return sendSuccess(res, enrichedBatches, 200, extra);
 });
 
 /** Retrieves single production batch by ID */

@@ -200,6 +200,7 @@ export default function Customers() {
               isLoading={isLoading}
               onRowClick={handleRowClick}
               onDeleteCustomer={setCustomerToDelete}
+              resetTrigger={`${search}_${activeTab}`}
             />
           )}
         </>
