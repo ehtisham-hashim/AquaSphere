@@ -43,7 +43,7 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
   const body = req.body || {};
   
   // Extract transaction date from various possible body fields
-  let transactionDateRaw = body.date || body.batchDate || body.purchaseDate || body.deliveredAt;
+  let transactionDateRaw = body.date || body.batchDate || body.purchaseDate || body.expenseDate || body.deliveredAt || body.expectedDelivery;
   
   // If editing an existing record by ID and no date is passed in body
   if (!transactionDateRaw && req.params.id) {

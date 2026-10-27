@@ -22,9 +22,9 @@ router.post('/upload-receipt', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MAR
 router.post('/', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), checkDailyCloseLock, createSpotSale);
 
 // PUT update spot/counter sale (remarks, payment method, receiptUrl before Daily Close)
-router.put('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), updateSpotSale);
+router.put('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), checkDailyCloseLock, updateSpotSale);
 
 // DELETE spot/counter sale: OWNER only
-router.delete('/:id', requireRoles('OWNER'), deleteSpotSale);
+router.delete('/:id', requireRoles('OWNER'), checkDailyCloseLock, deleteSpotSale);
 
 export default router;

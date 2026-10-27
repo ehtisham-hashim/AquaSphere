@@ -221,15 +221,19 @@ export function setupApiCache() {
         const match = url.match(/\/api(?:\/v1)?\/([^/?#]+)/);
         const rawSegment = match ? match[1] : '';
         const relatedMap = {
-          production: ['production', 'items', 'analytics', 'inventory', 'raw-materials'],
-          orders: ['orders', 'items', 'customers', 'bottles', 'analytics', 'spot-sales', 'inventory'],
-          'spot-sales': ['spot-sales', 'items', 'customers', 'bottles', 'analytics', 'daily-close', 'inventory', 'raw-materials'],
-          items: ['items', 'inventory', 'production', 'raw-materials', 'bottles'],
-          customers: ['customers', 'bottles', 'orders', 'spot-sales'],
-          bottles: ['bottles', 'customers', 'inventory', 'items', 'analytics'],
-          purchases: ['purchases', 'items', 'vendors', 'expenses', 'analytics', 'inventory', 'raw-materials'],
-          expenses: ['expenses', 'analytics', 'daily-close'],
-          vendors: ['vendors', 'purchases']
+          production: ['production', 'items', 'analytics', 'inventory', 'raw-materials', 'admin', 'daily-close'],
+          orders: ['orders', 'items', 'customers', 'bottles', 'analytics', 'spot-sales', 'inventory', 'admin', 'daily-close'],
+          'spot-sales': ['spot-sales', 'items', 'customers', 'bottles', 'analytics', 'daily-close', 'inventory', 'raw-materials', 'admin'],
+          items: ['items', 'inventory', 'production', 'raw-materials', 'bottles', 'admin'],
+          customers: ['customers', 'bottles', 'orders', 'spot-sales', 'admin'],
+          bottles: ['bottles', 'customers', 'inventory', 'items', 'analytics', 'admin'],
+          purchases: ['purchases', 'items', 'vendors', 'expenses', 'analytics', 'inventory', 'raw-materials', 'admin', 'daily-close'],
+          expenses: ['expenses', 'analytics', 'daily-close', 'admin'],
+          vendors: ['vendors', 'purchases'],
+          'daily-close': ['daily-close', 'admin', 'analytics', 'orders', 'spot-sales', 'expenses'],
+          vehicles: ['vehicles', 'transport', 'expenses', 'admin'],
+          users: ['users', 'admin'],
+          settings: ['settings', 'admin']
         };
 
         const targets = relatedMap[rawSegment] || (rawSegment ? [rawSegment] : []);

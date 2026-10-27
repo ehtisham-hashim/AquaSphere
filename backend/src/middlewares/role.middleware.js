@@ -6,7 +6,8 @@ export const requireRoles = (...roles) => {
       throw new ApiError(401, 'Unauthorized request');
     }
 
-    if (req.user.role === 'OWNER' || roles.includes(req.user.role)) {
+    const allowedRoles = roles.flat();
+    if (req.user.role === 'OWNER' || allowedRoles.includes(req.user.role)) {
       return next();
     }
 

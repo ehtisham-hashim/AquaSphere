@@ -664,7 +664,7 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
           if (capRaw) {
             await tx[`${prefix}Item`].update({
               where: { id: capRaw.id },
-              data: { cachedQty: { increment: lineQty } }
+              data: { cachedQty: { increment: lineQty }, factoryQty: { increment: lineQty } }
             });
             await tx[`${prefix}InventoryTransaction`].create({
               data: {
@@ -725,6 +725,38 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             }
           }
         }
+      }
+    }
+
+    // Revert mineral dosing transactions if any were deducted for this sale
+    const mineralTxs = await tx[`${prefix}InventoryTransaction`].findMany({
+      where: {
+        refType: 'SPOT_SALE',
+        refId: existing.saleNumber || existing.id,
+        reason: 'SPOT_SALE_MINERAL_DOSING'
+      }
+    });
+    for (const mTx of mineralTxs) {
+      const q = Number(mTx.quantity || 0);
+      if (q > 0) {
+        await tx[`${prefix}Item`].update({
+          where: { id: mTx.itemId },
+          data: {
+            cachedQty: { increment: q },
+            factoryQty: { increment: q }
+          }
+        }).catch(() => null);
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: mTx.itemId,
+            quantity: q,
+            direction: 'IN',
+            reason: 'SPOT_SALE_DELETED_MINERAL_DOSING',
+            refType: 'SPOT_SALE',
+            refId: existing.saleNumber || existing.id,
+            location: 'FACTORY'
+          }
+        });
       }
     }
 

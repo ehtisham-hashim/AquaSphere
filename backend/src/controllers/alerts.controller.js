@@ -2,6 +2,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
+import { BOTTLE_19L_SPECS } from '../constants/productMappings.js';
 
 /** Retrieves operational Marketing Manager alerts (credit breaches, duration expirations, bottle warnings, deliveries) */
 export const getMMAlerts = asyncHandler(async (req, res) => {
@@ -9,7 +10,7 @@ export const getMMAlerts = asyncHandler(async (req, res) => {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  const BOTTLE_COST = 1500;
+  const BOTTLE_COST = BOTTLE_19L_SPECS.SECURITY_RATE; // 1000 per bottle
 
   // Execute consolidated queries in parallel
   const [

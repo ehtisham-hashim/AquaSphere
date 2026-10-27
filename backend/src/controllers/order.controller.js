@@ -107,12 +107,15 @@ export const createOrder = asyncHandler(async (req, res) => {
     for (const rItem of resolvedItems) {
       const dbItem = dbItems.find(di => di.id === rItem.itemId);
       if (dbItem) {
+        const packMultiplier = Number(dbItem.packSize || 1);
+        const requiredBaseUnits = rItem.quantity * packMultiplier;
         const availableStock = parseFloat(dbItem.cachedQty || 0);
-        if (rItem.quantity > availableStock) {
+        if (requiredBaseUnits > availableStock) {
+          const availPacks = packMultiplier > 1 ? `${Math.floor(availableStock / packMultiplier)} packs (${availableStock} bottles)` : `${availableStock}`;
           lowStockItems.push({
             name: dbItem.name,
-            ordered: rItem.quantity,
-            available: Math.max(0, availableStock)
+            ordered: packMultiplier > 1 ? `${rItem.quantity} packs (${requiredBaseUnits} bottles)` : rItem.quantity,
+            available: availPacks
           });
         }
       }
@@ -224,11 +227,15 @@ export const updateOrder = asyncHandler(async (req, res) => {
   if (!order) throw new ApiError(404, 'Order not found');
   if (order.deliveryStatus === 'DELIVERED') throw new ApiError(400, 'Cannot edit a delivered order');
 
+  const resolvedItems = items?.length ? await resolveOrderItems(prefix, items) : null;
+
   const updated = await prisma.$transaction(async (tx) => {
-    if (items?.length) {
+    let newTotal = undefined;
+    if (resolvedItems?.length) {
+      newTotal = resolvedItems.reduce((acc, i) => acc + (i.quantity * i.price), 0);
       await tx[`${prefix}OrderItem`].deleteMany({ where: { orderId: id } });
       await tx[`${prefix}OrderItem`].createMany({
-        data: items.map(i => ({
+        data: resolvedItems.map(i => ({
           orderId: id,
           itemId: i.itemId,
           quantity: parseInt(i.quantity, 10),
@@ -237,15 +244,26 @@ export const updateOrder = asyncHandler(async (req, res) => {
       });
     }
 
-    return await tx[`${prefix}Order`].update({
+    const resOrder = await tx[`${prefix}Order`].update({
       where: { id },
       data: {
         expectedDelivery: expectedDelivery !== undefined ? (expectedDelivery ? new Date(expectedDelivery) : null) : order.expectedDelivery,
         remarks: remarks !== undefined ? remarks : order.remarks,
-        ...(type && { type })
+        ...(type && { type }),
+        ...(newTotal !== undefined && { totalAmount: newTotal })
       },
       include: { items: { include: { item: true } } }
     });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_UPDATED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Staff',
+      details: `Updated order #${id.slice(0, 8)}${newTotal !== undefined ? ` (New Amount: Rs. ${newTotal})` : ''}`
+    }, tx);
+
+    return resOrder;
   }, { maxWait: 10000, timeout: 30000 });
 
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });

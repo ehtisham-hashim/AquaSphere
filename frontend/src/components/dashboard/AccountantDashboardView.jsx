@@ -107,8 +107,8 @@ export default function AccountantDashboardView({ data }) {
       setLoadingExpenses(true);
       try {
         const [closeRes, expensesRes] = await Promise.all([
-          fetch(`${API_URL}/daily-close/status?tenant=${tenant}`, { credentials: 'include' }),
-          fetch(`${API_URL}/expenses?tenant=${tenant}&date=${today}`, { credentials: 'include' })
+          fetch(`${API_URL}/daily-close/status?date=${today}&tenant=${tenant}`, { credentials: 'include' }),
+          fetch(`${API_URL}/expenses?startDate=${today}&endDate=${today}&tenant=${tenant}`, { credentials: 'include' })
         ]);
 
         const closeData = await closeRes.json();
@@ -237,9 +237,9 @@ export default function AccountantDashboardView({ data }) {
                       <td className="table-td font-semibold text-slate-800">
                         <span className="badge-neutral">{item.category}</span>
                       </td>
-                      <td className="table-td text-slate-600 max-w-[180px] truncate">{item.description || '—'}</td>
-                      <td className="table-td text-slate-600 uppercase font-mono text-[10px]">{item.paymentMethod || 'CASH'}</td>
-                      <td className="table-td text-slate-500">{item.recordedBy || 'Admin'}</td>
+                      <td className="table-td text-slate-600 max-w-[180px] truncate">{item.remarks || '—'}</td>
+                      <td className="table-td text-slate-600 uppercase font-mono text-[10px]">{item.isPurchase ? (item.paymentStatus || 'PURCHASE') : (item.paymentMethod || 'EXPENSE')}</td>
+                      <td className="table-td text-slate-500">{item.createdBy?.name || 'Staff'}</td>
                       <td className="table-td text-right font-bold font-mono text-slate-900">
                         Rs. {Number(item.amount || 0).toLocaleString()}
                       </td>

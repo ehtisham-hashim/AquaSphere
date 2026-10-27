@@ -88,12 +88,13 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   if (!isPaymentSettlementOnly && !loadingStock) {
     order.items?.forEach(i => {
       const avail = stockMap[i.itemId] !== undefined ? stockMap[i.itemId] : Number(i.item?.factoryQty !== undefined ? i.item.factoryQty : i.item?.cachedQty || 0);
-      const req = Number(i.quantity || 0);
+      const packMultiplier = Number(i.item?.packSize || 1);
+      const req = Number(i.quantity || 0) * packMultiplier;
       if (avail < req) {
         stockErrors.push({
           name: i.item?.name || 'Product',
-          required: req,
-          available: avail
+          required: packMultiplier > 1 ? `${i.quantity} packs (${req} bottles)` : req,
+          available: packMultiplier > 1 ? `${Math.floor(avail / packMultiplier)} packs (${avail} bottles)` : avail
         });
       }
     });

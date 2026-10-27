@@ -702,9 +702,9 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
       for (const t of txs) {
         const q = Number(t.quantity || 0);
         if (t.direction === 'IN') {
-          await tx[`${prefix}Item`].update({ where: { id: t.itemId }, data: { cachedQty: { decrement: q } } }).catch(() => null);
+          await tx[`${prefix}Item`].update({ where: { id: t.itemId }, data: { cachedQty: { decrement: q }, factoryQty: { decrement: q } } }).catch(() => null);
         } else if (t.direction === 'OUT') {
-          await tx[`${prefix}Item`].update({ where: { id: t.itemId }, data: { cachedQty: { increment: q } } }).catch(() => null);
+          await tx[`${prefix}Item`].update({ where: { id: t.itemId }, data: { cachedQty: { increment: q }, factoryQty: { increment: q } } }).catch(() => null);
         }
       }
       await tx[`${prefix}InventoryTransaction`].deleteMany({ where: { refType: 'BATCH', refId: id } });

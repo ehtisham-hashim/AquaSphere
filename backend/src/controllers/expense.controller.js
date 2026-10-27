@@ -24,14 +24,25 @@ const VALID_CATEGORIES = [
 // ponytail: include vehicle info and filter for transport expenses
 export const getExpenses = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { startDate, endDate, page, limit, vehicleId, category, cursor } = req.query;
+  const { startDate, endDate, page, limit, vehicleId, category, cursor, date } = req.query;
+
+  let effectiveStart = startDate;
+  let effectiveEnd = endDate;
+  if (!effectiveStart && !effectiveEnd && date) {
+    effectiveStart = date;
+    effectiveEnd = date;
+  }
 
   const where = {};
-  if (startDate || endDate) {
+  if (effectiveStart || effectiveEnd) {
     where.createdAt = {};
-    if (startDate) where.createdAt.gte = new Date(startDate);
-    if (endDate) {
-      const end = new Date(endDate);
+    if (effectiveStart) {
+      const start = new Date(effectiveStart);
+      start.setUTCHours(0, 0, 0, 0);
+      where.createdAt.gte = start;
+    }
+    if (effectiveEnd) {
+      const end = new Date(effectiveEnd);
       end.setUTCHours(23, 59, 59, 999);
       where.createdAt.lte = end;
     }
