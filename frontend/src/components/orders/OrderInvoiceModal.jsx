@@ -180,11 +180,13 @@ export default function OrderInvoiceModal({ order, onClose }) {
               {withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice'}
             </p>
             {withGst && (
-              <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
+              <div className="text-[11px] font-bold text-black mt-1">
                 <p>STRN #: E208741-4</p>
-                <p className="text-slate-700 font-normal">Tel: 051-5454438 | Cell: 0300-9149143</p>
               </div>
             )}
+            <div className="text-[11px] text-slate-700 font-normal mt-0.5">
+              <p>Tel: 051-5454438 | Cell: 0300-9149143</p>
+            </div>
             <p className="text-[11px] italic text-slate-700 mt-0.5">Pure Quality • Safe & Healthy Water</p>
             <div className="border-b border-dashed border-black/80 my-2.5"></div>
           </div>

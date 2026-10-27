@@ -276,7 +276,9 @@ export function renderReceiptToCanvas({
   calcHeight += 18; // subtitle
   if (withGst) {
     calcHeight += 16; // STRN
-    calcHeight += 16; // Contacts
+  }
+  if (contactInfo) {
+    calcHeight += 16; // Contacts (always shown in both GST and non-GST)
   }
   calcHeight += 16; // tagline
   calcHeight += 12; // gap & dashed line
@@ -351,6 +353,9 @@ export function renderReceiptToCanvas({
     ctx.font = 'bold 10px "Times New Roman", Times, "Tinos", serif';
     ctx.fillText(`STRN #: ${strn}`, width / 2, y + 9);
     y += 16;
+  }
+
+  if (contactInfo) {
     ctx.font = '10px "Times New Roman", Times, "Tinos", serif';
     ctx.fillStyle = '#1e293b';
     ctx.fillText(`Tel: ${contactInfo}`, width / 2, y + 9);
@@ -593,6 +598,7 @@ export function formatCounterSaleWhatsApp(sale, items, total, paid, debt, isWada
     msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Retail & Counter Dispatch (With 18% GST)\n`;
   } else {
+    msg += `Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Retail & Counter Dispatch\n`;
   }
   msg += `----------------------------------------\n`;
@@ -650,6 +656,7 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
     msg += `STRN #: E208741-4 | Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Sales Invoice (With 18% GST)\n`;
   } else {
+    msg += `Tel: 051-5454438 / 0300-9149143\n`;
     msg += `Sales Invoice\n`;
   }
   msg += `----------------------------------------\n`;
@@ -924,9 +931,11 @@ export function getOrderReceiptData(order, isWadaana = false, withGst = false) {
   const balanceDue = Math.max(0, netTotal - totalPaid);
 
   return {
-    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    title: withGst ? (isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER') : 'CUSTOMER CARE',
     subtitle: withGst ? 'SALES INVOICE • DELIVERY RECEIPT (WITH GST)' : 'SALES INVOICE • DELIVERY RECEIPT',
     withGst,
+    strn: 'E208741-4',
+    contactInfo: '051-5454438 / 0300-9149143',
     receiptNoLabel: 'INV #:',
     receiptNo: `#${orderId}`,
     dateStr: orderDate,
