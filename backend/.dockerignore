@@ -5,3 +5,9 @@ npm-debug.log
 .gitignore
 uploads/*
 !uploads/.gitkeep
+
+# Destructive scripts - do not bundle into production image
+clear_*.js
+clear_*.cjs
+scripts/wipe-database.js
+scripts/reset-data.js

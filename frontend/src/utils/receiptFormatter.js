@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import { openWhatsAppWeb } from './whatsapp';
 
 /**
  * Reliably copies plain/rich text to the system clipboard across modern and legacy browsers.
@@ -233,7 +234,8 @@ export async function copyReceiptElementAsImage(elementId, receiptData = null) {
     throw new Error('Failed to generate receipt image canvas');
   }
 
-  return await copyCanvasImageToClipboard(canvas);
+  const res = await copyCanvasImageToClipboard(canvas);
+  return { ...res, canvas };
 }
 
 /**
@@ -680,3 +682,90 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
   return msg;
 }
 
+
+/**
+ * Shares or sends receipt image directly to WhatsApp.
+ * 1. Uses Native Web Share API if supported (mobile / supported desktop OS) to attach the actual image file directly.
+ * 2. Fallback: Copies receipt image to system clipboard and opens WhatsApp Web/Desktop.
+ *    Uses preserveClipboard: true so the image is NEVER overwritten with text.
+ *    Leaves message input empty so user can instantly press Ctrl+V to send the receipt photo!
+ */
+export async function shareOrSendReceiptWhatsApp({
+  phone = '',
+  text = '',
+  receiptData = null,
+  elementId = null,
+  filename = 'AquaSphere_Receipt.png'
+}) {
+  let canvas = null;
+
+  if (receiptData) {
+    try {
+      canvas = renderReceiptToCanvas(receiptData);
+    } catch (err) {
+      console.warn('renderReceiptToCanvas failed:', err);
+    }
+  }
+
+  if (!canvas && elementId) {
+    const el = document.getElementById(elementId);
+    if (el && typeof html2canvas === 'function') {
+      try {
+        canvas = await html2canvas(el, { scale: 2.5, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      } catch (err) {
+        console.warn('html2canvas failed:', err);
+      }
+    }
+  }
+
+  if (!canvas) {
+    openWhatsAppWeb(phone, text);
+    return { success: false, method: 'text-fallback' };
+  }
+
+  // 1. Get Blob
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1.0));
+
+  // 2. Try Native Web Share API first
+  if (blob && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
+    try {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename.replace('.png', '')
+        });
+        return { success: true, method: 'web-share' };
+      }
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') {
+        return { success: false, method: 'aborted' };
+      }
+      console.warn('Web Share failed, falling back to WhatsApp Web:', shareErr);
+    }
+  }
+
+  // 3. Desktop / WhatsApp Web workflow:
+  // Write the image to the clipboard
+  let copiedToClipboard = false;
+  if (blob && navigator.clipboard && typeof navigator.clipboard.write === 'function') {
+    try {
+      const item = new ClipboardItem({ 'image/png': blob });
+      await navigator.clipboard.write([item]);
+      copiedToClipboard = true;
+    } catch (clipErr) {
+      console.warn('Clipboard write failed:', clipErr);
+    }
+  }
+
+  // If clipboard write failed, download the image so user can easily attach it
+  if (!copiedToClipboard) {
+    downloadCanvasAsImage(canvas, filename);
+  }
+
+  // Open WhatsApp Web with preserveClipboard: true so writeText DOES NOT erase the image
+  // We pass empty text so the WhatsApp message bar is completely clear for Ctrl+V!
+  openWhatsAppWeb(phone, '', { preserveClipboard: true });
+
+  return { success: true, method: copiedToClipboard ? 'clipboard' : 'download' };
+}

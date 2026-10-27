@@ -6,6 +6,26 @@ import { generateToken, verifyToken } from '../utils/jwtUtils.js';
 import { prisma } from '../config/db.js';
 import { sendOwner2FAEmail } from '../utils/mailer.js';
 
+const getAuthCookieOptions = (req, includeMaxAge = true) => {
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  const isSecure = process.env.COOKIE_SECURE === 'true'
+    ? true
+    : process.env.COOKIE_SECURE === 'false'
+    ? false
+    : (process.env.NODE_ENV === 'production' && isHttps);
+
+  const sameSiteEnv = (process.env.COOKIE_SAMESITE || '').toLowerCase();
+  const sameSite = sameSiteEnv || 'lax';
+
+  return {
+    httpOnly: true,
+    path: '/',
+    secure: isSecure,
+    sameSite,
+    ...(includeMaxAge ? { maxAge: 7 * 24 * 60 * 60 * 1000 } : {}) // 7 days session lifetime
+  };
+};
+
 /**
  * Authenticates a user by email, password, and tenant, generating a JWT token and HTTP-only cookie.
  *
@@ -64,21 +84,14 @@ export const login = asyncHandler(async (req, res) => {
 
   const token = generateToken({ id: user.id, role: user.role, tenant: prefix });
 
-  const isSecure = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
-
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: isSecure ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
-  };
+  const cookieOptions = getAuthCookieOptions(req, true);
 
   const { passwordHash: _passwordHash, ...userWithoutPassword } = user;
 
   res
     .status(200)
     .cookie('token', token, cookieOptions)
-    .cookie('tenant', prefix, { path: '/', maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' })
+    .cookie('tenant', prefix, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' })
     .json(new ApiResponse(200, { user: { ...userWithoutPassword, tenant: prefix }, token }, 'Login successful'));
 });
 
@@ -90,17 +103,12 @@ export const login = asyncHandler(async (req, res) => {
  * @returns {Promise<void>}
  */
 export const logout = asyncHandler(async (req, res) => {
-  const isSecure = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
-
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: isSecure ? 'none' : 'lax',
-  };
+  const cookieOptions = getAuthCookieOptions(req, false);
 
   res
     .status(200)
     .clearCookie('token', cookieOptions)
+    .clearCookie('token', { path: '/' })
     .clearCookie('tenant', { path: '/' })
     .clearCookie('company', { path: '/' })
     .json(new ApiResponse(200, null, 'Logged out successfully'));
@@ -153,20 +161,14 @@ export const verifyOwnerOtp = asyncHandler(async (req, res) => {
 
   const token = generateToken({ id: user.id, role: user.role, tenant: prefix });
 
-  const isSecure = process.env.COOKIE_SECURE === 'true' || (process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false');
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: isSecure ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000
-  };
+  const cookieOptions = getAuthCookieOptions(req, true);
 
   const { passwordHash: _passwordHash, otpCode: _o, otpExpiresAt: _oe, ...userWithoutPassword } = user;
 
   res
     .status(200)
     .cookie('token', token, cookieOptions)
-    .cookie('tenant', prefix, { path: '/', maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' })
+    .cookie('tenant', prefix, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' })
     .json(new ApiResponse(200, { user: { ...userWithoutPassword, tenant: prefix }, token }, 'Owner authenticated successfully'));
 });
 

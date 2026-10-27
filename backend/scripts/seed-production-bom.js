@@ -31,6 +31,10 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 import { prisma, closeDatabaseConnections } from '../src/config/db.js';
 
 const isDryRun = process.argv.includes('--dry-run');
+if (process.argv.includes('--wipe') && process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_WIPE !== 'YES_WIPE_PRODUCTION_DATA') {
+  console.error('CRITICAL SAFETY LOCK: Destructive database wipe/reset scripts are strictly blocked when NODE_ENV=production.');
+  process.exit(1);
+}
 
 // ============================================================================
 // 1. WADAANA DEFINITIONS

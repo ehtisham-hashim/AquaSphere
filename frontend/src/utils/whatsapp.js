@@ -67,8 +67,8 @@ export function openWhatsAppWeb(phone, text = '', options = {}) {
   const normPhone = normalizeWhatsAppPhone(phone);
   const encodedText = text ? encodeURIComponent(text) : '';
 
-  // 1. Pre-copy text to clipboard for instant 1-click fallback
-  if (text && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+  // 1. Pre-copy text to clipboard for instant 1-click fallback (unless preserving clipboard image)
+  if (!options.preserveClipboard && text && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).catch(() => {});
   }
 

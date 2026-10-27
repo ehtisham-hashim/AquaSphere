@@ -6,9 +6,9 @@ import {
   copyTextToClipboard,
   formatOrderInvoiceWhatsApp,
   printReceiptElement,
-  copyReceiptElementAsImage
+  copyReceiptElementAsImage,
+  shareOrSendReceiptWhatsApp
 } from '../../utils/receiptFormatter';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 
 export default function OrderInvoiceModal({ order, onClose }) {
   const { isWadaana } = useTenant();
@@ -109,15 +109,22 @@ export default function OrderInvoiceModal({ order, onClose }) {
   };
 
   const handleSendWhatsAppCustomer = async () => {
-    // 1. Copy image to clipboard for instant pasting
-    await handleCopyImage();
-
-    // 2. Build summary message text
-    const summaryText = WhatsAppTemplates.invoiceSummary(order, netTotal, balanceDue, isWadaana, withGst);
-
-    // 3. Open WhatsApp Web directly with prefilled text
-    openWhatsAppWeb(order.customer?.phone, summaryText);
-    toast.success('Opening WhatsApp! Paste the invoice image (Ctrl+V) into the chat.');
+    const invoiceData = getInvoiceData();
+    const res = await shareOrSendReceiptWhatsApp({
+      phone: order.customer?.phone,
+      receiptData: invoiceData,
+      elementId: 'order-invoice-print',
+      filename: `AquaSphere_Invoice_${orderId}.png`
+    });
+    if (res?.method === 'web-share') {
+      toast.success('Invoice shared via WhatsApp!');
+    } else if (res?.method === 'clipboard') {
+      setCopiedImage(true);
+      toast.success('Invoice image copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+      setTimeout(() => setCopiedImage(false), 3000);
+    } else if (res?.method === 'download') {
+      toast.info('Invoice image downloaded! Drag or attach it into WhatsApp.');
+    }
   };
 
   return (

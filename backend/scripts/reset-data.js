@@ -1,5 +1,11 @@
 import { prisma } from '../src/config/db.js';
 
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_WIPE !== 'YES_WIPE_PRODUCTION_DATA') {
+  console.error('CRITICAL SAFETY LOCK: Destructive database wipe/reset scripts are strictly blocked when NODE_ENV=production.');
+  process.exit(1);
+}
+
+
 async function main() {
   console.log('🚀 Starting complete database reset (preserving Users & Recipes)...');
 

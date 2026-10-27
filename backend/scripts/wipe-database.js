@@ -5,6 +5,12 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_WIPE !== 'YES_WIPE_PRODUCTION_DATA') {
+  console.error('CRITICAL SAFETY LOCK: Destructive database wipe/reset scripts are strictly blocked when NODE_ENV=production.');
+  process.exit(1);
+}
+
+
 import { prisma, closeDatabaseConnections } from '../src/config/db.js';
 
 /**

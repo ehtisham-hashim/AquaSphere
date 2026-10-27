@@ -4,6 +4,7 @@ import { useTenant } from './TenantContext';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../utils/api';
 import { clearCache } from '../utils/apiCache';
+import { getAuthToken } from '../utils/companyCookie';
 
 const SSEContext = createContext(null);
 
@@ -98,7 +99,11 @@ export function SSEProvider({ children }) {
     attachedEventsRef.current.clear();
 
     const currentTenant = tenant || 'aquasphere';
-    const streamUrl = `${API_URL}/events/stream?tenant=${currentTenant}`;
+    let streamUrl = `${API_URL}/events/stream?tenant=${currentTenant}`;
+    const token = getAuthToken();
+    if (token) {
+      streamUrl += `&token=${encodeURIComponent(token)}`;
+    }
     const sse = new EventSource(streamUrl, { withCredentials: true });
     eventSourceRef.current = sse;
     lastActivityRef.current = Date.now();

@@ -6,9 +6,9 @@ import {
   copyTextToClipboard,
   formatCounterSaleWhatsApp,
   printReceiptElement,
-  copyReceiptElementAsImage
+  copyReceiptElementAsImage,
+  shareOrSendReceiptWhatsApp
 } from '../../utils/receiptFormatter';
-import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 const nameMap = {
   'PACK_05L': '0.5L Full Pack (12 Btls)',
@@ -388,13 +388,25 @@ export default function CounterSaleReceiptModal({ receiptSale, onClose, user }) 
           <button
             type="button"
             onClick={async () => {
-              await handleCopyImage();
-              const text = formatCounterSaleWhatsApp(receiptSale, items, subtotal, paid, debt, isWadaana, user, withGst);
-              openWhatsAppWeb(receiptSale.customer?.phone, text);
-              toast.success('Opening WhatsApp! Paste the receipt image (Ctrl+V) into chat.');
+              const receiptData = getReceiptData();
+              const res = await shareOrSendReceiptWhatsApp({
+                phone: receiptSale.customer?.phone,
+                receiptData,
+                elementId: 'printable-receipt',
+                filename: `AquaSphere_Receipt_${saleId}.png`
+              });
+              if (res?.method === 'web-share') {
+                toast.success('Receipt shared via WhatsApp!');
+              } else if (res?.method === 'clipboard') {
+                setCopiedImage(true);
+                toast.success('Receipt image copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                setTimeout(() => setCopiedImage(false), 3000);
+              } else if (res?.method === 'download') {
+                toast.info('Receipt image downloaded! Drag or attach it into WhatsApp.');
+              }
             }}
             className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-xs"
-            title="Copy receipt image to clipboard & open WhatsApp"
+            title="Send receipt image directly to customer via WhatsApp"
           >
             <Send size={14} /> Send Receipt (WhatsApp)
           </button>

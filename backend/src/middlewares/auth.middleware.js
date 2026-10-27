@@ -30,7 +30,7 @@ export function invalidateUserCache(userId) {
  * @returns {Promise<void>}
  */
 export const verifyJWT = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.token || req.header('Authorization')?.replace('Bearer ', '');
+  const token = req.cookies?.token || req.header('Authorization')?.replace('Bearer ', '') || req.query?.token;
 
   if (!token) {
     throw new ApiError(401, 'Unauthorized request');

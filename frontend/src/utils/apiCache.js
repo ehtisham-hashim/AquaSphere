@@ -1,4 +1,5 @@
 import { invalidateQueries } from '../lib/queryClient';
+import { getAuthToken, getCompanyFromCookie } from './companyCookie';
 
 /**
  * Global persistent client-side API cache with in-flight deduplication & auto-invalidation
@@ -10,6 +11,7 @@ const STORAGE_PREFIX = '__aquasphere_api_cache__';
 
 // Volatile operational endpoints whose data must never persist in sessionStorage across page reloads
 const VOLATILE_ENDPOINTS = [
+  'auth',
   'items',
   'inventory',
   'raw-materials',
@@ -20,7 +22,16 @@ const VOLATILE_ENDPOINTS = [
   'daily-close',
   'purchases',
   'customers',
-  'bottles'
+  'bottles',
+  'vendors',
+  'expenses',
+  'vehicles',
+  'transport-expenses',
+  'users',
+  'admin',
+  'reports',
+  'audit-logs',
+  'settings'
 ];
 
 function isVolatile(keyOrUrl) {
@@ -139,19 +150,71 @@ export function setupApiCache() {
   window.fetch = async function (resource, options = {}) {
     const url = typeof resource === 'string' ? resource : resource?.url || '';
     const method = (options.method || (typeof resource === 'object' && resource?.method) || 'GET').toUpperCase();
-    const requestHeaders = options.headers || (typeof resource === 'object' ? resource?.headers : null);
 
-    const isApiRequest = url && (url.includes('/api/v1') || url.includes('/api/'));
+    const isApiRequest = Boolean(url && (url.includes('/api/v1') || url.includes('/api/')));
+    const isAuth = Boolean(url && url.includes('/auth/'));
+
+    // Normalize options and inject auth headers for all API requests
+    let normalizedOptions = { ...options };
+    if (isApiRequest) {
+      normalizedOptions.credentials = normalizedOptions.credentials || 'include';
+
+      const token = getAuthToken();
+      const tenant = getCompanyFromCookie();
+
+      if (normalizedOptions.headers instanceof Headers) {
+        const h = new Headers(normalizedOptions.headers);
+        if (!h.has('Authorization') && token) {
+          h.set('Authorization', `Bearer ${token}`);
+        }
+        if (!h.has('x-tenant') && tenant) {
+          h.set('x-tenant', tenant);
+        }
+        normalizedOptions.headers = h;
+      } else if (Array.isArray(normalizedOptions.headers)) {
+        const h = [...normalizedOptions.headers];
+        const hasAuth = h.some(([k]) => k.toLowerCase() === 'authorization');
+        if (!hasAuth && token) {
+          h.push(['Authorization', `Bearer ${token}`]);
+        }
+        const hasTenant = h.some(([k]) => k.toLowerCase() === 'x-tenant');
+        if (!hasTenant && tenant) {
+          h.push(['x-tenant', tenant]);
+        }
+        normalizedOptions.headers = h;
+      } else {
+        const h = { ...(normalizedOptions.headers || {}) };
+        const hasAuth = Object.keys(h).some((k) => k.toLowerCase() === 'authorization');
+        if (!hasAuth && token) {
+          h['Authorization'] = `Bearer ${token}`;
+        }
+        const hasTenant = Object.keys(h).some((k) => k.toLowerCase() === 'x-tenant');
+        if (!hasTenant && tenant) {
+          h['x-tenant'] = tenant;
+        }
+        normalizedOptions.headers = h;
+      }
+    }
+
+    const requestHeaders = normalizedOptions.headers || (typeof resource === 'object' ? resource?.headers : null);
     const isGet = method === 'GET';
     const noCacheHeader = getHeader(requestHeaders, 'x-no-cache');
-    const isNoCache = options.cache === 'no-store' || (typeof resource === 'object' && resource?.cache === 'no-store') || Boolean(noCacheHeader);
+    // Auth routes are strictly never cached
+    const isNoCache = isAuth || normalizedOptions.cache === 'no-store' || (typeof resource === 'object' && resource?.cache === 'no-store') || Boolean(noCacheHeader);
 
     // Invalidate cache on mutations (POST, PUT, PATCH, DELETE)
     if (isApiRequest && !isGet) {
       // Clear inFlight map during mutations to stop in-flight GET requests from saving pre-mutation stale data
       inFlight.clear();
 
-      const response = await originalFetch.apply(this, arguments);
+      const response = await originalFetch.call(this, resource, normalizedOptions);
+
+      if (response.status === 401) {
+        const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
+        if (!isLoginOr2FA && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+        }
+      }
 
       // Post-mutation cache clearing: only clear AFTER the mutation completes successfully
       if (response.ok) {
@@ -181,7 +244,7 @@ export function setupApiCache() {
     }
 
     if (!isApiRequest) {
-      return originalFetch.apply(this, arguments);
+      return originalFetch.call(this, resource, normalizedOptions);
     }
 
     const tenantHeader = getHeader(requestHeaders, 'x-tenant') ||
@@ -190,7 +253,7 @@ export function setupApiCache() {
       'aquasphere';
     const cacheKey = `${url}|${tenantHeader.toLowerCase()}`;
     const now = Date.now();
-    const ttl = options.ttl || DEFAULT_TTL;
+    const ttl = normalizedOptions.ttl || DEFAULT_TTL;
 
     if (!isNoCache) {
       // 1. In-memory cache hit
@@ -209,7 +272,15 @@ export function setupApiCache() {
         if (now - cached.timestamp > 3000 && !inFlight.has(cacheKey)) {
           const bgPromise = (async () => {
             try {
-              const response = await originalFetch.apply(this, arguments);
+              const response = await originalFetch.call(this, resource, normalizedOptions);
+
+              if (response.status === 401) {
+                const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
+                if (!isLoginOr2FA && typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+                }
+              }
+
               if (response.ok) {
                 const body = await response.text();
                 const freshData = {
@@ -259,7 +330,15 @@ export function setupApiCache() {
     // 4. Network fetch (runs on cache miss or strict no-cache bypass)
     const fetchPromise = (async () => {
       try {
-        const response = await originalFetch.apply(this, arguments);
+        const response = await originalFetch.call(this, resource, normalizedOptions);
+
+        if (response.status === 401) {
+          const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
+          if (!isLoginOr2FA && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+          }
+        }
+
         const body = await response.text();
         const data = {
           body,
@@ -269,7 +348,7 @@ export function setupApiCache() {
           timestamp: response.ok ? Date.now() : 0,
         };
 
-        if (response.ok) {
+        if (response.ok && !isAuth) {
           cache.set(cacheKey, data);
           saveToStorage(cacheKey, data);
         }

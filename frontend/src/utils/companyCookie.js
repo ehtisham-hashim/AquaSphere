@@ -20,10 +20,40 @@ export function setCompanyCookie(companyName) {
 
 export function clearCompanyCookie() {
   if (typeof window !== 'undefined') {
+    clearAuthToken();
     localStorage.removeItem('tenant');
     localStorage.removeItem('company');
     document.cookie = 'tenant=; path=/; max-age=0';
     document.cookie = 'company=; path=/; max-age=0';
     window.dispatchEvent(new CustomEvent('tenant-change', { detail: 'aquasphere' }));
+  }
+}
+
+const AUTH_TOKEN_KEY = 'aquasphere_auth_token';
+
+export function getAuthToken() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token) {
+  if (typeof window === 'undefined' || !token) return;
+  try {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function clearAuthToken() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {
+    // ignore storage errors
   }
 }
