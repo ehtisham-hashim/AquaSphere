@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { shareOrSendOrderInvoiceWhatsApp } from '../../utils/receiptFormatter';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -38,13 +38,17 @@ export default function OrdersTable({
 }) {
   const { isWadaana } = useTenant();
 
-  const handleShareWhatsApp = (order) => {
+  const handleShareWhatsApp = async (order) => {
     try {
-      const text = WhatsAppTemplates.orderDispatch(order, isWadaana);
-      openWhatsAppWeb('', text);
-      toast.success('Order details dispatched via WhatsApp.');
-    } catch {
-      toast.error('WhatsApp could not be opened.');
+      const res = await shareOrSendOrderInvoiceWhatsApp({ order, isWadaana });
+      if (res?.method === 'web-share') {
+        toast.success('Order invoice shared via WhatsApp!');
+      } else {
+        toast.success('Invoice receipt copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+      }
+    } catch (err) {
+      console.error('Share invoice error:', err);
+      toast.error('Could not send invoice to WhatsApp.');
     }
   };
 
@@ -191,7 +195,7 @@ export default function OrdersTable({
                     {/* Share via WhatsApp */}
                     <button
                       onClick={() => handleShareWhatsApp(o)}
-                      title="Share via WhatsApp"
+                      title="Send Invoice Receipt via WhatsApp"
                       className="bg-emerald-600 hover:bg-emerald-700 text-white p-1.5 rounded-lg transition-colors"
                     >
                       <MessageCircle size={13} />

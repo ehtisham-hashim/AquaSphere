@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { toast } from 'sonner';
+import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
 
 export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer, resetTrigger }) {
   const { user } = useAuth();
@@ -13,16 +14,38 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
 
   const pagination = usePagination(customers, 50, resetTrigger);
 
-  const handleShareWhatsAppCustomer = (e, c) => {
+  const handleShareWhatsAppCustomer = async (e, c) => {
     e.stopPropagation();
-    const msg = WhatsAppTemplates.customerProfile(c, isWadaana);
-    openWhatsAppWeb(c.phone, msg);
+    try {
+      const res = await shareOrSendCustomerReceiptWhatsApp({ customer: c, isWadaana });
+      if (res?.method === 'web-share') {
+        toast.success('Customer receipt slip shared via WhatsApp!');
+      } else {
+        toast.success('Customer receipt copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+      }
+    } catch (err) {
+      console.error('WhatsApp customer receipt error:', err);
+      toast.error('Could not send receipt to WhatsApp.');
+    }
   };
 
-  const handleDispatchToDriver = (e, c) => {
+  const handleDispatchToDriver = async (e, c) => {
     e.stopPropagation();
-    const msg = WhatsAppTemplates.customerProfile(c, isWadaana);
-    openWhatsAppWeb('', msg);
+    try {
+      const res = await shareOrSendCustomerReceiptWhatsApp({
+        customer: c,
+        isWadaana,
+        options: { subtitle: 'DRIVER DISPATCH & CUSTOMER ACCOUNT SLIP' }
+      });
+      if (res?.method === 'web-share') {
+        toast.success('Driver slip shared via WhatsApp!');
+      } else {
+        toast.success('Driver slip copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+      }
+    } catch (err) {
+      console.error('WhatsApp driver dispatch error:', err);
+      toast.error('Could not dispatch slip to driver.');
+    }
   };
 
   return (
@@ -146,7 +169,7 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                             type="button"
                             onClick={(e) => handleShareWhatsAppCustomer(e, c)}
                             className="p-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition"
-                            title="Share Customer Profile via WhatsApp"
+                            title="Send Customer Receipt / Statement Slip via WhatsApp"
                           >
                             <MessageCircle size={13} />
                           </button>
@@ -155,7 +178,7 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                           type="button"
                           onClick={(e) => handleDispatchToDriver(e, c)}
                           className="p-1.5 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
-                          title="Dispatch Customer Details to Driver via WhatsApp"
+                          title="Dispatch Customer Slip to Driver via WhatsApp"
                         >
                           <Share2 size={13} />
                         </button>

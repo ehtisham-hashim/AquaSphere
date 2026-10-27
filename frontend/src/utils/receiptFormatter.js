@@ -257,6 +257,7 @@ export function renderReceiptToCanvas({
   servedBy = '',
   items = [],
   summaryRows = [],
+  totalLabel = 'NET TOTAL:',
   netTotal = 0,
   remarks = '',
   footerNote = 'THANK YOU FOR CHOOSING AQUASPHERE!',
@@ -518,7 +519,10 @@ export function renderReceiptToCanvas({
 
     ctx.textAlign = 'right';
     ctx.font = 'bold 11.5px "Times New Roman", Times, "Tinos", serif';
-    ctx.fillText(`Rs ${Number(row.value).toLocaleString()}`, rightX, y);
+    const valText = typeof row.value === 'number'
+      ? (row.isRaw ? String(row.value) : `Rs ${Number(row.value).toLocaleString()}`)
+      : String(row.value ?? '—');
+    ctx.fillText(valText, rightX, y);
   });
 
   // Double Line
@@ -531,11 +535,15 @@ export function renderReceiptToCanvas({
   ctx.textAlign = 'left';
   ctx.font = 'bold 13.5px "Times New Roman", Times, "Tinos", serif';
   ctx.fillStyle = '#000000';
-  ctx.fillText('NET TOTAL:', padX, y);
+  const finalNetLabel = totalLabel || 'NET TOTAL:';
+  ctx.fillText(finalNetLabel, padX, y);
 
   ctx.textAlign = 'right';
   ctx.font = 'bold 14.5px "Times New Roman", Times, "Tinos", serif';
-  ctx.fillText(`Rs ${Number(netTotal).toLocaleString()}`, rightX, y);
+  const finalNetVal = typeof netTotal === 'number'
+    ? `Rs ${Number(netTotal).toLocaleString()}`
+    : String(netTotal ?? 'Rs 0');
+  ctx.fillText(finalNetVal, rightX, y);
 
   // Double Line
   y += 6;
@@ -769,3 +777,214 @@ export async function shareOrSendReceiptWhatsApp({
 
   return { success: true, method: copiedToClipboard ? 'clipboard' : 'download' };
 }
+
+/**
+ * Generates structured receipt data for a Customer Account Statement & Receipt Slip.
+ */
+export function getCustomerReceiptData(customer, isWadaana = false, options = {}) {
+  if (!customer) return null;
+  const brand = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
+  const custId = customer.id ? customer.id.slice(0, 8).toUpperCase() : 'CUSTOMER';
+  const balance = Number(customer.currentBalance ?? customer.balance ?? customer.totalDebt ?? 0);
+  const bottleBal = Number(customer.cachedBottleBalance ?? customer.bottleBalance ?? 0);
+  const deposit = Number(customer.deposit || 0);
+
+  const items = [];
+  if (!isWadaana) {
+    if (customer.buys19L || customer.customPrice19L) {
+      items.push({
+        name: '19L Bottle Refill',
+        qty: 1,
+        unitPrice: Number(customer.customPrice19L || 0),
+        lineTotal: Number(customer.customPrice19L || 0)
+      });
+    }
+    if (customer.buys05LPet || customer.customPrice05LPet) {
+      items.push({
+        name: '0.5L PET Pack',
+        qty: 1,
+        unitPrice: Number(customer.customPrice05LPet || 0),
+        lineTotal: Number(customer.customPrice05LPet || 0)
+      });
+    }
+    if (customer.buys15LPet || customer.customPrice15LPet) {
+      items.push({
+        name: '1.5L PET Pack',
+        qty: 1,
+        unitPrice: Number(customer.customPrice15LPet || 0),
+        lineTotal: Number(customer.customPrice15LPet || 0)
+      });
+    }
+  } else {
+    if (customer.buysPure05L || customer.customPricePure05L) {
+      items.push({
+        name: '0.5L Pure Water',
+        qty: 1,
+        unitPrice: Number(customer.customPricePure05L || 0),
+        lineTotal: Number(customer.customPricePure05L || 0)
+      });
+    }
+    if (customer.buysPure15L || customer.customPricePure15L) {
+      items.push({
+        name: '1.5L Pure Water',
+        qty: 1,
+        unitPrice: Number(customer.customPricePure15L || 0),
+        lineTotal: Number(customer.customPricePure15L || 0)
+      });
+    }
+    if (customer.buysMix05L || customer.customPriceMix05L) {
+      items.push({
+        name: '0.5L Mixed Flavors',
+        qty: 1,
+        unitPrice: Number(customer.customPriceMix05L || 0),
+        lineTotal: Number(customer.customPriceMix05L || 0)
+      });
+    }
+    if (customer.buysMix15L || customer.customPriceMix15L) {
+      items.push({
+        name: '1.5L Mixed Flavors',
+        qty: 1,
+        unitPrice: Number(customer.customPriceMix15L || 0),
+        lineTotal: Number(customer.customPriceMix15L || 0)
+      });
+    }
+  }
+
+  if (items.length === 0) {
+    items.push({
+      name: isWadaana ? 'Beverage & Water Supply' : '19L Mineral Water Refill',
+      qty: 1,
+      unitPrice: 0,
+      lineTotal: 0
+    });
+  }
+
+  const summaryRows = [
+    { label: 'Outstanding Debt', value: balance }
+  ];
+
+  if (!isWadaana) {
+    summaryRows.push({ label: 'Bottles in Custody', value: `${bottleBal} Bottles`, isRaw: true });
+  }
+
+  if (deposit > 0) {
+    summaryRows.push({ label: 'Security Deposit', value: deposit });
+  }
+
+  if (customer.lastDeliveryAt) {
+    try {
+      const lastDate = new Date(customer.lastDeliveryAt).toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'short', year: 'numeric'
+      });
+      summaryRows.push({ label: 'Last Transaction', value: lastDate, isRaw: true });
+    } catch {}
+  }
+
+  const dateStr = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+
+  return {
+    title: brand,
+    subtitle: options.subtitle || 'CUSTOMER ACCOUNT STATEMENT & RECEIPT',
+    tagline: isWadaana ? 'Premium Beverages & Pure Water' : 'Pure Quality • Safe & Healthy Water',
+    receiptNoLabel: 'ACC #:',
+    receiptNo: `#${custId}`,
+    dateStr,
+    customerLabel: 'CUST:',
+    customerName: customer.name || 'Valued Customer',
+    customerPhone: customer.phone ? (customer.phone.includes('_archived_') ? customer.phone.split('_archived_')[0] : customer.phone) : '',
+    paymentLabel: 'TYPE:',
+    paymentMethod: (customer.type || 'STANDARD').toUpperCase(),
+    statusValue: balance > 0 ? `DEBT: Rs ${balance.toLocaleString()}` : 'CLEAR / NO DUES',
+    servedBy: customer.address ? `ADDR: ${customer.address}` : '',
+    items,
+    summaryRows,
+    totalLabel: 'TOTAL OUTSTANDING:',
+    netTotal: balance,
+    remarks: options.remarks || customer.remarks || (balance > 0 ? 'Please settle the outstanding balance promptly.' : 'Account in good standing.'),
+    footerNote: isWadaana ? 'THANK YOU FOR CHOOSING WADAANA!' : 'THANK YOU FOR CHOOSING AQUASPHERE!'
+  };
+}
+
+/**
+ * Generates structured receipt data for an Order Sales Invoice Slip.
+ */
+export function getOrderReceiptData(order, isWadaana = false, withGst = false) {
+  if (!order) return null;
+  const orderId = order.id ? order.id.slice(0, 8).toUpperCase() : 'RECEIPT';
+  const orderDate = new Date(order.createdAt || Date.now()).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+  const items = Array.isArray(order.items) ? order.items : [];
+  const grandTotal = Number(order.totalAmount || 0);
+  const totalPaid = Number(order.paidAmount || 0);
+  const gstAmount = withGst ? Math.round(grandTotal * 0.18) : 0;
+  const netTotal = withGst ? grandTotal + gstAmount : grandTotal;
+  const balanceDue = Math.max(0, netTotal - totalPaid);
+
+  return {
+    title: isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER',
+    subtitle: withGst ? 'SALES INVOICE • DELIVERY RECEIPT (WITH GST)' : 'SALES INVOICE • DELIVERY RECEIPT',
+    withGst,
+    receiptNoLabel: 'INV #:',
+    receiptNo: `#${orderId}`,
+    dateStr: orderDate,
+    customerLabel: 'CUST:',
+    customerName: order.customer?.name || 'Valued Customer',
+    customerPhone: order.customer?.phone || '',
+    paymentLabel: 'PAY:',
+    paymentMethod: (order.paymentStatus || 'UNPAID').toUpperCase(),
+    statusValue: balanceDue > 0 ? `DUE: Rs ${balanceDue.toLocaleString()}` : 'PAID IN FULL',
+    servedBy: `DELIVERY: ${(order.deliveryStatus || 'PENDING').toUpperCase()}`,
+    items: items.map(item => {
+      const qty = Number(item.quantity || 0);
+      const rate = Number(item.price || 0);
+      return {
+        name: item.item?.name || item.name || 'Item',
+        qty,
+        unitPrice: rate,
+        lineTotal: qty * rate
+      };
+    }),
+    summaryRows: [
+      { label: 'Subtotal', value: grandTotal },
+      ...(withGst ? [{ label: 'GST (18%)', value: gstAmount }] : []),
+      { label: 'Amount Paid', value: totalPaid },
+      ...(balanceDue > 0 ? [{ label: 'Balance Due', value: balanceDue }] : [])
+    ],
+    totalLabel: 'NET TOTAL:',
+    netTotal: netTotal,
+    remarks: order.remarks || '',
+    footerNote: withGst ? `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!` : 'Thanks for choosing us'
+  };
+}
+
+/**
+ * Dispatches customer account statement receipt directly to WhatsApp.
+ */
+export async function shareOrSendCustomerReceiptWhatsApp({ customer, isWadaana = false, options = {} }) {
+  const receiptData = getCustomerReceiptData(customer, isWadaana, options);
+  const custId = customer?.id ? customer.id.slice(0, 8).toUpperCase() : 'Customer';
+  const cleanPhone = customer?.phone?.includes('_archived_') ? customer.phone.split('_archived_')[0] : customer?.phone;
+  return shareOrSendReceiptWhatsApp({
+    phone: cleanPhone || '',
+    receiptData,
+    filename: `Customer_Receipt_${custId}.png`
+  });
+}
+
+/**
+ * Dispatches order sales invoice receipt directly to WhatsApp.
+ */
+export async function shareOrSendOrderInvoiceWhatsApp({ order, isWadaana = false, withGst = false, elementId = null }) {
+  const receiptData = getOrderReceiptData(order, isWadaana, withGst);
+  const orderId = order?.id ? order.id.slice(0, 8).toUpperCase() : 'Order';
+  return shareOrSendReceiptWhatsApp({
+    phone: order?.customer?.phone || '',
+    receiptData,
+    elementId,
+    filename: `Invoice_${orderId}.png`
+  });
+}
+

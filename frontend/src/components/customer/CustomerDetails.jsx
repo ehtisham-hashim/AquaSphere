@@ -14,6 +14,7 @@ import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
 
 // ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted, onViewOrder }) {
@@ -194,9 +195,21 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
                   <button
-                    onClick={() => openWhatsAppWeb('', fullDetails)}
+                    onClick={async () => {
+                      try {
+                        const res = await shareOrSendCustomerReceiptWhatsApp({ customer: c, isWadaana });
+                        if (res?.method === 'web-share') {
+                          toast.success('Customer receipt slip shared via WhatsApp!');
+                        } else {
+                          toast.success('Customer receipt copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                        }
+                      } catch (err) {
+                        console.error('Customer receipt error:', err);
+                        toast.error('Could not send receipt to WhatsApp.');
+                      }
+                    }}
                     className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex-shrink-0"
-                    title="Share customer profile via WhatsApp (Driver / Fleet)"
+                    title="Send Customer Receipt / Statement Slip via WhatsApp"
                   >
                     <Share2 size={18} />
                   </button>
@@ -313,12 +326,28 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 {currentBalance > 0 && c.phone && (
                   <button
                     type="button"
-                    onClick={() => {
-                      const msg = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
-                      openWhatsAppWeb(c.phone, msg);
+                    onClick={async () => {
+                      try {
+                        const res = await shareOrSendCustomerReceiptWhatsApp({
+                          customer: c,
+                          isWadaana,
+                          options: {
+                            subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
+                            remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
+                          }
+                        });
+                        if (res?.method === 'web-share') {
+                          toast.success('Payment reminder receipt shared via WhatsApp!');
+                        } else {
+                          toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                        }
+                      } catch (err) {
+                        console.error('Payment reminder error:', err);
+                        toast.error('Could not send reminder to WhatsApp.');
+                      }
                     }}
                     className="mt-1.5 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
-                    title="Send Overdue Bill Reminder via WhatsApp"
+                    title="Send Overdue Bill Receipt via WhatsApp"
                   >
                     <Share2 size={10} />
                     <span>WhatsApp Reminder</span>
