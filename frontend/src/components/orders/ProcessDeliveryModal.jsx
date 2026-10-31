@@ -401,6 +401,8 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                             <select name="paymentMethod" className="select-base text-xs" value={deliveryData.paymentMethod} onChange={handleChange}>
                               <option value="CASH">Cash</option>
                               <option value="BANK_TRANSFER">Bank Transfer / Online</option>
+                              <option value="EASYPAISA">EasyPaisa</option>
+                              <option value="JAZZCASH">JazzCash</option>
                               <option value="CHEQUE">Cheque</option>
                             </select>
                           </div>

@@ -1,16 +1,19 @@
-import { MapPin, Phone, Package, MessageCircle, Share2, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { MapPin, Phone, Package, MessageCircle, Share2, Trash2, DollarSign } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { toast } from 'sonner';
 import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
+import SettleCustomerDebtModal from './SettleCustomerDebtModal';
 
-export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer, resetTrigger }) {
+export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer, onCustomerUpdated, resetTrigger }) {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
+  const [settleDebtCustomer, setSettleDebtCustomer] = useState(null);
 
   const pagination = usePagination(customers, 50, resetTrigger);
 
@@ -96,8 +99,13 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                           {c.name ? c.name.charAt(0).toUpperCase() : '?'}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-800 flex items-center gap-2">
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
                             {c.name}
+                            {c.customerCode && (
+                              <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded">
+                                {c.customerCode}
+                              </span>
+                            )}
                             {c.archivedAt && (
                               <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase">
                                 Archived
@@ -109,8 +117,15 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block mt-1">
-                            {c.type}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
+                              {c.type}
+                            </span>
+                            {c.marketerRef && (
+                              <span className="text-[10px] text-slate-500 font-medium">
+                                Ref: {c.marketerRef}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -141,7 +156,9 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                             {c.buysPure15L && <span className="badge-brand">1.5L Pure</span>}
                             {c.buysMix05L && <span className="badge-neutral">0.5L Mix</span>}
                             {c.buysMix15L && <span className="badge-neutral">1.5L Mix</span>}
-                            {!c.buysPure05L && !c.buysPure15L && !c.buysMix05L && !c.buysMix15L && <span className="text-slate-400 text-xs">—</span>}
+                            {c.buysPureFine05L && <span className="badge-success">0.5L Fine</span>}
+                            {c.buysPureFine15L && <span className="badge-success">1.5L Fine</span>}
+                            {!c.buysPure05L && !c.buysPure15L && !c.buysMix05L && !c.buysMix15L && !c.buysPureFine05L && !c.buysPureFine15L && <span className="text-slate-400 text-xs">—</span>}
                           </>
                         )}
                       </div>
@@ -164,6 +181,20 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                     )}
                     <td className="table-td text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
+                        {parseFloat(c.currentBalance || 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSettleDebtCustomer(c);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition font-bold flex items-center gap-1 text-xs"
+                            title="Settle Outstanding Debt with FIFO Allocation"
+                          >
+                            <DollarSign size={12} />
+                            <span>Pay Debt</span>
+                          </button>
+                        )}
                         {c.phone && (
                           <button
                             type="button"
@@ -220,6 +251,17 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
         </table>
       </div>
       <TablePagination pagination={pagination} />
+
+      {settleDebtCustomer && (
+        <SettleCustomerDebtModal
+          customer={settleDebtCustomer}
+          onClose={() => setSettleDebtCustomer(null)}
+          onSuccess={() => {
+            setSettleDebtCustomer(null);
+            if (onCustomerUpdated) onCustomerUpdated();
+          }}
+        />
+      )}
     </div>
   );
 }

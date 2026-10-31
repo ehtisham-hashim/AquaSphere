@@ -19,6 +19,8 @@ import OrderInvoiceModal from '../components/orders/OrderInvoiceModal';
 import RecordPaymentModal from '../components/orders/RecordPaymentModal';
 import OrderSearch from '../components/orders/OrderSearch';
 import OrderDetail from '../components/orders/OrderDetail';
+import SettleCustomerDebtModal from '../components/customer/SettleCustomerDebtModal';
+import { shareOrSendMonthlyStatementWhatsApp } from '../utils/receiptFormatter';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
 import { useLiveEvent } from '../context/SSEContext';
@@ -79,7 +81,10 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('All Clients');
+  const [productSizeFilter, setProductSizeFilter] = useState('ALL');
   const [dateFilter, setDateFilter] = useState('ALL');
+  const [statementMonth, setStatementMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [settleCustomer, setSettleCustomer] = useState(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
@@ -225,6 +230,18 @@ export default function Orders() {
     // Client type filtering
     if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
 
+    // Product size filtering
+    if (productSizeFilter !== 'ALL') {
+      const hasSize = o.items?.some(i => {
+        const name = (i.item?.name || '').toLowerCase();
+        if (productSizeFilter === '19L') return name.includes('19l') || o.type === 'NINETEEN_L';
+        if (productSizeFilter === '1.5L') return name.includes('1.5') || name.includes('1.5l');
+        if (productSizeFilter === '0.5L') return name.includes('0.5') || name.includes('500ml');
+        return false;
+      });
+      if (!hasSize) return false;
+    }
+
     // Date filtering
     if (dateFilter !== 'ALL' && !orderMatchesDate(o, dateFilter)) return false;
     
@@ -243,10 +260,66 @@ export default function Orders() {
     return true;
   });
 
-  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${activeTab}_${dateFilter}`);
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${productSizeFilter}_${activeTab}_${dateFilter}`);
 
-  const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders'];
+  const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders', 'Month-End Statements'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
+
+  // Month-End Statements aggregation
+  const monthOrders = orders.filter(o => {
+    const rawDate = o.expectedDelivery || o.createdAt;
+    if (!rawDate) return false;
+    const d = parseOrderDate(rawDate);
+    if (!d) return false;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}` === statementMonth;
+  });
+
+  const customerStatementMap = new Map();
+  customers.forEach(c => {
+    customerStatementMap.set(c.id, {
+      customer: c,
+      orders: [],
+      delivered19L: 0,
+      delivered15L: 0,
+      delivered05L: 0,
+      totalBilled: 0
+    });
+  });
+
+  monthOrders.forEach(o => {
+    const custId = o.customerId;
+    if (!custId) return;
+    if (!customerStatementMap.has(custId)) {
+      customerStatementMap.set(custId, {
+        customer: o.customer || { id: custId, name: 'Unknown' },
+        orders: [],
+        delivered19L: 0,
+        delivered15L: 0,
+        delivered05L: 0,
+        totalBilled: 0
+      });
+    }
+    const rec = customerStatementMap.get(custId);
+    rec.orders.push(o);
+    const isDelivered = o.deliveryStatus === 'DELIVERED';
+    o.items?.forEach(i => {
+      const q = Number(i.quantity || 0);
+      const name = (i.item?.name || '').toLowerCase();
+      if (isDelivered) {
+        rec.totalBilled += q * Number(i.price || 0);
+      }
+      if (name.includes('19l') || o.type === 'NINETEEN_L') rec.delivered19L += q;
+      else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
+      else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
+    });
+  });
+
+  const statementList = Array.from(customerStatementMap.values()).filter(s => {
+    const bal = Number(s.customer?.currentBalance || 0);
+    return s.orders.length > 0 || bal > 0;
+  });
 
 
 
@@ -339,6 +412,20 @@ export default function Orders() {
                 {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
+
+            <div className="w-full sm:w-36">
+              <select 
+                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+                value={productSizeFilter}
+                onChange={e => setProductSizeFilter(e.target.value)}
+                aria-label="Filter orders by product size"
+              >
+                <option value="ALL">All Sizes</option>
+                <option value="19L">19 Litre</option>
+                <option value="1.5L">1.5 Litre</option>
+                <option value="0.5L">0.5 Litre</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -349,6 +436,121 @@ export default function Orders() {
 
       {isLoading && orders.length === 0 ? (
         <TableSkeleton rows={6} cols={6} />
+      ) : activeTab === 'Month-End Statements' ? (
+        <div className="space-y-4">
+          <div className="card-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Customer Monthly Ledgers & Statements</h3>
+              <p className="text-xs text-slate-500">Breakdown of delivered bottle sizes, billed volumes, and debt collection for the month.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-600">Statement Month:</label>
+              <input
+                type="month"
+                value={statementMonth}
+                onChange={e => setStatementMonth(e.target.value)}
+                className="input-base text-xs py-1.5 px-3 font-semibold bg-white"
+              />
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table className="w-full text-left whitespace-nowrap text-xs">
+              <thead>
+                <tr>
+                  <th className="table-th">Customer</th>
+                  <th className="table-th">Customer Code</th>
+                  <th className="table-th text-center">Month Orders</th>
+                  <th className="table-th">Delivered Breakdown</th>
+                  <th className="table-th text-right">Month Billed</th>
+                  <th className="table-th text-right">Current Balance</th>
+                  <th className="table-th text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {statementList.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-slate-400">
+                      No customer orders or outstanding debt recorded for {statementMonth}.
+                    </td>
+                  </tr>
+                ) : (
+                  statementList.map(s => {
+                    const cust = s.customer || {};
+                    const balance = Number(cust.currentBalance || 0);
+                    return (
+                      <tr key={cust.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="table-td">
+                          <div className="font-bold text-slate-800">{cust.name}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">{cust.phone || '—'}</div>
+                        </td>
+                        <td className="table-td">
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
+                            {cust.customerCode || `#${cust.id?.substring(0, 6).toUpperCase()}`}
+                          </span>
+                        </td>
+                        <td className="table-td text-center font-bold text-slate-700">
+                          {s.orders.length}
+                        </td>
+                        <td className="table-td">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {s.delivered19L > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold font-mono text-[11px]">
+                                {s.delivered19L} × 19L
+                              </span>
+                            )}
+                            {s.delivered15L > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold font-mono text-[11px]">
+                                {s.delivered15L} × 1.5L
+                              </span>
+                            )}
+                            {s.delivered05L > 0 && (
+                              <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold font-mono text-[11px]">
+                                {s.delivered05L} × 0.5L
+                              </span>
+                            )}
+                            {s.delivered19L === 0 && s.delivered15L === 0 && s.delivered05L === 0 && (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="table-td text-right font-mono font-bold text-slate-800">
+                          Rs. {Math.round(s.totalBilled).toLocaleString()}
+                        </td>
+                        <td className="table-td text-right font-mono font-bold">
+                          <span className={balance > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                            Rs. {balance.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="table-td text-right">
+                          <div className="flex justify-end items-center gap-1.5">
+                            {balance > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setSettleCustomer(cust)}
+                                className="px-2.5 py-1 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition shadow-xs"
+                              >
+                                Settle Balance
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => shareOrSendMonthlyStatementWhatsApp({ customer: cust, month: statementMonth, orders: s.orders, isWadaana })}
+                              className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow-xs flex items-center gap-1"
+                              title="Send Monthly Statement via WhatsApp"
+                            >
+                              <Share2 size={12} /> WhatsApp
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
         <div className="table-container">
           <table className="w-full text-left whitespace-nowrap">
@@ -626,6 +828,17 @@ export default function Orders() {
         onConfirm={() => confirmDeleteOrder(orderToDelete.id)}
         onClose={() => setOrderToDelete(null)}
       />
+
+      {settleCustomer && (
+        <SettleCustomerDebtModal
+          customer={settleCustomer}
+          onClose={() => setSettleCustomer(null)}
+          onSuccess={() => {
+            setSettleCustomer(null);
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }

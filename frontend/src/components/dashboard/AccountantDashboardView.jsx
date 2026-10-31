@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Wallet, Receipt, Clock, Lock, ShoppingCart, Users } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
+import CashBreakdownSection from './CashBreakdownSection';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
 import { TimeframeDropdown } from '../ui';
@@ -41,7 +42,10 @@ export default function AccountantDashboardView({ data }) {
         sales: Number(tf.sales ?? 0),
         cash: Number(tf.cash ?? 0),
         expenses: Number(tf.expenses ?? 0),
-        credit: Number(tf.credit ?? 0)
+        credit: Number(tf.credit ?? 0),
+        cashByMethod: tf.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+        salesBySize: tf.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+        cashBySize: tf.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
       };
     }
 
@@ -94,7 +98,10 @@ export default function AccountantDashboardView({ data }) {
       sales: Number(tf?.sales ?? data.sales ?? 0),
       cash: Number(tf?.cash ?? data.cash ?? 0),
       expenses: Number(tf?.expenses ?? data.expenses ?? 0),
-      credit: Number(tf?.credit ?? data.credit ?? 0)
+      credit: Number(tf?.credit ?? data.credit ?? 0),
+      cashByMethod: tf?.cashByMethod || data?.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+      salesBySize: tf?.salesBySize || data?.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+      cashBySize: tf?.cashBySize || data?.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
     };
   }, [data, timeframe]);
 
@@ -201,6 +208,13 @@ export default function AccountantDashboardView({ data }) {
             variant={netCash >= 0 ? 'emerald' : 'rose'}
           />
         </div>
+
+        {/* Payment Channels & Size Breakdown */}
+        <CashBreakdownSection 
+          cashByMethod={activeData?.cashByMethod} 
+          salesBySize={activeData?.salesBySize} 
+          cashBySize={activeData?.cashBySize} 
+        />
       </section>
 
       {/* 2. Main Ledger & Accounts Workspace (2-Column Split for Zero-Scroll Efficiency) */}

@@ -42,6 +42,12 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 
   const requestedPrefix = getTenantPrefix(req);
+  const tokenTenant = (decodedToken.tenant || 'aquasphere').toLowerCase();
+
+  if (tokenTenant !== requestedPrefix) {
+    throw new ApiError(401, 'Session belongs to a different company tenant. Please log in with credentials for this company.');
+  }
+
   const cacheKey = `${decodedToken.id}:${requestedPrefix}`;
   const cached = userCache.get(cacheKey);
 
@@ -52,64 +58,21 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 
   // 1. Look up user directly in requested tenant table
-  let user = await prisma[`${requestedPrefix}User`].findUnique({
+  const user = await prisma[`${requestedPrefix}User`].findUnique({
     where: { id: decodedToken.id },
     select: { id: true, email: true, name: true, role: true, isActive: true }
   });
-
-  let resolvedTenant = requestedPrefix;
-
-  // 2. If not found in requested tenant, check if user exists in fallback tenant
-  if (!user) {
-    const fallbackPrefix = requestedPrefix === 'wadaana' ? 'aquasphere' : 'wadaana';
-    const fallbackUser = await prisma[`${fallbackPrefix}User`].findUnique({
-      where: { id: decodedToken.id },
-      select: { id: true, email: true, name: true, role: true, isActive: true }
-    });
-
-    if (!fallbackUser || !fallbackUser.isActive) {
-      throw new ApiError(401, 'Invalid access token or user is inactive');
-    }
-
-    // Strict cross-tenant entitlement check: only authorized role (OWNER) with target membership
-    if (fallbackUser.role === 'OWNER') {
-      // Check if user has an account in the target tenant with same email
-      let targetUser = await prisma[`${requestedPrefix}User`].findUnique({
-        where: { email: fallbackUser.email },
-        select: { id: true, email: true, name: true, role: true, isActive: true }
-      });
-
-      // If no exact email match, bind to target tenant's active Owner or Admin to ensure FK validity
-      if (!targetUser) {
-        targetUser = await prisma[`${requestedPrefix}User`].findFirst({
-          where: { role: 'OWNER', isActive: true },
-          select: { id: true, email: true, name: true, role: true, isActive: true }
-        }) || await prisma[`${requestedPrefix}User`].findFirst({
-          where: { role: 'ADMIN', isActive: true },
-          select: { id: true, email: true, name: true, role: true, isActive: true }
-        });
-      }
-
-      if (targetUser && targetUser.isActive) {
-        user = targetUser;
-        resolvedTenant = requestedPrefix;
-      } else {
-        throw new ApiError(403, 'Forbidden: No active administrative account in target tenant');
-      }
-    } else {
-      // Reject cross-tenant access for non-owner roles
-      throw new ApiError(403, 'Forbidden: User is not authorized to access this tenant');
-    }
-  }
 
   if (!user || !user.isActive) {
     throw new ApiError(401, 'Invalid access token or user is inactive');
   }
 
-  // Cache resolved user and verified tenant
-  userCache.set(cacheKey, { user, tenant: resolvedTenant, ts: Date.now() });
+  const userWithTenant = { ...user, tenant: requestedPrefix };
 
-  req.user = user;
-  req.tenant = resolvedTenant;
+  // Cache resolved user and verified tenant
+  userCache.set(cacheKey, { user: userWithTenant, tenant: requestedPrefix, ts: Date.now() });
+
+  req.user = userWithTenant;
+  req.tenant = requestedPrefix;
   next();
 });

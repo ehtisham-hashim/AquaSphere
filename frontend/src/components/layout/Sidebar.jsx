@@ -24,7 +24,8 @@ import {
   Car,
   Tag,
   LogOut,
-  MessageCircle
+  MessageCircle,
+  FileText
 } from 'lucide-react';
 
 import { checkForUpdate } from '../../utils/versionCheck';
@@ -47,6 +48,7 @@ const PREFETCH_MAP = {
   '/users': () => import('../../pages/Users'),
   '/transport': () => import('../../pages/Transport'),
   '/daily-close': () => import('../../pages/DailyClose'),
+  '/erp-reports': () => import('../../pages/Reports'),
 };
 
 const safePrefetch = (path) => {
@@ -85,6 +87,7 @@ const navItems = [
   { icon: UserCog, label: 'Users & Roles', path: '/users' },
   { icon: Car, label: 'Transport', path: '/transport' },
   { icon: ShieldCheck, label: 'Daily Close', path: '/daily-close' },
+  { icon: FileText, label: 'ERP Reports', path: '/erp-reports' },
 ];
 
 export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {

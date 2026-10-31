@@ -17,6 +17,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
   });
 
   const [selectedItems, setSelectedItems] = useState({});
+  const [withGst, setWithGst] = useState(false);
   const [softBlockData, setSoftBlockData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,7 +113,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const orderTotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
+  const subtotal = Object.entries(selectedItems).reduce((sum, [itemId, data]) => {
     const item = availableItems.find(i => i.id === itemId);
     if (!item) return sum;
     const qty = parseInt(data.quantity) || 0;
@@ -121,6 +122,9 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     const unitRate = data.price !== undefined && data.price !== '' ? (parseFloat(data.price) || 0) : defaultRate;
     return sum + (unitRate * qty);
   }, 0);
+
+  const gstAmount = withGst ? Math.round(subtotal * 0.18) : 0;
+  const orderTotal = subtotal + gstAmount;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -240,6 +244,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
           expectedDelivery: orderData.expectedDelivery, 
           remarks: orderData.remarks,
           paymentStatus: orderData.paymentStatus,
+          withGst,
           bypassCreditCheck,
           items: orderItemsPayload
         }),
@@ -463,9 +468,29 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
               })}
             </div>
             
-            <div className="mt-4 bg-sky-50 border border-sky-200 rounded-xl p-4 flex justify-between items-center">
-              <span className="text-sm text-sky-800 font-extrabold uppercase tracking-wider">Estimated Order Total</span>
-              <span className="text-2xl font-black text-sky-950">Rs. {Number(orderTotal).toLocaleString()}</span>
+            <div className="mt-4 bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={withGst}
+                    onChange={(e) => setWithGst(e.target.checked)}
+                    className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800">
+                    With 18% GST (FBR Sales Tax Invoice)
+                  </span>
+                </label>
+                {withGst && (
+                  <span className="text-xs font-mono font-bold text-sky-700">
+                    +18% GST: Rs. {gstAmount.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-sky-200/60">
+                <span className="text-sm text-sky-800 font-extrabold uppercase tracking-wider">Estimated Order Total</span>
+                <span className="text-2xl font-black text-sky-950">Rs. {Number(orderTotal).toLocaleString()}</span>
+              </div>
             </div>
           </div>
 

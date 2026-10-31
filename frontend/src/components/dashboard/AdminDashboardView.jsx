@@ -15,6 +15,8 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { API_URL as API } from '../../utils/api';
 import ModernKpiCard from './ModernKpiCard';
+import CashBreakdownSection from './CashBreakdownSection';
+import SettleCustomerDebtModal from '../customer/SettleCustomerDebtModal';
 import { TimeframeDropdown } from '../ui';
 
 export default function AdminDashboardView() {
@@ -23,6 +25,7 @@ export default function AdminDashboardView() {
   const [cashData, setCashData] = useState(null);
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [settleCustomer, setSettleCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [timeframe, setTimeframe] = useState('TODAY');
 
@@ -322,6 +325,12 @@ export default function AdminDashboardView() {
               </p>
             </div>
           </div>
+
+          <CashBreakdownSection
+            cashByMethod={cashData?.paymentsByMethod}
+            salesBySize={cashData?.salesBySize}
+            cashBySize={cashData?.cashBySize}
+          />
         </div>
       )}
 
@@ -347,10 +356,19 @@ export default function AdminDashboardView() {
                     <p className="text-xs text-slate-400 py-2">None</p>
                   ) : (
                     alerts.unpaidBillOver7Days?.map(c => (
-                      <div key={c.id} className="py-2 text-xs">
-                        <p className="font-bold text-slate-800">{c.name}</p>
-                        <p className="text-[11px] text-slate-500">{c.phone}</p>
-                        <p className="text-xs text-amber-600 font-bold">Rs. {c.unpaidAmount?.toLocaleString()} — {c.daysOverdue} days overdue</p>
+                      <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{c.name}</p>
+                          <p className="text-[11px] text-slate-500">{c.phone}</p>
+                          <p className="text-xs text-amber-600 font-bold">Rs. {c.unpaidAmount?.toLocaleString()} — {c.daysOverdue} days overdue</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSettleCustomer({ id: c.id, name: c.name, phone: c.phone, currentBalance: c.unpaidAmount })}
+                          className="px-2.5 py-1 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition shadow-sm"
+                        >
+                          Pay
+                        </button>
                       </div>
                     ))
                   )}
@@ -380,6 +398,17 @@ export default function AdminDashboardView() {
             </div>
           )}
         </div>
+      )}
+
+      {settleCustomer && (
+        <SettleCustomerDebtModal
+          customer={settleCustomer}
+          onClose={() => setSettleCustomer(null)}
+          onSuccess={() => {
+            setSettleCustomer(null);
+            fetchData();
+          }}
+        />
       )}
     </div>
   );

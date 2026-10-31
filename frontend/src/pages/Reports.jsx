@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { API_URL } from '../utils/api';
+import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
 import { 
   Download, Calendar, TrendingUp, DollarSign, 
-  Package, Settings, Users, Truck, AlertCircle 
+  Package, Settings, Users, Truck, AlertCircle, Printer 
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { PageHeader } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
@@ -29,8 +31,10 @@ const PERIODS = [
 ];
 
 export default function Reports() {
+  const { tenant } = useTenant();
   const [activeTab, setActiveTab] = useState('sales');
   const [period, setPeriod] = useState('monthly');
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
@@ -38,18 +42,60 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const pagination = usePagination(reportData?.table || [], 50, activeTab);
+  const pagination = usePagination(reportData?.table || [], 50, `${activeTab}_${period}_${selectedMonth}`);
+
+  const chartData = useMemo(() => {
+    if (!reportData || !reportData.table || reportData.table.length === 0) return [];
+    if (activeTab === 'profitability') {
+      return reportData.table
+        .filter(r => r['Financial Metric'] && typeof r['Amount (Rs)'] === 'number')
+        .map(r => ({ name: r['Financial Metric'].replace('Collected', '').trim(), value: r['Amount (Rs)'] }));
+    }
+    if (activeTab === 'expenses') {
+      const catMap = {};
+      reportData.table.forEach(r => {
+        const cat = r['Category'] || 'Other';
+        catMap[cat] = (catMap[cat] || 0) + Number(r['Amount (Rs)'] || 0);
+      });
+      return Object.entries(catMap).map(([name, value]) => ({ name, value }));
+    }
+    if (activeTab === 'credit') {
+      return reportData.table
+        .slice(0, 8)
+        .map(r => ({ name: r['Customer Name'], value: Number(r['Outstanding Debt (Rs)'] || 0) }));
+    }
+    if (activeTab === 'sales') {
+      const itemMap = {};
+      reportData.table.forEach(r => {
+        const item = r['Item'] || r['Category Type'] || 'Order';
+        itemMap[item] = (itemMap[item] || 0) + Number(r['Cash Collected (Rs)'] || 0);
+      });
+      return Object.entries(itemMap).map(([name, value]) => ({ name, value }));
+    }
+    if (activeTab === 'production') {
+      return reportData.table.slice(0, 8).map(r => ({
+        name: r['Batch ID'],
+        value: Number(r['Good Yield (Packs)'] || 0)
+      }));
+    }
+    return [];
+  }, [reportData, activeTab]);
 
   const fetchReport = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
       let url = `${API_URL}/reports/${activeTab}?period=${period}`;
-      if (period === 'custom') {
+      if (period === 'monthly') {
+        url += `&month=${selectedMonth}`;
+      } else if (period === 'custom') {
         url += `&startDate=${startDate}&endDate=${endDate}`;
       }
       
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, { 
+        headers: { 'x-tenant': tenant },
+        credentials: 'include' 
+      });
       const data = await res.json();
       
       if (data.success) {
@@ -64,7 +110,7 @@ export default function Reports() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [activeTab, period, startDate, endDate]);
+  }, [activeTab, period, selectedMonth, startDate, endDate, tenant]);
 
   const fetchData = fetchReport;
   useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED', 'PRODUCTION_UPDATED'], () => fetchData(true));
@@ -78,7 +124,7 @@ export default function Reports() {
       fetchReport();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, period]);
+  }, [activeTab, period, selectedMonth]);
 
   useEffect(() => {
     if (period === 'custom' && startDate && endDate) {
@@ -137,6 +183,18 @@ export default function Reports() {
               ))}
             </div>
 
+            {period === 'monthly' && (
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
+                <Calendar size={13} className="text-slate-400" />
+                <input
+                  type="month"
+                  className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium cursor-pointer"
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                />
+              </div>
+            )}
+
             {period === 'custom' && (
               <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
                 <Calendar size={13} className="text-slate-400" />
@@ -145,6 +203,14 @@ export default function Reports() {
                 <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} />
               </div>
             )}
+
+            <button
+              onClick={() => window.print()}
+              className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+              title="Print A4 Report"
+            >
+              <Printer size={13} /> Print A4
+            </button>
 
             <button
               onClick={handleExportCSV}
@@ -202,6 +268,37 @@ export default function Reports() {
                       <p className="text-xl font-black font-mono text-slate-800">{kpi.value}</p>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Visual Analytics Chart */}
+              {chartData && chartData.length > 0 && (
+                <div className="card-surface p-5 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      {activeTab === 'sales' ? 'Sales Revenue Trend' :
+                       activeTab === 'profitability' ? 'Income & Expense Breakdown' :
+                       activeTab === 'expenses' ? 'Expenses by Category' :
+                       activeTab === 'credit' ? 'Top Debtors Exposure' :
+                       activeTab === 'production' ? 'Production Yield by Batch' :
+                       'Overview Analytics'}
+                    </h4>
+                    <span className="text-[11px] text-slate-400 font-medium">Visual Overview</span>
+                  </div>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} interval={0} angle={-15} textAnchor="end" height={40} />
+                        <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                        <Tooltip 
+                          formatter={(value) => [`Rs. ${Number(value).toLocaleString()}`, 'Amount']}
+                          contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 'bold' }}
+                        />
+                        <Bar dataKey="value" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
 

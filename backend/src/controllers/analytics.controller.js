@@ -37,13 +37,21 @@ const computeDashboardAnalytics = async (prefix) => {
             quantity: true,
             item: { select: { name: true, unit: true } }
           } 
-        } 
+        },
+        deliveries: {
+          select: {
+            qtyDelivered: true,
+            cashReceived: true,
+            paymentMethod: true,
+            createdAt: true
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     }),
     prisma[`${prefix}Payment`].findMany({
       where: { createdAt: { gte: minDate, lte: endOfDay } },
-      select: { createdAt: true, amount: true }
+      select: { createdAt: true, amount: true, type: true, orderId: true }
     }),
     prisma[`${prefix}Expense`].findMany({
       where: { createdAt: { gte: minDate, lte: endOfDay } },
@@ -100,6 +108,14 @@ const computeDashboardAnalytics = async (prefix) => {
   const dayMap = Object.create(null);
   const monthMap = Object.create(null);
 
+  const getBottleSize = (name = '') => {
+    const n = name.toLowerCase();
+    if (n.includes('19l') || n.includes('19 l')) return '19L';
+    if (n.includes('1.5') || n.includes('1500')) return '1.5L';
+    if (n.includes('0.5') || n.includes('500')) return '0.5L';
+    return null;
+  };
+
   const createMetricBucket = () => ({
     sales: 0,
     deliveredSales: 0,
@@ -108,6 +124,23 @@ const computeDashboardAnalytics = async (prefix) => {
     cash: 0,
     orderCash: 0,
     spotSalesCash: 0,
+    cashByMethod: {
+      CASH: 0,
+      BANK_TRANSFER: 0,
+      EASYPAISA: 0,
+      JAZZCASH: 0,
+      CHEQUE: 0
+    },
+    salesBySize: {
+      '19L': 0,
+      '1.5L': 0,
+      '0.5L': 0
+    },
+    cashBySize: {
+      '19L': 0,
+      '1.5L': 0,
+      '0.5L': 0
+    },
     expenses: 0,
     credit: 0,
     bottlesSold: 0,
@@ -193,6 +226,13 @@ const computeDashboardAnalytics = async (prefix) => {
         b.unprocessedSales += total;
         b.unprocessedOrdersCount += 1;
       }
+      for (const it of o.items || []) {
+        const sz = getBottleSize(it.item?.name);
+        if (sz && b.salesBySize) {
+          const rev = parseFloat(it.price || 0) * (it.quantity || 0);
+          b.salesBySize[sz] = (b.salesBySize[sz] || 0) + rev;
+        }
+      }
     }
   }
 
@@ -206,10 +246,42 @@ const computeDashboardAnalytics = async (prefix) => {
     month.orderCash += amt;
     month.cash += amt;
 
+    const method = p.type || 'CASH';
     const activeBuckets = getBucketsForDate(d);
     for (const b of activeBuckets) {
       b.orderCash += amt;
       b.cash += amt;
+      if (b.cashByMethod) {
+        if (b.cashByMethod[method] !== undefined) {
+          b.cashByMethod[method] += amt;
+        } else {
+          b.cashByMethod.CASH = (b.cashByMethod.CASH || 0) + amt;
+        }
+      }
+    }
+  }
+
+  // Allocate order payments to cashBySize
+  for (const o of orders) {
+    const oPayments = payments.filter(p => p.orderId === o.id);
+    const oPaid = oPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    if (oPaid > 0) {
+      const d = new Date(o.createdAt);
+      const activeBuckets = getBucketsForDate(d);
+      const itemsWithSize = (o.items || []).map(it => {
+        const sz = getBottleSize(it.item?.name);
+        return { sz, rev: parseFloat(it.price || 0) * (it.quantity || 0) };
+      }).filter(x => x.sz);
+
+      const totalSizeRev = itemsWithSize.reduce((s, x) => s + x.rev, 0) || 1;
+      itemsWithSize.forEach(({ sz, rev }) => {
+        const allocatedCash = Math.round(oPaid * (rev / totalSizeRev));
+        for (const b of activeBuckets) {
+          if (b.cashBySize) {
+            b.cashBySize[sz] = (b.cashBySize[sz] || 0) + allocatedCash;
+          }
+        }
+      });
     }
   }
 
@@ -246,6 +318,15 @@ const computeDashboardAnalytics = async (prefix) => {
       b.waterLitres += totalLit;
       b.customWaterLitres += customLit;
       b.refillWaterLitres += refillLit;
+      if (b.cashByMethod) {
+        b.cashByMethod.CASH = (b.cashByMethod.CASH || 0) + cashAmt;
+      }
+      if (b.cashBySize) {
+        b.cashBySize['19L'] = (b.cashBySize['19L'] || 0) + cashAmt;
+      }
+      if (b.salesBySize) {
+        b.salesBySize['19L'] = (b.salesBySize['19L'] || 0) + (cashAmt + creditAmt);
+      }
     }
   }
 
@@ -576,14 +657,14 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const nextDate = new Date(targetDate);
   nextDate.setDate(nextDate.getDate() + 1);
 
-  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments, spotSalesTotalAgg] = await Promise.all([
+  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments, spotSalesTotalAgg, paymentsByMethodList, todaysOrders] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate }, type: 'CASH' }
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { cashCollected: true, creditAmount: true, litresSold: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
+      where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
     prisma[`${prefix}Expense`].aggregate({
       _sum: { amount: true },
@@ -600,6 +681,18 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { totalLitres: true, litresSold: true, totalBottles: true, totalCaps: true },
       where: { createdAt: { gte: targetDate, lt: nextDate } }
+    }),
+    prisma[`${prefix}Payment`].groupBy({
+      by: ['type'],
+      where: { createdAt: { gte: targetDate, lt: nextDate } },
+      _sum: { amount: true }
+    }),
+    prisma[`${prefix}Order`].findMany({
+      where: { createdAt: { gte: targetDate, lt: nextDate }, deliveryStatus: { not: 'CANCELLED' } },
+      select: {
+        payments: { select: { amount: true } },
+        items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
+      }
     })
   ]);
 
@@ -613,6 +706,36 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const totalCaps = parseInt(spotSalesTotalAgg._sum.totalCaps || 0, 10);
   const netCash = Math.max(0, totalDeliveryAmount + totalSpotSales - totalExpenses - totalVendorCash);
 
+  const cashByMethod = { CASH: totalSpotSales, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
+  paymentsByMethodList.forEach(p => {
+    const m = p.type || 'CASH';
+    if (cashByMethod[m] !== undefined) {
+      cashByMethod[m] += parseFloat(p._sum.amount || 0);
+    } else {
+      cashByMethod.CASH += parseFloat(p._sum.amount || 0);
+    }
+  });
+
+  const salesBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+  const cashBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+
+  todaysOrders.forEach(o => {
+    const orderPaid = o.payments?.reduce((s, p) => s + parseFloat(p.amount || 0), 0) || 0;
+    const items = (o.items || []).map(it => {
+      const n = (it.item?.name || '').toLowerCase();
+      let sz = null;
+      if (n.includes('19l') || n.includes('19 l')) sz = '19L';
+      else if (n.includes('1.5') || n.includes('1500')) sz = '1.5L';
+      else if (n.includes('0.5') || n.includes('500')) sz = '0.5L';
+      return { sz, rev: parseFloat(it.price || 0) * (it.quantity || 0) };
+    }).filter(x => x.sz);
+    const totalOrderRev = items.reduce((s, x) => s + x.rev, 0) || 1;
+    items.forEach(({ sz, rev }) => {
+      salesBySize[sz] = (salesBySize[sz] || 0) + rev;
+      cashBySize[sz] = (cashBySize[sz] || 0) + Math.round(orderPaid * (rev / totalOrderRev));
+    });
+  });
+
   return sendSuccess(res, {
     totalDeliveryAmount,
     totalSpotSales,
@@ -625,6 +748,9 @@ export const getDailySummary = asyncHandler(async (req, res) => {
       totalBottles,
       totalCaps
     },
+    cashByMethod,
+    salesBySize,
+    cashBySize,
     netCash,
     date: targetDate.toISOString().split('T')[0]
   });

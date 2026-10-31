@@ -214,6 +214,8 @@ export default function RecordPurchasePaymentModal({ purchase, onClose, onSucces
               >
                 <option value="CASH">Cash</option>
                 <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="EASYPAISA">EasyPaisa</option>
+                <option value="JAZZCASH">JazzCash</option>
                 <option value="CHEQUE">Cheque</option>
                 <option value="ONLINE_TRANSFER">Online Transfer</option>
               </select>

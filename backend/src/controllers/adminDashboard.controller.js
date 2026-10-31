@@ -261,7 +261,7 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     }
   }
 
-  const [paymentsSum, spotSalesSum, paymentsByMethodList, paymentsCount, spotSalesCount] = await Promise.all([
+  const [paymentsSum, spotSalesSum, paymentsByMethodList, paymentsCount, spotSalesCount, ordersList] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
@@ -280,17 +280,48 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     }),
     prisma[`${prefix}SpotSale`].count({
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
+    }),
+    prisma[`${prefix}Order`].findMany({
+      where: { createdAt: { gte: startOfDay, lte: endOfDay }, deliveryStatus: { not: 'CANCELLED' } },
+      select: {
+        payments: { select: { amount: true } },
+        items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
+      }
     })
   ]);
 
   const totalPayments = Number(paymentsSum._sum.amount || 0);
   const totalSpotSales = Number(spotSalesSum._sum.cashCollected || 0);
 
-  // Group payments by method
-  const byMethod = {};
+  // Group payments by method (spot sales cash is physical cash)
+  const byMethod = { CASH: totalSpotSales, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
   paymentsByMethodList.forEach(p => {
     const method = p.type || 'CASH';
-    byMethod[method] = Number(p._sum.amount || 0);
+    if (byMethod[method] !== undefined) {
+      byMethod[method] += Number(p._sum.amount || 0);
+    } else {
+      byMethod.CASH += Number(p._sum.amount || 0);
+    }
+  });
+
+  const salesBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+  const cashBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+
+  ordersList.forEach(o => {
+    const orderPaid = o.payments?.reduce((s, p) => s + Number(p.amount || 0), 0) || 0;
+    const items = (o.items || []).map(it => {
+      const n = (it.item?.name || '').toLowerCase();
+      let sz = null;
+      if (n.includes('19l') || n.includes('19 l')) sz = '19L';
+      else if (n.includes('1.5') || n.includes('1500')) sz = '1.5L';
+      else if (n.includes('0.5') || n.includes('500')) sz = '0.5L';
+      return { sz, rev: Number(it.price || 0) * (it.quantity || 0) };
+    }).filter(x => x.sz);
+    const totalRev = items.reduce((s, x) => s + x.rev, 0) || 1;
+    items.forEach(({ sz, rev }) => {
+      salesBySize[sz] = (salesBySize[sz] || 0) + rev;
+      cashBySize[sz] = (cashBySize[sz] || 0) + Math.round(orderPaid * (rev / totalRev));
+    });
   });
 
   res.status(200).json(new ApiResponse(200, {
@@ -298,6 +329,8 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     fromOrders: totalPayments,
     fromSpotSales: totalSpotSales,
     paymentsByMethod: byMethod,
+    salesBySize,
+    cashBySize,
     paymentsCount,
     spotSalesCount,
     date: startOfDay.toISOString().split('T')[0]

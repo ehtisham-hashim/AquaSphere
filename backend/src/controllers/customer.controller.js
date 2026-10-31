@@ -47,6 +47,10 @@ const extractTenantProductFields = (prefix, body) => {
   if (body.qtyMix05L !== undefined) res.qtyMix05L = parseInt(body.qtyMix05L, 10) || 0;
   if (body.buysMix15L !== undefined) res.buysMix15L = Boolean(body.buysMix15L);
   if (body.qtyMix15L !== undefined) res.qtyMix15L = parseInt(body.qtyMix15L, 10) || 0;
+  if (body.buysPureFine05L !== undefined) res.buysPureFine05L = Boolean(body.buysPureFine05L);
+  if (body.qtyPureFine05L !== undefined) res.qtyPureFine05L = parseInt(body.qtyPureFine05L, 10) || 0;
+  if (body.buysPureFine15L !== undefined) res.buysPureFine15L = Boolean(body.buysPureFine15L);
+  if (body.qtyPureFine15L !== undefined) res.qtyPureFine15L = parseInt(body.qtyPureFine15L, 10) || 0;
   return res;
 };
 
@@ -59,11 +63,15 @@ export const getCustomers = asyncHandler(async (req, res) => {
   if (status === 'archived') archivedFilter = { archivedAt: { not: null } };
   else if (status === 'all') archivedFilter = {};
 
-  const where = search ? {
+  const q = search ? search.trim() : '';
+  const where = q ? {
     ...archivedFilter,
     OR: [
-      { name: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search } }
+      { name: { contains: q, mode: 'insensitive' } },
+      { phone: { contains: q } },
+      { address: { contains: q, mode: 'insensitive' } },
+      { customerCode: { contains: q, mode: 'insensitive' } },
+      { marketerRef: { contains: q, mode: 'insensitive' } }
     ]
   } : archivedFilter;
 
@@ -127,6 +135,12 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
         payments: {
           select: { id: true, amount: true, type: true, createdAt: true },
           orderBy: { createdAt: 'desc' }
+        },
+        spotSales: {
+          include: {
+            items: { include: { item: { select: { id: true, name: true, unit: true } } } }
+          },
+          orderBy: { createdAt: 'desc' }
         }
       }
     }),
@@ -143,16 +157,36 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
 /** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl, marketerRef, buyerNtn, buyerStrn } = req.body;
 
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
     throw new ApiError(400, 'Invalid Google Maps URL');
   }
 
+  // Calculate next sequential Customer ID
+  const codePrefix = prefix === 'wadaana' ? 'WAD313' : 'JAM313';
+  const existingWithCode = await prisma[`${prefix}Customer`].findMany({
+    where: { customerCode: { not: null } },
+    select: { customerCode: true }
+  });
+  let maxSeq = 0;
+  existingWithCode.forEach(c => {
+    const match = c.customerCode?.match(new RegExp(`${codePrefix}(\\d+)`));
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+  });
+  const customerCode = `${codePrefix}${String(maxSeq + 1).padStart(4, '0')}`;
+
   const customerData = {
     name: name.trim(),
     phone: phone.trim(),
+    customerCode,
+    marketerRef: marketerRef ? marketerRef.trim() : null,
+    buyerNtn: buyerNtn ? buyerNtn.trim() : null,
+    buyerStrn: buyerStrn ? buyerStrn.trim() : null,
     type,
     address: address || null,
     mapLink: mapLink ? sanitizeGoogleMapsUrl(mapLink) : null,
@@ -214,6 +248,9 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration, 10) || 1;
   if (remarks !== undefined) updateData.remarks = remarks;
   if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
+  if (req.body.marketerRef !== undefined) updateData.marketerRef = req.body.marketerRef ? req.body.marketerRef.trim() : null;
+  if (req.body.buyerNtn !== undefined) updateData.buyerNtn = req.body.buyerNtn ? req.body.buyerNtn.trim() : null;
+  if (req.body.buyerStrn !== undefined) updateData.buyerStrn = req.body.buyerStrn ? req.body.buyerStrn.trim() : null;
 
   const customer = await prisma[`${prefix}Customer`].update({ where: { id }, data: updateData });
   const performedBy = req.user?.name || req.user?.id || 'Admin';
@@ -404,5 +441,201 @@ export const uploadCustomerPicture = asyncHandler(async (req, res) => {
     homePictureUrl: secure_url,
     publicId: public_id
   });
+});
+
+/**
+ * Settles customer lump-sum payment across open Orders and SpotSales using FIFO chronological order.
+ */
+export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
+  const { id: customerId } = req.params;
+  const prefix = getTenantPrefix(req);
+  const { amount = 0, paymentMethod = 'CASH', settleFromSecurity = false, remarks = '' } = req.body;
+
+  const cash = parseFloat(amount || 0);
+  const normMethod = String(paymentMethod || 'CASH').toUpperCase();
+  const validPaymentTypes = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'SECURITY_DEPOSIT', 'EASYPAISA', 'JAZZCASH'];
+  const safePaymentType = validPaymentTypes.includes(normMethod) ? normMethod : 'BANK_TRANSFER';
+
+  if ((isNaN(cash) || cash <= 0) && !settleFromSecurity) {
+    throw new ApiError(400, 'Payment amount must be greater than 0');
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const customer = await tx[`${prefix}Customer`].findUnique({
+      where: { id: customerId }
+    });
+    if (!customer) throw new ApiError(404, 'Customer not found');
+
+    // Fetch all non-cancelled unpaid/partial orders and unpaid spot sales oldest-first (FIFO)
+    const [openOrders, openSpotSales] = await Promise.all([
+      tx[`${prefix}Order`].findMany({
+        where: {
+          customerId,
+          deliveryStatus: { not: 'CANCELLED' },
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] }
+        },
+        include: { items: true, payments: true },
+        orderBy: { createdAt: 'asc' }
+      }),
+      tx[`${prefix}SpotSale`].findMany({
+        where: {
+          customerId,
+          OR: [{ debtAmount: { gt: 0 } }, { creditAmount: { gt: 0 } }]
+        },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
+
+    // Build unified chronological FIFO pool of all unpaid Orders + SpotSales
+    const obligations = [];
+    for (const ord of openOrders) {
+      const sub = (ord.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * Number(i.quantity || 0)), 0);
+      const ordTotal = ord.withGst ? sub + Math.round(sub * 0.18) : sub;
+      const ordPaid = (ord.payments || []).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+      const ordDue = Math.max(0, ordTotal - ordPaid);
+      if (ordDue > 0) {
+        obligations.push({ kind: 'ORDER', record: ord, total: ordTotal, paid: ordPaid, due: ordDue, createdAt: new Date(ord.createdAt) });
+      }
+    }
+    for (const ss of openSpotSales) {
+      const ssDue = Math.max(0, Number(ss.debtAmount || ss.creditAmount || 0));
+      if (ssDue > 0) {
+        obligations.push({ kind: 'SPOT_SALE', record: ss, due: ssDue, createdAt: new Date(ss.createdAt) });
+      }
+    }
+    obligations.sort((a, b) => a.createdAt - b.createdAt);
+
+    const totalObligationsDue = obligations.reduce((s, o) => s + o.due, 0);
+    const currentCustomerDebt = Math.max(Number(customer.currentBalance || 0), totalObligationsDue);
+
+    const availableDeposit = Math.max(0, Number(customer.deposit || 0));
+    const depositToApply = settleFromSecurity ? Math.min(availableDeposit, currentCustomerDebt) : 0;
+    let remainingPool = cash + depositToApply;
+
+    if (remainingPool <= 0) {
+      throw new ApiError(400, 'No payment or security deposit available to apply');
+    }
+
+    const settledOrders = [];
+    const settledSpotSales = [];
+
+    for (const ob of obligations) {
+      if (remainingPool <= 0) break;
+      const alloc = Math.min(remainingPool, ob.due);
+      if (alloc <= 0) continue;
+
+      const currentType = (depositToApply >= alloc && cash === 0) ? 'SECURITY_DEPOSIT' : safePaymentType;
+
+      if (ob.kind === 'ORDER') {
+        const ord = ob.record;
+        const newPaid = ob.paid + alloc;
+        const newStatus = newPaid >= ob.total ? 'PAID' : 'PARTIAL';
+
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: ord.id,
+            customerId,
+            amount: alloc,
+            type: currentType
+          }
+        });
+
+        await tx[`${prefix}Delivery`].create({
+          data: {
+            orderId: ord.id,
+            qtyDelivered: 0,
+            bottlesReturnedGood: 0,
+            bottlesReturnedBroken: 0,
+            cashReceived: alloc,
+            paymentMethod: normMethod,
+            remarks: remarks ? `Debt Pool Settlement: ${remarks}` : 'Debt Pool Settlement (FIFO)'
+          }
+        });
+
+        await tx[`${prefix}Order`].update({
+          where: { id: ord.id },
+          data: { paymentStatus: newStatus }
+        });
+
+        settledOrders.push({ id: ord.id, allocated: alloc, newStatus });
+      } else if (ob.kind === 'SPOT_SALE') {
+        const ss = ob.record;
+        const newDebt = Math.max(0, ob.due - alloc);
+        const newAmountPaid = Number(ss.amountPaid || ss.cashCollected || 0) + alloc;
+
+        await tx[`${prefix}SpotSale`].update({
+          where: { id: ss.id },
+          data: {
+            amountPaid: newAmountPaid,
+            debtAmount: newDebt,
+            creditAmount: newDebt,
+            remarks: `${ss.remarks ? ss.remarks + ' | ' : ''}Settled Rs. ${alloc} (${normMethod})`
+          }
+        });
+
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: null,
+            customerId,
+            amount: alloc,
+            type: currentType
+          }
+        });
+
+        settledSpotSales.push({ id: ss.id, saleNumber: ss.saleNumber, allocated: alloc, remainingDebt: newDebt });
+      }
+
+      remainingPool -= alloc;
+    }
+
+    if (remainingPool > 0) {
+      await tx[`${prefix}Payment`].create({
+        data: {
+          orderId: null,
+          customerId,
+          amount: remainingPool,
+          type: safePaymentType
+        }
+      });
+    }
+
+    const totalApplied = cash + depositToApply;
+    const newCustomerBalance = Math.max(0, currentCustomerDebt - totalApplied);
+
+    const updatedCustomer = await tx[`${prefix}Customer`].update({
+      where: { id: customerId },
+      data: {
+        currentBalance: newCustomerBalance,
+        ...(depositToApply > 0 ? { deposit: { decrement: depositToApply } } : {})
+      }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'CUSTOMER_DEBT_SETTLED',
+      entityType: 'Customer',
+      entityId: customerId,
+      performedBy: req.user?.name || req.user?.id || 'Staff',
+      details: JSON.stringify({
+        amountPaid: cash,
+        depositApplied: depositToApply,
+        paymentMethod: normMethod,
+        previousDebt: currentCustomerDebt,
+        newBalance: newCustomerBalance,
+        settledOrdersCount: settledOrders.length,
+        settledSpotSalesCount: settledSpotSales.length,
+        settledOrders,
+        settledSpotSales,
+        remarks
+      })
+    });
+
+    return { customer: updatedCustomer, settledOrders, settledSpotSales, newCustomerBalance };
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId });
+  broadcastEvent(prefix, 'ORDER_UPDATED');
+  broadcastEvent(prefix, 'COUNTER_SALE_CREATED');
+  return sendSuccess(res, result, 200, { message: 'Customer debt settled successfully' });
 });
 

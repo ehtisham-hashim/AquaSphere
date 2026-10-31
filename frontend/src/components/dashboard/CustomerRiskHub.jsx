@@ -8,13 +8,15 @@ import {
   MessageSquare, 
   CheckCircle2, 
   Search, 
-  RefreshCw 
+  RefreshCw,
+  DollarSign
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 import BottleCustodyWidget from './BottleCustodyWidget';
+import SettleCustomerDebtModal from '../customer/SettleCustomerDebtModal';
 
 export default function CustomerRiskHub({ className = '' }) {
   const { tenant, isWadaana } = useTenant();
@@ -23,6 +25,7 @@ export default function CustomerRiskHub({ className = '' }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(isWadaana ? 'overdue' : 'bottles');
   const [searchQuery, setSearchQuery] = useState('');
+  const [settleCustomer, setSettleCustomer] = useState(null);
 
   const fetchRiskData = useCallback(async () => {
     try {
@@ -302,22 +305,33 @@ export default function CustomerRiskHub({ className = '' }) {
                               {c.recommendation || 'Payment pending follow-up'}
                             </td>
                             <td className="p-2.5 text-right">
-                              {c.phone ? (
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const text = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
-                                    openWhatsAppWeb(c.phone, text);
-                                  }}
-                                  className="btn-secondary py-1 px-2.5 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1.5"
-                                  title="Send WhatsApp Overdue Bill Reminder"
+                                  onClick={() => setSettleCustomer(c)}
+                                  className="btn-secondary py-1 px-2 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200 inline-flex items-center gap-1 font-bold"
+                                  title="Settle Outstanding Debt with FIFO Allocation"
                                 >
-                                  <MessageSquare size={12} className="text-emerald-600" />
-                                  <span>Remind</span>
+                                  <DollarSign size={12} className="text-indigo-600" />
+                                  <span>Pay</span>
                                 </button>
-                              ) : (
-                                <span className="text-[11px] text-slate-400 italic">No Phone</span>
-                              )}
+                                {c.phone ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const text = WhatsAppTemplates.overdueBillReminder(c, isWadaana);
+                                      openWhatsAppWeb(c.phone, text);
+                                    }}
+                                    className="btn-secondary py-1 px-2.5 text-xs text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200 inline-flex items-center gap-1.5"
+                                    title="Send WhatsApp Overdue Bill Reminder"
+                                  >
+                                    <MessageSquare size={12} className="text-emerald-600" />
+                                    <span>Remind</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 italic">No Phone</span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -447,6 +461,17 @@ export default function CustomerRiskHub({ className = '' }) {
           </div>
         )}
       </div>
+
+      {settleCustomer && (
+        <SettleCustomerDebtModal
+          customer={settleCustomer}
+          onClose={() => setSettleCustomer(null)}
+          onSuccess={() => {
+            setSettleCustomer(null);
+            fetchRiskData();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -128,7 +128,9 @@ export default function RecordPaymentModal({ order, onClose, onSuccess }) {
               className="select-base text-xs font-medium"
             >
               <option value="CASH">Cash</option>
-              <option value="ONLINE">Bank / Online Transfer</option>
+              <option value="BANK_TRANSFER">Bank / Online Transfer</option>
+              <option value="EASYPAISA">EasyPaisa</option>
+              <option value="JAZZCASH">JazzCash</option>
               <option value="CHEQUE">Cheque</option>
             </select>
           </div>

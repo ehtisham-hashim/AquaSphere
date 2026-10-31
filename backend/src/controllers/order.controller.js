@@ -39,6 +39,44 @@ async function resolveOrderItems(prefix, items) {
   return resolved;
 }
 
+/** Calculates whether order has 18% GST enabled */
+export const hasOrderGst = (order) => Boolean(order?.withGst);
+
+/** Calculates subtotal of order items */
+export const getOrderSubtotal = (order) =>
+  (order?.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+
+/** Calculates total of order including 18% GST if applicable */
+export const getOrderTotal = (order) => {
+  const sub = getOrderSubtotal(order);
+  return sub + (hasOrderGst(order) ? Math.round(sub * 0.18) : 0);
+};
+
+/** Attaches subtotal, total, and previousUnpaidBalance to order objects */
+export const attachOrderBalances = (orders) => {
+  const list = Array.isArray(orders) ? orders : [orders];
+  const mapped = list.map(order => {
+    const custBalance = Number(order.customer?.currentBalance || 0);
+    const sub = (order.items || []).reduce((s, it) => s + (Number(it.price || 0) * (it.quantity || 0)), 0);
+    const total = sub + (order.withGst ? Math.round(sub * 0.18) : 0);
+    const paid = (order.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+    const orderUnpaid = Math.max(0, total - paid);
+
+    let prevBalance = custBalance;
+    if (order.deliveryStatus === 'DELIVERED') {
+      prevBalance = Math.max(0, custBalance - orderUnpaid);
+    }
+
+    return {
+      ...order,
+      orderSubtotal: sub,
+      orderTotal: total,
+      previousUnpaidBalance: prevBalance
+    };
+  });
+  return Array.isArray(orders) ? mapped : mapped[0];
+};
+
 /** Retrieves sales orders with optional pagination */
 export const getOrders = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
@@ -68,7 +106,7 @@ export const getOrders = asyncHandler(async (req, res) => {
       prisma[`${prefix}Order`].count()
     ]);
 
-    return sendSuccess(res, orders, 200, {
+    return sendSuccess(res, attachOrderBalances(orders), 200, {
       pagination: {
         total,
         page: parsedPage,
@@ -82,20 +120,22 @@ export const getOrders = asyncHandler(async (req, res) => {
     include,
     orderBy: { createdAt: 'desc' }
   });
-  return sendSuccess(res, orders);
+  return sendSuccess(res, attachOrderBalances(orders));
 });
 
 /** Creates a new customer order with credit checks and audit log */
 export const createOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { customerId, type, items, expectedDelivery, remarks, paymentStatus, bypassCreditCheck } = req.body; 
+  const { customerId, type, items, expectedDelivery, remarks, paymentStatus, bypassCreditCheck, withGst } = req.body; 
   if (!customerId || !type || !items?.length) throw new ApiError(400, 'Invalid payload');
 
   const customer = await prisma[`${prefix}Customer`].findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(404, 'Customer not found');
 
   const resolvedItems = await resolveOrderItems(prefix, items);
-  const orderTotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const orderSubtotal = resolvedItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const orderGst = withGst ? Math.round(orderSubtotal * 0.18) : 0;
+  const orderTotal = orderSubtotal + orderGst;
   const totalQty = resolvedItems.reduce((sum, i) => sum + i.quantity, 0);
 
   const opSettings = await getTenantOperationalDefaults(prefix);
@@ -180,6 +220,7 @@ export const createOrder = asyncHandler(async (req, res) => {
         type,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null,
         remarks,
+        withGst: Boolean(withGst),
         paymentStatus: paymentStatus || 'UNPAID',
         items: {
           create: resolvedItems.map(i => ({ itemId: i.itemId, quantity: i.quantity, price: i.price }))
@@ -301,7 +342,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const retGood = parseInt(bottlesReturnedGood, 10) || 0;
     const retBroken = parseInt(bottlesReturnedBroken, 10) || 0;
     const cash = parseFloat(cashReceived) || 0;
-    const orderTotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const orderSubtotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const orderGst = o.withGst ? Math.round(orderSubtotal * 0.18) : 0;
+    const orderTotal = orderSubtotal + orderGst;
     const alreadyPaid = o.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (o.paymentStatus === 'PAID' ? orderTotal : 0);
     const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
     const currentDebt = Math.max(0, parseFloat(o.customer.currentBalance || 0));
@@ -376,7 +419,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
       }
 
-      if (retGood > 0 || retBroken > 0) {
+      if (retGood > 0 || retBroken > 0 || cash > 0) {
         await tx[`${prefix}Delivery`].create({
           data: { orderId: o.id, qtyDelivered: 0, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
         });
@@ -611,7 +654,9 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
   if (!o) throw new ApiError(404, 'Order not found');
 
   const alreadyPaid = o.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-  const orderTotal = o.items.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+  const orderSubtotal = o.items.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+  const orderGst = o.withGst ? Math.round(orderSubtotal * 0.18) : 0;
+  const orderTotal = orderSubtotal + orderGst;
   const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
 
   const availableDeposit = Math.max(0, parseFloat(o.customer?.deposit || 0));
@@ -648,6 +693,17 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
           customerId: o.customerId, 
           amount: cash, 
           type: paymentMethod === 'SECURITY_DEPOSIT' ? 'CASH' : paymentMethod 
+        }
+      });
+      await tx[`${prefix}Delivery`].create({
+        data: {
+          orderId: o.id,
+          qtyDelivered: 0,
+          bottlesReturnedGood: 0,
+          bottlesReturnedBroken: 0,
+          cashReceived: cash,
+          paymentMethod,
+          remarks: remarks || 'Payment Settlement'
         }
       });
     }
@@ -704,6 +760,80 @@ export const getOrderPDF = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="invoice-${id.substring(0, 8)}.pdf"`);
   res.send(pdfBuffer);
+});
+
+/** Toggles 18% GST on an order and recalculates customer balance if already delivered */
+export const toggleOrderGst = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+  const { withGst } = req.body;
+
+  const targetWithGst = Boolean(withGst);
+
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    const order = await tx[`${prefix}Order`].findUnique({
+      where: { id },
+      include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
+    });
+    if (!order) throw new ApiError(404, 'Order not found');
+
+    const currentWithGst = Boolean(order.withGst);
+    if (currentWithGst === targetWithGst) {
+      return order;
+    }
+
+    const subtotal = order.items.reduce((s, it) => s + (Number(it.price || 0) * (it.quantity || 0)), 0);
+    const gstDelta = Math.round(subtotal * 0.18);
+
+    // If order is DELIVERED, adjusting GST changes the total receivable from customer
+    if (order.deliveryStatus === 'DELIVERED' && gstDelta > 0) {
+      if (targetWithGst) {
+        // Turning GST ON -> increment customer balance
+        await tx[`${prefix}Customer`].update({
+          where: { id: order.customerId },
+          data: { currentBalance: { increment: gstDelta } }
+        });
+      } else {
+        // Turning GST OFF -> decrement customer balance
+        const currentBal = Number(order.customer?.currentBalance || 0);
+        const dec = Math.min(currentBal, gstDelta);
+        if (dec > 0) {
+          await tx[`${prefix}Customer`].update({
+            where: { id: order.customerId },
+            data: { currentBalance: { decrement: dec } }
+          });
+        }
+      }
+    }
+
+    // Re-evaluate paymentStatus against new total
+    const newTotal = subtotal + (targetWithGst ? gstDelta : 0);
+    const totalPaid = order.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const newPaymentStatus = totalPaid >= newTotal ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+
+    const updated = await tx[`${prefix}Order`].update({
+      where: { id },
+      data: {
+        withGst: targetWithGst,
+        paymentStatus: newPaymentStatus
+      },
+      include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_GST_TOGGLED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Staff',
+      details: `GST 18% ${targetWithGst ? 'enabled' : 'disabled'} for Order #${id.slice(0, 6).toUpperCase()} (Delta: Rs. ${gstDelta})`
+    }, tx);
+
+    return updated;
+  });
+
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updatedOrder.id });
+  broadcastDashboardUpdate(prefix);
+  return sendSuccess(res, attachOrderBalances(updatedOrder));
 });
 
 /** Deletes sales order permanently (Owner) or soft cancels undelivered orders (Marketing Manager) */

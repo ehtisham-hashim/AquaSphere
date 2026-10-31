@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2
+  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2, DollarSign
 } from 'lucide-react';
 import { Badge } from '../ui';
 import ImagePreviewModal from '../ui/ImagePreviewModal';
@@ -10,10 +10,11 @@ import EditCustomerModal from './EditCustomerModal';
 import CustomerHistory from './CustomerHistory';
 import CustomerAlerts from './CustomerAlerts';
 import BottleAdjustmentModal from './BottleAdjustmentModal';
+import SettleCustomerDebtModal from './SettleCustomerDebtModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { WhatsAppTemplates } from '../../utils/whatsapp';
 import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
 
 // ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
@@ -23,6 +24,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
+  const [isPayDebtOpen, setIsPayDebtOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -169,10 +171,24 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
         {/* Name & Badges */}
         <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
+        {c.customerCode && (
+          <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded mt-1 inline-block">
+            {c.customerCode}
+          </span>
+        )}
         <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
           <Badge variant={theme.badgeVariant}>{c.type || 'Standard'}</Badge>
+          {c.marketerRef && (
+            <Badge variant="amber">Ref: {c.marketerRef}</Badge>
+          )}
           <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
         </div>
+        {(c.buyerNtn || c.buyerStrn) && (
+          <div className="text-[11px] text-slate-500 font-mono mt-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 inline-block">
+            {c.buyerNtn && <span className="mr-2">NTN: {c.buyerNtn}</span>}
+            {c.buyerStrn && <span>STRN: {c.buyerStrn}</span>}
+          </div>
+        )}
 
         {/* Contact Info List */}
         <div className="w-full border-t border-slate-100 mt-6 pt-6 space-y-4 text-left text-sm">
@@ -323,35 +339,48 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className={`text-lg font-bold font-mono block mt-1 ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                   Rs. {currentBalance.toLocaleString()}
                 </span>
-                {currentBalance > 0 && c.phone && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await shareOrSendCustomerReceiptWhatsApp({
-                          customer: c,
-                          isWadaana,
-                          options: {
-                            subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
-                            remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
+                {currentBalance > 0 && (
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setIsPayDebtOpen(true)}
+                      className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] inline-flex items-center gap-1 transition-colors shadow-xs"
+                      title="Settle Outstanding Debt with FIFO Allocation"
+                    >
+                      <DollarSign size={10} />
+                      <span>Pay Debt</span>
+                    </button>
+                    {c.phone && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await shareOrSendCustomerReceiptWhatsApp({
+                              customer: c,
+                              isWadaana,
+                              options: {
+                                subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
+                                remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
+                              }
+                            });
+                            if (res?.method === 'web-share') {
+                              toast.success('Payment reminder receipt shared via WhatsApp!');
+                            } else {
+                              toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                            }
+                          } catch (err) {
+                            console.error('Payment reminder error:', err);
+                            toast.error('Could not send reminder to WhatsApp.');
                           }
-                        });
-                        if (res?.method === 'web-share') {
-                          toast.success('Payment reminder receipt shared via WhatsApp!');
-                        } else {
-                          toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
-                        }
-                      } catch (err) {
-                        console.error('Payment reminder error:', err);
-                        toast.error('Could not send reminder to WhatsApp.');
-                      }
-                    }}
-                    className="mt-1.5 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
-                    title="Send Overdue Bill Receipt via WhatsApp"
-                  >
-                    <Share2 size={10} />
-                    <span>WhatsApp Reminder</span>
-                  </button>
+                        }}
+                        className="px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
+                        title="Send Overdue Bill Receipt via WhatsApp"
+                      >
+                        <Share2 size={10} />
+                        <span>Reminder</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -515,6 +544,29 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           src={previewImage}
           alt={c.name}
           onClose={() => setPreviewImage(null)}
+        />
+      )}
+
+      {isPayDebtOpen && (
+        <SettleCustomerDebtModal
+          customer={c}
+          onClose={() => setIsPayDebtOpen(false)}
+          onSuccess={() => {
+            setIsPayDebtOpen(false);
+            // Re-fetch customer details to update balance
+            fetch(`${API}/customers/${c.id}`, {
+              headers: { 'x-tenant': tenant },
+              credentials: 'include'
+            })
+              .then(res => res.json())
+              .then(json => {
+                if (json.success) {
+                  setC(json.data);
+                  if (onCustomerUpdated) onCustomerUpdated(json.data);
+                }
+              })
+              .catch(err => console.error('Error refreshing customer details after payment', err));
+          }}
         />
       )}
     </div>

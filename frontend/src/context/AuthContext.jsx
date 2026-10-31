@@ -18,6 +18,9 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         const data = await response.json();
         setUser(data.data.user);
+        if (data.data.user?.tenant) {
+          setCompanyCookie(data.data.user.tenant);
+        }
       } else {
         clearAuthToken();
         clearCache();

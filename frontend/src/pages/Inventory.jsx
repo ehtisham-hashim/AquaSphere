@@ -19,7 +19,7 @@ export default function Inventory() {
   const isOwner = user?.role === 'OWNER';
 
   const canTransferStock = isOwner || user?.role === 'PRODUCTION_MANAGER';
-  const canAddFinishedGood = isOwner || user?.role === 'ADMIN';
+  const canAddFinishedGood = isOwner || user?.role === 'ADMIN' || user?.role === 'PRODUCTION_MANAGER';
 
   const [items, setItems] = useState([]);
   const [transactions, setTransactions] = useState([]);

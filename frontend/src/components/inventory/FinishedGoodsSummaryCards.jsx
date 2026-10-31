@@ -1,4 +1,4 @@
-import { Warehouse, Factory, Trash2 } from 'lucide-react';
+import { Warehouse, Factory, Trash2, Edit2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function FinishedGoodsSummaryCards({ items = [], onEditItem = null, onDeleteItem = null }) {
@@ -13,10 +13,11 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
   };
 
   const formatQty = (qty, packSize, unit) => {
-    if (packSize <= 1) return `${Math.round(qty).toLocaleString()} ${unit}`;
-    const packs = Math.floor(qty / packSize);
-    const loose = Math.round(qty % packSize);
-    return `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''} Pk`;
+    const rounded = Math.round(Number(qty || 0));
+    if (packSize <= 1) return `${rounded.toLocaleString()} ${unit}`;
+    const packs = Math.floor(rounded / packSize);
+    const loose = rounded % packSize;
+    return loose > 0 ? `${packs.toLocaleString()} Pk (+${loose} btl)` : `${packs.toLocaleString()} Pk`;
   };
 
   return (
@@ -44,13 +45,16 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                   {item.name}
                 </span>
 
-                <div className="text-2xl font-mono font-black text-slate-900 tracking-tight">
-                  {isPack
-                    ? `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''}`
-                    : Math.round(total).toLocaleString()}{' '}
+                <div className="text-2xl font-mono font-black text-slate-900 tracking-tight flex items-baseline gap-1.5">
+                  <span>{isPack ? packs.toLocaleString() : Math.round(total).toLocaleString()}</span>
                   <span className="text-xs font-bold uppercase text-brand font-sans">
                     {isPack ? 'Packs' : unit}
                   </span>
+                  {isPack && loose > 0 && (
+                    <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      +{loose} btl
+                    </span>
+                  )}
                 </div>
 
                 {item.createdAt && (
@@ -60,8 +64,22 @@ export default function FinishedGoodsSummaryCards({ items = [], onEditItem = nul
                 )}
               </div>
 
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1">
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  {onEditItem && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditItem(item);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-brand hover:text-white border border-slate-200 transition"
+                      title="Edit Finished Good Stock & Recipe"
+                    >
+                      <Edit2 size={12} />
+                      <span>Edit Stock</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onEditItem && onEditItem(item)}

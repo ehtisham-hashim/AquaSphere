@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
-import { API_URL, clearCache } from '../../utils/api';
+import { API_URL } from '../../utils/api';
 import { Menu, Bell, X, Clock, AlertTriangle, UserPlus, LogOut, Receipt, CheckCircle } from 'lucide-react';
 import { formatRole } from '../../constants/roleAccess';
 
@@ -64,9 +64,8 @@ const formatAlertDetails = (log) => {
 };
 
 export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapsed = false }) {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { tenant: currentTenant, isWadaana, setTenant } = useTenant();
+  const { tenant: currentTenant, isWadaana } = useTenant();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [snoozedAlerts, setSnoozedAlerts] = useState(() => {
@@ -78,17 +77,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
 
-  const canSwitchTenant = user?.role === 'OWNER';
 
-  const handleTenantSwitch = (newTenant) => {
-    if (!canSwitchTenant || newTenant === currentTenant) return;
-    clearCache();
-    setTenant(newTenant);
-    const targetPath = (location.pathname === '/' || location.pathname === '/login')
-      ? '/dashboard'
-      : (location.pathname + location.search);
-    navigate(targetPath, { replace: true });
-  };
 
   const currentPage = PAGE_TITLES[location.pathname] || {
     title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
@@ -250,29 +239,13 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
           )}
         </div>
 
-        {/* Company Selector (Role-Guarded: OWNER only) */}
-        {canSwitchTenant && (
-          <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80">
-              <button 
-                type="button"
-                onClick={() => handleTenantSwitch('aquasphere')}
-                className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${!isWadaana ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                <span className="sm:hidden">AQ</span>
-                <span className="hidden sm:inline">AquaSphere</span>
-              </button>
-              <button 
-                type="button"
-                onClick={() => handleTenantSwitch('wadaana')}
-                className={`px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${isWadaana ? 'bg-brand text-white shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'}`}
-              >
-                <span className="sm:hidden">WD</span>
-                <span className="hidden sm:inline">Wadaana Ind.</span>
-              </button>
-            </div>
+        {/* Company Badge (Static / Strict Tenant Isolation) */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-lg border border-slate-200/80 text-xs font-bold text-slate-700">
+            <span className={`w-2 h-2 rounded-full ${isWadaana ? 'bg-purple-600' : 'bg-brand'}`} />
+            <span>{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
           </div>
-        )}
+        </div>
 
         {/* Role Display */}
         <div className="hidden sm:flex items-center gap-2 border-l border-slate-200/80 pl-3 md:pl-4">

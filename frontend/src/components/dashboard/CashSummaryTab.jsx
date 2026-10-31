@@ -1,4 +1,5 @@
 import { DollarSign, CheckCircle, AlertCircle, ShoppingCart, TrendingDown, Lock, Clock, Receipt } from 'lucide-react';
+import CashBreakdownSection from './CashBreakdownSection';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function CashSummaryTab({
@@ -64,6 +65,13 @@ export default function CashSummaryTab({
           </div>
         ))}
       </div>
+
+      {/* Payment Channels & Size Breakdown */}
+      <CashBreakdownSection 
+        cashByMethod={cashData?.paymentsByMethod || summary?.cashByMethod} 
+        salesBySize={cashData?.salesBySize || summary?.salesBySize} 
+        cashBySize={cashData?.cashBySize || summary?.cashBySize} 
+      />
 
       {/* Sales & Activity breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

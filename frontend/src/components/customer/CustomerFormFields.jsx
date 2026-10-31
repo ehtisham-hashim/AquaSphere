@@ -43,6 +43,15 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
             />
           </div>
 
+          {formData.customerCode && (
+            <div className="sm:col-span-2 flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+              <span className="text-xs font-semibold text-slate-500">System Customer ID:</span>
+              <span className="font-mono text-xs font-bold bg-slate-200 text-slate-800 px-2 py-0.5 rounded">
+                {formData.customerCode}
+              </span>
+            </div>
+          )}
+
           <div>
             <label htmlFor="customer-type" className="block text-xs font-semibold text-slate-700 mb-1">Customer Type</label>
             <select
@@ -56,7 +65,53 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               <option value="Commercial">Commercial / Business</option>
               <option value="Corporate">Corporate / Office</option>
               <option value="Distributor">Distributor / Reseller</option>
+              <option value="Industrial">Industrial</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="customer-marketerRef" className="block text-xs font-semibold text-slate-700 mb-1">
+              Marketer / Reference
+            </label>
+            <input
+              id="customer-marketerRef"
+              type="text"
+              name="marketerRef"
+              value={formData.marketerRef || ''}
+              onChange={handleChange}
+              placeholder="e.g. Aslam Khan / Direct"
+              className="input-base text-xs"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer-buyerNtn" className="block text-xs font-semibold text-slate-700 mb-1">
+              Buyer NTN (FBR Tax)
+            </label>
+            <input
+              id="customer-buyerNtn"
+              type="text"
+              name="buyerNtn"
+              value={formData.buyerNtn || ''}
+              onChange={handleChange}
+              placeholder="e.g. 1234567-8"
+              className="input-base text-xs font-mono"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="customer-buyerStrn" className="block text-xs font-semibold text-slate-700 mb-1">
+              Buyer STRN (Sales Tax)
+            </label>
+            <input
+              id="customer-buyerStrn"
+              type="text"
+              name="buyerStrn"
+              value={formData.buyerStrn || ''}
+              onChange={handleChange}
+              placeholder="e.g. 12-34-5678-901-23"
+              className="input-base text-xs font-mono"
+            />
           </div>
 
           <div>

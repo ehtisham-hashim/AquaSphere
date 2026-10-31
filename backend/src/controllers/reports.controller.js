@@ -15,15 +15,19 @@ const getPrefix = getTenantPrefix;
  */
 export const getReportData = asyncHandler(async (req, res) => {
   const { reportType } = req.params;
-  const { startDate, endDate, period } = req.query;
+  const { startDate, endDate, period, month } = req.query;
 
   const prefix = getPrefix(req);
   const now = new Date();
 
   let start = startDate ? new Date(startDate) : null;
-  const end = endDate ? new Date(endDate) : new Date();
+  let end = endDate ? new Date(endDate) : new Date();
 
-  if (!start) {
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split('-').map(Number);
+    start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    end = new Date(y, m, 0, 23, 59, 59, 999);
+  } else if (!start) {
     if (period === 'daily') {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     } else if (period === 'weekly') {
@@ -40,7 +44,7 @@ export const getReportData = asyncHandler(async (req, res) => {
   }
   
   if (startDate) start.setUTCHours(0, 0, 0, 0);
-  if (endDate) end.setUTCHours(23, 59, 59, 999);
+  if (endDate && !month) end.setUTCHours(23, 59, 59, 999);
 
   let kpis;
   let table;
@@ -62,15 +66,30 @@ export const getReportData = asyncHandler(async (req, res) => {
         orderBy: { createdAt: 'desc' }
       });
 
-      const revenue19L = orders.filter(o => o.type === 'NINETEEN_L').reduce((sum, o) => {
-        return sum + o.deliveries.reduce((dSum, d) => dSum + Number(d.cashReceived), 0);
-      }, 0);
-      const revenuePET = orders.filter(o => o.type === 'PET').reduce((sum, o) => {
-        return sum + o.deliveries.reduce((dSum, d) => dSum + Number(d.cashReceived), 0);
-      }, 0);
-      const totalRevenue = revenue19L + revenuePET;
+      const isWadaana = prefix.toLowerCase() === 'wadaana';
+      let revenue19L = 0;
+      let revenuePET = 0;
+      let revenuePure = 0;
+      let revenueMix = 0;
 
-      kpis = [
+      orders.forEach(o => {
+        const cashRec = o.deliveries.reduce((dSum, d) => dSum + Number(d.cashReceived || 0), 0);
+        if (isWadaana) {
+          if (o.type === 'MIX_BOTTLES') revenueMix += cashRec;
+          else revenuePure += cashRec;
+        } else {
+          if (o.type === 'NINETEEN_L') revenue19L += cashRec;
+          else revenuePET += cashRec;
+        }
+      });
+      const totalRevenue = isWadaana ? (revenuePure + revenueMix) : (revenue19L + revenuePET);
+
+      kpis = isWadaana ? [
+        { label: 'Total Orders', value: orders.length.toString() },
+        { label: 'Pure Bottles Revenue', value: `Rs. ${revenuePure.toLocaleString()}` },
+        { label: 'Mix Bottles Revenue', value: `Rs. ${revenueMix.toLocaleString()}` },
+        { label: 'Total Revenue Collected', value: `Rs. ${totalRevenue.toLocaleString()}` }
+      ] : [
         { label: 'Total Orders', value: orders.length.toString() },
         { label: '19L Revenue', value: `Rs. ${revenue19L.toLocaleString()}` },
         { label: 'PET Revenue', value: `Rs. ${revenuePET.toLocaleString()}` },
@@ -261,13 +280,41 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'credit':
     case 'customer-credits': {
+      const debtorCustomers = await prisma[`${prefix}Customer`].findMany({
+        where: { archivedAt: null, currentBalance: { gt: 0 } },
+        select: {
+          id: true,
+          customerCode: true,
+          name: true,
+          phone: true,
+          type: true,
+          currentBalance: true,
+          creditLimit: true,
+          deposit: true
+        },
+        orderBy: { currentBalance: 'desc' }
+      });
+
+      const totalDebtors = debtorCustomers.length;
+      const totalExposure = debtorCustomers.reduce((sum, c) => sum + Number(c.currentBalance || 0), 0);
+      const breaches = debtorCustomers.filter(c => Number(c.creditLimit || 0) > 0 && Number(c.currentBalance || 0) > Number(c.creditLimit || 0)).length;
+
       kpis = [
-        { label: 'Customers With Outstanding', value: '0' },
-        { label: 'Total Exposure', value: 'Rs. 0' },
-        { label: 'Credit Limit Breaches', value: '0' }
+        { label: 'Customers With Outstanding', value: totalDebtors.toString() },
+        { label: 'Total Outstanding Debt', value: `Rs. ${Math.round(totalExposure).toLocaleString()}` },
+        { label: 'Credit Limit Breaches', value: breaches.toString() }
       ];
 
-      table = [];
+      table = debtorCustomers.map(c => ({
+        'Customer Code': c.customerCode || `#${c.id.substring(0, 6).toUpperCase()}`,
+        'Customer Name': c.name,
+        'Phone': c.phone || '—',
+        'Customer Type': c.type || 'Standard',
+        'Outstanding Debt (Rs)': Number(c.currentBalance || 0),
+        'Credit Limit (Rs)': Number(c.creditLimit || 0),
+        'Security Deposit (Rs)': Number(c.deposit || 0),
+        'Status': (Number(c.creditLimit || 0) > 0 && Number(c.currentBalance || 0) > Number(c.creditLimit || 0)) ? 'LIMIT EXCEEDED' : 'OVERDUE'
+      }));
       break;
     }
 
