@@ -304,14 +304,14 @@ export default function LandingPage() {
           </a>
 
           {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center bg-white/5 backdrop-blur-md px-3 py-1.5 border border-white/15 rounded-none shadow-inner gap-1">
-            <a href="#hero" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Home</a>
-            <a href="#products" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Products</a>
-            <a href="#about" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">About</a>
-            <Link to="/reports" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Reports</Link>
-            <Link to="/certificates" className="px-3.5 py-1.5 text-cyan-200 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Certificates</Link>
-            <a href="#location" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Location</a>
-            <a href="#contact" className="px-3.5 py-1.5 text-white/90 text-sm font-semibold hover:bg-white/15 hover:text-white rounded-none transition-all">Contact</a>
+          <nav className="hidden lg:flex items-center gap-7">
+            <a href="#hero" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Home</a>
+            <a href="#products" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Products</a>
+            <a href="#about" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">About</a>
+            <Link to="/reports" className="text-cyan-200 hover:text-white text-sm font-semibold transition-colors">Reports</Link>
+            <Link to="/certificates" className="text-cyan-200 hover:text-white text-sm font-semibold transition-colors">Certificates</Link>
+            <a href="#location" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Location</a>
+            <a href="#contact" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Contact</a>
           </nav>
 
           {/* Header Action Buttons */}
