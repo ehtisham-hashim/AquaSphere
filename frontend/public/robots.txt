@@ -1,0 +1,39 @@
+# robots.txt for AquaSphere - https://theaquasphere.org/
+# Author: Senior Technical SEO Specialist & Web Engineering Team
+
+User-agent: *
+Allow: /
+Allow: /certificates
+Allow: /reports
+Allow: /reports-and-certificates
+Allow: /login
+Allow: /favicon.svg
+Allow: /favicon.png
+Allow: /logo.png
+Allow: /pdfs/
+
+# Block administrative, internal ERP management, and private API routes from search engines
+Disallow: /dashboard
+Disallow: /vendors
+Disallow: /purchases
+Disallow: /raw-materials
+Disallow: /inventory
+Disallow: /production
+Disallow: /customers
+Disallow: /orders
+Disallow: /expenses
+Disallow: /counter-sales
+Disallow: /pricing
+Disallow: /users
+Disallow: /analytics
+Disallow: /erp-reports
+Disallow: /daily-close
+Disallow: /transport
+Disallow: /transport-expenses
+Disallow: /cars
+Disallow: /website-admin
+Disallow: /api/
+
+# Host and XML Sitemap definition
+Host: https://theaquasphere.org
+Sitemap: https://theaquasphere.org/sitemap.xml

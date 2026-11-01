@@ -41,6 +41,7 @@
   -webkit-text-fill-color: transparent;
 }
 
+.showcase-header h2,
 .showcase-header p {
   max-width: 720px;
   margin: 0 auto;

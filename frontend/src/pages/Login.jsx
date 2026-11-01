@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { SEOHead } from '../components/common/SEOHead';
 import { useAuth } from '../context/AuthContext';
 import { Droplet, Lock, Mail, ArrowRight, Loader2, Building2, ShieldCheck, CheckCircle2, ArrowLeft, RefreshCw } from 'lucide-react';
 
@@ -205,6 +206,12 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <SEOHead 
+        title="Portal Login | AquaSphere & Wadaana ERP"
+        description="Secure customer and management access portal for AquaSphere Mineral Water and Wadaana Industries."
+        canonicalUrl="https://theaquasphere.org/login"
+        robots="noindex, follow"
+      />
       {/* Left Sidebar / Branding Panel */}
       <div className={`hidden lg:flex w-1/2 flex-col justify-between p-12 text-white relative overflow-hidden transition-colors duration-500 ${isWadaana ? 'bg-sky-600 dark:bg-sky-800' : 'bg-emerald-600 dark:bg-emerald-800'}`}>
         {/* Decorative elements */}

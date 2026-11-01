@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { SEOHead } from '../components/common/SEOHead';
 import { 
   ExternalLink, 
   Download, 
@@ -91,6 +92,29 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-cyan-500 selection:text-white flex flex-col">
+      <SEOHead 
+        title={isReportsPage ? "Water Quality Reports & Lab Mineral Analysis | AquaSphere" : "Official Certificates & Compliance Licenses | AquaSphere Water"}
+        description={isReportsPage ? "View certified chemical and microbiological laboratory test reports for AquaSphere pure drinking water. PSQCA compliant, optimal TDS, and balanced mineral electrolytes." : "Explore official trademarks, manufacturing licenses, labor registrations, and PSQCA compliance certificates for AquaSphere pure mineral water plant."}
+        canonicalUrl={isReportsPage ? "https://theaquasphere.org/reports" : "https://theaquasphere.org/certificates"}
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://theaquasphere.org/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": isReportsPage ? "Lab Reports" : "Certificates",
+              "item": isReportsPage ? "https://theaquasphere.org/reports" : "https://theaquasphere.org/certificates"
+            }
+          ]
+        }}
+      />
       
       {/* 1. TOP INFORMATION BAR (Identical to LandingPage) */}
       <div className="bg-gradient-to-r from-[#082f49] via-[#0369a1] to-[#38bdf8] text-white text-xs sm:text-sm font-semibold py-2.5 px-4 sm:px-8 shadow-sm">
@@ -114,7 +138,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
           <Link to="/" className="flex items-center group py-2">
             <img 
               src={LOGO_URL} 
-              alt="Aqua Sphere" 
+              alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" width="180" height="72" 
               className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
               loading="eager"
             />
@@ -228,7 +252,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
             <div className="showcase-header">
               <span className="showcase-tag">Official Documents</span>
               <h1>Our <span>Certificates</span></h1>
-              <p>Verified certifications, registration credentials, and compliance documents presented in a premium interface.</p>
+              <h2 className="text-base text-slate-500 font-normal mt-2 max-w-2xl mx-auto">Verified certifications, registration credentials, and compliance documents presented in a premium interface.</h2>
             </div>
 
             {/* 2-Column Grid */}
@@ -287,7 +311,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
             <div className="showcase-header">
               <span className="showcase-tag">Quality Assurance</span>
               <h1>Lab <span>Reports</span></h1>
-              <p>Official water testing reports, mineral composition, and laboratory quality benchmarks displayed in clean premium layout.</p>
+              <h2 className="text-base text-slate-500 font-normal mt-2 max-w-2xl mx-auto">Official water testing reports, mineral composition, and laboratory quality benchmarks displayed in clean premium layout.</h2>
             </div>
 
             {/* Single Large Centered Report Card */}
@@ -352,7 +376,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
               <Link to="/" className="inline-block mb-4">
                 <img 
                   src={LOGO_URL} 
-                  alt="Aqua Sphere" 
+                  alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" width="180" height="72" 
                   className="h-16 w-auto object-contain transition-transform duration-300 hover:scale-105"
                 />
               </Link>
@@ -374,7 +398,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
             {/* Col 2 */}
             <div>
-              <h4 className="text-base font-bold text-white mb-4 tracking-wide">Quick Navigation</h4>
+              <h3 className="text-base font-bold text-white mb-4 tracking-wide">Quick Navigation</h3>
               <ul className="space-y-2.5 text-sm text-slate-400">
                 <li><Link to="/" className="hover:text-cyan-400 transition-colors">Home</Link></li>
                 <li><Link to="/#products" className="hover:text-cyan-400 transition-colors">Products & Bottles</Link></li>
@@ -387,7 +411,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
             {/* Col 3 */}
             <div>
-              <h4 className="text-base font-bold text-white mb-4 tracking-wide">Contact Details</h4>
+              <h3 className="text-base font-bold text-white mb-4 tracking-wide">Contact Details</h3>
               <ul className="space-y-3 text-sm text-slate-300">
                 <li className="flex items-start gap-3">
                   <Phone className="w-4 h-4 text-cyan-400 mt-1 shrink-0" />

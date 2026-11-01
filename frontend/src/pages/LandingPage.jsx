@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { SEOHead } from '../components/common/SEOHead';
 import { 
   Phone, 
   Clock, 
@@ -45,7 +46,7 @@ const DEFAULT_SETTINGS = {
   site_name: "Aqua Sphere",
   phone: "051-545-443-8",
   opening_hours: "Monday to Saturday - 8AM to 8PM",
-  location: "Plot #372, Japan Road, Naval Anchorage, Islamabad",
+  location: "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt",
   whatsapp: "923015072233",
   logo_url: "https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png",
   hero_bg_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005808/hero-bg.jpg",
@@ -154,6 +155,14 @@ export default function LandingPage() {
   return (
     <div className="lp min-h-screen">
       
+      {/* Dynamic Route SEO Metadata */}
+      <SEOHead 
+        title="AquaSphere | Pure Drinking Water Delivery, 19L Refills & Wholesale Bottles"
+        description="AquaSphere delivers certified 100% pure drinking water, 19L refills, food-grade wholesale empty bottles, PET packs, and dispensers. Fast doorstep delivery for homes, corporate offices, and global distribution."
+        keywords="pure drinking water delivery, 19L water bottle refill, wholesale empty bottles, pure water Islamabad, drinking water Rawalpindi, mineral water plant, bottled water supplier, water refill near me, 19 litre water bottle price, 500ml water bottle pack, 1.5L mineral water, water dispenser, bottle caps, bulk drinking water supplier, RO water plant, BPA free water bottle, commercial water supplier"
+        canonicalUrl="https://theaquasphere.org/"
+      />
+
       {/* 1. TOP INFORMATION BAR */}
       <div className="bg-[#030a16] text-slate-300 text-xs sm:text-sm font-medium py-2 px-4 sm:px-8 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
@@ -177,12 +186,15 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-22 flex items-center justify-between">
           
           {/* Logo */}
-          <a href="#hero" className="flex items-center group py-2" aria-label="Aqua Sphere Home">
+          <a href="#hero" className="flex items-center group py-2" aria-label="AquaSphere Pure Drinking Water Delivery">
             <img 
               src={optImg(settings.logo_url, 800)} 
-              alt={settings.site_name} 
+              alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" 
+              width="160"
+              height="56"
               className="h-12 sm:h-14 w-auto object-contain transition-transform group-hover:scale-105"
               loading="eager"
+              fetchpriority="high"
             />
           </a>
 
@@ -363,7 +375,7 @@ export default function LandingPage() {
                   <Droplets className="w-6 h-6 text-sky-600" />
                 </div>
                 <div>
-                  <h4 className="lp-pillar-title">{settings.technology_title}</h4>
+                  <h3 className="lp-pillar-title">{settings.technology_title}</h3>
                   <p className="lp-pillar-text">{settings.technology_text}</p>
                 </div>
               </div>
@@ -373,7 +385,7 @@ export default function LandingPage() {
                   <ShieldCheck className="w-6 h-6 text-sky-600" />
                 </div>
                 <div>
-                  <h4 className="lp-pillar-title">{settings.commitment_title}</h4>
+                  <h3 className="lp-pillar-title">{settings.commitment_title}</h3>
                   <p className="lp-pillar-text">{settings.commitment_text}</p>
                 </div>
               </div>
@@ -425,7 +437,14 @@ export default function LandingPage() {
             {settings.products?.map((prod) => (
               <div key={prod.id} className="lp-product">
                 <div className="lp-product-image-box">
-                  <img src={optImg(prod.image, 500)} alt={prod.name} loading="lazy" decoding="async" />
+                  <img 
+                    src={optImg(prod.image, 500)} 
+                    alt={`${prod.name} - Pure Drinking Water Delivery & Wholesale Bottles`} 
+                    loading="lazy" 
+                    decoding="async" 
+                    width="260"
+                    height="230"
+                  />
                 </div>
                 <div className="lp-product-body">
                   <h3 className="lp-product-title">{prod.name}</h3>
@@ -620,11 +639,15 @@ export default function LandingPage() {
             
             {/* Col 1: About Aqua Sphere & Logo */}
             <div className="space-y-4">
-              <a href="#hero" className="inline-block">
+              <a href="#hero" className="inline-block" aria-label="AquaSphere Home">
                 <img 
                   src={optImg(settings.logo_url, 800)} 
-                  alt={settings.site_name} 
+                  alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" 
+                  width="180"
+                  height="64"
                   className="h-16 w-auto object-contain transition-transform duration-300 hover:scale-105" 
+                  loading="lazy"
+                  decoding="async"
                 />
               </a>
               <p className="text-slate-400 text-sm leading-relaxed font-normal">
@@ -662,7 +685,7 @@ export default function LandingPage() {
 
             {/* Col 2: Navigation Links */}
             <div>
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Quick Navigation</h4>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Quick Navigation</h3>
               <ul className="space-y-3 text-sm text-slate-400 font-medium">
                 <li><a href="#hero" className="hover:text-cyan-400 transition-colors">Home</a></li>
                 <li><a href="#products" className="hover:text-cyan-400 transition-colors">Products Range</a></li>
@@ -678,7 +701,7 @@ export default function LandingPage() {
 
             {/* Col 3: Direct Contact Info */}
             <div>
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Contact Details</h4>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Contact Details</h3>
               <ul className="space-y-4 text-sm text-slate-400">
                 <li className="flex items-start gap-3 group">
                   <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 group-hover:border-cyan-500/50 transition-colors">
@@ -707,7 +730,7 @@ export default function LandingPage() {
 
             {/* Col 4: Timings & Address */}
             <div>
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Plant & Timings</h4>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-5">Plant & Timings</h3>
               <ul className="space-y-4 text-sm text-slate-400">
                 <li className="flex items-start gap-3 group">
                   <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 group-hover:border-cyan-500/50 transition-colors">

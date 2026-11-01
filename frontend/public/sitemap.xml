@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Homepage: Pure Drinking Water Delivery, 19L Refills, Wholesale Bottles -->
+  <url>
+    <loc>https://theaquasphere.org/</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png</image:loc>
+      <image:title>AquaSphere Pure Drinking Water &amp; Wholesale Empty Bottles Logo</image:title>
+      <image:caption>AquaSphere certified drinking water manufacturing and distribution logo</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/wgstyulb/image/upload/v1791005628/aqua-project-machine.png</image:loc>
+      <image:title>AquaSphere and Wadaana Industries Advanced Water Purification Plant</image:title>
+      <image:caption>Automated multi-stage Reverse Osmosis RO and mineral processing facility</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777146556_7174.png</image:loc>
+      <image:title>19L Pure Drinking Water Refill Bottle</image:title>
+      <image:caption>BPA-free food-grade 19L purified drinking water refill for homes and offices</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/wgstyulb/image/upload/v1791005473/product_1777198208_4752.jpg</image:loc>
+      <image:title>1.5L Mineral Water Pack</image:title>
+      <image:caption>Pack of 6 premium pure bottled drinking water bottles</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/wgstyulb/image/upload/v1791005454/product_1777145702_1235.png</image:loc>
+      <image:title>500ml Drinking Water Pack</image:title>
+      <image:caption>Portable 500ml pure water bottles for corporate events and daily hydration</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/wgstyulb/image/upload/v1791005468/product_1777146854_7886.png</image:loc>
+      <image:title>Hot and Cold Pure Water Dispenser</image:title>
+      <image:caption>Instant hot and cold electric pure water dispenser</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Official Quality & Regulatory Certificates -->
+  <url>
+    <loc>https://theaquasphere.org/certificates</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Laboratory Purity & Water Quality Reports -->
+  <url>
+    <loc>https://theaquasphere.org/reports</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Combined Reports & Certificates -->
+  <url>
+    <loc>https://theaquasphere.org/reports-and-certificates</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+  </url>
+
+  <!-- Customer & Staff Portal Login -->
+  <url>
+    <loc>https://theaquasphere.org/login</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.40</priority>
+  </url>
+
+</urlset>
