@@ -57,7 +57,7 @@ export const getReportData = asyncHandler(async (req, res) => {
 
   switch (reportType) {
     case 'sales': {
-      const [orders, spotSales, finishedGoods, registry] = await Promise.all([
+      const [orders, spotSales, finishedGoods, registry, periodPayments, periodDeliveries] = await Promise.all([
         prisma[`${prefix}Order`].findMany({
           where: {
             createdAt: { gte: start, lte: end },
@@ -83,7 +83,22 @@ export const getReportData = asyncHandler(async (req, res) => {
           where: { type: 'FINISHED_GOOD', archivedAt: null },
           select: { id: true, name: true, packSize: true, unit: true }
         }),
-        getMarketersRegistry(prefix)
+        getMarketersRegistry(prefix),
+        prisma[`${prefix}Payment`].findMany({
+          where: { createdAt: { gte: start, lte: end } },
+          include: {
+            customer: { select: { id: true, name: true, customerCode: true } },
+            order: { select: { id: true } }
+          },
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma[`${prefix}Delivery`].findMany({
+          where: { deliveredAt: { gte: start, lte: end }, cashReceived: { gt: 0 } },
+          include: {
+            order: { select: { id: true, customer: { select: { id: true, name: true, customerCode: true } } } }
+          },
+          orderBy: { deliveredAt: 'desc' }
+        })
       ]);
 
       // Dynamic Product Breakdown Map
@@ -100,15 +115,6 @@ export const getReportData = asyncHandler(async (req, res) => {
         });
       });
 
-      // Payment Method Breakdown
-      const byPaymentMethod = {
-        CASH: 0,
-        BANK_TRANSFER: 0,
-        EASYPAISA: 0,
-        JAZZCASH: 0,
-        CHEQUE: 0
-      };
-
       // Daily Time-series for Recharts
       const timeSeriesMap = new Map();
       const getOrInitDay = (d) => {
@@ -120,7 +126,6 @@ export const getReportData = asyncHandler(async (req, res) => {
       };
 
       let totalBilled = 0;
-      let totalCollected = 0;
       let totalBalanceDue = 0;
 
       // 1. Process Orders
@@ -134,18 +139,7 @@ export const getReportData = asyncHandler(async (req, res) => {
         const balance = Math.max(0, orderBilled - orderCash);
 
         totalBilled += orderBilled;
-        totalCollected += orderCash;
         totalBalanceDue += balance;
-
-        // Attribute cash to payment methods
-        o.deliveries.forEach(d => {
-          const method = (d.paymentMethod || 'CASH').toUpperCase();
-          byPaymentMethod[method] = (byPaymentMethod[method] || 0) + Number(d.cashReceived || 0);
-        });
-        o.payments.forEach(p => {
-          const method = (p.type || 'CASH').toUpperCase();
-          byPaymentMethod[method] = (byPaymentMethod[method] || 0) + Number(p.amount || 0);
-        });
 
         // Dynamic Product Breakdown (iterates over ALL items)
         o.items.forEach(it => {
@@ -201,15 +195,11 @@ export const getReportData = asyncHandler(async (req, res) => {
       const spotTableRows = spotSales.map(s => {
         const mkt = formatCustomerMarketer(s.customer || {}, registry.marketers);
         const billed = Number(s.totalAmount || 0);
-        const collected = Number(s.paidAmount || s.cashReceived || 0);
+        const collected = Number(s.amountPaid || s.cashCollected || 0);
         const balance = Math.max(0, billed - collected);
 
         totalBilled += billed;
-        totalCollected += collected;
         totalBalanceDue += balance;
-
-        const method = (s.paymentMethod || 'CASH').toUpperCase();
-        byPaymentMethod[method] = (byPaymentMethod[method] || 0) + collected;
 
         s.items.forEach(it => {
           const itemId = it.itemId || it.item?.id;
@@ -260,6 +250,81 @@ export const getReportData = asyncHandler(async (req, res) => {
 
       table = [...orderTableRows, ...spotTableRows];
 
+      // 3. Construct Itemized Inflow Ledger (Every Rupee Received Across All Channels)
+      const inflowLedger = [];
+      const paymentOrderSet = new Set();
+
+      periodPayments.forEach(p => {
+        const amt = Number(p.amount || 0);
+        if (amt <= 0) return;
+        const channel = (p.type || 'CASH').toUpperCase();
+        if (p.orderId) paymentOrderSet.add(`${p.orderId}_${amt}`);
+
+        inflowLedger.push({
+          id: p.id,
+          date: p.createdAt,
+          sourceType: p.orderId ? 'Order Delivery / Payment' : 'Customer Debt Settlement (Udhaar)',
+          refId: p.orderId ? `#ORD-${p.orderId.slice(0, 6).toUpperCase()}` : `#PAY-${p.id.slice(0, 6).toUpperCase()}`,
+          customerCode: p.customer?.customerCode || '—',
+          customerName: p.customer?.name || 'Customer',
+          channel,
+          amount: amt
+        });
+      });
+
+      // Deliveries with cash not already registered as a payment
+      periodDeliveries.forEach(d => {
+        const amt = Number(d.cashReceived || 0);
+        if (amt <= 0) return;
+        if (paymentOrderSet.has(`${d.orderId}_${amt}`)) return;
+        const channel = (d.paymentMethod || 'CASH').toUpperCase();
+        inflowLedger.push({
+          id: d.id,
+          date: d.deliveredAt,
+          sourceType: 'Order Delivery Collection',
+          refId: `#ORD-${d.orderId.slice(0, 6).toUpperCase()}`,
+          customerCode: d.order?.customer?.customerCode || '—',
+          customerName: d.order?.customer?.name || 'Customer',
+          channel,
+          amount: amt
+        });
+      });
+
+      // Counter Walk-in Sales
+      spotSales.forEach(s => {
+        const amt = Number(s.amountPaid || s.cashCollected || 0);
+        if (amt <= 0) return;
+        const channel = (s.paymentMethod || 'CASH').toUpperCase();
+        inflowLedger.push({
+          id: s.id,
+          date: s.createdAt,
+          sourceType: 'Counter Walk-in Sale',
+          refId: `#SPOT-${s.id.slice(0, 6).toUpperCase()}`,
+          customerCode: s.customer?.customerCode || 'COUNTER',
+          customerName: s.customer?.name || 'Walk-in Customer',
+          channel,
+          amount: amt
+        });
+      });
+
+      inflowLedger.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const totalInflowCollected = inflowLedger.reduce((sum, item) => sum + item.amount, 0);
+
+      // Aggregate Multi-Channel Breakdown
+      const byPaymentMethod = {
+        CASH: 0,
+        EASYPAISA: 0,
+        JAZZCASH: 0,
+        BANK_TRANSFER: 0,
+        CHEQUE: 0
+      };
+
+      inflowLedger.forEach(item => {
+        const ch = item.channel || 'CASH';
+        byPaymentMethod[ch] = (byPaymentMethod[ch] || 0) + item.amount;
+      });
+
       // Recharts chartData sorted chronologically
       chartData = Array.from(timeSeriesMap.entries())
         .sort(([a], [b]) => a.localeCompare(b))
@@ -270,7 +335,8 @@ export const getReportData = asyncHandler(async (req, res) => {
 
       secondaryBreakdown = {
         byPaymentMethod,
-        byProduct
+        byProduct,
+        inflowLedger
       };
 
       summaryRow = {
@@ -281,7 +347,7 @@ export const getReportData = asyncHandler(async (req, res) => {
         'Marketer': '—',
         'Items': '—',
         'Billed Total (Rs)': totalBilled,
-        'Cash Collected (Rs)': totalCollected,
+        'Cash Collected (Rs)': totalInflowCollected,
         'Balance Due (Rs)': totalBalanceDue,
         'Payment Status': '—',
         'Delivery Status': '—',
@@ -289,9 +355,9 @@ export const getReportData = asyncHandler(async (req, res) => {
       };
 
       kpis = [
-        { label: 'Total Sales & Counters', value: table.length.toString() },
+        { label: 'Total Orders & Counters', value: table.length.toString() },
         { label: 'Total Billed Sales', value: `Rs. ${Math.round(totalBilled).toLocaleString()}` },
-        { label: 'Total Cash Collected', value: `Rs. ${Math.round(totalCollected).toLocaleString()}` },
+        { label: 'Total Collections (All Channels)', value: `Rs. ${Math.round(totalInflowCollected).toLocaleString()}` },
         { label: 'Unpaid Credit Billed', value: `Rs. ${Math.round(totalBalanceDue).toLocaleString()}` }
       ];
       break;
@@ -550,14 +616,18 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'profitability':
     case 'profit': {
-      const [deliveriesSum, spotSalesSum, expensesSum, transportSum] = await Promise.all([
+      const [deliveriesSum, spotSalesSum, paymentsSum, expensesSum, transportSum] = await Promise.all([
         prisma[`${prefix}Delivery`].aggregate({
           _sum: { cashReceived: true },
           where: { deliveredAt: { gte: start, lte: end } }
         }),
         prisma[`${prefix}SpotSale`].aggregate({
-          _sum: { paidAmount: true },
+          _sum: { amountPaid: true, cashCollected: true },
           where: { createdAt: { gte: start, lte: end } }
+        }),
+        prisma[`${prefix}Payment`].aggregate({
+          _sum: { amount: true },
+          where: { createdAt: { gte: start, lte: end }, orderId: null }
         }),
         prisma[`${prefix}Expense`].aggregate({
           _sum: { amount: true },
@@ -565,13 +635,14 @@ export const getReportData = asyncHandler(async (req, res) => {
         }),
         prisma[`${prefix}TransportExpense`].aggregate({
           _sum: { amount: true },
-          where: { expenseDate: { gte: start, lte: end } }
+          where: { date: { gte: start, lte: end } }
         })
       ]);
 
       const deliveryRevenue = Number(deliveriesSum._sum.cashReceived || 0);
-      const spotRevenue = Number(spotSalesSum._sum.paidAmount || 0);
-      const revenue = deliveryRevenue + spotRevenue;
+      const spotRevenue = Number(spotSalesSum._sum.amountPaid || spotSalesSum._sum.cashCollected || 0);
+      const debtSettlementRevenue = Number(paymentsSum._sum.amount || 0);
+      const revenue = deliveryRevenue + spotRevenue + debtSettlementRevenue;
 
       const operatingExpenses = Number(expensesSum._sum.amount || 0);
       const transportExpenses = Number(transportSum._sum.amount || 0);
@@ -631,6 +702,7 @@ export const getReportData = asyncHandler(async (req, res) => {
       table = [
         { 'Financial Metric': 'Delivery Orders Cash Received', 'Amount (Rs)': deliveryRevenue },
         { 'Financial Metric': 'Counter Sales Cash Received', 'Amount (Rs)': spotRevenue },
+        { 'Financial Metric': 'Customer Debt Settlements (Udhaar)', 'Amount (Rs)': debtSettlementRevenue },
         { 'Financial Metric': 'Total Operating Cash Inflow', 'Amount (Rs)': revenue },
         { 'Financial Metric': 'Cost of Goods Sold (Raw Materials Used)', 'Amount (Rs)': Math.round(cogs) },
         { 'Financial Metric': 'General & Operating Expenses', 'Amount (Rs)': operatingExpenses },

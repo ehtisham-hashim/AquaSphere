@@ -3,20 +3,20 @@ import { API_URL } from '../utils/api';
 import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
 import { 
-  Download, Calendar, TrendingUp, DollarSign, 
+  Download, TrendingUp, DollarSign, 
   Package, Settings, Users, Truck, AlertCircle, Printer,
-  CreditCard, Layers, Award
+  CreditCard, Layers, Award, Receipt
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, 
   CartesianGrid, Legend 
 } from 'recharts';
-import { PageHeader } from '../components/ui';
+import { PageHeader, DateRangePicker } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
 
 const ALL_REPORT_TABS = [
-  { id: 'sales', label: 'Sales & Channels', icon: TrendingUp },
+  { id: 'sales', label: 'Sales & Collections', icon: TrendingUp },
   { id: 'marketers', label: 'Marketer Commissions', icon: Award },
   { id: 'credit', label: 'Customer Credit (Udhaar)', icon: Users },
   { id: 'profitability', label: 'Profitability (P&L)', icon: DollarSign },
@@ -27,78 +27,47 @@ const ALL_REPORT_TABS = [
   { id: 'fleet', label: '19L Bottle Fleet', icon: Package, aquasphereOnly: true }
 ];
 
-const PERIODS = [
-  { id: 'daily', label: 'Daily' },
-  { id: 'weekly', label: 'Weekly' },
-  { id: 'monthly', label: 'Monthly' },
-  { id: 'yearly', label: 'Yearly' },
-  { id: 'custom', label: 'Custom' }
-];
-
 export default function Reports() {
   const { tenant, isWadaana } = useTenant();
   const [activeTab, setActiveTab] = useState('sales');
-  const [period, setPeriod] = useState('monthly');
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [productFilter, setProductFilter] = useState('ALL');
-  const [finishedGoods, setFinishedGoods] = useState([]);
+  const [salesView, setSalesView] = useState('orders'); // 'orders' | 'inflows'
+  
+  // Date range state initialized to current month
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const formatDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    return {
+      startDate: formatDate(start),
+      endDate: formatDate(end)
+    };
+  });
   
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Dynamic brand colors based on tenant
+  const brandColor = isWadaana ? '#0284c7' : '#059669';
+  const brandAccent = isWadaana ? '#38bdf8' : '#34d399';
 
   // Available tabs respecting tenant
   const availableTabs = useMemo(() => {
     return ALL_REPORT_TABS.filter(t => !t.aquasphereOnly || !isWadaana);
   }, [isWadaana]);
 
-  // Load active finished goods for dropdown filter
-  useEffect(() => {
-    let isMounted = true;
-    const loadItems = async () => {
-      try {
-        const res = await fetch(`${API_URL}/items?type=FINISHED_GOOD`, {
-          headers: { 'x-tenant': tenant },
-          credentials: 'include'
-        });
-        const json = await res.json();
-        if (isMounted && json.success && Array.isArray(json.data)) {
-          setFinishedGoods(json.data.filter(i => !i.archivedAt));
-        }
-      } catch (err) {
-        console.error('Failed to load finished goods for report filters:', err);
-      }
-    };
-    loadItems();
-    return () => { isMounted = false; };
-  }, [tenant]);
-
-  // Client-side product filter for the table if productFilter !== 'ALL'
-  const filteredTable = useMemo(() => {
-    if (!reportData?.table || !Array.isArray(reportData.table)) return [];
-    if (productFilter === 'ALL' || activeTab !== 'sales') return reportData.table;
-    const target = productFilter.toLowerCase();
-    return reportData.table.filter(row => {
-      const itemsCol = (row['Items'] || '').toLowerCase();
-      return itemsCol.includes(target);
-    });
-  }, [reportData, productFilter, activeTab]);
-
-  const pagination = usePagination(filteredTable, 50, `${activeTab}_${period}_${selectedMonth}_${productFilter}`);
-
+  // Data fetching
   const fetchReport = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      let url = `${API_URL}/reports/${activeTab}?period=${period}`;
-      if (period === 'monthly') {
-        url += `&month=${selectedMonth}`;
-      } else if (period === 'custom') {
-        url += `&startDate=${startDate}&endDate=${endDate}`;
-      }
-      
+      const url = `${API_URL}/reports/${activeTab}?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
       const res = await fetch(url, { 
         headers: { 'x-tenant': tenant },
         credentials: 'include' 
@@ -117,36 +86,43 @@ export default function Reports() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [activeTab, period, selectedMonth, startDate, endDate, tenant]);
+  }, [activeTab, dateRange.startDate, dateRange.endDate, tenant]);
 
   const fetchData = fetchReport;
   useLiveEvent(['ORDER_UPDATED', 'INVENTORY_CHANGED', 'PRODUCTION_UPDATED', 'DAILY_CLOSE_CHANGED'], () => fetchData(true));
 
   useEffect(() => {
-    if (period === 'custom' && !startDate && !endDate) {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      setEndDate(today);
-    } else if (period !== 'custom') {
-      fetchReport();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, period, selectedMonth]);
+    fetchReport();
+  }, [fetchReport]);
 
-  useEffect(() => {
-    if (period === 'custom' && startDate && endDate) {
-      fetchReport();
+  // Active table view: either regular report table or itemized Collections & Inflows Ledger
+  const displayTable = useMemo(() => {
+    if (!reportData) return [];
+    if (activeTab === 'sales' && salesView === 'inflows') {
+      const ledger = reportData.secondaryBreakdown?.inflowLedger || [];
+      return ledger.map(item => ({
+        'Receipt / Ref ID': item.refId,
+        'Date': new Date(item.date).toLocaleDateString() + ' ' + new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        'Source Type': item.sourceType,
+        'Customer Code': item.customerCode || '—',
+        'Customer Name': item.customerName || 'Customer',
+        'Payment Channel': item.channel,
+        'Amount Collected (Rs)': item.amount
+      }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+    return reportData.table || [];
+  }, [reportData, activeTab, salesView]);
 
+  const pagination = usePagination(displayTable, 50, `${activeTab}_${salesView}_${dateRange.startDate}_${dateRange.endDate}`);
+
+  // CSV Exporter
   const handleExportCSV = () => {
-    if (!filteredTable || filteredTable.length === 0) return;
+    if (!displayTable || displayTable.length === 0) return;
     
-    const headers = Object.keys(filteredTable[0]);
+    const headers = Object.keys(displayTable[0]);
     const csvRows = [headers.join(',')];
     
-    for (const row of filteredTable) {
+    for (const row of displayTable) {
       const values = headers.map(header => {
         const val = row[header];
         const str = String(val === undefined || val === null ? '' : val).replace(/"/g, '""');
@@ -155,7 +131,10 @@ export default function Reports() {
       csvRows.push(values.join(','));
     }
 
-    if (reportData?.summaryRow) {
+    if (salesView === 'inflows' && activeTab === 'sales') {
+      const totalAmt = displayTable.reduce((sum, r) => sum + Number(r['Amount Collected (Rs)'] || 0), 0);
+      csvRows.push(`"TOTAL INFLOWS","","","","","","Rs. ${totalAmt.toLocaleString()}"`);
+    } else if (reportData?.summaryRow) {
       const summaryValues = headers.map(header => {
         const val = reportData.summaryRow[header];
         const str = String(val === undefined || val === null ? '' : val).replace(/"/g, '""');
@@ -170,13 +149,13 @@ export default function Reports() {
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', `${activeTab}_report_${period}_${new Date().toISOString().slice(0, 10)}.csv`);
+    a.setAttribute('download', `${activeTab}_${salesView === 'inflows' ? 'inflows_ledger' : 'report'}_${dateRange.startDate}_${dateRange.endDate}.csv`);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
-  // Payment method total calculation for percentages
+  // Payment channel totals calculation
   const paymentTotals = useMemo(() => {
     if (!reportData?.secondaryBreakdown?.byPaymentMethod) return { total: 0, items: [] };
     const raw = reportData.secondaryBreakdown.byPaymentMethod;
@@ -185,75 +164,47 @@ export default function Reports() {
       method,
       amount: Number(amount || 0),
       percent: total > 0 ? Math.round((Number(amount || 0) / total) * 100) : 0
-    })).filter(i => i.amount > 0 || ['CASH', 'BANK_TRANSFER'].includes(i.method));
+    })).filter(i => i.amount > 0 || ['CASH', 'EASYPAISA', 'JAZZCASH', 'BANK_TRANSFER'].includes(i.method));
     return { total, items };
   }, [reportData]);
 
+  // Channel badge colors helper
+  const getChannelBadge = (channel) => {
+    switch (channel) {
+      case 'CASH':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'EASYPAISA':
+        return 'bg-teal-50 text-teal-700 border-teal-200';
+      case 'JAZZCASH':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'BANK_TRANSFER':
+        return 'bg-sky-50 text-sky-700 border-sky-200';
+      case 'CHEQUE':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      default:
+        return 'bg-slate-50 text-slate-700 border-slate-200';
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Action Header */}
+      {/* Streamlined, Responsive Action Header */}
       <PageHeader
         title="Reports & Analytics Suite"
         actions={
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            {/* Period Segmented Filter */}
-            <div className="flex bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80">
-              {PERIODS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPeriod(p.id)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                    period === p.id ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Month Picker */}
-            {period === 'monthly' && (
-              <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
-                <Calendar size={13} className="text-slate-400" />
-                <input
-                  type="month"
-                  className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium cursor-pointer"
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                />
-              </div>
-            )}
-
-            {/* Custom Date Range */}
-            {period === 'custom' && (
-              <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1 shadow-2xs">
-                <Calendar size={13} className="text-slate-400" />
-                <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                <span className="text-slate-300">-</span>
-                <input type="date" className="text-xs border-none outline-none text-slate-700 bg-transparent font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} />
-              </div>
-            )}
-
-            {/* Dynamic Product Filter (on Sales tab) */}
-            {activeTab === 'sales' && finishedGoods.length > 0 && (
-              <select
-                aria-label="Filter by Catalog Product"
-                value={productFilter}
-                onChange={e => setProductFilter(e.target.value)}
-                className="text-xs font-semibold px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-brand shadow-2xs cursor-pointer"
-              >
-                <option value="ALL">All Products</option>
-                {finishedGoods.map(fg => (
-                  <option key={fg.id} value={fg.name}>
-                    {fg.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            {/* Interactive Mobiscroll-style Date Range Picker */}
+            <DateRangePicker
+              startDate={dateRange.startDate}
+              endDate={dateRange.endDate}
+              onChange={({ startDate, endDate }) => {
+                setDateRange({ startDate, endDate });
+              }}
+            />
 
             <button
               onClick={() => window.print()}
-              className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+              className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 shadow-2xs"
               title="Print A4 Report"
             >
               <Printer size={13} /> Print A4
@@ -261,7 +212,7 @@ export default function Reports() {
 
             <button
               onClick={handleExportCSV}
-              disabled={!filteredTable || filteredTable.length === 0}
+              disabled={!displayTable || displayTable.length === 0}
               className="btn-primary"
             >
               <Download size={13} /> Export CSV
@@ -271,7 +222,7 @@ export default function Reports() {
       />
 
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Sidebar Tabs */}
+        {/* Sidebar Tabs - Tenant Brand Styled */}
         <div className="lg:w-60 shrink-0 flex flex-row lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
           {availableTabs.map(tab => {
             const Icon = tab.icon;
@@ -281,12 +232,12 @@ export default function Reports() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  setProductFilter('ALL');
+                  setSalesView('orders');
                 }}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left shrink-0 ${
                   isActive 
-                    ? 'bg-slate-900 text-white font-bold shadow-xs' 
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 bg-white border border-slate-100'
+                    ? 'bg-brand text-white font-bold shadow-2xs' 
+                    : 'text-slate-600 hover:bg-brand-light/40 hover:text-brand bg-white border border-slate-100'
                 }`}
               >
                 <Icon size={15} className={isActive ? 'text-white' : 'text-slate-400'} />
@@ -300,7 +251,7 @@ export default function Reports() {
         <div className="flex-1 min-w-0 space-y-4">
           {loading ? (
             <div className="card-surface p-12 text-center text-slate-400 text-sm">
-              <div className="w-8 h-8 border-3 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <div className="w-8 h-8 border-3 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               Generating accurate real-time report...
             </div>
           ) : error ? (
@@ -329,8 +280,8 @@ export default function Reports() {
                   <div className="card-surface p-4 space-y-3">
                     <div className="flex justify-between items-center">
                       <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <TrendingUp size={14} className="text-indigo-600" />
-                        {activeTab === 'sales' ? 'Daily Billed vs. Cash Trend' :
+                        <TrendingUp size={14} className="text-brand" />
+                        {activeTab === 'sales' ? 'Daily Billed vs. Cash Collections Trend' :
                          activeTab === 'marketers' ? 'Marketer Performance Comparison' :
                          activeTab === 'credit' ? 'Top Debtors Exposure' :
                          activeTab === 'profitability' ? 'Income & Expense Breakdown' :
@@ -356,8 +307,8 @@ export default function Reports() {
                               contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 'bold' }}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                            <Bar dataKey="Billed" fill="#0284c7" radius={[4, 4, 0, 0]} name="Billed (Rs)" />
-                            <Bar dataKey="Collected" fill="#10b981" radius={[4, 4, 0, 0]} name="Cash Collected (Rs)" />
+                            <Bar dataKey="Billed" fill={brandColor} radius={[4, 4, 0, 0]} name="Billed Sales (Rs)" />
+                            <Bar dataKey="Collected" fill={brandAccent} radius={[4, 4, 0, 0]} name="Cash Collections (Rs)" />
                           </BarChart>
                         ) : activeTab === 'marketers' ? (
                           <BarChart data={reportData.chartData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
@@ -370,7 +321,7 @@ export default function Reports() {
                             />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                             <Bar dataKey="BilledSales" fill="#6366f1" radius={[4, 4, 0, 0]} name="Billed Sales" />
-                            <Bar dataKey="CashCollected" fill="#10b981" radius={[4, 4, 0, 0]} name="Cash Collected" />
+                            <Bar dataKey="CashCollected" fill={brandColor} radius={[4, 4, 0, 0]} name="Cash Collected" />
                             <Bar dataKey="UnpaidDebt" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Outstanding Debt" />
                           </BarChart>
                         ) : activeTab === 'credit' ? (
@@ -395,7 +346,7 @@ export default function Reports() {
                               formatter={(value, name) => [`Rs. ${Number(value).toLocaleString()}`, name]}
                               contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 'bold' }}
                             />
-                            <Bar dataKey="value" fill="#0284c7" radius={[4, 4, 0, 0]} name="Amount" />
+                            <Bar dataKey="value" fill={brandColor} radius={[4, 4, 0, 0]} name="Amount" />
                           </BarChart>
                         )}
                       </ResponsiveContainer>
@@ -403,17 +354,17 @@ export default function Reports() {
                   </div>
                 )}
 
-                {/* Right Card: Secondary Breakdowns */}
+                {/* Right Card: Multi-Channel Collections & Product Breakdown */}
                 {activeTab === 'sales' && (
                   <div className="space-y-4">
-                    {/* Payment Channel Card */}
+                    {/* Collections by Payment Channel Card */}
                     <div className="card-surface p-4 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                          <CreditCard size={14} className="text-emerald-600" />
-                          Cash Collected by Channel
+                          <CreditCard size={14} className="text-brand" />
+                          Collections by Payment Channel
                         </h4>
-                        <span className="font-mono text-xs font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <span className="font-mono text-xs font-extrabold text-brand bg-brand-light px-2 py-0.5 rounded-md border border-brand-border">
                           Rs. {paymentTotals.total.toLocaleString()}
                         </span>
                       </div>
@@ -421,25 +372,25 @@ export default function Reports() {
                         {paymentTotals.items.map(ch => (
                           <div key={ch.method} className="space-y-1">
                             <div className="flex justify-between text-xs font-medium text-slate-700">
-                              <span>{ch.method.replace('_', ' ')}</span>
+                              <span className="font-bold">{ch.method.replace('_', ' ')}</span>
                               <span className="font-mono font-bold">Rs. {ch.amount.toLocaleString()} ({ch.percent}%)</span>
                             </div>
                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${ch.percent}%` }}></div>
+                              <div className="h-full bg-brand rounded-full" style={{ width: `${ch.percent}%` }}></div>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Finished Goods Volume Card (100% Dynamic) */}
+                    {/* Finished Goods Volume Card (Dynamic Catalog Sync) */}
                     <div className="card-surface p-4 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                           <Layers size={14} className="text-indigo-600" />
-                          Sales by Finished Good (Dynamic)
+                          Sales Volume by Finished Good
                         </h4>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Catalog Sync</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Catalog Live</span>
                       </div>
                       <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                         {(reportData.secondaryBreakdown?.byProduct || []).map(p => (
@@ -450,7 +401,7 @@ export default function Reports() {
                             </div>
                             <div className="text-right font-mono">
                               <div className="font-extrabold text-slate-900">{p.qtySold.toLocaleString()} {p.unit}s</div>
-                              <div className="text-[10px] text-indigo-600 font-bold">Rs. {p.billedRevenue.toLocaleString()}</div>
+                              <div className="text-[10px] text-brand font-bold">Rs. {p.billedRevenue.toLocaleString()}</div>
                             </div>
                           </div>
                         ))}
@@ -465,7 +416,7 @@ export default function Reports() {
                       <Award size={14} className="text-amber-500" /> Marketer Attribution Highlights
                     </h4>
                     <p className="text-xs text-slate-500">
-                      All customers assigned with <span className="font-mono font-bold text-slate-800">MKT-xx</span> badges are tracked here with full dual identification (<span className="font-mono text-slate-800">JAM313xxxx • MKT-xx</span>).
+                      All customers assigned with <span className="font-mono font-bold text-slate-800">MKT-xx</span> badges are tracked here with dual identification (<span className="font-mono text-slate-800">JAM313xxxx • MKT-xx</span>).
                     </p>
                     <div className="grid grid-cols-2 gap-2.5 pt-2">
                       <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl">
@@ -474,9 +425,9 @@ export default function Reports() {
                           {reportData.kpis?.[0]?.value || '0'}
                         </div>
                       </div>
-                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
-                        <div className="text-[10px] font-bold text-emerald-700 uppercase">Referred Customers</div>
-                        <div className="text-2xl font-black font-mono text-emerald-900 mt-0.5">
+                      <div className="bg-brand-light border border-brand-border p-3 rounded-xl">
+                        <div className="text-[10px] font-bold text-brand uppercase">Referred Customers</div>
+                        <div className="text-2xl font-black font-mono text-brand mt-0.5">
                           {reportData.kpis?.[1]?.value || '0'}
                         </div>
                       </div>
@@ -485,14 +436,47 @@ export default function Reports() {
                 )}
               </div>
 
+              {/* View Selector for Sales Tab */}
+              {activeTab === 'sales' && (
+                <div className="flex items-center justify-between bg-white border border-slate-200/90 p-1.5 rounded-xl">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSalesView('orders')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        salesView === 'orders' 
+                          ? 'bg-brand text-white shadow-2xs' 
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Package size={13} /> Orders & Sales Billed ({reportData.table?.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSalesView('inflows')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        salesView === 'inflows' 
+                          ? 'bg-brand text-white shadow-2xs' 
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Receipt size={13} /> Collections & Inflows Ledger ({reportData.secondaryBreakdown?.inflowLedger?.length || 0})
+                    </button>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500 font-semibold pr-2 hidden sm:inline">
+                    {salesView === 'inflows' ? 'Itemized Rupee-by-Rupee Ledger' : 'Standard Delivery & Spot Invoices'}
+                  </span>
+                </div>
+              )}
+
               {/* Data Table */}
               <div className="table-container shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs text-slate-600">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
-                        {filteredTable.length > 0 ? (
-                          Object.keys(filteredTable[0]).map(key => (
+                        {displayTable.length > 0 ? (
+                          Object.keys(displayTable[0]).map(key => (
                             <th key={key} className="table-th font-bold text-slate-700 whitespace-nowrap">
                               {key.replace(/([A-Z])/g, ' $1').trim()}
                             </th>
@@ -503,21 +487,30 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
-                      {filteredTable.length > 0 ? (
+                      {displayTable.length > 0 ? (
                         pagination.paginatedItems.map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                             {Object.entries(row).map(([k, val], cellIdx) => {
                               const isNumeric = typeof val === 'number';
+                              const isChannel = k === 'Payment Channel';
                               return (
                                 <td 
                                   key={cellIdx} 
-                                  className={`table-td whitespace-nowrap font-mono text-xs ${
+                                  className={`table-td whitespace-nowrap text-xs ${
                                     isNumeric && (k.includes('(Rs)') || k.includes('Sold') || k.includes('Qty') || k.includes('Count')) 
-                                      ? 'text-right font-bold text-slate-800' 
+                                      ? 'text-right font-bold text-slate-800 font-mono' 
                                       : 'text-left'
                                   }`}
                                 >
-                                  {isNumeric ? val.toLocaleString() : (val || '—')}
+                                  {isChannel ? (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getChannelBadge(val)}`}>
+                                      {val}
+                                    </span>
+                                  ) : isNumeric ? (
+                                    val.toLocaleString()
+                                  ) : (
+                                    val || '—'
+                                  )}
                                 </td>
                               );
                             })}
@@ -526,27 +519,41 @@ export default function Reports() {
                       ) : (
                         <tr>
                           <td colSpan="100%" className="p-10 text-center text-slate-400 text-xs">
-                            No records found for the selected period and product filter.
+                            No records found for the selected period.
                           </td>
                         </tr>
                       )}
                     </tbody>
                     {/* STICKY TOTALS FOOTER */}
-                    {reportData.summaryRow && filteredTable.length > 0 && (
+                    {displayTable.length > 0 && (
                       <tfoot className="bg-slate-900 text-white font-mono font-bold text-xs border-t-2 border-slate-800">
                         <tr>
-                          {Object.keys(filteredTable[0]).map((key, fIdx) => {
-                            const val = reportData.summaryRow[key];
-                            const isNumeric = typeof val === 'number';
-                            return (
-                              <td 
-                                key={fIdx} 
-                                className={`px-4 py-3 whitespace-nowrap ${isNumeric ? 'text-right' : 'text-left'}`}
-                              >
-                                {isNumeric ? `Rs. ${val.toLocaleString()}` : (val || '—')}
+                          {salesView === 'inflows' && activeTab === 'sales' ? (
+                            <>
+                              <td className="px-4 py-3 whitespace-nowrap">TOTALS</td>
+                              <td className="px-4 py-3 whitespace-nowrap">{displayTable.length} Receipts</td>
+                              <td className="px-4 py-3 whitespace-nowrap">—</td>
+                              <td className="px-4 py-3 whitespace-nowrap">—</td>
+                              <td className="px-4 py-3 whitespace-nowrap">—</td>
+                              <td className="px-4 py-3 whitespace-nowrap">—</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right font-extrabold text-emerald-400">
+                                Rs. {displayTable.reduce((sum, r) => sum + Number(r['Amount Collected (Rs)'] || 0), 0).toLocaleString()}
                               </td>
-                            );
-                          })}
+                            </>
+                          ) : reportData.summaryRow ? (
+                            Object.keys(displayTable[0]).map((key, fIdx) => {
+                              const val = reportData.summaryRow[key];
+                              const isNumeric = typeof val === 'number';
+                              return (
+                                <td 
+                                  key={fIdx} 
+                                  className={`px-4 py-3 whitespace-nowrap ${isNumeric ? 'text-right' : 'text-left'}`}
+                                >
+                                  {isNumeric ? `Rs. ${val.toLocaleString()}` : (val || '—')}
+                                </td>
+                              );
+                            })
+                          ) : null}
                         </tr>
                       </tfoot>
                     )}

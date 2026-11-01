@@ -9,3 +9,4 @@ export { default as EmptyState } from './EmptyState';
 export { default as DeleteConfirmationModal } from './DeleteConfirmationModal';
 export { default as TimeframeDropdown } from './TimeframeDropdown';
 export { default as ImagePreviewModal } from './ImagePreviewModal';
+export { default as DateRangePicker } from './DateRangePicker';
