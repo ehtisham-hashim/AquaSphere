@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2 } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
@@ -9,6 +9,7 @@ import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
 import { PageHeader, StatusBadge, TimeframeDropdown, DeleteConfirmationModal } from '../components/ui';
+import MultiSelectDropdown from '../components/common/MultiSelectDropdown';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../utils/whatsapp';
 
 import AddOrderModal from '../components/orders/AddOrderModal';
@@ -81,7 +82,7 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('All Clients');
-  const [productSizeFilter, setProductSizeFilter] = useState('ALL');
+  const [selectedSizes, setSelectedSizes] = useState([]);
   const [dateFilter, setDateFilter] = useState('ALL');
   const [statementMonth, setStatementMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [settleCustomer, setSettleCustomer] = useState(null);
@@ -230,14 +231,14 @@ export default function Orders() {
     // Client type filtering
     if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
 
-    // Product size filtering
-    if (productSizeFilter !== 'ALL') {
+    // Multi-select product size filtering
+    if (selectedSizes.length > 0) {
       const hasSize = o.items?.some(i => {
         const name = (i.item?.name || '').toLowerCase();
-        if (productSizeFilter === '19L') return name.includes('19l') || o.type === 'NINETEEN_L';
-        if (productSizeFilter === '1.5L') return name.includes('1.5') || name.includes('1.5l');
-        if (productSizeFilter === '0.5L') return name.includes('0.5') || name.includes('500ml');
-        return false;
+        const sz = (name.includes('19l') || o.type === 'NINETEEN_L') ? '19L' :
+                   (name.includes('1.5') || name.includes('1500')) ? '1.5L' :
+                   (name.includes('0.5') || name.includes('500')) ? '0.5L' : null;
+        return sz && selectedSizes.includes(sz);
       });
       if (!hasSize) return false;
     }
@@ -260,10 +261,39 @@ export default function Orders() {
     return true;
   });
 
-  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${productSizeFilter}_${activeTab}_${dateFilter}`);
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${selectedSizes.join(',')}_${activeTab}_${dateFilter}`);
+
+  const ordersKpi = useMemo(() => {
+    let totalValue = 0;
+    let totalUnits = 0;
+    let unpaidAmount = 0;
+
+    for (const o of filteredOrders) {
+      const sub = (o.items || []).reduce((s, it) => s + (Number(it.price || 0) * (it.quantity || 0)), 0);
+      const total = o.withGst ? sub + Math.round(sub * 0.18) : sub;
+      const paid = (o.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+      totalValue += total;
+      unpaidAmount += Math.max(0, total - paid);
+      totalUnits += (o.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
+    }
+
+    return { totalValue, totalUnits, unpaidAmount };
+  }, [filteredOrders]);
+
+  const hasActiveOrderFilters = selectedSizes.length > 0 || clientFilter !== 'All Clients' || dateFilter !== 'ALL';
+  const handleResetOrderFilters = () => {
+    setSelectedSizes([]);
+    setClientFilter('All Clients');
+    setDateFilter('ALL');
+  };
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders', 'Month-End Statements'];
   const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
+  const productSizeOptions = [
+    { value: '19L', label: '19L Refill' },
+    { value: '1.5L', label: '1.5L PET' },
+    { value: '0.5L', label: '0.5L PET' }
+  ];
 
   // Month-End Statements aggregation
   const monthOrders = orders.filter(o => {
@@ -374,65 +404,91 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Tab Filter & Search Toolbar */}
-      <div className="card-surface p-3 flex flex-col gap-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-          <div className="w-full lg:w-auto max-w-full overflow-x-auto scrollbar-none py-0.5">
-            <div className="inline-flex items-center gap-1 bg-slate-100/90 p-0.5 rounded-lg border border-slate-200/80 min-w-max">
-              {tabs.map(tab => (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-md font-semibold text-xs whitespace-nowrap shrink-0 transition-all ${
-                    activeTab === tab 
-                      ? 'bg-white text-slate-900 shadow-2xs font-bold' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full lg:w-auto">
-            <TimeframeDropdown 
-              value={dateFilter}
-              onChange={setDateFilter}
-              options={DATE_FILTER_OPTIONS}
-            />
-
-            <div className="w-full sm:w-44">
-              <select 
-                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
-                value={clientFilter}
-                onChange={e => setClientFilter(e.target.value)}
-                aria-label="Filter orders by client"
-              >
-                {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
-              </select>
-            </div>
-
-            <div className="w-full sm:w-36">
-              <select 
-                className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
-                value={productSizeFilter}
-                onChange={e => setProductSizeFilter(e.target.value)}
-                aria-label="Filter orders by product size"
-              >
-                <option value="ALL">All Sizes</option>
-                <option value="19L">19 Litre</option>
-                <option value="1.5L">1.5 Litre</option>
-                <option value="0.5L">0.5 Litre</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+      {/* TIER 1: Dedicated Full-Width Status Tabs */}
+      <div className="overflow-x-auto scrollbar-none py-0.5">
+        <div className="inline-flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 min-w-max">
+          {tabs.map(tab => (
+            <button 
+              key={tab} 
+              onClick={() => setActiveTab(tab)}
+              className={`px-3.5 py-1.5 rounded-lg font-semibold text-xs whitespace-nowrap shrink-0 transition-all ${
+                activeTab === tab 
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold ring-1 ring-slate-200' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* TIER 2: Search & Multi-Select Filter Toolbar */}
+      <div className="card-surface p-3 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+        <div className="relative flex-1">
+          <OrderSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <TimeframeDropdown 
+            value={dateFilter}
+            onChange={setDateFilter}
+            options={DATE_FILTER_OPTIONS}
+          />
+
+          <MultiSelectDropdown
+            label="Sizes"
+            icon={Package}
+            options={productSizeOptions}
+            selectedValues={selectedSizes}
+            onChange={setSelectedSizes}
+          />
+
+          <div className="w-full sm:w-40">
+            <select 
+              className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
+              value={clientFilter}
+              onChange={e => setClientFilter(e.target.value)}
+              aria-label="Filter orders by client"
+            >
+              {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
+            </select>
+          </div>
+
+          {hasActiveOrderFilters && (
+            <button
+              type="button"
+              onClick={handleResetOrderFilters}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shadow-2xs"
+              title="Reset order filters"
+            >
+              <RotateCcw size={12} />
+              <span>Reset</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* DYNAMIC ORDERS KPI STRIP */}
+      {activeTab !== 'Month-End Statements' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-50/90 border border-slate-200/80 rounded-xl text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-slate-700">
+            <Package size={14} className="text-slate-400" />
+            <span>Showing <strong className="text-slate-900">{filteredOrders.length}</strong> Orders</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-slate-600">
+            <div>
+              Total Value: <strong className="text-slate-900 font-bold">Rs. {ordersKpi.totalValue.toLocaleString()}</strong>
+            </div>
+            <div>
+              Total Units: <strong className="text-slate-900 font-bold">{ordersKpi.totalUnits.toLocaleString()}</strong>
+            </div>
+            <div>
+              Unpaid Dues: <strong className={ordersKpi.unpaidAmount > 0 ? 'text-amber-600 font-bold' : 'text-emerald-600 font-bold'}>Rs. {ordersKpi.unpaidAmount.toLocaleString()}</strong>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && orders.length === 0 ? (
         <TableSkeleton rows={6} cols={6} />
