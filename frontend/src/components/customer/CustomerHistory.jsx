@@ -300,11 +300,16 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                               </span>
                             )}
                             {delivery.bottlesReturnedBroken > 0 && (
-                              <span className="inline-flex items-center gap-1 text-rose-700 font-mono font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-xs">
+                              <span className="inline-flex items-center gap-1 text-amber-700 font-mono font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-xs">
                                 💔 {delivery.bottlesReturnedBroken} Broken
                               </span>
                             )}
-                            {(!delivery.bottlesReturnedGood && !delivery.bottlesReturnedBroken) && (
+                            {delivery.bottlesLost > 0 && (
+                              <span className="inline-flex items-center gap-1 text-rose-700 font-mono font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200 text-xs">
+                                ❌ {delivery.bottlesLost} Lost
+                              </span>
+                            )}
+                            {(!delivery.bottlesReturnedGood && !delivery.bottlesReturnedBroken && !delivery.bottlesLost) && (
                               <span className="text-slate-400">—</span>
                             )}
                           </div>

@@ -319,6 +319,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     qtyDelivered = 0, 
     bottlesReturnedGood = 0, 
     bottlesReturnedBroken = 0, 
+    bottlesLost = 0,
     cashReceived = 0, 
     paymentMethod = 'CASH', 
     settleFromSecurity = false,
@@ -341,6 +342,8 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const qty = parseInt(qtyDelivered, 10) || 0;
     const retGood = parseInt(bottlesReturnedGood, 10) || 0;
     const retBroken = parseInt(bottlesReturnedBroken, 10) || 0;
+    const retLost = parseInt(bottlesLost, 10) || 0;
+    const totalEmptiesAccounted = retGood + retBroken + retLost;
     const cash = parseFloat(cashReceived) || 0;
     const orderSubtotal = o.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     const orderGst = o.withGst ? Math.round(orderSubtotal * 0.18) : 0;
@@ -365,16 +368,16 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       if (o.paymentStatus === 'PAID' && cash <= 0 && depositToApply <= 0) {
         return o;
       }
-      if (cash <= 0 && depositToApply <= 0 && retGood <= 0 && retBroken <= 0) {
-        throw new ApiError(400, 'Order is already delivered. Enter cash received or select settle from security deposit.');
+      if (cash <= 0 && depositToApply <= 0 && totalEmptiesAccounted <= 0) {
+        throw new ApiError(400, 'Order is already delivered. Enter cash received, bottle returns/losses, or select settle from security deposit.');
       }
 
       const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
-      const prevReturned = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0), 0) || 0;
+      const prevReturned = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0) + (d.bottlesLost || 0), 0) || 0;
       const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturned);
 
-      if (qty19LOnOrder > 0 && (retGood + retBroken > remainingBottlesAllowed)) {
-        throw new ApiError(400, `Returned bottles (${retGood + retBroken}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
+      if (qty19LOnOrder > 0 && (totalEmptiesAccounted > remainingBottlesAllowed)) {
+        throw new ApiError(400, `Returned/lost bottles (${totalEmptiesAccounted}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
       }
 
       const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
@@ -413,20 +416,20 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         customerUpdateData.currentBalance = { decrement: totalDebtReduction };
       }
 
-      if (retGood + retBroken > 0) customerUpdateData.cachedBottleBalance = { decrement: retGood + retBroken };
+      if (totalEmptiesAccounted > 0) customerUpdateData.cachedBottleBalance = { decrement: totalEmptiesAccounted };
 
       if (Object.keys(customerUpdateData).length > 0) {
         await tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData });
       }
 
-      if (retGood > 0 || retBroken > 0 || cash > 0) {
+      if (totalEmptiesAccounted > 0 || cash > 0) {
         await tx[`${prefix}Delivery`].create({
-          data: { orderId: o.id, qtyDelivered: 0, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
+          data: { orderId: o.id, qtyDelivered: 0, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, bottlesLost: retLost, cashReceived: cash, paymentMethod, remarks }
         });
 
         if (retGood > 0) {
           await tx[`${prefix}BottleTransaction`].create({
-            data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id} (Payment Settlement)` }
+            data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
           });
           const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
           if (emptyBottle) {
@@ -438,7 +441,12 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         }
         if (retBroken > 0) {
           await tx[`${prefix}BottleTransaction`].create({
-            data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id} (Payment Settlement)` }
+            data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
+          });
+        }
+        if (retLost > 0) {
+          await tx[`${prefix}BottleTransaction`].create({
+            data: { customerId: o.customerId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Marked Lost during Settlement)` }
           });
         }
       }
@@ -490,14 +498,14 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     const qty19L = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
 
     const currentBottles = o.customer.cachedBottleBalance || 0;
-    if ((retGood + retBroken > currentBottles + qty19L) && !bypassBottleCheck) {
-      throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning ${retGood + retBroken}. Proceed anyway?`);
+    if ((totalEmptiesAccounted > currentBottles + qty19L) && !bypassBottleCheck) {
+      throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning/lost ${totalEmptiesAccounted}. Proceed anyway?`);
     }
 
     // Group 1: Non-dependent creates
     const initialCreates = [
       tx[`${prefix}Delivery`].create({
-        data: { orderId: o.id, qtyDelivered: qty, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, cashReceived: cash, paymentMethod, remarks }
+        data: { orderId: o.id, qtyDelivered: qty, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken, bottlesLost: retLost, cashReceived: cash, paymentMethod, remarks }
       })
     ];
 
@@ -519,7 +527,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     if (has19L && qty19L > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order ${o.id}` }
+          data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
         })
       );
     }
@@ -527,14 +535,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     if (retGood > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order ${o.id}` }
+          data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
         })
       );
     }
     if (retBroken > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order ${o.id}` }
+          data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
+        })
+      );
+    }
+    if (retLost > 0) {
+      initialCreates.push(
+        tx[`${prefix}BottleTransaction`].create({
+          data: { customerId: o.customerId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Reported Lost during Delivery)` }
         })
       );
     }
@@ -608,7 +623,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     if (prefix !== 'wadaana') {
-      customerUpdateData.cachedBottleBalance = { increment: qty19L - retGood - retBroken };
+      customerUpdateData.cachedBottleBalance = { increment: qty19L - totalEmptiesAccounted };
     }
 
     const finalPaymentStatus = (o.paymentStatus === 'PAID' || totalPaidForOrder >= orderTotal)
@@ -960,8 +975,9 @@ export const deleteOrder = asyncHandler(async (req, res) => {
       }
 
       if (prefix !== 'wadaana') {
+        const retLostTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesLost || 0), 0) || 0;
         const qty19L = order.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
-        const custodyAdded = qty19L - retGoodTotal - retBrokenTotal;
+        const custodyAdded = qty19L - retGoodTotal - retBrokenTotal - retLostTotal;
         if (custodyAdded !== 0) {
           customerUpdateData.cachedBottleBalance = { decrement: custodyAdded };
         }

@@ -203,6 +203,7 @@ model AquasphereDelivery {
   qtyDelivered          Int             @map("qty_delivered")
   bottlesReturnedGood   Int             @default(0) @map("bottles_returned_good")
   bottlesReturnedBroken Int             @default(0) @map("bottles_returned_broken")
+  bottlesLost           Int             @default(0) @map("bottles_lost")
   cashReceived          Decimal         @default(0.0) @map("cash_received")
   paymentMethod         String?         @map("payment_method")
   remarks               String?
@@ -865,6 +866,7 @@ model WadaanaDelivery {
   qtyDelivered          Int          @map("qty_delivered")
   bottlesReturnedGood   Int          @default(0) @map("bottles_returned_good")
   bottlesReturnedBroken Int          @default(0) @map("bottles_returned_broken")
+  bottlesLost           Int          @default(0) @map("bottles_lost")
   cashReceived          Decimal      @default(0.0) @map("cash_received")
   paymentMethod         String?      @map("payment_method")
   remarks               String?

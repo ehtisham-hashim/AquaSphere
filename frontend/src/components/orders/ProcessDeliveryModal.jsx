@@ -48,7 +48,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   };
 
   const qty19LOrdered = order.items?.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || 0;
-  const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0)), 0) || 0;
+  const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0) + parseInt(d.bottlesLost || 0)), 0) || 0;
 
   const is19LOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qty19LOrdered > 0);
   const remainingBottlesToReturn = is19LOrder ? Math.max(0, qty19LOrdered - previouslyReturned) : Infinity;
@@ -76,6 +76,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
+    bottlesLost: 0,
     cashReceived: (isMarketingManager && !isPaymentSettlementOnly) || isPaidInAdvance ? 0 : remainingOrderBalance,
     paymentMethod: 'CASH',
     remarks: ''
@@ -108,12 +109,12 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     const val = Math.max(0, parseInt(value || 0));
 
     if (is19LOrder) {
-      const otherVal = name === 'bottlesReturnedGood'
-        ? parseInt(deliveryData.bottlesReturnedBroken || 0)
-        : parseInt(deliveryData.bottlesReturnedGood || 0);
+      const good = name === 'bottlesReturnedGood' ? val : parseInt(deliveryData.bottlesReturnedGood || 0);
+      const broken = name === 'bottlesReturnedBroken' ? val : parseInt(deliveryData.bottlesReturnedBroken || 0);
+      const lost = name === 'bottlesLost' ? val : parseInt(deliveryData.bottlesLost || 0);
 
-      if (val + otherVal > maxReturnedAllowed) {
-        toast.error(`Total 19L bottles returned cannot exceed ${maxReturnedAllowed}`);
+      if (good + broken + lost > maxReturnedAllowed) {
+        toast.error(`Total 19L bottles accounted for (returned + lost) cannot exceed ${maxReturnedAllowed}`);
         return;
       }
     }
@@ -136,9 +137,9 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     }
 
     if (is19LOrder) {
-      const totalReturned = parseInt(deliveryData.bottlesReturnedGood || 0) + parseInt(deliveryData.bottlesReturnedBroken || 0);
-      if (totalReturned > maxReturnedAllowed) {
-        toast.error(`Total bottles returned (${totalReturned}) exceeds limit (${maxReturnedAllowed})`);
+      const totalAccounted = parseInt(deliveryData.bottlesReturnedGood || 0) + parseInt(deliveryData.bottlesReturnedBroken || 0) + parseInt(deliveryData.bottlesLost || 0);
+      if (totalAccounted > maxReturnedAllowed) {
+        toast.error(`Total bottles accounted for (${totalAccounted}) exceeds limit (${maxReturnedAllowed})`);
         return;
       }
     }
@@ -245,10 +246,10 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
               {is19LOrder ? (
                 <div className="space-y-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-700">19L Bottles Returned</span>
+                    <span className="font-bold text-slate-700">19L Bottles Returned / Lost</span>
                     <span className="text-slate-500 font-medium text-[11px]">Max: {maxReturnedAllowed}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[11px] font-medium text-slate-600 mb-1">Good Condition</label>
                       <input 
@@ -257,22 +258,38 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                         min="0" 
                         max={maxReturnedAllowed}
                         disabled={isBottleReturnLocked} 
-                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium" 
+                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium font-mono" 
                         value={deliveryData.bottlesReturnedGood} 
                         onChange={handleBottleChange} 
+                        title="Good empty bottles returned to factory"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">Broken Condition</label>
+                      <label className="block text-[11px] font-medium text-amber-700 mb-1">Broken / Damaged</label>
                       <input 
                         name="bottlesReturnedBroken" 
                         type="number" 
                         min="0" 
                         max={maxReturnedAllowed}
                         disabled={isBottleReturnLocked} 
-                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium" 
+                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 outline-none disabled:bg-slate-100 font-medium font-mono" 
                         value={deliveryData.bottlesReturnedBroken} 
                         onChange={handleBottleChange} 
+                        title="Damaged bottles returned"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-rose-700 mb-1">Marked Lost</label>
+                      <input 
+                        name="bottlesLost" 
+                        type="number" 
+                        min="0" 
+                        max={maxReturnedAllowed}
+                        disabled={isBottleReturnLocked} 
+                        className="w-full border border-rose-200 bg-rose-50/40 rounded-lg p-2 text-sm focus:border-rose-500 outline-none disabled:bg-slate-100 font-medium font-mono text-rose-900" 
+                        value={deliveryData.bottlesLost} 
+                        onChange={handleBottleChange} 
+                        title="Customer lost empty bottle; marked as fleet loss and deducted from customer custody"
                       />
                     </div>
                   </div>
