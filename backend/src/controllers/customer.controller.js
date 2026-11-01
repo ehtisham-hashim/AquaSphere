@@ -922,7 +922,10 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
 
     const availableDeposit = Math.max(0, Number(customer.deposit || 0));
     const depositToApply = settleFromSecurity ? Math.min(availableDeposit, currentCustomerDebt) : 0;
-    let remainingPool = cash + depositToApply;
+    
+    let remainingDepositPool = depositToApply;
+    let remainingCashPool = cash;
+    let remainingPool = remainingDepositPool + remainingCashPool;
 
     if (remainingPool <= 0) {
       throw new ApiError(400, 'No payment or security deposit available to apply');
@@ -936,33 +939,43 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
       const alloc = Math.min(remainingPool, ob.due);
       if (alloc <= 0) continue;
 
-      const currentType = (depositToApply >= alloc && cash === 0) ? 'SECURITY_DEPOSIT' : safePaymentType;
+      let allocDeposit = 0;
+      let allocCash = 0;
+      if (remainingDepositPool > 0) {
+        allocDeposit = Math.min(remainingDepositPool, alloc);
+        remainingDepositPool -= allocDeposit;
+      }
+      const needCash = alloc - allocDeposit;
+      if (needCash > 0 && remainingCashPool > 0) {
+        allocCash = Math.min(remainingCashPool, needCash);
+        remainingCashPool -= allocCash;
+      }
 
       if (ob.kind === 'ORDER') {
         const ord = ob.record;
         const newPaid = ob.paid + alloc;
         const newStatus = newPaid >= ob.total ? 'PAID' : 'PARTIAL';
 
-        await tx[`${prefix}Payment`].create({
-          data: {
-            orderId: ord.id,
-            customerId,
-            amount: alloc,
-            type: currentType
-          }
-        });
-
-        await tx[`${prefix}Delivery`].create({
-          data: {
-            orderId: ord.id,
-            qtyDelivered: 0,
-            bottlesReturnedGood: 0,
-            bottlesReturnedBroken: 0,
-            cashReceived: alloc,
-            paymentMethod: normMethod,
-            remarks: remarks ? `Debt Pool Settlement: ${remarks}` : 'Debt Pool Settlement (FIFO)'
-          }
-        });
+        if (allocDeposit > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: ord.id,
+              customerId,
+              amount: allocDeposit,
+              type: 'SECURITY_DEPOSIT'
+            }
+          });
+        }
+        if (allocCash > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: ord.id,
+              customerId,
+              amount: allocCash,
+              type: safePaymentType
+            }
+          });
+        }
 
         await tx[`${prefix}Order`].update({
           where: { id: ord.id },
@@ -973,39 +986,49 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
       } else if (ob.kind === 'SPOT_SALE') {
         const ss = ob.record;
         const newDebt = Math.max(0, ob.due - alloc);
-        const newAmountPaid = Number(ss.amountPaid || ss.cashCollected || 0) + alloc;
 
         await tx[`${prefix}SpotSale`].update({
           where: { id: ss.id },
           data: {
-            amountPaid: newAmountPaid,
             debtAmount: newDebt,
             creditAmount: newDebt,
             remarks: `${ss.remarks ? ss.remarks + ' | ' : ''}Settled Rs. ${alloc} (${normMethod})`
           }
         });
 
-        await tx[`${prefix}Payment`].create({
-          data: {
-            orderId: null,
-            customerId,
-            amount: alloc,
-            type: currentType
-          }
-        });
+        if (allocDeposit > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: null,
+              customerId,
+              amount: allocDeposit,
+              type: 'SECURITY_DEPOSIT'
+            }
+          });
+        }
+        if (allocCash > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: null,
+              customerId,
+              amount: allocCash,
+              type: safePaymentType
+            }
+          });
+        }
 
         settledSpotSales.push({ id: ss.id, saleNumber: ss.saleNumber, allocated: alloc, remainingDebt: newDebt });
       }
 
-      remainingPool -= alloc;
+      remainingPool = remainingDepositPool + remainingCashPool;
     }
 
-    if (remainingPool > 0) {
+    if (remainingCashPool > 0) {
       await tx[`${prefix}Payment`].create({
         data: {
           orderId: null,
           customerId,
-          amount: remainingPool,
+          amount: remainingCashPool,
           type: safePaymentType
         }
       });

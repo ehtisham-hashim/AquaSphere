@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 import { requireRoles } from '../middlewares/role.middleware.js';
 import upload from '../middlewares/upload.middleware.js';
+import { checkDailyCloseLock } from '../middlewares/dailyClose.middleware.js';
 import {
   getVendors,
   getVendorById,
@@ -28,7 +29,7 @@ router.put('/:id', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), updateVendor);
 
 // Record Payment & Archive/Restore: OWNER, ACCOUNTANT, ADMIN
 router.post('/upload-payment-proof', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), upload.single('image'), uploadPaymentProof);
-router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), recordVendorPayment);
+router.post('/:id/payments', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), checkDailyCloseLock, recordVendorPayment);
 router.patch('/:id/archive', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), archiveVendor);
 router.patch('/:id/restore', requireRoles('OWNER', 'ACCOUNTANT', 'ADMIN'), restoreVendor);
 

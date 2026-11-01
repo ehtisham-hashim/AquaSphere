@@ -6,11 +6,10 @@ import { requireRoles } from '../middlewares/role.middleware.js';
 const router = Router();
 
 router.use(verifyJWT);
-router.use(requireRoles('OWNER'));
 
-router.get('/', getUsers);
-router.post('/', createUser);
-router.put('/:id', updateUser);
-router.patch('/:id/status', toggleUserStatus);
+router.get('/', requireRoles('OWNER', 'ADMIN'), getUsers);
+router.post('/', requireRoles('OWNER'), createUser);
+router.put('/:id', requireRoles('OWNER'), updateUser);
+router.patch('/:id/status', requireRoles('OWNER'), toggleUserStatus);
 
 export default router;

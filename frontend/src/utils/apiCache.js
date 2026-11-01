@@ -221,19 +221,19 @@ export function setupApiCache() {
         const match = url.match(/\/api(?:\/v1)?\/([^/?#]+)/);
         const rawSegment = match ? match[1] : '';
         const relatedMap = {
-          production: ['production', 'items', 'analytics', 'inventory', 'raw-materials', 'admin', 'daily-close'],
-          orders: ['orders', 'items', 'customers', 'bottles', 'analytics', 'spot-sales', 'inventory', 'admin', 'daily-close'],
-          'spot-sales': ['spot-sales', 'items', 'customers', 'bottles', 'analytics', 'daily-close', 'inventory', 'raw-materials', 'admin'],
-          items: ['items', 'inventory', 'production', 'raw-materials', 'bottles', 'admin'],
-          customers: ['customers', 'bottles', 'orders', 'spot-sales', 'items', 'inventory', 'admin'],
-          bottles: ['bottles', 'customers', 'inventory', 'items', 'analytics', 'admin'],
-          purchases: ['purchases', 'items', 'vendors', 'expenses', 'analytics', 'inventory', 'raw-materials', 'admin', 'daily-close'],
-          expenses: ['expenses', 'analytics', 'daily-close', 'admin'],
-          vendors: ['vendors', 'purchases', 'expenses', 'daily-close', 'analytics', 'admin'],
-          'daily-close': ['daily-close', 'admin', 'analytics', 'orders', 'spot-sales', 'expenses'],
-          vehicles: ['vehicles', 'transport', 'expenses', 'admin'],
+          production: ['production', 'items', 'analytics', 'reports', 'inventory', 'raw-materials', 'admin', 'daily-close'],
+          orders: ['orders', 'items', 'customers', 'bottles', 'analytics', 'reports', 'spot-sales', 'inventory', 'admin', 'daily-close'],
+          'spot-sales': ['spot-sales', 'items', 'customers', 'bottles', 'analytics', 'reports', 'daily-close', 'inventory', 'raw-materials', 'admin'],
+          items: ['items', 'inventory', 'production', 'raw-materials', 'bottles', 'reports', 'analytics', 'admin'],
+          customers: ['customers', 'bottles', 'orders', 'spot-sales', 'items', 'inventory', 'reports', 'analytics', 'admin', 'daily-close'],
+          bottles: ['bottles', 'customers', 'inventory', 'items', 'analytics', 'reports', 'admin', 'daily-close'],
+          purchases: ['purchases', 'items', 'vendors', 'expenses', 'analytics', 'reports', 'inventory', 'raw-materials', 'admin', 'daily-close'],
+          expenses: ['expenses', 'analytics', 'reports', 'daily-close', 'admin'],
+          vendors: ['vendors', 'purchases', 'expenses', 'daily-close', 'analytics', 'reports', 'admin'],
+          'daily-close': ['daily-close', 'admin', 'analytics', 'reports', 'orders', 'spot-sales', 'expenses'],
+          vehicles: ['vehicles', 'transport', 'expenses', 'reports', 'analytics', 'admin'],
           users: ['users', 'admin'],
-          settings: ['settings', 'admin']
+          settings: ['settings', 'admin', 'reports', 'analytics']
         };
 
         const targets = relatedMap[rawSegment] || (rawSegment ? [rawSegment] : []);

@@ -59,10 +59,11 @@ export default function AddEditFinishedGoodModal({
           const effectiveFac = (fac === 0 && wh === 0 && cached > 0) ? cached : fac;
           const effectiveWh = (fac === 0 && wh === 0 && cached > 0) ? 0 : wh;
 
-          if (pSize > 1) {
+          const hasLooseBottles = pSize > 1 && (effectiveFac % pSize !== 0 || effectiveWh % pSize !== 0);
+          if (pSize > 1 && !hasLooseBottles) {
             setStockInputMode('packs');
-            setFactoryStock(String(Math.floor(effectiveFac / pSize)));
-            setWarehouseStock(String(Math.floor(effectiveWh / pSize)));
+            setFactoryStock(String(effectiveFac / pSize));
+            setWarehouseStock(String(effectiveWh / pSize));
           } else {
             setStockInputMode('bottles');
             setFactoryStock(String(effectiveFac));

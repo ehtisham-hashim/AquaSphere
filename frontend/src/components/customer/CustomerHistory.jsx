@@ -39,12 +39,14 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
   ).sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
 
   const payments = customer?.payments || [];
+  const spotSales = customer?.spotSales || [];
   const bottleTransactions = customer?.bottleTransactions || [];
   const auditLogs = customer?.auditLogs || [];
 
   const ordersPagination = usePagination(orders, 10, `${customer?.id}_orders`);
   const deliveriesPagination = usePagination(deliveries, 10, `${customer?.id}_deliveries`);
   const paymentsPagination = usePagination(payments, 10, `${customer?.id}_payments`);
+  const spotSalesPagination = usePagination(spotSales, 10, `${customer?.id}_spotSales`);
   const bottlePagination = usePagination(bottleTransactions, 10, `${customer?.id}_bottles`);
   const auditPagination = usePagination(auditLogs, 10, `${customer?.id}_audit`);
 
@@ -114,6 +116,12 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
       label: 'Payments', 
       count: payments.length, 
       icon: DollarSign 
+    },
+    { 
+      id: 'spotSales', 
+      label: 'Counter Sales', 
+      count: spotSales.length, 
+      icon: ShoppingBag 
     },
     ...(showBottleLedger ? [{ 
       id: 'bottles', 
@@ -196,10 +204,11 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                   </tr>
                 ) : (
                   ordersPagination.paginatedItems.map((order) => {
-                    const totalBill = (order.items || []).reduce(
+                    const sub = (order.items || []).reduce(
                       (sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 
                       0
                     );
+                    const totalBill = order.withGst ? sub + Math.round(sub * 0.18) : sub;
                     const itemsSummary = (order.items || []).map(
                       i => `${i.item?.name || 'Item'} × ${i.quantity}`
                     ).join(', ');
@@ -386,6 +395,80 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
             </table>
           </div>
           <TablePagination pagination={paymentsPagination} />
+        </div>
+      )}
+
+      {/* Tab 3.5: Counter Sales (Spot Sales) Table */}
+      {activeTab === 'spotSales' && (
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+          <div className="overflow-x-auto max-h-[440px] overflow-y-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-xs tracking-wider select-none sticky top-0 z-10">
+                <tr>
+                  <th className="py-3 px-4">Sale Date</th>
+                  <th className="py-3 px-4">Sale #</th>
+                  <th className="py-3 px-4">Items Summary</th>
+                  <th className="py-3 px-4 text-right">Billed (Rs)</th>
+                  <th className="py-3 px-4 text-right">Paid (Rs)</th>
+                  <th className="py-3 px-4 text-right">Debt (Rs)</th>
+                  <th className="py-3 px-4 text-center">Method</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {spotSales.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400 italic text-sm">
+                      No walk-in counter sales recorded for this customer.
+                    </td>
+                  </tr>
+                ) : (
+                  spotSalesPagination.paginatedItems.map((sale) => {
+                    const billed = Number(sale.totalAmount || 0);
+                    const paid = Number(sale.amountPaid || sale.cashCollected || 0);
+                    const debt = Number(sale.debtAmount || sale.creditAmount || 0);
+                    const itemsSummary = (sale.items || []).map(
+                      i => `${i.item?.name || i.saleType || 'Item'} × ${i.quantity}`
+                    ).join(', ');
+
+                    return (
+                      <tr key={sale.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 text-slate-700 text-xs whitespace-nowrap">
+                          {formatDate(sale.createdAt)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
+                          <span className="bg-slate-100 px-2 py-1 rounded text-xs border border-slate-200">
+                            {sale.saleNumber || `#${sale.id.slice(0, 8).toUpperCase()}`}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-700 text-xs max-w-xs truncate" title={itemsSummary}>
+                          {itemsSummary || 'Counter Item'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
+                          Rs. {billed.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600 tabular-nums">
+                          Rs. {paid.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono tabular-nums">
+                          {debt > 0 ? (
+                            <span className="font-bold text-rose-600">Rs. {debt.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-semibold uppercase">
+                            {sale.paymentMethod || 'CASH'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <TablePagination pagination={spotSalesPagination} />
         </div>
       )}
 

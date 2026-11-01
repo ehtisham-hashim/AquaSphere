@@ -237,13 +237,13 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
       for (const prod of itemsToProduce) {
         const fgItem = itemMap.get(prod.outputItemId);
         const nameLower = (fgItem?.name || '').toLowerCase();
-        if (nameLower.includes('pure') && (nameLower.includes('0.5') || nameLower.includes('15g') || nameLower.includes('500'))) {
+        if ((nameLower.includes('pure') || nameLower.includes('aquasphere')) && (nameLower.includes('0.5') || nameLower.includes('15g') || nameLower.includes('500'))) {
           totalPure05L += prod.quantity;
-        } else if (nameLower.includes('pure') && (nameLower.includes('1.5') || nameLower.includes('30g') || nameLower.includes('1500'))) {
+        } else if ((nameLower.includes('pure') || nameLower.includes('aquasphere')) && (nameLower.includes('1.5') || nameLower.includes('30g') || nameLower.includes('1500'))) {
           totalPure15L += prod.quantity;
-        } else if (nameLower.includes('mix') && (nameLower.includes('0.5') || nameLower.includes('13g') || nameLower.includes('500'))) {
+        } else if ((nameLower.includes('mix') || nameLower.includes('dasani')) && (nameLower.includes('0.5') || nameLower.includes('13g') || nameLower.includes('500'))) {
           totalMix05L += prod.quantity;
-        } else if (nameLower.includes('mix') && (nameLower.includes('1.5') || nameLower.includes('27g') || nameLower.includes('1500'))) {
+        } else if ((nameLower.includes('mix') || nameLower.includes('dasani')) && (nameLower.includes('1.5') || nameLower.includes('27g') || nameLower.includes('1500'))) {
           totalMix15L += prod.quantity;
         } else {
           customItems.push(prod);
@@ -552,13 +552,13 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
     let bm15 = 0;
     for (const run of productionRuns) {
       const nameLower = (run.outputItem.name || '').toLowerCase();
-      if (nameLower.includes('pure') && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('15g'))) {
+      if ((nameLower.includes('pure') || nameLower.includes('aquasphere')) && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('15g'))) {
         bp05 += (run.wasteQuantity || 0);
-      } else if (nameLower.includes('pure') && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('30g'))) {
+      } else if ((nameLower.includes('pure') || nameLower.includes('aquasphere')) && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('30g'))) {
         bp15 += (run.wasteQuantity || 0);
-      } else if (nameLower.includes('mix') && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('13g'))) {
+      } else if ((nameLower.includes('mix') || nameLower.includes('dasani')) && (nameLower.includes('0.5') || nameLower.includes('500') || nameLower.includes('13g'))) {
         bm05 += (run.wasteQuantity || 0);
-      } else if (nameLower.includes('mix') && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('27g'))) {
+      } else if ((nameLower.includes('mix') || nameLower.includes('dasani')) && (nameLower.includes('1.5') || nameLower.includes('1500') || nameLower.includes('27g'))) {
         bm15 += (run.wasteQuantity || 0);
       }
     }

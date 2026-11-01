@@ -102,6 +102,11 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                         <div>
                           <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
                             {c.name}
+                            {c.customerCode && (
+                              <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold border border-slate-200">
+                                {c.customerCode}
+                              </span>
+                            )}
                             {c.archivedAt && (
                               <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase">
                                 Archived
@@ -113,8 +118,13 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            {c.type || 'Standard'}
+                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span>{c.type || 'Standard'}</span>
+                            {c.marketerRef && (
+                              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.2 rounded font-semibold">
+                                {c.marketerRef}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

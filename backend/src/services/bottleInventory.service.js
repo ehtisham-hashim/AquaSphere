@@ -289,3 +289,63 @@ export async function getCustomerReturnableCustodyBreakdown(tx, prefix, customer
 
   return list;
 }
+
+/**
+ * Computes bottle fleet reconciliation statistics across factory, warehouse, and customers.
+ */
+export async function computeBottleStats(client, prefix) {
+  const [txnSums, customerSum, returnableItems] = await Promise.all([
+    client[`${prefix}BottleTransaction`].groupBy({
+      by: ['type'],
+      _sum: { quantity: true }
+    }),
+    client[`${prefix}Customer`].aggregate({
+      where: { archivedAt: null },
+      _sum: { cachedBottleBalance: true }
+    }),
+    getAllReturnableRawMaterials(client, prefix)
+  ]);
+
+  const map = {};
+  for (const s of txnSums) map[s.type] = s._sum.quantity || 0;
+
+  const totalPurchased = map.NEW_PURCHASE || 0;
+  const factoryAdjustments = map.AT_FACTORY_ADJUSTMENT || 0;
+  const warehouseAdjustments = map.AT_WAREHOUSE_ADJUSTMENT || 0;
+  const brokenCount = map.RETURNED_BROKEN || 0;
+  const lostCount = map.MARKED_LOST || 0;
+  const movedToWarehouse = map.MOVED_TO_WAREHOUSE || 0;
+  const movedToFactory = map.MOVED_TO_FACTORY || 0;
+
+  const withCustomers = Math.max(0, customerSum._sum.cachedBottleBalance || 0);
+  const totalOwned = Math.max(0, totalPurchased + factoryAdjustments - lostCount - brokenCount);
+  const atWarehouse = Math.max(0, movedToWarehouse - movedToFactory + warehouseAdjustments);
+
+  const rawMaterialFactoryStock = returnableItems.reduce(
+    (sum, item) => sum + Math.round(Number(item.factoryQty !== undefined ? item.factoryQty : item.cachedQty || 0)),
+    0
+  );
+
+  // If new purchase transactions weren't seeded initially, reconcile from real physical stock
+  const atFactory = totalPurchased > 0
+    ? Math.max(0, totalOwned - withCustomers - atWarehouse)
+    : Math.max(0, rawMaterialFactoryStock);
+
+  return {
+    totalPurchased,
+    totalOwned: totalPurchased > 0 ? totalOwned : (atFactory + atWarehouse + withCustomers),
+    atFactory,
+    atWarehouse,
+    withCustomers,
+    broken: brokenCount,
+    lost: lostCount,
+    returnableItems: returnableItems.map(i => ({
+      id: i.id,
+      name: i.name,
+      cachedQty: Number(i.cachedQty || 0),
+      factoryQty: Number(i.factoryQty || 0),
+      warehouseQty: Number(i.warehouseQty || 0)
+    })),
+    equationReconciled: totalPurchased > 0 ? (atFactory + atWarehouse + withCustomers) === totalOwned : true
+  };
+}

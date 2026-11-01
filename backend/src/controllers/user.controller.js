@@ -4,6 +4,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import { invalidateUserCache } from '../middlewares/auth.middleware.js';
 
 // ponytail: fallback to request header if query.company is omitted
 function resolveTenant(raw, req) {
@@ -74,6 +75,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'USER_UPDATED', { userId: updatedUser.id });
+  invalidateUserCache(id);
   res.status(200).json(new ApiResponse(200, updatedUser, 'User updated successfully'));
 });
 
@@ -97,5 +99,6 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'USER_UPDATED', { userId: updatedUser.id });
+  invalidateUserCache(id);
   res.status(200).json(new ApiResponse(200, updatedUser, `User ${isActive ? 'restored' : 'archived'} successfully`));
 });

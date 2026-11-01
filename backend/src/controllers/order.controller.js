@@ -555,7 +555,23 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     // Returnable container custody update
-    if (totalReturnableQty > 0) {
+    if (returnables.length > 0) {
+      for (const ret of returnables) {
+        if (ret.quantityIssued > 0) {
+          initialCreates.push(
+            tx[`${prefix}BottleTransaction`].create({
+              data: {
+                customerId: o.customerId,
+                itemId: ret.rawMaterialId,
+                type: 'DELIVERED_TO_CUSTOMER',
+                quantity: ret.quantityIssued,
+                reason: `Order #${o.id.substring(0, 8).toUpperCase()}`
+              }
+            })
+          );
+        }
+      }
+    } else if (totalReturnableQty > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
           data: { customerId: o.customerId, itemId: resolvedReturnableId, type: 'DELIVERED_TO_CUSTOMER', quantity: totalReturnableQty, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
@@ -974,13 +990,14 @@ export const deleteOrder = asyncHandler(async (req, res) => {
           orderId: order.id,
           customerId: order.customerId,
           reason: 'ORDER_DELETED_EMPTY_BOTTLE_REVERSAL',
-          skipTransactionLog: false
+          skipTransactionLog: true
         });
       }
 
       // 1c. Revert customer debt and bottle custody
       const customerUpdateData = {};
-      const orderTotal = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+      const sub = order.items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+      const orderTotal = order.withGst ? sub + Math.round(sub * 0.18) : sub;
       const depositPaid = order.payments?.filter(p => p.type === 'SECURITY_DEPOSIT').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
       const cashPaid = order.payments?.filter(p => p.type !== 'SECURITY_DEPOSIT').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || 0;
       const totalPaid = depositPaid + cashPaid;

@@ -41,7 +41,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   const isReturnableOrderItem = (i) => {
     if (!i.item) return false;
     if (i.item.hasReturnableContainer) return true;
-    if (i.item.recipeFinishedGoods?.some(r => r.rawMaterialItem?.isReturnable)) return true;
+    if (i.item.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable)) return true;
     return i.item.name?.toLowerCase().includes('19l') || order.type === 'NINETEEN_L';
   };
 
@@ -52,10 +52,12 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     return order.items.reduce((sum, i) => sum + i.quantity, 0);
   };
 
-  const returnableRecipe = order.items?.flatMap(i => i.item?.recipeFinishedGoods || []).find(r => r.rawMaterialItem?.isReturnable);
-  const returnableRawItem = returnableRecipe?.rawMaterialItem || null;
+  const returnableRecipe = order.items?.flatMap(i => i.item?.recipeFinishedGoods || []).find(r => r.rawMaterial?.isReturnable);
+  const returnableRawItem = returnableRecipe?.rawMaterial || null;
   const returnableItemName = returnableRawItem?.name || 'Empty 19L Bottles';
   const returnableItemId = returnableRawItem?.id || undefined;
+
+  const isPaymentSettlementOnly = order.deliveryStatus === 'DELIVERED' && order.paymentStatus !== 'PAID';
 
   const qtyReturnableOrdered = order.items?.filter(isReturnableOrderItem).reduce((sum, i) => sum + i.quantity, 0) || 0;
   const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0) + parseInt(d.bottlesLost || 0)), 0) || 0;
@@ -63,19 +65,20 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   const customerHeldCustody = parseInt(order.customer?.cachedBottleBalance || 0);
   const isReturnableOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qtyReturnableOrdered > 0);
   const remainingOrderReturns = Math.max(0, qtyReturnableOrdered - previouslyReturned);
-  // Cap allows returning accumulated customer custody or current order quantity:
-  const maxReturnedAllowed = isReturnableOrder ? Math.max(remainingOrderReturns, customerHeldCustody) : Infinity;
+  // Cap allows returning remaining order returns + customer held custody on active delivery, or customer held custody on settlement run:
+  const maxReturnedAllowed = isReturnableOrder 
+    ? (isPaymentSettlementOnly ? customerHeldCustody : (remainingOrderReturns + customerHeldCustody)) 
+    : Infinity;
   const isBottleReturnLocked = isReturnableOrder && maxReturnedAllowed <= 0;
 
-  const orderTotal = (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const subtotal = (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+  const orderTotal = order.withGst ? subtotal + Math.round(subtotal * 0.18) : subtotal;
   const totalItems = (order.items || []).reduce((sum, item) => sum + item.quantity, 0);
   const alreadyPaid = order.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (order.paymentStatus === 'PAID' ? orderTotal : 0);
   const remainingOrderBalance = Math.max(0, orderTotal - alreadyPaid);
   const isPaidInAdvance = order.paymentStatus === 'PAID' || remainingOrderBalance === 0;
   const currentDebt = Math.max(0, parseFloat(order.customer?.currentBalance || 0));
   const maxPayable = remainingOrderBalance + currentDebt;
-
-  const isPaymentSettlementOnly = order.deliveryStatus === 'DELIVERED' && order.paymentStatus !== 'PAID';
 
   const availableDeposit = Math.max(0, parseFloat(order.customer?.deposit || 0));
   const [settleFromSecurity, setSettleFromSecurity] = useState(false);
