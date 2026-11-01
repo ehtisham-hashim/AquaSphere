@@ -473,6 +473,7 @@ export default function Customers() {
           isOpen={isCsvModalOpen}
           onClose={() => setIsCsvModalOpen(false)}
           existingCustomers={customers}
+          marketers={marketerOptions}
           onImportSuccess={() => fetchCustomers(search, activeTab)}
         />
       )}

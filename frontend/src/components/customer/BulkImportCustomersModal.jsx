@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import {
   X, Upload, Download, Check, FileSpreadsheet,
@@ -8,15 +8,38 @@ import { toast } from 'sonner';
 import { API_URL, clearCache } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 
-export default function BulkImportCustomersModal({ isOpen, onClose, onImportSuccess, existingCustomers = [] }) {
+export default function BulkImportCustomersModal({ isOpen, onClose, onImportSuccess, existingCustomers = [], marketers: propMarketers = [] }) {
   const { tenant, isWadaana } = useTenant();
   const fileInputRef = useRef(null);
 
+  const [marketers, setMarketers] = useState(propMarketers);
   const [parsedRows, setParsedRows] = useState([]);
   const [fileName, setFileName] = useState('');
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchMarketers = async () => {
+      try {
+        const res = await fetch(`${API_URL}/customers/marketers`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (isMounted && json.success && json.data?.marketers) {
+          setMarketers(json.data.marketers);
+        }
+      } catch (err) {
+        console.error('Failed to load marketers for bulk import prompt:', err);
+      }
+    };
+    if (isOpen) {
+      fetchMarketers();
+    }
+    return () => { isMounted = false; };
+  }, [isOpen, tenant]);
 
   if (!isOpen) return null;
 
@@ -40,6 +63,10 @@ export default function BulkImportCustomersModal({ isOpen, onClose, onImportSucc
       ? 'name,phone,type,address,mapLink,securityDeposit,currentBalance,creditDuration,marketerRef,qtyPure05L,qtyPure15L,qtyMix05L,qtyMix15L,qtyPureFine05L,qtyPureFine15L,buyerNtn,buyerStrn,remarks'
       : 'name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks';
 
+    const registeredMarketersList = marketers.length > 0
+      ? marketers.map(m => `  * "${m.id} • ${m.name}" (${m.segment || 'General'})`).join('\n')
+      : '  * (No custom marketers registered yet in database)';
+
     return [
       `You are a data-cleaning assistant for ${isWadaana ? 'Wadaana ERP' : 'AquaSphere ERP'}.`,
       `Convert the raw customer list I paste below into a strictly valid RFC-4180 CSV file that I can upload directly into the ERP.`,
@@ -58,7 +85,11 @@ export default function BulkImportCustomersModal({ isOpen, onClose, onImportSucc
       `- currentBalance: Opening unpaid debt (Udhaar) owed by customer in PKR (default 0).`,
       ...(!isWadaana ? [`- cachedBottleBalance: Number of empty 19L returnable bottles currently held by the customer (default 0).`] : []),
       `- creditDuration: Allowed credit days as an integer (default 7).`,
-      `- marketerRef: Marketer name or ID (e.g., "Tariq Mehmood" or "MKT-01 • Ali Raza"). Use "DIRECT" if company direct.`,
+      `- marketerRef: Marketer attribution. CRITICAL TO PREVENT DUPLICATES:`,
+      `  Match against the existing registered marketers below. If raw data mentions one of these people (or any close variation/nickname), you MUST map it to their exact registered string:`,
+      `  * "DIRECT" (Company Direct / No Marketer)`,
+      registeredMarketersList,
+      `  If a customer was referred by someone completely new NOT listed above, write their clean full name (e.g. "Muhammad Usman") and the ERP will automatically register them as a new marketer.`,
       ...(isWadaana
         ? [
             `- qtyPure05L, qtyPure15L, qtyMix05L, qtyMix15L, qtyPureFine05L, qtyPureFine15L: Expected bottle quantities per order (integer, default 0).`
@@ -87,15 +118,16 @@ export default function BulkImportCustomersModal({ isOpen, onClose, onImportSucc
   };
 
   const handleDownloadTemplate = () => {
+    const sampleMarketer = marketers.length > 0 ? `${marketers[0].id} • ${marketers[0].name}` : 'Tariq Mehmood';
     const csvContent = isWadaana
       ? [
           'name,phone,type,address,mapLink,securityDeposit,currentBalance,creditDuration,marketerRef,qtyPure05L,qtyPure15L,qtyMix05L,qtyMix15L,qtyPureFine05L,qtyPureFine15L,buyerNtn,buyerStrn,remarks',
-          '"Khyber Beverages Wholesale","03005556677","Distributor","Industrial Estate, Hattar","",0,25000,15,"Tariq Mehmood",1000,500,2000,1000,0,0,"7654321-0","12-34-5678-901-23","B2B Preform Distributor"',
+          `"Khyber Beverages Wholesale","03005556677","Distributor","Industrial Estate, Hattar","",0,25000,15,"${sampleMarketer}",1000,500,2000,1000,0,0,"7654321-0","12-34-5678-901-23","B2B Preform Distributor"`,
           '"Shaheen Traders","03458889900","Commercial","Circular Road, Abbottabad","",0,0,7,"DIRECT",0,0,500,500,200,200,"","","Weekly preform dispatch"'
         ].join('\n')
       : [
           'name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks',
-          '"Al-Madina Cash & Carry","03005123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,3,7,"Tariq Mehmood",5,10,5,"1234567-8","","Deliver every Tuesday & Friday"',
+          `"Al-Madina Cash & Carry","03005123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,3,7,"${sampleMarketer}",5,10,5,"1234567-8","","Deliver every Tuesday & Friday"`,
           '"Dr. Kamran Clinic","03219876543","Corporate","Street 4, Cantt Area","",2000,0,2,14,"DIRECT",2,0,0,"","","Morning delivery before 11 AM"'
         ].join('\n');
 
@@ -269,7 +301,7 @@ export default function BulkImportCustomersModal({ isOpen, onClose, onImportSucc
                     {copiedPrompt ? 'AI Prompt Copied to Clipboard!' : 'Copy AI Formatting Prompt'}
                   </div>
                   <div className="text-[11px] opacity-80">
-                    Paste into ChatGPT, Claude, or Gemini to format messy lists
+                    Paste into ChatGPT, Claude, or Gemini (includes {marketers.length} registered marketers)
                   </div>
                 </div>
               </div>
