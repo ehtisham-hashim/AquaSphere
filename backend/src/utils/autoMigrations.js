@@ -28,6 +28,9 @@ export async function ensureNativeSchemaColumns() {
     `ALTER TABLE "aquasphere"."orders" ADD COLUMN IF NOT EXISTS "with_gst" BOOLEAN DEFAULT false;`,
     `ALTER TABLE "wadaana"."orders" ADD COLUMN IF NOT EXISTS "with_gst" BOOLEAN DEFAULT false;`,
 
+    `ALTER TABLE "aquasphere"."spot_sales" ADD COLUMN IF NOT EXISTS "receipt_url" TEXT;`,
+    `ALTER TABLE "wadaana"."spot_sales" ADD COLUMN IF NOT EXISTS "receipt_url" TEXT;`,
+
     `CREATE UNIQUE INDEX IF NOT EXISTS "customers_customer_code_key" ON "aquasphere"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`,
     `CREATE UNIQUE INDEX IF NOT EXISTS "wadaana_customers_customer_code_key" ON "wadaana"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`
   ];
