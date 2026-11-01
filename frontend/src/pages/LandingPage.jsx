@@ -65,7 +65,7 @@ const DEFAULT_SETTINGS = {
   commitment_title: "Aqua Sphere – Clean Water, Healthy Life.",
   commitment_text: "Aqua Sphere – Trusted Water, Trusted Choice.",
   project_tag: "Strategic Joint Venture",
-  project_title: "Wadaana Industries proudly announces Its JV with Aqua Sphere for stronger and innovative future",
+  project_title: "Wadaana Industries Proudly Announces Its JV with Aqua Sphere for Stronger and Innovative Future",
   project_text: "Wadaana Industries professionally manufactures high-quality water production and purification systems with modern technology, reliable performance, and trusted standards.",
   project_button: "View Project Details",
   location_title: "Our Location",
