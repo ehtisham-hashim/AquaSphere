@@ -91,15 +91,15 @@ function PdfViewerFrame({ pdfUrl, title, isLarge = false }) {
   const cloudUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
 
   return (
-    <div className={`pdf-frame ${isLarge ? 'pdf-frame-large' : ''} relative flex flex-col bg-slate-900 overflow-hidden`}>
+    <div className={`pdf-frame ${isLarge ? 'pdf-frame-large' : ''} relative flex flex-col bg-slate-100 overflow-hidden`}>
       {/* Top viewer control bar */}
-      <div className="bg-slate-900 border-b border-slate-800 px-3.5 py-2 flex items-center justify-between text-xs text-slate-300 select-none z-10 shrink-0">
-        <span className="font-semibold truncate max-w-[200px] text-slate-400">{title}</span>
+      <div className="bg-slate-100 border-b border-slate-200 px-3.5 py-2 flex items-center justify-between text-xs text-slate-600 select-none z-10 shrink-0">
+        <span className="font-semibold truncate max-w-[200px] text-slate-700 font-bold">{title}</span>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setMode(m => m === 'native' ? 'cloud' : 'native')}
-            className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            className="text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 cursor-pointer transition-colors"
             title="If preview is dark, switch to Cloud viewer"
           >
             <RefreshCw className="w-3 h-3" />
@@ -109,7 +109,7 @@ function PdfViewerFrame({ pdfUrl, title, isLarge = false }) {
             href={pdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+            className="text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
             <span>Open</span>
@@ -207,28 +207,28 @@ export default function Certificates({ initialTab = 'certificates' }) {
           </Link>
 
           {/* Desktop Nav Links (Reference capsule) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-none border border-white/15 shadow-inner">
-            <Link to="/" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Home</Link>
-            <Link to="/#products" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Products</Link>
-            <Link to="/#about" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">About</Link>
+          <nav className="hidden lg:flex items-center gap-7">
+            <Link to="/" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Home</Link>
+            <Link to="/#products" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Products</Link>
+            <Link to="/#about" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">About</Link>
             <Link 
               to="/reports" 
-              className={`px-3.5 py-1.5 rounded-none text-sm font-bold transition-all ${
-                isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
+              className={`text-sm font-semibold transition-colors ${
+                isReportsPage ? 'text-cyan-300 font-bold' : 'text-white/90 hover:text-cyan-400'
               }`}
             >
               Reports
             </Link>
             <Link 
               to="/certificates" 
-              className={`px-3.5 py-1.5 rounded-none text-sm font-bold transition-all ${
-                !isReportsPage ? 'bg-white/25 text-cyan-200 shadow-sm' : 'text-white hover:bg-white/20 hover:text-cyan-200'
+              className={`text-sm font-semibold transition-colors ${
+                !isReportsPage ? 'text-cyan-300 font-bold' : 'text-white/90 hover:text-cyan-400'
               }`}
             >
               Certificates
             </Link>
-            <Link to="/#location" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Location</Link>
-            <Link to="/#contact" className="px-3.5 py-1.5 rounded-none text-white text-sm font-bold hover:bg-white/20 hover:text-cyan-200 transition-all">Contact</Link>
+            <Link to="/#location" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Location</Link>
+            <Link to="/#contact" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Contact</Link>
           </nav>
 
           {/* Header Action Buttons */}
