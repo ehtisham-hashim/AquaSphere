@@ -81,6 +81,68 @@ function WhatsAppIcon({ className = "w-6 h-6" }) {
   );
 }
 
+
+function PdfViewerFrame({ pdfUrl, title, isLarge = false }) {
+  const [mode, setMode] = useState('native');
+  
+  const fullUrl = pdfUrl.startsWith('http') 
+    ? pdfUrl 
+    : `https://theaquasphere.org${pdfUrl}`;
+  const cloudUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
+
+  return (
+    <div className={`pdf-frame ${isLarge ? 'pdf-frame-large' : ''} relative flex flex-col bg-slate-900 overflow-hidden`}>
+      {/* Top viewer control bar */}
+      <div className="bg-slate-900 border-b border-slate-800 px-3.5 py-2 flex items-center justify-between text-xs text-slate-300 select-none z-10 shrink-0">
+        <span className="font-semibold truncate max-w-[200px] text-slate-400">{title}</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMode(m => m === 'native' ? 'cloud' : 'native')}
+            className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            title="If preview is dark, switch to Cloud viewer"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>{mode === 'native' ? 'Switch to Cloud Viewer' : 'Switch to Native Viewer'}</span>
+          </button>
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            <span>Open</span>
+          </a>
+        </div>
+      </div>
+
+      {/* Main viewer body */}
+      <div className="flex-1 w-full h-full relative bg-white">
+        {mode === 'native' ? (
+          <object 
+            data={`${pdfUrl}#view=FitH`} 
+            type="application/pdf"
+            className="w-full h-full border-0 block bg-white"
+          >
+            <iframe 
+              src={`${pdfUrl}#view=FitH`} 
+              title={title}
+              className="w-full h-full border-0 block bg-white"
+            />
+          </object>
+        ) : (
+          <iframe 
+            src={cloudUrl} 
+            title={title}
+            className="w-full h-full border-0 block bg-white"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Certificates({ initialTab = 'certificates' }) {
   const location = useLocation();
   const isReportsPage = location.pathname === '/reports' || initialTab === 'reports';
