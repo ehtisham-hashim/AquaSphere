@@ -7,6 +7,11 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import {
+  getCustomerReturnableCustodyBreakdown,
+  getAllReturnableRawMaterials,
+  debitEmptyBottlesFromFactory
+} from '../services/bottleInventory.service.js';
 
 export const sanitizeGoogleMapsUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
@@ -47,8 +52,256 @@ const extractTenantProductFields = (prefix, body) => {
   if (body.qtyMix05L !== undefined) res.qtyMix05L = parseInt(body.qtyMix05L, 10) || 0;
   if (body.buysMix15L !== undefined) res.buysMix15L = Boolean(body.buysMix15L);
   if (body.qtyMix15L !== undefined) res.qtyMix15L = parseInt(body.qtyMix15L, 10) || 0;
+  if (body.buysPureFine05L !== undefined) res.buysPureFine05L = Boolean(body.buysPureFine05L);
+  if (body.qtyPureFine05L !== undefined) res.qtyPureFine05L = parseInt(body.qtyPureFine05L, 10) || 0;
+  if (body.buysPureFine15L !== undefined) res.buysPureFine15L = Boolean(body.buysPureFine15L);
+  if (body.qtyPureFine15L !== undefined) res.qtyPureFine15L = parseInt(body.qtyPureFine15L, 10) || 0;
   return res;
 };
+
+/** Helper to retrieve or initialize the Marketer Registry from TenantSetting */
+export async function getMarketersRegistry(prefix) {
+  try {
+    const setting = await prisma[`${prefix}TenantSetting`].findUnique({
+      where: { key: 'MARKETERS_REGISTRY' }
+    });
+    if (setting?.value && Array.isArray(setting.value.marketers)) {
+      return setting.value;
+    }
+  } catch (err) {
+    console.error('Failed to load MARKETERS_REGISTRY from DB:', err);
+  }
+
+  // Scan existing customers to seed known marketers
+  let nextSeq = 1;
+  const existingCustomers = await prisma[`${prefix}Customer`].findMany({
+    where: { marketerRef: { not: null } },
+    select: { marketerRef: true }
+  });
+
+  const marketers = [];
+  const seenNames = new Set();
+
+  for (const c of existingCustomers) {
+    const raw = (c.marketerRef || '').trim();
+    if (!raw || raw.toLowerCase() === 'direct' || seenNames.has(raw.toLowerCase())) continue;
+
+    const mktMatch = raw.match(/^MKT-(\d+)\s*(?:[•\-–])\s*(.*)$/i);
+    let id, name;
+    if (mktMatch) {
+      const num = parseInt(mktMatch[1], 10);
+      id = `MKT-${String(num).padStart(2, '0')}`;
+      name = mktMatch[2]?.trim() || `Marketer ${num}`;
+      if (num >= nextSeq) nextSeq = num + 1;
+    } else {
+      id = `MKT-${String(nextSeq).padStart(2, '0')}`;
+      name = raw;
+      nextSeq++;
+    }
+
+    seenNames.add(name.toLowerCase());
+    marketers.push({
+      id,
+      name,
+      phone: '',
+      segment: prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET'
+    });
+  }
+
+  const initialRegistry = { nextMarketerSeq: nextSeq, marketers };
+  try {
+    await prisma[`${prefix}TenantSetting`].upsert({
+      where: { key: 'MARKETERS_REGISTRY' },
+      update: { value: initialRegistry },
+      create: { key: 'MARKETERS_REGISTRY', value: initialRegistry }
+    });
+  } catch (e) {
+    console.error('Failed to initialize MARKETERS_REGISTRY:', e);
+  }
+  return initialRegistry;
+}
+
+/** Helper to ensure a marketer exists in MARKETERS_REGISTRY, creating it if needed */
+export async function ensureMarketerInRegistry(prefix, marketerId, marketerName) {
+  if (!marketerName && !marketerId) return { marketerId: 'DIRECT', marketerName: 'Direct / Company' };
+  if (marketerId === 'DIRECT' || marketerName?.toLowerCase() === 'direct') {
+    return { marketerId: 'DIRECT', marketerName: 'Direct / Company' };
+  }
+
+  const registry = await getMarketersRegistry(prefix);
+  let existing = null;
+  if (marketerId && marketerId.startsWith('MKT-')) {
+    existing = registry.marketers.find(m => m.id.toUpperCase() === marketerId.toUpperCase());
+  }
+  if (!existing && marketerName) {
+    existing = registry.marketers.find(m => m.name.toLowerCase() === marketerName.trim().toLowerCase());
+  }
+
+  if (existing) {
+    return { marketerId: existing.id, marketerName: existing.name };
+  }
+
+  // Auto-register brand new marketer
+  const newId = marketerId && marketerId.startsWith('MKT-')
+    ? marketerId
+    : `MKT-${String(registry.nextMarketerSeq || (registry.marketers.length + 1)).padStart(2, '0')}`;
+  const newName = marketerName?.trim() || `Marketer ${newId}`;
+
+  const newMarketer = {
+    id: newId,
+    name: newName,
+    phone: '',
+    segment: prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET'
+  };
+
+  const nextSeq = Math.max((registry.nextMarketerSeq || 1) + 1, (parseInt(newId.replace(/\D/g, ''), 10) || 1) + 1);
+  registry.marketers.push(newMarketer);
+  registry.nextMarketerSeq = nextSeq;
+
+  try {
+    await prisma[`${prefix}TenantSetting`].upsert({
+      where: { key: 'MARKETERS_REGISTRY' },
+      update: { value: registry },
+      create: { key: 'MARKETERS_REGISTRY', value: registry }
+    });
+  } catch (e) {
+    console.error('Failed to update MARKETERS_REGISTRY:', e);
+  }
+
+  return { marketerId: newId, marketerName: newName };
+}
+
+/** Formats a customer's marketer attribution metadata */
+export function formatCustomerMarketer(c, registryMarketers = []) {
+  const raw = (c.marketerRef || '').trim();
+  if (!raw || raw.toLowerCase() === 'direct' || raw === 'DIRECT') {
+    return {
+      marketerId: 'DIRECT',
+      marketerName: 'Direct / Company',
+      marketerDisplay: 'Direct / Company'
+    };
+  }
+
+  // Matches "MKT-01 • Ali Raza" or "MKT-01 - Ali"
+  const mktMatch = raw.match(/^(MKT-\d+)(?:\s*[•\-–]\s*(.*))?$/i);
+  if (mktMatch) {
+    const id = mktMatch[1].toUpperCase();
+    const parsedName = mktMatch[2]?.trim();
+    const found = registryMarketers.find(m => m.id.toUpperCase() === id);
+    const name = parsedName || found?.name || id;
+    return {
+      marketerId: id,
+      marketerName: name,
+      marketerDisplay: `${id} • ${name}`
+    };
+  }
+
+  // Matches single name e.g. "Aslam"
+  const found = registryMarketers.find(m => m.name.toLowerCase() === raw.toLowerCase());
+  if (found) {
+    return {
+      marketerId: found.id,
+      marketerName: found.name,
+      marketerDisplay: `${found.id} • ${found.name}`
+    };
+  }
+
+  return {
+    marketerId: 'DIRECT',
+    marketerName: raw,
+    marketerDisplay: raw
+  };
+}
+
+/** Retrieves registered marketers with aggregated customer count and outstanding debt */
+export const getMarketers = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const registry = await getMarketersRegistry(prefix);
+
+  const customers = await prisma[`${prefix}Customer`].findMany({
+    where: { archivedAt: null },
+    select: {
+      id: true,
+      customerCode: true,
+      name: true,
+      marketerRef: true,
+      currentBalance: true
+    }
+  });
+
+  const marketersWithStats = registry.marketers.map(m => {
+    const assignedCustomers = customers.filter(c => {
+      const { marketerId, marketerName } = formatCustomerMarketer(c, registry.marketers);
+      return marketerId === m.id || (m.name && marketerName.toLowerCase() === m.name.toLowerCase());
+    });
+
+    const totalDebt = assignedCustomers.reduce((acc, c) => acc + Number(c.currentBalance || 0), 0);
+    const customerCodes = assignedCustomers.map(c => c.customerCode || `#${c.id.slice(0, 6)}`);
+
+    return {
+      ...m,
+      customersCount: assignedCustomers.length,
+      totalDebt,
+      customerCodes
+    };
+  });
+
+  const directCustomers = customers.filter(c => {
+    const { marketerId } = formatCustomerMarketer(c, registry.marketers);
+    return marketerId === 'DIRECT';
+  });
+
+  return sendSuccess(res, {
+    marketers: marketersWithStats,
+    directStats: {
+      customersCount: directCustomers.length,
+      totalDebt: directCustomers.reduce((acc, c) => acc + Number(c.currentBalance || 0), 0)
+    }
+  });
+});
+
+/** Creates and registers a new marketer */
+export const createMarketer = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { name, phone, segment } = req.body;
+  if (!name || !name.trim()) throw new ApiError(400, 'Marketer name is required');
+
+  const registry = await getMarketersRegistry(prefix);
+  const trimmedName = name.trim();
+
+  const existing = registry.marketers.find(m => m.name.toLowerCase() === trimmedName.toLowerCase());
+  if (existing) {
+    return sendSuccess(res, existing, 200, { message: 'Marketer already registered' });
+  }
+
+  const nextSeq = registry.nextMarketerSeq || (registry.marketers.length + 1);
+  const id = `MKT-${String(nextSeq).padStart(2, '0')}`;
+  const newMarketer = {
+    id,
+    name: trimmedName,
+    phone: phone ? phone.trim() : '',
+    segment: segment ? segment.trim() : (prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET')
+  };
+
+  registry.marketers.push(newMarketer);
+  registry.nextMarketerSeq = nextSeq + 1;
+
+  await prisma[`${prefix}TenantSetting`].upsert({
+    where: { key: 'MARKETERS_REGISTRY' },
+    update: { value: registry },
+    create: { key: 'MARKETERS_REGISTRY', value: registry }
+  });
+
+  await createAuditLog(prefix, {
+    action: 'MARKETER_CREATED',
+    entityType: 'Marketer',
+    entityId: id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Marketer Registered: ${id} • ${trimmedName} (${newMarketer.segment})`
+  });
+
+  return sendSuccess(res, newMarketer, 201);
+});
 
 /** Retrieves customers with optional search filtering */
 export const getCustomers = asyncHandler(async (req, res) => {
@@ -59,15 +312,20 @@ export const getCustomers = asyncHandler(async (req, res) => {
   if (status === 'archived') archivedFilter = { archivedAt: { not: null } };
   else if (status === 'all') archivedFilter = {};
 
-  const where = search ? {
+  const q = search ? search.trim() : '';
+  const where = q ? {
     ...archivedFilter,
     OR: [
-      { name: { contains: search, mode: 'insensitive' } },
-      { phone: { contains: search } }
+      { name: { contains: q, mode: 'insensitive' } },
+      { phone: { contains: q } },
+      { address: { contains: q, mode: 'insensitive' } },
+      { customerCode: { contains: q, mode: 'insensitive' } },
+      { marketerRef: { contains: q, mode: 'insensitive' } }
     ]
   } : archivedFilter;
 
   const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
+  const registry = await getMarketersRegistry(prefix);
 
   if (hasExplicitLimit) {
     const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
@@ -84,7 +342,14 @@ export const getCustomers = asyncHandler(async (req, res) => {
       prisma[`${prefix}Customer`].count({ where })
     ]);
 
-    return sendSuccess(res, customers, 200, {
+    const custodyEnriched = await attachReturnableCustodyToCustomers(prisma, prefix, customers);
+
+    const enriched = custodyEnriched.map(c => ({
+      ...c,
+      ...formatCustomerMarketer(c, registry.marketers)
+    }));
+
+    return sendSuccess(res, enriched, 200, {
       pagination: {
         total,
         page: parsedPage,
@@ -99,15 +364,119 @@ export const getCustomers = asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  return sendSuccess(res, customers);
+  const custodyEnriched = await attachReturnableCustodyToCustomers(prisma, prefix, customers);
+
+  const enriched = custodyEnriched.map(c => ({
+    ...c,
+    ...formatCustomerMarketer(c, registry.marketers)
+  }));
+
+  return sendSuccess(res, enriched);
 });
+
+/** Batch attaches returnable custody breakdown to customers without N+1 queries */
+async function attachReturnableCustodyToCustomers(prismaClient, prefix, customers) {
+  const returnableItems = await getAllReturnableRawMaterials(prismaClient, prefix);
+  const returnableMap = new Map(returnableItems.map(item => [item.id, item]));
+  const defaultReturnable = returnableItems[0] || null;
+
+  const customerIdsWithCustody = customers
+    .filter(c => Number(c.cachedBottleBalance || 0) > 0)
+    .map(c => c.id);
+
+  const custodyByCustomer = new Map();
+
+  if (customerIdsWithCustody.length > 0) {
+    let txGroups;
+    try {
+      txGroups = await prismaClient[`${prefix}BottleTransaction`].groupBy({
+        by: ['customerId', 'itemId', 'type'],
+        where: { customerId: { in: customerIdsWithCustody } },
+        _sum: { quantity: true }
+      });
+    } catch (_err) {
+      txGroups = await prismaClient[`${prefix}BottleTransaction`].groupBy({
+        by: ['customerId', 'type'],
+        where: { customerId: { in: customerIdsWithCustody } },
+        _sum: { quantity: true }
+      });
+    }
+
+    for (const row of txGroups) {
+      const cid = row.customerId;
+      const resolvedId = row.itemId || defaultReturnable?.id || 'DEFAULT_19L';
+      const itemMeta = returnableMap.get(resolvedId) || defaultReturnable || {
+        id: resolvedId,
+        name: 'Empty 19L Bottles',
+        unit: 'bottle'
+      };
+
+      if (!custodyByCustomer.has(cid)) {
+        custodyByCustomer.set(cid, new Map());
+      }
+      const custItemMap = custodyByCustomer.get(cid);
+      if (!custItemMap.has(resolvedId)) {
+        custItemMap.set(resolvedId, {
+          itemId: itemMeta.id,
+          name: itemMeta.name,
+          unit: itemMeta.unit || 'bottle',
+          inCustody: 0
+        });
+      }
+
+      const entry = custItemMap.get(resolvedId);
+      const qty = Number(row._sum?.quantity || 0);
+      if (row.type === 'DELIVERED_TO_CUSTOMER') entry.inCustody += qty;
+      else if (['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(row.type)) {
+        entry.inCustody -= qty;
+      }
+    }
+  }
+
+  return customers.map(c => {
+    const itemMap = custodyByCustomer.get(c.id);
+    const returnableCustody = itemMap
+      ? Array.from(itemMap.values()).map(e => {
+          const custody = Math.max(0, e.inCustody);
+          return { ...e, inCustody: custody, balance: custody, itemName: e.name };
+        }).filter(entry => entry.inCustody > 0)
+      : [];
+
+    const balance = Number(c.cachedBottleBalance || 0);
+    const sumCustody = returnableCustody.reduce((s, e) => s + e.inCustody, 0);
+    if (balance > sumCustody) {
+      const primaryName = defaultReturnable?.name || 'Empty 19L Bottles';
+      const primaryId = defaultReturnable?.id || 'DEFAULT_19L';
+      const existing = returnableCustody.find(ri => ri.itemId === primaryId);
+      const diff = balance - sumCustody;
+      if (existing) {
+        existing.inCustody += diff;
+        existing.balance = existing.inCustody;
+      } else {
+        returnableCustody.unshift({
+          itemId: primaryId,
+          name: primaryName,
+          itemName: primaryName,
+          unit: defaultReturnable?.unit || 'bottle',
+          inCustody: diff,
+          balance: diff
+        });
+      }
+    }
+
+    return {
+      ...c,
+      returnableCustody
+    };
+  });
+}
 
 /** Retrieves detailed customer history */
 export const getCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
 
-  const [customer, auditLogs] = await Promise.all([
+  const [customer, auditLogs, registry] = await Promise.all([
     prisma[`${prefix}Customer`].findUnique({
       where: { id },
       include: {
@@ -121,11 +490,26 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
           orderBy: { createdAt: 'desc' }
         },
         bottleTransactions: {
-          select: { id: true, type: true, quantity: true, reason: true, runningBalance: true, createdAt: true },
+          select: {
+            id: true,
+            type: true,
+            quantity: true,
+            reason: true,
+            runningBalance: true,
+            createdAt: true,
+            itemId: true,
+            item: { select: { id: true, name: true, unit: true, isReturnable: true } }
+          },
           orderBy: { createdAt: 'desc' }
         },
         payments: {
           select: { id: true, amount: true, type: true, createdAt: true },
+          orderBy: { createdAt: 'desc' }
+        },
+        spotSales: {
+          include: {
+            items: { include: { item: { select: { id: true, name: true, unit: true } } } }
+          },
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -133,26 +517,64 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
     prisma[`${prefix}AuditLog`].findMany({
       where: { entityType: 'Customer', entityId: id },
       orderBy: { createdAt: 'desc' }
-    })
+    }),
+    getMarketersRegistry(prefix)
   ]);
 
   if (!customer) throw new ApiError(404, 'Customer not found');
-  return sendSuccess(res, { ...customer, auditLogs });
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  const returnableCustody = await getCustomerReturnableCustodyBreakdown(prisma, prefix, id, Number(customer.cachedBottleBalance || 0));
+  return sendSuccess(res, { ...customer, ...marketerMeta, returnableCustody, auditLogs });
 });
 
 /** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl, marketerRef, marketerId, marketerName, buyerNtn, buyerStrn } = req.body;
 
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
     throw new ApiError(400, 'Invalid Google Maps URL');
   }
 
+  // Calculate next sequential Customer ID
+  const codePrefix = prefix === 'wadaana' ? 'WAD313' : 'JAM313';
+  const existingWithCode = await prisma[`${prefix}Customer`].findMany({
+    where: { customerCode: { not: null } },
+    select: { customerCode: true }
+  });
+  let maxSeq = 0;
+  existingWithCode.forEach(c => {
+    const match = c.customerCode?.match(new RegExp(`${codePrefix}(\\d+)`));
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+  });
+  const customerCode = `${codePrefix}${String(maxSeq + 1).padStart(4, '0')}`;
+
+  // Resolve marketer attribution
+  let resolvedMarketerRef = null;
+  if (marketerId === 'DIRECT' || (marketerRef && marketerRef.trim().toLowerCase() === 'direct')) {
+    resolvedMarketerRef = null;
+  } else if (marketerId && marketerId.startsWith('MKT-')) {
+    const regRes = await ensureMarketerInRegistry(prefix, marketerId, marketerName || marketerRef);
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  } else if (marketerName && marketerName.trim()) {
+    const regRes = await ensureMarketerInRegistry(prefix, null, marketerName.trim());
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  } else if (marketerRef && marketerRef.trim()) {
+    const regRes = await ensureMarketerInRegistry(prefix, null, marketerRef.trim());
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  }
+
   const customerData = {
     name: name.trim(),
     phone: phone.trim(),
+    customerCode,
+    marketerRef: resolvedMarketerRef,
+    buyerNtn: buyerNtn ? buyerNtn.trim() : null,
+    buyerStrn: buyerStrn ? buyerStrn.trim() : null,
     type,
     address: address || null,
     mapLink: mapLink ? sanitizeGoogleMapsUrl(mapLink) : null,
@@ -185,7 +607,9 @@ export const createCustomer = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
-  return sendSuccess(res, customer, 201);
+  const registry = await getMarketersRegistry(prefix);
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  return sendSuccess(res, { ...customer, ...marketerMeta }, 201);
 });
 
 /** Updates customer profile */
@@ -215,6 +639,31 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (remarks !== undefined) updateData.remarks = remarks;
   if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
 
+  // Marketer reference update
+  if (req.body.marketerId !== undefined || req.body.marketerName !== undefined || req.body.marketerRef !== undefined) {
+    const inputMarketerId = req.body.marketerId;
+    const inputMarketerName = req.body.marketerName;
+    const inputMarketerRef = req.body.marketerRef;
+
+    if (inputMarketerId === 'DIRECT' || (inputMarketerRef && inputMarketerRef.trim().toLowerCase() === 'direct')) {
+      updateData.marketerRef = null;
+    } else if (inputMarketerId && inputMarketerId.startsWith('MKT-')) {
+      const regRes = await ensureMarketerInRegistry(prefix, inputMarketerId, inputMarketerName);
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else if (inputMarketerName && inputMarketerName.trim()) {
+      const regRes = await ensureMarketerInRegistry(prefix, null, inputMarketerName.trim());
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else if (inputMarketerRef && inputMarketerRef.trim()) {
+      const regRes = await ensureMarketerInRegistry(prefix, null, inputMarketerRef.trim());
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else {
+      updateData.marketerRef = null;
+    }
+  }
+
+  if (req.body.buyerNtn !== undefined) updateData.buyerNtn = req.body.buyerNtn ? req.body.buyerNtn.trim() : null;
+  if (req.body.buyerStrn !== undefined) updateData.buyerStrn = req.body.buyerStrn ? req.body.buyerStrn.trim() : null;
+
   const customer = await prisma[`${prefix}Customer`].update({ where: { id }, data: updateData });
   const performedBy = req.user?.name || req.user?.id || 'Admin';
 
@@ -237,7 +686,9 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
-  return sendSuccess(res, customer);
+  const registry = await getMarketersRegistry(prefix);
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  return sendSuccess(res, { ...customer, ...marketerMeta });
 });
 
 /** Deletes a customer permanently (cascading child data) or archives if requested */
@@ -314,15 +765,13 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
 
         const retGoodTotal = ord.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0), 0) || 0;
         if (retGoodTotal > 0) {
-          const emptyBottle = await tx[`${prefix}Item`].findFirst({
-            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+          await debitEmptyBottlesFromFactory(tx, prefix, {
+            quantity: retGoodTotal,
+            customerId: id,
+            orderId: ord.id,
+            reason: 'CUSTOMER_DELETED_EMPTY_BOTTLE_REVERSAL',
+            skipTransactionLog: true
           });
-          if (emptyBottle) {
-            await tx[`${prefix}Item`].update({
-              where: { id: emptyBottle.id },
-              data: { cachedQty: { decrement: retGoodTotal }, factoryQty: { decrement: retGoodTotal } }
-            });
-          }
         }
       }
 
@@ -404,5 +853,201 @@ export const uploadCustomerPicture = asyncHandler(async (req, res) => {
     homePictureUrl: secure_url,
     publicId: public_id
   });
+});
+
+/**
+ * Settles customer lump-sum payment across open Orders and SpotSales using FIFO chronological order.
+ */
+export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
+  const { id: customerId } = req.params;
+  const prefix = getTenantPrefix(req);
+  const { amount = 0, paymentMethod = 'CASH', settleFromSecurity = false, remarks = '' } = req.body;
+
+  const cash = parseFloat(amount || 0);
+  const normMethod = String(paymentMethod || 'CASH').toUpperCase();
+  const validPaymentTypes = ['CASH', 'BANK_TRANSFER', 'CHEQUE', 'SECURITY_DEPOSIT', 'EASYPAISA', 'JAZZCASH'];
+  const safePaymentType = validPaymentTypes.includes(normMethod) ? normMethod : 'BANK_TRANSFER';
+
+  if ((isNaN(cash) || cash <= 0) && !settleFromSecurity) {
+    throw new ApiError(400, 'Payment amount must be greater than 0');
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const customer = await tx[`${prefix}Customer`].findUnique({
+      where: { id: customerId }
+    });
+    if (!customer) throw new ApiError(404, 'Customer not found');
+
+    // Fetch all non-cancelled unpaid/partial orders and unpaid spot sales oldest-first (FIFO)
+    const [openOrders, openSpotSales] = await Promise.all([
+      tx[`${prefix}Order`].findMany({
+        where: {
+          customerId,
+          deliveryStatus: { not: 'CANCELLED' },
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] }
+        },
+        include: { items: true, payments: true },
+        orderBy: { createdAt: 'asc' }
+      }),
+      tx[`${prefix}SpotSale`].findMany({
+        where: {
+          customerId,
+          OR: [{ debtAmount: { gt: 0 } }, { creditAmount: { gt: 0 } }]
+        },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
+
+    // Build unified chronological FIFO pool of all unpaid Orders + SpotSales
+    const obligations = [];
+    for (const ord of openOrders) {
+      const sub = (ord.items || []).reduce((s, i) => s + (parseFloat(i.price || 0) * Number(i.quantity || 0)), 0);
+      const ordTotal = ord.withGst ? sub + Math.round(sub * 0.18) : sub;
+      const ordPaid = (ord.payments || []).reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+      const ordDue = Math.max(0, ordTotal - ordPaid);
+      if (ordDue > 0) {
+        obligations.push({ kind: 'ORDER', record: ord, total: ordTotal, paid: ordPaid, due: ordDue, createdAt: new Date(ord.createdAt) });
+      }
+    }
+    for (const ss of openSpotSales) {
+      const ssDue = Math.max(0, Number(ss.debtAmount || ss.creditAmount || 0));
+      if (ssDue > 0) {
+        obligations.push({ kind: 'SPOT_SALE', record: ss, due: ssDue, createdAt: new Date(ss.createdAt) });
+      }
+    }
+    obligations.sort((a, b) => a.createdAt - b.createdAt);
+
+    const totalObligationsDue = obligations.reduce((s, o) => s + o.due, 0);
+    const currentCustomerDebt = Math.max(Number(customer.currentBalance || 0), totalObligationsDue);
+
+    const availableDeposit = Math.max(0, Number(customer.deposit || 0));
+    const depositToApply = settleFromSecurity ? Math.min(availableDeposit, currentCustomerDebt) : 0;
+    let remainingPool = cash + depositToApply;
+
+    if (remainingPool <= 0) {
+      throw new ApiError(400, 'No payment or security deposit available to apply');
+    }
+
+    const settledOrders = [];
+    const settledSpotSales = [];
+
+    for (const ob of obligations) {
+      if (remainingPool <= 0) break;
+      const alloc = Math.min(remainingPool, ob.due);
+      if (alloc <= 0) continue;
+
+      const currentType = (depositToApply >= alloc && cash === 0) ? 'SECURITY_DEPOSIT' : safePaymentType;
+
+      if (ob.kind === 'ORDER') {
+        const ord = ob.record;
+        const newPaid = ob.paid + alloc;
+        const newStatus = newPaid >= ob.total ? 'PAID' : 'PARTIAL';
+
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: ord.id,
+            customerId,
+            amount: alloc,
+            type: currentType
+          }
+        });
+
+        await tx[`${prefix}Delivery`].create({
+          data: {
+            orderId: ord.id,
+            qtyDelivered: 0,
+            bottlesReturnedGood: 0,
+            bottlesReturnedBroken: 0,
+            cashReceived: alloc,
+            paymentMethod: normMethod,
+            remarks: remarks ? `Debt Pool Settlement: ${remarks}` : 'Debt Pool Settlement (FIFO)'
+          }
+        });
+
+        await tx[`${prefix}Order`].update({
+          where: { id: ord.id },
+          data: { paymentStatus: newStatus }
+        });
+
+        settledOrders.push({ id: ord.id, allocated: alloc, newStatus });
+      } else if (ob.kind === 'SPOT_SALE') {
+        const ss = ob.record;
+        const newDebt = Math.max(0, ob.due - alloc);
+        const newAmountPaid = Number(ss.amountPaid || ss.cashCollected || 0) + alloc;
+
+        await tx[`${prefix}SpotSale`].update({
+          where: { id: ss.id },
+          data: {
+            amountPaid: newAmountPaid,
+            debtAmount: newDebt,
+            creditAmount: newDebt,
+            remarks: `${ss.remarks ? ss.remarks + ' | ' : ''}Settled Rs. ${alloc} (${normMethod})`
+          }
+        });
+
+        await tx[`${prefix}Payment`].create({
+          data: {
+            orderId: null,
+            customerId,
+            amount: alloc,
+            type: currentType
+          }
+        });
+
+        settledSpotSales.push({ id: ss.id, saleNumber: ss.saleNumber, allocated: alloc, remainingDebt: newDebt });
+      }
+
+      remainingPool -= alloc;
+    }
+
+    if (remainingPool > 0) {
+      await tx[`${prefix}Payment`].create({
+        data: {
+          orderId: null,
+          customerId,
+          amount: remainingPool,
+          type: safePaymentType
+        }
+      });
+    }
+
+    const totalApplied = cash + depositToApply;
+    const newCustomerBalance = Math.max(0, currentCustomerDebt - totalApplied);
+
+    const updatedCustomer = await tx[`${prefix}Customer`].update({
+      where: { id: customerId },
+      data: {
+        currentBalance: newCustomerBalance,
+        ...(depositToApply > 0 ? { deposit: { decrement: depositToApply } } : {})
+      }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'CUSTOMER_DEBT_SETTLED',
+      entityType: 'Customer',
+      entityId: customerId,
+      performedBy: req.user?.name || req.user?.id || 'Staff',
+      details: JSON.stringify({
+        amountPaid: cash,
+        depositApplied: depositToApply,
+        paymentMethod: normMethod,
+        previousDebt: currentCustomerDebt,
+        newBalance: newCustomerBalance,
+        settledOrdersCount: settledOrders.length,
+        settledSpotSalesCount: settledSpotSales.length,
+        settledOrders,
+        settledSpotSales,
+        remarks
+      })
+    });
+
+    return { customer: updatedCustomer, settledOrders, settledSpotSales, newCustomerBalance };
+  }, { maxWait: 10000, timeout: 30000 });
+
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId });
+  broadcastEvent(prefix, 'ORDER_UPDATED');
+  broadcastEvent(prefix, 'COUNTER_SALE_CREATED');
+  return sendSuccess(res, result, 200, { message: 'Customer debt settled successfully' });
 });
 

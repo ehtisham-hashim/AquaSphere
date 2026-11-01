@@ -33,6 +33,10 @@ model AquasphereCustomer {
   qty05LPet      Int     @default(0) @map("qty_05l_pet")
   buys15LPet     Boolean @default(false) @map("buys_15l_pet")
   qty15LPet      Int     @default(0) @map("qty_15l_pet")
+  customerCode   String? @unique @map("customer_code")
+  marketerRef    String? @map("marketer_ref")
+  buyerNtn       String? @map("buyer_ntn")
+  buyerStrn      String? @map("buyer_strn")
 
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")
@@ -64,6 +68,7 @@ model AquasphereItem {
   reorderLevel      Decimal            @default(0.0) @map("reorder_level")
   retailPrice       Decimal            @default(0.0) @map("retail_price")
   sellableOnCounter Boolean            @default(false) @map("sellable_on_counter")
+  isReturnable      Boolean            @default(false) @map("is_returnable")
   archivedAt        DateTime?          @map("archived_at")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
@@ -77,10 +82,12 @@ model AquasphereItem {
   recipeFinishedGoods   AquasphereRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    AquasphereRecipeItem[]                 @relation("RecipeRawMaterial")
   spotSaleItems         AquasphereSpotSaleItem[]
+  bottleTransactions    AquasphereBottleTransaction[]
 
   @@index([name])
   @@index([type])
   @@index([archivedAt])
+  @@index([isReturnable])
   @@map("items")
   @@schema("aquasphere")
 }
@@ -118,6 +125,8 @@ model AquasphereBottleTransaction {
   id             String                          @id @default(uuid())
   customerId     String?                         @map("customer_id")
   customer       AquasphereCustomer?             @relation(fields: [customerId], references: [id])
+  itemId         String?                         @map("item_id")
+  item           AquasphereItem?                 @relation(fields: [itemId], references: [id])
   type           AquasphereBottleTransactionType @map("txn_type")
   quantity       Int
   reason         String?
@@ -126,6 +135,7 @@ model AquasphereBottleTransaction {
   createdAt      DateTime                        @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
+  @@index([customerId, itemId])
   @@map("bottle_transactions")
   @@schema("aquasphere")
 }
@@ -152,6 +162,7 @@ model AquasphereOrder {
   type             AquasphereOrderType
   deliveryStatus   AquasphereDeliveryStatus @default(PENDING) @map("delivery_status")
   paymentStatus    AquaspherePaymentStatus  @default(UNPAID) @map("payment_status")
+  withGst          Boolean                  @default(false) @map("with_gst")
   expectedDelivery DateTime?                @map("expected_delivery")
   remarks          String?
   createdAt        DateTime                 @default(now()) @map("created_at")
@@ -198,6 +209,7 @@ model AquasphereDelivery {
   qtyDelivered          Int             @map("qty_delivered")
   bottlesReturnedGood   Int             @default(0) @map("bottles_returned_good")
   bottlesReturnedBroken Int             @default(0) @map("bottles_returned_broken")
+  bottlesLost           Int             @default(0) @map("bottles_lost")
   cashReceived          Decimal         @default(0.0) @map("cash_received")
   paymentMethod         String?         @map("payment_method")
   remarks               String?
@@ -519,6 +531,8 @@ enum AquaspherePaymentType {
   BANK_TRANSFER
   CHEQUE
   SECURITY_DEPOSIT
+  EASYPAISA
+  JAZZCASH
 
   @@map("payment_types")
   @@schema("aquasphere")
@@ -684,6 +698,14 @@ model WadaanaCustomer {
   qtyMix05L      Int     @default(0) @map("qty_mix_05l")
   buysMix15L     Boolean @default(false) @map("buys_mix_15l")
   qtyMix15L      Int     @default(0) @map("qty_mix_15l")
+  buysPureFine05L Boolean @default(false) @map("buys_pure_fine_05l")
+  qtyPureFine05L  Int     @default(0) @map("qty_pure_fine_05l")
+  buysPureFine15L Boolean @default(false) @map("buys_pure_fine_15l")
+  qtyPureFine15L  Int     @default(0) @map("qty_pure_fine_15l")
+  customerCode   String? @unique @map("customer_code")
+  marketerRef    String? @map("marketer_ref")
+  buyerNtn       String? @map("buyer_ntn")
+  buyerStrn      String? @map("buyer_strn")
 
   cachedBottleBalance Int       @default(0) @map("cached_bottle_balance")
   lastDeliveryAt      DateTime? @map("last_delivery_at")
@@ -715,6 +737,7 @@ model WadaanaItem {
   reorderLevel      Decimal         @default(0.0) @map("reorder_level")
   retailPrice       Decimal         @default(0.0) @map("retail_price")
   sellableOnCounter Boolean         @default(false) @map("sellable_on_counter")
+  isReturnable      Boolean         @default(false) @map("is_returnable")
   archivedAt        DateTime?       @map("archived_at")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
@@ -728,10 +751,12 @@ model WadaanaItem {
   recipeFinishedGoods   WadaanaRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    WadaanaRecipeItem[]                 @relation("RecipeRawMaterial")
   spotSaleItems         WadaanaSpotSaleItem[]
+  bottleTransactions    WadaanaBottleTransaction[]
 
   @@index([name])
   @@index([type])
   @@index([archivedAt])
+  @@index([isReturnable])
   @@map("items")
   @@schema("wadaana")
 }
@@ -769,6 +794,8 @@ model WadaanaBottleTransaction {
   id             String                       @id @default(uuid())
   customerId     String?                      @map("customer_id")
   customer       WadaanaCustomer?             @relation(fields: [customerId], references: [id])
+  itemId         String?                      @map("item_id")
+  item           WadaanaItem?                 @relation(fields: [itemId], references: [id])
   type           WadaanaBottleTransactionType @map("txn_type")
   quantity       Int
   reason         String?
@@ -777,6 +804,7 @@ model WadaanaBottleTransaction {
   createdAt      DateTime                     @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
+  @@index([customerId, itemId])
   @@map("bottle_transactions")
   @@schema("wadaana")
 }
@@ -803,6 +831,7 @@ model WadaanaOrder {
   type             WadaanaOrderType
   deliveryStatus   WadaanaDeliveryStatus @default(PENDING) @map("delivery_status")
   paymentStatus    WadaanaPaymentStatus  @default(UNPAID) @map("payment_status")
+  withGst          Boolean               @default(false) @map("with_gst")
   expectedDelivery DateTime?             @map("expected_delivery")
   remarks          String?
   createdAt        DateTime              @default(now()) @map("created_at")
@@ -849,6 +878,7 @@ model WadaanaDelivery {
   qtyDelivered          Int          @map("qty_delivered")
   bottlesReturnedGood   Int          @default(0) @map("bottles_returned_good")
   bottlesReturnedBroken Int          @default(0) @map("bottles_returned_broken")
+  bottlesLost           Int          @default(0) @map("bottles_lost")
   cashReceived          Decimal      @default(0.0) @map("cash_received")
   paymentMethod         String?      @map("payment_method")
   remarks               String?
@@ -1178,6 +1208,8 @@ enum WadaanaPaymentType {
   BANK_TRANSFER
   CHEQUE
   SECURITY_DEPOSIT
+  EASYPAISA
+  JAZZCASH
 
   @@map("payment_types")
   @@schema("wadaana")

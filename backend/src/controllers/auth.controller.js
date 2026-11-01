@@ -122,7 +122,7 @@ export const logout = asyncHandler(async (req, res) => {
  * @returns {Promise<void>}
  */
 export const getMe = asyncHandler(async (req, res) => {
-  res.status(200).json(new ApiResponse(200, { user: req.user }, 'Current user retrieved'));
+  res.status(200).json(new ApiResponse(200, { user: { ...req.user, tenant: req.tenant || req.user?.tenant || 'aquasphere' } }, 'Current user retrieved'));
 });
 
 /**

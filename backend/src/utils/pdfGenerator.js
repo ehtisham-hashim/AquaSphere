@@ -29,6 +29,7 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
       if (withGst) {
         doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold');
         doc.text('STRN #: E208741-4', { align: 'left' });
+        doc.text('Meezan Bank IBAN: PK32MEZN0003340115746668', { align: 'left' });
         doc.font('Helvetica').fontSize(9).text('Tel: 051-5454438 | Cell: 0300-9149143', { align: 'left' });
       }
 
@@ -43,6 +44,10 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
       doc.fillColor('#475569').fontSize(10).font('Helvetica').text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
       doc.text(`Customer: ${order.customer?.name || 'Walk-in'}`);
       doc.text(`Phone: ${order.customer?.phone || 'N/A'}`);
+      if (withGst) {
+        if (order.customer?.buyerNtn) doc.text(`Buyer NTN: ${order.customer.buyerNtn}`);
+        if (order.customer?.buyerStrn) doc.text(`Buyer STRN: ${order.customer.buyerStrn}`);
+      }
       doc.text(`Delivery Status: ${order.deliveryStatus}`);
       doc.text(`Payment Status: ${order.paymentStatus}`);
       doc.moveDown(1.5);
@@ -85,9 +90,14 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
       doc.moveTo(50, position + 5).lineTo(550, position + 5).strokeColor('#cbd5e1').stroke();
       position += 15;
 
+      const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const prevBalance = Number(order.previousUnpaidBalance || 0);
+
       if (withGst) {
         const gstAmount = Math.round(grandTotal * 0.18);
         const netTotal = grandTotal + gstAmount;
+        const currentDue = Math.max(0, netTotal - totalPaid);
+        const totalRunningDue = currentDue + prevBalance;
 
         doc.font('Helvetica').fontSize(10);
         doc.text('Subtotal:', 360, position, { width: 90, align: 'right' });
@@ -98,13 +108,45 @@ export const generateInvoicePDF = (order, tenant = 'aquasphere', options = {}) =
         doc.text(`Rs. ${gstAmount.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
         position += 18;
 
-        doc.font('Helvetica-Bold').fontSize(12);
         doc.text('Net Total:', 360, position, { width: 90, align: 'right' });
         doc.text(`Rs. ${netTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
-      } else {
+        position += 18;
+
+        doc.text('Paid:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${totalPaid.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+        position += 18;
+
+        if (prevBalance > 0) {
+          doc.text('Previous Due:', 360, position, { width: 90, align: 'right' });
+          doc.text(`Rs. ${prevBalance.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+          position += 18;
+        }
+
         doc.font('Helvetica-Bold').fontSize(12);
-        doc.text('Grand Total:', 360, position, { width: 90, align: 'right' });
+        doc.text('Total Due:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${totalRunningDue.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+      } else {
+        const currentDue = Math.max(0, grandTotal - totalPaid);
+        const totalRunningDue = currentDue + prevBalance;
+
+        doc.font('Helvetica').fontSize(10);
+        doc.text('Subtotal:', 360, position, { width: 90, align: 'right' });
         doc.text(`Rs. ${grandTotal.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+        position += 18;
+
+        doc.text('Paid:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${totalPaid.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+        position += 18;
+
+        if (prevBalance > 0) {
+          doc.text('Previous Due:', 360, position, { width: 90, align: 'right' });
+          doc.text(`Rs. ${prevBalance.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
+          position += 18;
+        }
+
+        doc.font('Helvetica-Bold').fontSize(12);
+        doc.text('Total Due:', 360, position, { width: 90, align: 'right' });
+        doc.text(`Rs. ${totalRunningDue.toLocaleString()}`, 460, position, { width: 90, align: 'right' });
       }
 
       doc.moveDown(3);

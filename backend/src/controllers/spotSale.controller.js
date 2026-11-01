@@ -7,6 +7,11 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
+import {
+  extractReturnablesFromOrderItems,
+  creditEmptyBottlesToFactory,
+  resolveReturnableRawMaterial
+} from '../services/bottleInventory.service.js';
 import pkg from '@prisma/client';
 const { Prisma } = pkg;
 
@@ -142,6 +147,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     customerId,
     remarks,
     receiptUrl,
+    bottlesReturnedGood = 0,
     allowNegativeStock = false
   } = req.body;
 
@@ -161,6 +167,11 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     where: {
       id: { in: itemIds },
       archivedAt: null
+    },
+    include: {
+      recipeFinishedGoods: {
+        include: { rawMaterial: true }
+      }
     }
   }) : [];
 
@@ -417,24 +428,57 @@ export const createSpotSale = asyncHandler(async (req, res) => {
         }
       });
 
-      // 19L bottle custody tracking
-      const is19L = currentItem.name.toLowerCase().includes('19');
-      if (is19L) {
+      // Returnable container custody tracking
+      const returnableRecipe = currentItem.recipeFinishedGoods?.find(r => r.rawMaterial?.isReturnable);
+      const isReturnable = Boolean(returnableRecipe) || currentItem.name.toLowerCase().includes('19');
+      if (isReturnable) {
+        const returnableItem = returnableRecipe?.rawMaterial || await resolveReturnableRawMaterial(tx, prefix, { finishedGoodId: currentItem.id });
+        const issuedQty = Math.round(baseUnitsDeduct * Number(returnableRecipe?.quantityPerUnit || 1));
         await tx[`${prefix}BottleTransaction`].create({
           data: {
             type: 'DELIVERED_TO_CUSTOMER',
-            quantity: Math.round(baseUnitsDeduct),
+            quantity: issuedQty,
+            itemId: returnableItem?.id || null,
             customerId: customerId || null,
-            reason: `Counter Sale 19L Refill (${saleNumber})`
+            reason: `Counter Sale (${saleNumber})`
           }
         });
 
         if (customerId) {
           await tx[`${prefix}Customer`].update({
             where: { id: customerId },
-            data: { cachedBottleBalance: { increment: Math.round(baseUnitsDeduct) } }
+            data: { cachedBottleBalance: { increment: issuedQty } }
           });
         }
+      }
+    }
+
+    // 1a. Empty Returnable Containers returned at counter
+    const returnedEmpties = Math.round(Number(bottlesReturnedGood || 0));
+    if (returnedEmpties > 0) {
+      const returnableItem = await resolveReturnableRawMaterial(tx, prefix);
+      await creditEmptyBottlesToFactory(tx, prefix, {
+        quantity: returnedEmpties,
+        rawMaterialId: returnableItem?.id,
+        customerId: customerId || null,
+        reason: `Counter Sale Empty Return (${saleNumber})`
+      });
+
+      await tx[`${prefix}BottleTransaction`].create({
+        data: {
+          type: 'RETURNED_GOOD',
+          quantity: returnedEmpties,
+          itemId: returnableItem?.id || null,
+          customerId: customerId || null,
+          reason: `Counter Sale Empty Return (${saleNumber})`
+        }
+      });
+
+      if (customerId) {
+        await tx[`${prefix}Customer`].update({
+          where: { id: customerId },
+          data: { cachedBottleBalance: { decrement: returnedEmpties } }
+        });
       }
     }
 
@@ -706,12 +750,18 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             }
           });
 
-          // Revert customer bottle balance if 19L bottle
-          if (line.item?.name?.toLowerCase().includes('19')) {
+          // Revert customer bottle balance if returnable container
+          const returnables = await extractReturnablesFromOrderItems(tx, prefix, [{ itemId: line.itemId, quantity: line.quantity }]);
+          const primaryReturnable = returnables[0] || null;
+          const is19L = line.item?.name?.toLowerCase().includes('19');
+          if (primaryReturnable || is19L) {
+            const resolvedId = primaryReturnable?.rawMaterialId || null;
+            const returnQty = primaryReturnable ? primaryReturnable.quantityIssued : Math.round(returnBaseUnits);
             await tx[`${prefix}BottleTransaction`].create({
               data: {
                 type: 'RETURNED_GOOD',
-                quantity: Math.round(returnBaseUnits),
+                quantity: returnQty,
+                itemId: resolvedId,
                 customerId: existing.customerId || null,
                 reason: `Reversal of deleted Counter Sale (${existing.saleNumber || existing.id})`
               }
@@ -720,7 +770,7 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             if (existing.customerId) {
               await tx[`${prefix}Customer`].update({
                 where: { id: existing.customerId },
-                data: { cachedBottleBalance: { decrement: Math.round(returnBaseUnits) } }
+                data: { cachedBottleBalance: { decrement: returnQty } }
               });
             }
           }

@@ -1,6 +1,7 @@
 import { Package, Edit2, Archive, RefreshCw, AlertTriangle, CheckCircle2, Flame, Trash2 } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import { formatRawMaterialQty } from '../../utils/unitFormat';
 
 export default function RawMaterialsTable({ 
   materials = [], 
@@ -17,7 +18,15 @@ export default function RawMaterialsTable({
   const showActions = !isReadOnly || canArchive || (isOwner && !!onDelete);
   const pagination = usePagination(materials || [], 50);
 
-  const getBadge = (name) => {
+  const getBadge = (m) => {
+    if (m.isReturnable) {
+      return (
+        <span className="inline-flex items-center gap-1 bg-teal-50 text-teal-800 border border-teal-200 text-xs px-2.5 py-0.5 rounded-full font-bold">
+          <RefreshCw size={11} className="text-teal-600" /> Returnable Asset
+        </span>
+      );
+    }
+    const name = m.name || '';
     if (isWadaana) {
       if (name.toLowerCase().includes('pure')) {
         return <span className="inline-flex items-center gap-1 bg-cyan-50 text-cyan-700 border border-cyan-200 text-xs px-2.5 py-0.5 rounded-full font-bold"><Flame size={12} className="text-[#0ea5e9]"/> Pure Preform</span>;
@@ -94,12 +103,12 @@ export default function RawMaterialsTable({
                       </div>
                     </td>
                     <td className="table-td">
-                      {getBadge(m.name)}
+                      {getBadge(m)}
                     </td>
                     <td className="table-td">
                       <div className="flex items-center gap-1.5">
                         <span className={`font-mono font-bold text-xs ${isLow ? 'text-amber-600' : 'text-slate-800'}`}>
-                          {Number(m.cachedQty).toLocaleString('en-PK')} <span className="text-[10px] font-normal text-slate-400 font-sans">{m.unit}</span>
+                          {formatRawMaterialQty(m.cachedQty, m.unit)}
                         </span>
                         {isLow && !m.archivedAt && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
@@ -109,7 +118,7 @@ export default function RawMaterialsTable({
                       </div>
                     </td>
                     <td className="table-td font-mono text-slate-600">
-                      {m.reorderLevel} <span className="text-[10px] text-slate-400 font-sans">{m.unit}</span>
+                      {formatRawMaterialQty(m.reorderLevel, m.unit)}
                     </td>
                     <td className="table-td">
                       {m.sellableOnCounter ? (

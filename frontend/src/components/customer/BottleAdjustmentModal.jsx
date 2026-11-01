@@ -1,20 +1,59 @@
-import { useState } from 'react';
-import { X, Droplet, Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Droplet, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API, clearCache } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 
 export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) {
   const { tenant } = useTenant();
+  const [returnableItems, setReturnableItems] = useState([]);
+  const [selectedItemId, setSelectedItemId] = useState('');
+  const [loadingItems, setLoadingItems] = useState(true);
   const [type, setType] = useState('RETURNED_GOOD');
   const [quantity, setQuantity] = useState('1');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    let isMounted = true;
+    async function loadReturnableItems() {
+      try {
+        setLoadingItems(true);
+        const res = await fetch(`${API}/items?type=RAW_MATERIAL`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (json.success && isMounted) {
+          const returnables = (json.data || []).filter(i => Boolean(i.isReturnable));
+          setReturnableItems(returnables);
+          if (returnables.length > 0) {
+            // Pick matching item from customer custody if exists, else first returnable
+            const heldWithCustody = returnables.find(i => 
+              customer.returnableCustody?.some(rc => rc.itemId === i.id && Number(rc.inCustody ?? rc.balance ?? 0) > 0)
+            );
+            setSelectedItemId(heldWithCustody?.id || returnables[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load returnable items:', err);
+      } finally {
+        if (isMounted) setLoadingItems(false);
+      }
+    }
+    loadReturnableItems();
+    return () => { isMounted = false; };
+  }, [tenant, customer]);
+
   if (!customer) return null;
 
-  const currentBalance = parseInt(customer.cachedBottleBalance || 0);
+  const currentOverallBalance = parseInt(customer.cachedBottleBalance || 0);
+  const selectedCustody = customer.returnableCustody?.find(rc => rc.itemId === selectedItemId);
+  const selectedItemBalance = selectedCustody 
+    ? Number(selectedCustody.inCustody ?? selectedCustody.balance ?? 0) 
+    : currentOverallBalance;
+  const selectedItem = returnableItems.find(i => i.id === selectedItemId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,8 +65,8 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
     }
 
     const isReturnType = ['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type);
-    if (isReturnType && qty > currentBalance) {
-      return setError(`Cannot retrieve more than ${currentBalance} bottles.`);
+    if (isReturnType && qty > selectedItemBalance && selectedItemBalance > 0) {
+      return setError(`Cannot retrieve more than ${selectedItemBalance} ${selectedItem?.unit || 'units'} currently held by customer.`);
     }
 
     setSubmitting(true);
@@ -41,20 +80,23 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
         credentials: 'include',
         body: JSON.stringify({
           customerId: customer.id,
+          itemId: selectedItemId || undefined,
           type,
           quantity: qty,
-          reason: reason.trim() || `Customer bottle adjustment (${type})`
+          reason: reason.trim() || `Customer container adjustment (${type})`
         })
       });
 
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to record bottle transaction');
+      if (!res.ok || !json.success) throw new Error(json.message || 'Failed to record returnable transaction');
 
       clearCache('bottles');
       clearCache('customers');
       clearCache('inventory');
+      clearCache('items');
+      clearCache('orders');
 
-      toast.success(`Successfully updated bottle ledger for ${customer.name}`);
+      toast.success(`Successfully updated custody ledger for ${customer.name}`);
       onSuccess && onSuccess();
       onClose();
     } catch (err) {
@@ -72,7 +114,7 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 uppercase tracking-wider">
-              <Droplet size={14} /> 19L Bottle Custody & Ledger
+              <RefreshCw size={14} /> Returnable Custody & Ledger
             </div>
             <h3 className="text-lg font-black text-slate-800 mt-0.5">{customer.name}</h3>
           </div>
@@ -91,10 +133,43 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
 
           <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex justify-between items-center">
             <div>
-              <span className="text-xs font-semibold text-sky-800 block">Bottles in Customer Custody</span>
-              <span className="text-2xl font-black text-sky-950">{currentBalance} Bottles</span>
+              <span className="text-xs font-semibold text-sky-800 block">
+                {selectedItem ? `${selectedItem.name} in Customer Custody` : 'Total Containers in Custody'}
+              </span>
+              <span className="text-2xl font-black text-sky-950">
+                {selectedItemBalance} {selectedItem?.unit || 'Units'}
+              </span>
             </div>
             <Droplet size={32} className="text-sky-400 opacity-60" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Returnable Container Type *</label>
+            {loadingItems ? (
+              <div className="text-xs text-slate-400 py-2 flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Loading containers...
+              </div>
+            ) : returnableItems.length > 0 ? (
+              <select
+                value={selectedItemId}
+                onChange={e => setSelectedItemId(e.target.value)}
+                className="select-base"
+              >
+                {returnableItems.map(item => {
+                  const cust = customer.returnableCustody?.find(rc => rc.itemId === item.id);
+                  const custQty = cust ? Number(cust.inCustody ?? cust.balance ?? 0) : null;
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {item.name} {custQty !== null ? `(Custody: ${custQty})` : ''} — Plant Stock: {item.cachedQty} {item.unit}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                No raw materials flagged as returnable. Using default 19L bottle ledger.
+              </div>
+            )}
           </div>
 
           <div>
@@ -104,19 +179,21 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
               onChange={e => setType(e.target.value)}
               className="select-base"
             >
-              <option value="RETURNED_GOOD">↩️ Retrieve Empty Bottle (Good Condition)</option>
-              <option value="RETURNED_BROKEN">💔 Retrieve Broken / Damaged Bottle</option>
-              <option value="MARKED_LOST">❌ Mark Bottle as Lost / Unrecoverable</option>
-              <option value="DELIVERED_TO_CUSTOMER">📦 Manual Bottle Issue (Add to Custody)</option>
+              <option value="RETURNED_GOOD">↩️ Retrieve Empty Container (Good Condition)</option>
+              <option value="RETURNED_BROKEN">💔 Retrieve Broken / Damaged Container</option>
+              <option value="MARKED_LOST">❌ Mark Container as Lost / Unrecoverable</option>
+              <option value="DELIVERED_TO_CUSTOMER">📦 Manual Container Issue (Add to Custody)</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Quantity of Bottles *</label>
+            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">
+              Quantity ({selectedItem?.unit || 'Units'}) *
+            </label>
             <input
               type="number"
               min="1"
-              max={['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type) && currentBalance > 0 ? currentBalance : undefined}
+              max={['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type) && selectedItemBalance > 0 ? selectedItemBalance : undefined}
               value={quantity}
               onChange={e => setQuantity(e.target.value)}
               className="input-base font-mono"

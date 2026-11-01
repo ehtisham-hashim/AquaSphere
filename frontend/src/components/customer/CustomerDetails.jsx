@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
   X, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2
+  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2, DollarSign
 } from 'lucide-react';
 import { Badge } from '../ui';
 import ImagePreviewModal from '../ui/ImagePreviewModal';
@@ -10,10 +10,11 @@ import EditCustomerModal from './EditCustomerModal';
 import CustomerHistory from './CustomerHistory';
 import CustomerAlerts from './CustomerAlerts';
 import BottleAdjustmentModal from './BottleAdjustmentModal';
+import SettleCustomerDebtModal from './SettleCustomerDebtModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
-import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
+import { WhatsAppTemplates } from '../../utils/whatsapp';
 import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
 
 // ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
@@ -23,6 +24,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const [c, setC] = useState(initialCustomer);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
+  const [isPayDebtOpen, setIsPayDebtOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -168,11 +170,29 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
         </div>
 
         {/* Name & Badges */}
-        <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
+          <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs tracking-wide">
+            {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
+          </span>
+        </div>
         <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+            c.marketerId && c.marketerId !== 'DIRECT'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'bg-slate-100 text-slate-600 border-slate-200'
+          }`}>
+            👤 Marketer / Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerName || c.marketerRef} (${c.marketerId})` : (c.marketerName || c.marketerRef || 'Direct / Company')}
+          </span>
           <Badge variant={theme.badgeVariant}>{c.type || 'Standard'}</Badge>
           <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
         </div>
+        {(c.buyerNtn || c.buyerStrn) && (
+          <div className="text-[11px] text-slate-500 font-mono mt-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 inline-block">
+            {c.buyerNtn && <span className="mr-2">NTN: {c.buyerNtn}</span>}
+            {c.buyerStrn && <span>STRN: {c.buyerStrn}</span>}
+          </div>
+        )}
 
         {/* Contact Info List */}
         <div className="w-full border-t border-slate-100 mt-6 pt-6 space-y-4 text-left text-sm">
@@ -260,10 +280,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           {/* Header & Polished Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Customer Overview</h2>
-                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                  Profile Details
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">{c.name}</h2>
+                <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2 py-0.5 rounded-md shadow-2xs">
+                  {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
+                </span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                  c.marketerId && c.marketerId !== 'DIRECT'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
+                  Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerId} • ${c.marketerName || c.marketerRef}` : (c.marketerName || c.marketerRef || 'Direct')}
                 </span>
               </div>
               <p className="text-slate-500 text-xs mt-0.5">Complete financial, credit, and product profiles</p>
@@ -323,35 +350,48 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className={`text-lg font-bold font-mono block mt-1 ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                   Rs. {currentBalance.toLocaleString()}
                 </span>
-                {currentBalance > 0 && c.phone && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await shareOrSendCustomerReceiptWhatsApp({
-                          customer: c,
-                          isWadaana,
-                          options: {
-                            subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
-                            remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
+                {currentBalance > 0 && (
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setIsPayDebtOpen(true)}
+                      className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] inline-flex items-center gap-1 transition-colors shadow-xs"
+                      title="Settle Outstanding Debt with FIFO Allocation"
+                    >
+                      <DollarSign size={10} />
+                      <span>Pay Debt</span>
+                    </button>
+                    {c.phone && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await shareOrSendCustomerReceiptWhatsApp({
+                              customer: c,
+                              isWadaana,
+                              options: {
+                                subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
+                                remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
+                              }
+                            });
+                            if (res?.method === 'web-share') {
+                              toast.success('Payment reminder receipt shared via WhatsApp!');
+                            } else {
+                              toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                            }
+                          } catch (err) {
+                            console.error('Payment reminder error:', err);
+                            toast.error('Could not send reminder to WhatsApp.');
                           }
-                        });
-                        if (res?.method === 'web-share') {
-                          toast.success('Payment reminder receipt shared via WhatsApp!');
-                        } else {
-                          toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
-                        }
-                      } catch (err) {
-                        console.error('Payment reminder error:', err);
-                        toast.error('Could not send reminder to WhatsApp.');
-                      }
-                    }}
-                    className="mt-1.5 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
-                    title="Send Overdue Bill Receipt via WhatsApp"
-                  >
-                    <Share2 size={10} />
-                    <span>WhatsApp Reminder</span>
-                  </button>
+                        }}
+                        className="px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
+                        title="Send Overdue Bill Receipt via WhatsApp"
+                      >
+                        <Share2 size={10} />
+                        <span>Reminder</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -367,20 +407,34 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  {!isWadaana ? '19L Bottle Custody' : 'Credit Terms'}
+                  {!isWadaana ? 'Returnable Custody' : 'Credit Terms'}
                 </span>
                 <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
-                  {!isWadaana ? `${c.cachedBottleBalance || 0} Empty` : `${c.creditDuration || 1} Days`}
+                  {!isWadaana ? `${c.cachedBottleBalance || 0} Units` : `${c.creditDuration || 1} Days`}
                 </span>
                 {!isWadaana ? (
-                  (c.cachedBottleBalance || 0) > 0 && (
-                    <button
-                      onClick={() => setIsBottleModalOpen(true)}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-0.5 block mx-auto"
-                    >
-                      Retrieve / Adjust
-                    </button>
-                  )
+                  <>
+                    {Array.isArray(c.returnableCustody) && c.returnableCustody.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1 mt-1">
+                        {c.returnableCustody.map((rc) => (
+                          <span
+                            key={rc.itemId || 'legacy'}
+                            className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-medium"
+                          >
+                            {rc.itemName}: <span className="font-bold text-amber-700">{rc.balance}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(c.cachedBottleBalance || 0) > 0 && (
+                      <button
+                        onClick={() => setIsBottleModalOpen(true)}
+                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto"
+                      >
+                        Retrieve / Adjust
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
                     Allowed credit span
@@ -515,6 +569,29 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           src={previewImage}
           alt={c.name}
           onClose={() => setPreviewImage(null)}
+        />
+      )}
+
+      {isPayDebtOpen && (
+        <SettleCustomerDebtModal
+          customer={c}
+          onClose={() => setIsPayDebtOpen(false)}
+          onSuccess={() => {
+            setIsPayDebtOpen(false);
+            // Re-fetch customer details to update balance
+            fetch(`${API}/customers/${c.id}`, {
+              headers: { 'x-tenant': tenant },
+              credentials: 'include'
+            })
+              .then(res => res.json())
+              .then(json => {
+                if (json.success) {
+                  setC(json.data);
+                  if (onCustomerUpdated) onCustomerUpdated(json.data);
+                }
+              })
+              .catch(err => console.error('Error refreshing customer details after payment', err));
+          }}
         />
       )}
     </div>

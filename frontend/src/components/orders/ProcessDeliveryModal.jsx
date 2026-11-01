@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Truck, CheckCircle, Package, DollarSign, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_URL } from '../../utils/api';
+import { API_URL, clearCache } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { useAuth } from '../../context/AuthContext';
 
@@ -38,22 +38,34 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     fetchStock();
   }, [company]);
 
+  const isReturnableOrderItem = (i) => {
+    if (!i.item) return false;
+    if (i.item.hasReturnableContainer) return true;
+    if (i.item.recipeFinishedGoods?.some(r => r.rawMaterialItem?.isReturnable)) return true;
+    return i.item.name?.toLowerCase().includes('19l') || order.type === 'NINETEEN_L';
+  };
+
   const calculateDefaultQtyDelivered = () => {
     if (!order.items || order.items.length === 0) return 0;
-    if (order.type === 'NINETEEN_L') {
-      const qty19L = order.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
-      return qty19L > 0 ? qty19L : order.items[0].quantity;
-    }
+    const returnableOrdered = order.items.filter(isReturnableOrderItem).reduce((sum, i) => sum + i.quantity, 0);
+    if (returnableOrdered > 0) return returnableOrdered;
     return order.items.reduce((sum, i) => sum + i.quantity, 0);
   };
 
-  const qty19LOrdered = order.items?.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || 0;
-  const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0)), 0) || 0;
+  const returnableRecipe = order.items?.flatMap(i => i.item?.recipeFinishedGoods || []).find(r => r.rawMaterialItem?.isReturnable);
+  const returnableRawItem = returnableRecipe?.rawMaterialItem || null;
+  const returnableItemName = returnableRawItem?.name || 'Empty 19L Bottles';
+  const returnableItemId = returnableRawItem?.id || undefined;
 
-  const is19LOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qty19LOrdered > 0);
-  const remainingBottlesToReturn = is19LOrder ? Math.max(0, qty19LOrdered - previouslyReturned) : Infinity;
-  const maxReturnedAllowed = is19LOrder ? remainingBottlesToReturn : Infinity;
-  const isBottleReturnLocked = is19LOrder && remainingBottlesToReturn <= 0;
+  const qtyReturnableOrdered = order.items?.filter(isReturnableOrderItem).reduce((sum, i) => sum + i.quantity, 0) || 0;
+  const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0) + parseInt(d.bottlesLost || 0)), 0) || 0;
+
+  const customerHeldCustody = parseInt(order.customer?.cachedBottleBalance || 0);
+  const isReturnableOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qtyReturnableOrdered > 0);
+  const remainingOrderReturns = Math.max(0, qtyReturnableOrdered - previouslyReturned);
+  // Cap allows returning accumulated customer custody or current order quantity:
+  const maxReturnedAllowed = isReturnableOrder ? Math.max(remainingOrderReturns, customerHeldCustody) : Infinity;
+  const isBottleReturnLocked = isReturnableOrder && maxReturnedAllowed <= 0;
 
   const orderTotal = (order.items || []).reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
   const totalItems = (order.items || []).reduce((sum, item) => sum + item.quantity, 0);
@@ -76,6 +88,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     qtyDelivered: calculateDefaultQtyDelivered(),
     bottlesReturnedGood: 0,
     bottlesReturnedBroken: 0,
+    bottlesLost: 0,
     cashReceived: (isMarketingManager && !isPaymentSettlementOnly) || isPaidInAdvance ? 0 : remainingOrderBalance,
     paymentMethod: 'CASH',
     remarks: ''
@@ -107,13 +120,13 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     const { name, value } = e.target;
     const val = Math.max(0, parseInt(value || 0));
 
-    if (is19LOrder) {
-      const otherVal = name === 'bottlesReturnedGood'
-        ? parseInt(deliveryData.bottlesReturnedBroken || 0)
-        : parseInt(deliveryData.bottlesReturnedGood || 0);
+    if (isReturnableOrder) {
+      const good = name === 'bottlesReturnedGood' ? val : parseInt(deliveryData.bottlesReturnedGood || 0);
+      const broken = name === 'bottlesReturnedBroken' ? val : parseInt(deliveryData.bottlesReturnedBroken || 0);
+      const lost = name === 'bottlesLost' ? val : parseInt(deliveryData.bottlesLost || 0);
 
-      if (val + otherVal > maxReturnedAllowed) {
-        toast.error(`Total 19L bottles returned cannot exceed ${maxReturnedAllowed}`);
+      if (good + broken + lost > maxReturnedAllowed) {
+        toast.error(`Total returnable containers accounted for (returned + lost) cannot exceed ${maxReturnedAllowed}`);
         return;
       }
     }
@@ -135,10 +148,10 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
       return;
     }
 
-    if (is19LOrder) {
-      const totalReturned = parseInt(deliveryData.bottlesReturnedGood || 0) + parseInt(deliveryData.bottlesReturnedBroken || 0);
-      if (totalReturned > maxReturnedAllowed) {
-        toast.error(`Total bottles returned (${totalReturned}) exceeds limit (${maxReturnedAllowed})`);
+    if (isReturnableOrder) {
+      const totalAccounted = parseInt(deliveryData.bottlesReturnedGood || 0) + parseInt(deliveryData.bottlesReturnedBroken || 0) + parseInt(deliveryData.bottlesLost || 0);
+      if (totalAccounted > maxReturnedAllowed) {
+        toast.error(`Total returnable containers accounted for (${totalAccounted}) exceeds limit (${maxReturnedAllowed})`);
         return;
       }
     }
@@ -151,6 +164,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...deliveryData, 
+          returnableItemId,
           cashReceived: isPaidInAdvance || isFullyCoveredByDeposit ? 0 : deliveryData.cashReceived, 
           settleFromSecurity,
           paymentMethod: settleFromSecurity && isFullyCoveredByDeposit ? 'SECURITY_DEPOSIT' : deliveryData.paymentMethod,
@@ -168,6 +182,11 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
       }
 
       if (json.success) {
+        clearCache('orders');
+        clearCache('bottles');
+        clearCache('customers');
+        clearCache('inventory');
+        clearCache('items');
         toast.success(isPaymentSettlementOnly ? 'Payment settled successfully!' : 'Order delivered successfully!');
         onDeliveryProcessed();
       } else {
@@ -242,13 +261,13 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                 <Package size={14}/> Dispatch & Returns
               </h4>
 
-              {is19LOrder ? (
+              {isReturnableOrder ? (
                 <div className="space-y-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-700">19L Bottles Returned</span>
-                    <span className="text-slate-500 font-medium text-[11px]">Max: {maxReturnedAllowed}</span>
+                    <span className="font-bold text-slate-700">{returnableItemName} Returned / Lost</span>
+                    <span className="text-slate-500 font-medium text-[11px]">Max: {maxReturnedAllowed} (Held: {customerHeldCustody})</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[11px] font-medium text-slate-600 mb-1">Good Condition</label>
                       <input 
@@ -257,22 +276,38 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                         min="0" 
                         max={maxReturnedAllowed}
                         disabled={isBottleReturnLocked} 
-                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium" 
+                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium font-mono" 
                         value={deliveryData.bottlesReturnedGood} 
                         onChange={handleBottleChange} 
+                        title="Good empty bottles returned to factory"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">Broken Condition</label>
+                      <label className="block text-[11px] font-medium text-amber-700 mb-1">Broken / Damaged</label>
                       <input 
                         name="bottlesReturnedBroken" 
                         type="number" 
                         min="0" 
                         max={maxReturnedAllowed}
                         disabled={isBottleReturnLocked} 
-                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-blue-500 outline-none disabled:bg-slate-100 font-medium" 
+                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:border-amber-500 outline-none disabled:bg-slate-100 font-medium font-mono" 
                         value={deliveryData.bottlesReturnedBroken} 
                         onChange={handleBottleChange} 
+                        title="Damaged bottles returned"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-rose-700 mb-1">Marked Lost</label>
+                      <input 
+                        name="bottlesLost" 
+                        type="number" 
+                        min="0" 
+                        max={maxReturnedAllowed}
+                        disabled={isBottleReturnLocked} 
+                        className="w-full border border-rose-200 bg-rose-50/40 rounded-lg p-2 text-sm focus:border-rose-500 outline-none disabled:bg-slate-100 font-medium font-mono text-rose-900" 
+                        value={deliveryData.bottlesLost} 
+                        onChange={handleBottleChange} 
+                        title="Customer lost empty bottle; marked as fleet loss and deducted from customer custody"
                       />
                     </div>
                   </div>
@@ -401,6 +436,8 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                             <select name="paymentMethod" className="select-base text-xs" value={deliveryData.paymentMethod} onChange={handleChange}>
                               <option value="CASH">Cash</option>
                               <option value="BANK_TRANSFER">Bank Transfer / Online</option>
+                              <option value="EASYPAISA">EasyPaisa</option>
+                              <option value="JAZZCASH">JazzCash</option>
                               <option value="CHEQUE">Cheque</option>
                             </select>
                           </div>

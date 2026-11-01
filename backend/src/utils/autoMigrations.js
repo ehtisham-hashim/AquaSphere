@@ -1,10 +1,170 @@
 import { prisma } from '../config/db.js';
 
 /**
+ * Ensures PostgreSQL native enums and columns are added in-place with zero data loss.
+ * Idempotent: safe to run on every server startup.
+ */
+export async function ensureNativeSchemaColumns() {
+  const ddlStatements = [
+    `ALTER TYPE "aquasphere"."payment_types" ADD VALUE IF NOT EXISTS 'EASYPAISA';`,
+    `ALTER TYPE "aquasphere"."payment_types" ADD VALUE IF NOT EXISTS 'JAZZCASH';`,
+    `ALTER TYPE "wadaana"."payment_types" ADD VALUE IF NOT EXISTS 'EASYPAISA';`,
+    `ALTER TYPE "wadaana"."payment_types" ADD VALUE IF NOT EXISTS 'JAZZCASH';`,
+
+    `ALTER TABLE "aquasphere"."customers" ADD COLUMN IF NOT EXISTS "customer_code" TEXT;`,
+    `ALTER TABLE "aquasphere"."customers" ADD COLUMN IF NOT EXISTS "marketer_ref" TEXT;`,
+    `ALTER TABLE "aquasphere"."customers" ADD COLUMN IF NOT EXISTS "buyer_ntn" TEXT;`,
+    `ALTER TABLE "aquasphere"."customers" ADD COLUMN IF NOT EXISTS "buyer_strn" TEXT;`,
+
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "customer_code" TEXT;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "marketer_ref" TEXT;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "buyer_ntn" TEXT;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "buyer_strn" TEXT;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "buys_pure_fine_05l" BOOLEAN DEFAULT false;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "qty_pure_fine_05l" INTEGER DEFAULT 0;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "buys_pure_fine_15l" BOOLEAN DEFAULT false;`,
+    `ALTER TABLE "wadaana"."customers" ADD COLUMN IF NOT EXISTS "qty_pure_fine_15l" INTEGER DEFAULT 0;`,
+
+    `ALTER TABLE "aquasphere"."orders" ADD COLUMN IF NOT EXISTS "with_gst" BOOLEAN DEFAULT false;`,
+    `ALTER TABLE "wadaana"."orders" ADD COLUMN IF NOT EXISTS "with_gst" BOOLEAN DEFAULT false;`,
+
+    `ALTER TABLE "aquasphere"."spot_sales" ADD COLUMN IF NOT EXISTS "receipt_url" TEXT;`,
+    `ALTER TABLE "wadaana"."spot_sales" ADD COLUMN IF NOT EXISTS "receipt_url" TEXT;`,
+
+    `ALTER TABLE "aquasphere"."deliveries" ADD COLUMN IF NOT EXISTS "bottles_lost" INTEGER DEFAULT 0;`,
+    `ALTER TABLE "wadaana"."deliveries" ADD COLUMN IF NOT EXISTS "bottles_lost" INTEGER DEFAULT 0;`,
+
+    `ALTER TABLE "aquasphere"."items" ADD COLUMN IF NOT EXISTS "is_returnable" BOOLEAN NOT NULL DEFAULT false;`,
+    `ALTER TABLE "wadaana"."items" ADD COLUMN IF NOT EXISTS "is_returnable" BOOLEAN NOT NULL DEFAULT false;`,
+    `ALTER TABLE "aquasphere"."bottle_transactions" ADD COLUMN IF NOT EXISTS "item_id" TEXT;`,
+    `ALTER TABLE "wadaana"."bottle_transactions" ADD COLUMN IF NOT EXISTS "item_id" TEXT;`,
+
+    `CREATE UNIQUE INDEX IF NOT EXISTS "customers_customer_code_key" ON "aquasphere"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "wadaana_customers_customer_code_key" ON "wadaana"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`,
+    `CREATE INDEX IF NOT EXISTS "items_is_returnable_idx" ON "aquasphere"."items"("is_returnable");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_items_is_returnable_idx" ON "wadaana"."items"("is_returnable");`,
+    `CREATE INDEX IF NOT EXISTS "bottle_tx_customer_item_idx" ON "aquasphere"."bottle_transactions"("customer_id", "item_id");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_bottle_tx_customer_item_idx" ON "wadaana"."bottle_transactions"("customer_id", "item_id");`
+  ];
+
+  for (const sql of ddlStatements) {
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch (_err) {
+      // Safe no-op if column or type already exists
+    }
+  }
+
+  // Backfill sequential Customer IDs for AquaSphere
+  try {
+    const unassignedAqua = await prisma.aquasphereCustomer.findMany({
+      where: { customerCode: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true }
+    });
+    if (unassignedAqua.length > 0) {
+      const allAssigned = await prisma.aquasphereCustomer.findMany({
+        where: { customerCode: { not: null } },
+        select: { customerCode: true }
+      });
+      let maxSeq = 0;
+      allAssigned.forEach(c => {
+        const match = c.customerCode?.match(/JAM313(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxSeq) maxSeq = num;
+        }
+      });
+      for (const c of unassignedAqua) {
+        maxSeq++;
+        const code = `JAM313${String(maxSeq).padStart(4, '0')}`;
+        await prisma.aquasphereCustomer.update({
+          where: { id: c.id },
+          data: { customerCode: code }
+        }).catch(() => {});
+      }
+      console.log(`[AutoMigrate] ✅ Backfilled ${unassignedAqua.length} AquaSphere customer codes.`);
+    }
+  } catch (err) {
+    console.warn('[AutoMigrate] Notice during AquaSphere customer code backfill:', err.message);
+  }
+
+  // Backfill sequential Customer IDs for Wadaana
+  try {
+    const unassignedWad = await prisma.wadaanaCustomer.findMany({
+      where: { customerCode: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true }
+    });
+    if (unassignedWad.length > 0) {
+      const allAssigned = await prisma.wadaanaCustomer.findMany({
+        where: { customerCode: { not: null } },
+        select: { customerCode: true }
+      });
+      let maxSeq = 0;
+      allAssigned.forEach(c => {
+        const match = c.customerCode?.match(/WAD313(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxSeq) maxSeq = num;
+        }
+      });
+      for (const c of unassignedWad) {
+        maxSeq++;
+        const code = `WAD313${String(maxSeq).padStart(4, '0')}`;
+        await prisma.wadaanaCustomer.update({
+          where: { id: c.id },
+          data: { customerCode: code }
+        }).catch(() => {});
+      }
+      console.log(`[AutoMigrate] ✅ Backfilled ${unassignedWad.length} Wadaana customer codes.`);
+    }
+  } catch (err) {
+    console.warn('[AutoMigrate] Notice during Wadaana customer code backfill:', err.message);
+  }
+
+  // Ensure Wadaana 6 Finished Goods exist
+  try {
+    const wadaanaCatalog = [
+      { name: 'AquaSphere 0.5L', retailPrice: 15 },
+      { name: 'AquaSphere 1.5L', retailPrice: 30 },
+      { name: 'Dasani 0.5L', retailPrice: 13 },
+      { name: 'Dasani 1.5L', retailPrice: 27 },
+      { name: 'Pure Fine 0.5L', retailPrice: 15 },
+      { name: 'Pure Fine 1.5L', retailPrice: 30 },
+    ];
+    for (const prod of wadaanaCatalog) {
+      const existing = await prisma.wadaanaItem.findFirst({
+        where: { name: { equals: prod.name, mode: 'insensitive' }, type: 'FINISHED_GOOD', archivedAt: null }
+      });
+      if (!existing) {
+        await prisma.wadaanaItem.create({
+          data: {
+            name: prod.name,
+            type: 'FINISHED_GOOD',
+            unit: 'bottle',
+            packSize: 1,
+            retailPrice: prod.retailPrice,
+            reorderLevel: 1000,
+            cachedQty: 0,
+            factoryQty: 0,
+            warehouseQty: 0
+          }
+        });
+        console.log(`[AutoMigrate] ✅ Created missing Wadaana finished good: "${prod.name}"`);
+      }
+    }
+  } catch (_err) {
+    // Non-fatal if table not available
+  }
+}
+
+/**
  * Ensures 0.5L and 1.5L shrink wrap films are separately registered and linked to recipes.
  * Idempotent: safe to run on every server startup.
  */
 export async function ensureShrinkWrapMaterials() {
+  await ensureNativeSchemaColumns();
   try {
     const shrinkItems = await prisma.aquasphereItem.findMany({
       where: {

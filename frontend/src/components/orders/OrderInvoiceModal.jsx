@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { X, Printer, Copy, Check, Image as ImageIcon, Send } from 'lucide-react';
+import { X, Printer, Copy, Check, Image as ImageIcon, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
+import { API_URL } from '../../utils/api';
 import {
   copyTextToClipboard,
   formatOrderInvoiceWhatsApp,
@@ -11,10 +12,11 @@ import {
 } from '../../utils/receiptFormatter';
 
 export default function OrderInvoiceModal({ order, onClose }) {
-  const { isWadaana } = useTenant();
+  const { tenant, isWadaana } = useTenant();
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
-  const [withGst, setWithGst] = useState(false);
+  const [withGst, setWithGst] = useState(Boolean(order?.withGst));
+  const [isTogglingGst, setIsTogglingGst] = useState(false);
 
   if (!order) return null;
 
@@ -24,13 +26,44 @@ export default function OrderInvoiceModal({ order, onClose }) {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
+  const previousBalance = Number(order.previousUnpaidBalance || 0);
   const items = order.items || [];
   const grandTotal = items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
   const gstAmount = withGst ? Math.round(grandTotal * 0.18) : 0;
   const netTotal = grandTotal + gstAmount;
 
   const totalPaid = (order.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const balanceDue = netTotal - totalPaid;
+  const balanceDue = Math.max(0, netTotal - totalPaid);
+  const totalRunningDue = balanceDue + previousBalance;
+
+  const handleToggleGst = async (nextVal) => {
+    setWithGst(nextVal);
+    if (!order.id) return;
+    try {
+      setIsTogglingGst(true);
+      const res = await fetch(`${API_URL}/orders/${order.id}/gst`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
+        credentials: 'include',
+        body: JSON.stringify({ withGst: nextVal })
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(nextVal ? 'GST enabled (18%)' : 'GST disabled');
+      } else {
+        setWithGst(!nextVal); // revert on failure
+        toast.error(json.message || 'Failed to update GST status');
+      }
+    } catch (err) {
+      console.error('Error toggling GST:', err);
+      toast.error('Network error toggling GST');
+    } finally {
+      setIsTogglingGst(false);
+    }
+  };
 
   const handlePrint = () => {
     printReceiptElement('order-invoice-print');
@@ -42,6 +75,9 @@ export default function OrderInvoiceModal({ order, onClose }) {
     tagline: 'Pure Quality • Safe & Healthy Water',
     withGst,
     strn: 'E208741-4',
+    iban: 'PK32MEZN0003340115746668',
+    buyerNtn: order.customer?.buyerNtn || '',
+    buyerStrn: order.customer?.buyerStrn || '',
     contactInfo: '051-5454438 / 0300-9149143',
     receiptNo: `#${orderId}`,
     receiptNoLabel: 'INV:',
@@ -49,7 +85,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
     customerName: order.customer?.name || 'Walk-In Customer',
     customerPhone: order.customer?.phone || '',
     paymentMethod: order.paymentStatus || 'UNPAID',
-    statusValue: balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL',
+    statusValue: totalRunningDue > 0 ? `TOTAL DUE: ₨ ${totalRunningDue.toLocaleString()}` : 'PAID IN FULL',
     servedBy: `DELIVERY: ${order.deliveryStatus || 'PENDING'}`,
     items: items.map(item => {
       const qty = Number(item.quantity || 0);
@@ -64,10 +100,13 @@ export default function OrderInvoiceModal({ order, onClose }) {
     summaryRows: [
       { label: 'Subtotal', value: grandTotal },
       ...(withGst ? [{ label: 'GST (18%)', value: gstAmount }] : []),
+      ...(withGst ? [{ label: 'Net Total', value: netTotal }] : []),
       { label: 'Amount Paid', value: totalPaid },
-      ...(balanceDue > 0 ? [{ label: 'Balance Due', value: balanceDue }] : [])
+      { label: 'Current Bill Due', value: balanceDue },
+      ...(previousBalance > 0 ? [{ label: 'Previous Balance', value: previousBalance }] : []),
+      ...(previousBalance > 0 ? [{ label: 'Total Due', value: totalRunningDue }] : [])
     ],
-    netTotal: netTotal,
+    netTotal: totalRunningDue,
     remarks: order.remarks || '',
     footerNote: withGst ? `THANK YOU FOR CHOOSING ${isWadaana ? 'WADAANA' : 'AQUASPHERE'}!` : 'Thanks for choosing us'
   });
@@ -141,8 +180,9 @@ export default function OrderInvoiceModal({ order, onClose }) {
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 text-[11px] font-bold">
               <button
                 type="button"
-                onClick={() => setWithGst(false)}
-                className={`px-2 py-1 rounded-md transition-all ${
+                disabled={isTogglingGst}
+                onClick={() => handleToggleGst(false)}
+                className={`px-2 py-1 rounded-md transition-all flex items-center gap-1 ${
                   !withGst ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -150,11 +190,13 @@ export default function OrderInvoiceModal({ order, onClose }) {
               </button>
               <button
                 type="button"
-                onClick={() => setWithGst(true)}
-                className={`px-2 py-1 rounded-md transition-all ${
+                disabled={isTogglingGst}
+                onClick={() => handleToggleGst(true)}
+                className={`px-2 py-1 rounded-md transition-all flex items-center gap-1 ${
                   withGst ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
+                {isTogglingGst && <Loader2 size={10} className="animate-spin" />}
                 With 18% GST & STRN
               </button>
             </div>
@@ -180,8 +222,11 @@ export default function OrderInvoiceModal({ order, onClose }) {
               {withGst ? 'Commercial Sales Invoice (Tax Invoice)' : 'Commercial Sales Invoice'}
             </p>
             {withGst && (
-              <div className="text-[11px] font-bold text-black mt-1">
+              <div className="text-[11px] font-bold text-black mt-1 space-y-0.5">
                 <p>STRN #: E208741-4</p>
+                <p>Meezan Bank IBAN: PK32MEZN0003340115746668</p>
+                {order.customer?.buyerNtn && <p>Buyer NTN: {order.customer.buyerNtn}</p>}
+                {order.customer?.buyerStrn && <p>Buyer STRN: {order.customer.buyerStrn}</p>}
               </div>
             )}
             <div className="text-[11px] text-slate-700 font-normal mt-0.5">
@@ -200,7 +245,7 @@ export default function OrderInvoiceModal({ order, onClose }) {
             <div><strong>CUST:</strong> {order.customer?.name || 'Walk-In Customer'}</div>
             <div className="flex justify-between items-center">
               <span><strong>PHONE:</strong> {order.customer?.phone || '—'}</span>
-              <span className="font-bold">{balanceDue > 0 ? `DUE: ₨ ${balanceDue.toLocaleString()}` : 'PAID IN FULL'}</span>
+              <span className="font-bold">{totalRunningDue > 0 ? `DUE: ₨ ${totalRunningDue.toLocaleString()}` : 'PAID IN FULL'}</span>
             </div>
             <div className="text-slate-700 text-[11px]">DELIVERY: {order.deliveryStatus || 'PENDING'}</div>
           </div>
@@ -267,9 +312,19 @@ export default function OrderInvoiceModal({ order, onClose }) {
               <span>Amount Paid:</span>
               <span className="font-bold">₨ {totalPaid.toLocaleString()}</span>
             </div>
+            <div className="flex justify-between">
+              <span>Current Bill Due:</span>
+              <span className="font-bold">₨ {balanceDue.toLocaleString()}</span>
+            </div>
+            {previousBalance > 0 && (
+              <div className="flex justify-between text-slate-700">
+                <span>Previous Unpaid Balance:</span>
+                <span className="font-bold">₨ {previousBalance.toLocaleString()}</span>
+              </div>
+            )}
             <div className="border-t-2 border-b-2 border-double border-black py-2 my-2 flex justify-between font-bold text-sm">
-              <span>BALANCE DUE:</span>
-              <span>₨ {balanceDue.toLocaleString()}</span>
+              <span>TOTAL DUE:</span>
+              <span>₨ {totalRunningDue.toLocaleString()}</span>
             </div>
           </div>
 

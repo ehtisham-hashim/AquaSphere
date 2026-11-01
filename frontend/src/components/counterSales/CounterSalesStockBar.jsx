@@ -5,10 +5,11 @@ export default function CounterSalesStockBar({
   loading = false
 }) {
   const formatQty = (qty, packSize, unit) => {
-    if (packSize <= 1) return `${Math.round(qty).toLocaleString()} ${unit}`;
-    const packs = Math.floor(qty / packSize);
-    const loose = Math.round(qty % packSize);
-    return `${packs.toLocaleString()}${loose > 0 ? `.${loose}` : ''} Pk`;
+    const rounded = Math.round(Number(qty || 0));
+    if (packSize <= 1) return `${rounded.toLocaleString()} ${unit}`;
+    const packs = Math.floor(rounded / packSize);
+    const loose = rounded % packSize;
+    return loose > 0 ? `${packs.toLocaleString()} Pk (+${loose} btl)` : `${packs.toLocaleString()} Pk`;
   };
 
   // Ghost / Skeleton UI loader

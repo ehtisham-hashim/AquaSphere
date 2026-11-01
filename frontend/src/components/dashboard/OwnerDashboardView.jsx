@@ -18,6 +18,7 @@ import LowStockAlertGrid from './LowStockAlertGrid';
 import UnprocessedOrdersModal from './UnprocessedOrdersModal';
 import CustomerRiskHub from './CustomerRiskHub';
 import ProductionScrapLossWidget from './production/ProductionScrapLossWidget';
+import CashBreakdownSection from './CashBreakdownSection';
 import { useTenant } from '../../context/TenantContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import { API_URL } from '../../utils/api';
@@ -69,7 +70,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         creditBilled: Number(tf.creditBilled ?? 0),
         waterLitres: Number(tf.waterLitres ?? 0),
         customWaterLitres: Number(tf.customWaterLitres ?? 0),
-        refillWaterLitres: Number(tf.refillWaterLitres ?? 0)
+        refillWaterLitres: Number(tf.refillWaterLitres ?? 0),
+        cashByMethod: tf.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+        salesBySize: tf.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+        cashBySize: tf.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
       };
     }
 
@@ -101,7 +105,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: Number(yItem.creditBilled || 0),
             waterLitres: Number(yItem.waterLitres || 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.yesterday?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.yesterday?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.yesterday?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === 'LAST_3_DAYS') {
@@ -128,7 +135,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: cr,
             waterLitres: matched.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.last3Days?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.last3Days?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.last3Days?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
@@ -154,7 +164,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: cr,
             waterLitres: last7.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.week?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.week?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.week?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       }
@@ -176,7 +189,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       creditBilled: Number(tf.creditBilled ?? data.creditBilled ?? 0),
       waterLitres: Number(tf.waterLitres ?? data.waterLitres ?? 0),
       customWaterLitres: Number(tf.customWaterLitres ?? data.customWaterLitres ?? 0),
-      refillWaterLitres: Number(tf.refillWaterLitres ?? data.refillWaterLitres ?? 0)
+      refillWaterLitres: Number(tf.refillWaterLitres ?? data.refillWaterLitres ?? 0),
+      cashByMethod: tf?.cashByMethod || data?.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+      salesBySize: tf?.salesBySize || data?.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+      cashBySize: tf?.cashBySize || data?.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
     };
   }, [data, timeframe]);
 
@@ -370,6 +386,13 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             onClick={() => navigate('/purchases')}
           />
         </div>
+
+        {/* Payment Channels & Size Breakdown */}
+        <CashBreakdownSection 
+          cashByMethod={activeData?.cashByMethod} 
+          salesBySize={activeData?.salesBySize} 
+          cashBySize={activeData?.cashBySize} 
+        />
       </section>
 
       {/* 2. Interactive Recharts Analytics (Full-width clean card) */}
@@ -409,6 +432,9 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Customer Risk & Bottle Intelligence Hub — Consolidated & Non-Bloated */}
+      <CustomerRiskHub />
 
       {/* 3. Operational Cockpit: 2-Column Split for high-density overview with minimal scrolling */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 pt-1">
@@ -523,9 +549,6 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           <ProductionScrapLossWidget timeframe={timeframe} />
         </div>
       </div>
-
-      {/* Customer Risk & Bottle Intelligence Hub — Consolidated & Non-Bloated */}
-      <CustomerRiskHub />
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal

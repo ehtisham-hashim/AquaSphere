@@ -5,11 +5,11 @@
 
 export const WADAANA_BOTTLE_CATALOG = [
   {
-    id: 'PURE_05L',
-    name: '0.5L Pure Preform Bottle (15g)',
-    displayName: '0.5L Pure',
-    category: 'PURE',
-    categoryLabel: 'PURE PREFORM BOTTLES',
+    id: 'AQUASPHERE_05L',
+    name: 'AquaSphere 0.5L',
+    displayName: 'AquaSphere 0.5L',
+    category: 'AQUASPHERE',
+    categoryLabel: 'AQUASPHERE BOTTLES (PURE BLUE)',
     grammage: '15g',
     customerBuyField: 'buysPure05L',
     customerQtyField: 'qtyPure05L',
@@ -17,11 +17,11 @@ export const WADAANA_BOTTLE_CATALOG = [
     unit: 'Bottles'
   },
   {
-    id: 'PURE_15L',
-    name: '1.5L Pure Preform Bottle (30g)',
-    displayName: '1.5L Pure',
-    category: 'PURE',
-    categoryLabel: 'PURE PREFORM BOTTLES',
+    id: 'AQUASPHERE_15L',
+    name: 'AquaSphere 1.5L',
+    displayName: 'AquaSphere 1.5L',
+    category: 'AQUASPHERE',
+    categoryLabel: 'AQUASPHERE BOTTLES (PURE BLUE)',
     grammage: '30g',
     customerBuyField: 'buysPure15L',
     customerQtyField: 'qtyPure15L',
@@ -29,11 +29,11 @@ export const WADAANA_BOTTLE_CATALOG = [
     unit: 'Bottles'
   },
   {
-    id: 'MIX_05L',
-    name: '0.5L Mix Preform Bottle (13g)',
-    displayName: '0.5L Mix',
-    category: 'MIX',
-    categoryLabel: 'MIX PREFORM BOTTLES',
+    id: 'DASANI_05L',
+    name: 'Dasani 0.5L',
+    displayName: 'Dasani 0.5L',
+    category: 'DASANI',
+    categoryLabel: 'DASANI BOTTLES (MIX BLUE)',
     grammage: '13g',
     customerBuyField: 'buysMix05L',
     customerQtyField: 'qtyMix05L',
@@ -41,15 +41,39 @@ export const WADAANA_BOTTLE_CATALOG = [
     unit: 'Bottles'
   },
   {
-    id: 'MIX_15L',
-    name: '1.5L Mix Preform Bottle (27g)',
-    displayName: '1.5L Mix',
-    category: 'MIX',
-    categoryLabel: 'MIX PREFORM BOTTLES',
+    id: 'DASANI_15L',
+    name: 'Dasani 1.5L',
+    displayName: 'Dasani 1.5L',
+    category: 'DASANI',
+    categoryLabel: 'DASANI BOTTLES (MIX BLUE)',
     grammage: '27g',
     customerBuyField: 'buysMix15L',
     customerQtyField: 'qtyMix15L',
     defaultPrice: 27,
+    unit: 'Bottles'
+  },
+  {
+    id: 'PUREFINE_05L',
+    name: 'Pure Fine 0.5L',
+    displayName: 'Pure Fine 0.5L',
+    category: 'PURE_FINE',
+    categoryLabel: 'PURE FINE BOTTLES (PURE WHITE)',
+    grammage: '15g',
+    customerBuyField: 'buysPureFine05L',
+    customerQtyField: 'qtyPureFine05L',
+    defaultPrice: 15,
+    unit: 'Bottles'
+  },
+  {
+    id: 'PUREFINE_15L',
+    name: 'Pure Fine 1.5L',
+    displayName: 'Pure Fine 1.5L',
+    category: 'PURE_FINE',
+    categoryLabel: 'PURE FINE BOTTLES (PURE WHITE)',
+    grammage: '30g',
+    customerBuyField: 'buysPureFine15L',
+    customerQtyField: 'qtyPureFine15L',
+    defaultPrice: 30,
     unit: 'Bottles'
   }
 ];

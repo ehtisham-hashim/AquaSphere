@@ -263,6 +263,7 @@ export function renderReceiptToCanvas({
   footerNote = 'THANK YOU FOR CHOOSING AQUASPHERE!',
   withGst = false,
   strn = 'E208741-4',
+  iban = 'PK32MEZN0003340115746668',
   contactInfo = '051-5454438 / 0300-9149143'
 }) {
   const scale = 2.5;
@@ -276,6 +277,7 @@ export function renderReceiptToCanvas({
   calcHeight += 18; // subtitle
   if (withGst) {
     calcHeight += 16; // STRN
+    if (iban) calcHeight += 16; // IBAN
   }
   if (contactInfo) {
     calcHeight += 16; // Contacts (always shown in both GST and non-GST)
@@ -353,6 +355,11 @@ export function renderReceiptToCanvas({
     ctx.font = 'bold 10px "Times New Roman", Times, "Tinos", serif';
     ctx.fillText(`STRN #: ${strn}`, width / 2, y + 9);
     y += 16;
+    if (iban) {
+      ctx.font = 'bold 9.5px "Times New Roman", Times, "Tinos", serif';
+      ctx.fillText(`Meezan Bank IBAN: ${iban}`, width / 2, y + 9);
+      y += 16;
+    }
   }
 
   if (contactInfo) {
@@ -675,19 +682,34 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
     msg += `${idx + 1}. *${item.item?.name || 'Item'}* × ${qty} @ Rs. ${rate.toLocaleString()} = *Rs. ${lineTotal.toLocaleString()}*\n`;
   });
   msg += `----------------------------------------\n`;
+  const previousBalance = Number(order.previousUnpaidBalance || 0);
   if (withGst) {
     const gstVal = Math.round(grandTotal * 0.18);
     const netTotal = grandTotal + gstVal;
-    const netDue = netTotal - totalPaid;
+    const netDue = Math.max(0, netTotal - totalPaid);
+    const totalRunningDue = netDue + previousBalance;
     msg += `*Subtotal:* Rs. ${grandTotal.toLocaleString()}\n`;
     msg += `*GST (18%):* Rs. ${gstVal.toLocaleString()}\n`;
     msg += `*Net Total:* Rs. ${netTotal.toLocaleString()}\n`;
     msg += `*Amount Paid:* Rs. ${totalPaid.toLocaleString()}\n`;
-    msg += `*Balance Due:* Rs. ${netDue.toLocaleString()}\n`;
+    msg += `*Current Bill Due:* Rs. ${netDue.toLocaleString()}\n`;
+    if (previousBalance > 0) {
+      msg += `*Previous Balance:* Rs. ${previousBalance.toLocaleString()}\n`;
+    }
+    msg += `*TOTAL DUE:* Rs. ${totalRunningDue.toLocaleString()}\n`;
+    msg += `*Meezan Bank IBAN:* PK32MEZN0003340115746668\n`;
+    if (order.customer?.buyerNtn) msg += `*Buyer NTN:* ${order.customer.buyerNtn}\n`;
+    if (order.customer?.buyerStrn) msg += `*Buyer STRN:* ${order.customer.buyerStrn}\n`;
   } else {
+    const currentDue = Math.max(0, grandTotal - totalPaid);
+    const totalRunningDue = currentDue + previousBalance;
     msg += `*Subtotal:* Rs. ${grandTotal.toLocaleString()}\n`;
     msg += `*Amount Paid:* Rs. ${totalPaid.toLocaleString()}\n`;
-    msg += `*Balance Due:* Rs. ${balanceDue.toLocaleString()}\n`;
+    msg += `*Current Bill Due:* Rs. ${currentDue.toLocaleString()}\n`;
+    if (previousBalance > 0) {
+      msg += `*Previous Balance:* Rs. ${previousBalance.toLocaleString()}\n`;
+    }
+    msg += `*TOTAL DUE:* Rs. ${totalRunningDue.toLocaleString()}\n`;
   }
   if (order.remarks) msg += `*Remarks:* ${order.remarks}\n`;
   msg += `----------------------------------------\n`;
@@ -741,8 +763,8 @@ export async function shareOrSendReceiptWhatsApp({
   // 1. Get Blob
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1.0));
 
-  // 2. Try Native Web Share API first
-  if (blob && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
+  // 2. Try Native Web Share API only when NO phone is provided (since navigator.share strips the phone number)
+  if (!phone && blob && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
     try {
       const file = new File([blob], filename, { type: 'image/png' });
       if (navigator.canShare({ files: [file] })) {
@@ -884,7 +906,9 @@ export function getCustomerReceiptData(customer, isWadaana = false, options = {}
         day: 'numeric', month: 'short', year: 'numeric'
       });
       summaryRows.push({ label: 'Last Transaction', value: lastDate, isRaw: true });
-    } catch {}
+    } catch (_err) {
+      // Ignore date formatting errors
+    }
   }
 
   const dateStr = new Date().toLocaleDateString('en-GB', {
@@ -995,5 +1019,80 @@ export async function shareOrSendOrderInvoiceWhatsApp({ order, isWadaana = false
     elementId,
     filename: `Invoice_${orderId}.png`
   });
+}
+
+/**
+ * Formats a Month-End Statement text for direct WhatsApp dispatch.
+ */
+export function formatMonthlyStatementWhatsApp({ customer, month, orders = [], isWadaana = false }) {
+  const company = isWadaana ? 'WADAANA WATER & BEVERAGES' : 'AQUASPHERE PURE WATER';
+  let monthLabel = month;
+  try {
+    const [y, m] = month.split('-');
+    const dateObj = new Date(Number(y), Number(m) - 1, 1);
+    monthLabel = dateObj.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  } catch (_err) {
+    // Fallback to raw month string on parsing error
+  }
+
+  const custName = customer?.name || 'Valued Customer';
+  const custCode = customer?.customerCode || (customer?.id ? `#${customer.id.substring(0, 6).toUpperCase()}` : '');
+  const balance = Number(customer?.currentBalance || 0);
+
+  // Compute breakdown of delivered quantities in this month
+  let qty19L = 0;
+  let qty15L = 0;
+  let qty05L = 0;
+  let totalBilled = 0;
+
+  orders.forEach(o => {
+    const isDelivered = o.deliveryStatus === 'DELIVERED';
+    o.items?.forEach(i => {
+      const name = (i.item?.name || '').toLowerCase();
+      const q = Number(i.quantity || 0);
+      const price = Number(i.price || 0);
+      if (isDelivered) {
+        totalBilled += q * price;
+      }
+      if (name.includes('19l') || o.type === 'NINETEEN_L') qty19L += q;
+      else if (name.includes('1.5') || name.includes('1.5l')) qty15L += q;
+      else if (name.includes('0.5') || name.includes('500ml')) qty05L += q;
+    });
+  });
+
+  let msg = `*${company}*\n`;
+  msg += `*MONTH-END STATEMENT — ${monthLabel.toUpperCase()}*\n`;
+  msg += `Tel: 051-5454438 / 0300-9149143\n`;
+  msg += `----------------------------------------\n`;
+  msg += `*Customer:* ${custName} (${custCode})\n`;
+  if (customer?.phone) msg += `*Phone:* ${customer.phone}\n`;
+  msg += `*Month Orders:* ${orders.length} orders\n`;
+  msg += `----------------------------------------\n`;
+  msg += `*DELIVERED QUANTITIES IN ${monthLabel.toUpperCase()}:*\n`;
+  if (qty19L > 0) msg += `• *19L Bottles:* ${qty19L} bottles\n`;
+  if (qty15L > 0) msg += `• *1.5L Packs:* ${qty15L} packs\n`;
+  if (qty05L > 0) msg += `• *0.5L Packs:* ${qty05L} packs\n`;
+  if (qty19L === 0 && qty15L === 0 && qty05L === 0) msg += `• Delivered: ${orders.length} shipments\n`;
+  msg += `----------------------------------------\n`;
+  msg += `*Month Total Billed:* Rs. ${Math.round(totalBilled).toLocaleString()}\n`;
+  msg += `*Current Outstanding Balance:* *Rs. ${balance.toLocaleString()}*\n`;
+  msg += `----------------------------------------\n`;
+  msg += `*Payment Details:*\n`;
+  msg += `Meezan Bank IBAN: *PK32MEZN0003340115746668*\n`;
+  msg += `EasyPaisa / JazzCash: *0300-9149143*\n`;
+  msg += `----------------------------------------\n`;
+  msg += balance > 0 
+    ? 'Please settle the outstanding balance at your earliest convenience. Thank you for your continued partnership!'
+    : 'Your account is fully cleared. Thank you for choosing us!';
+  return msg;
+}
+
+/**
+ * Dispatches monthly statement directly to WhatsApp.
+ */
+export function shareOrSendMonthlyStatementWhatsApp({ customer, month, orders = [], isWadaana = false }) {
+  const text = formatMonthlyStatementWhatsApp({ customer, month, orders, isWadaana });
+  const phone = customer?.phone?.includes('_archived_') ? customer.phone.split('_archived_')[0] : customer?.phone;
+  return openWhatsAppWeb(phone || '', text);
 }
 

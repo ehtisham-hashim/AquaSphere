@@ -105,10 +105,10 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  19L Bottle Custody & Recovery
+                  Returnable Custody & Recovery
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Bottles with customers and recovery reminders
+                  Containers held by customers and recovery reminders
                 </p>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
               <div className="bg-sky-50 border border-sky-200/80 rounded-lg px-2.5 py-1 text-right">
                 <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">In Market</span>
                 <span className="text-sm font-mono font-bold text-sky-900">
-                  {totalInCirculation.toLocaleString()} Bottles
+                  {totalInCirculation.toLocaleString()} Units
                 </span>
               </div>
 
@@ -125,7 +125,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
                 <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg px-2.5 py-1 text-right">
                   <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">At Plant</span>
                   <span className="text-sm font-mono font-bold text-emerald-900">
-                    {Number(summary.atFactory).toLocaleString()} Bottles
+                    {Number(summary.atFactory).toLocaleString()} Units
                   </span>
                 </div>
               )}
@@ -188,7 +188,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0">
               <tr>
                 <th className="p-2.5">Customer</th>
-                <th className="p-2.5 text-center">Unreturned Bottles</th>
+                <th className="p-2.5 text-center">Returnable Custody</th>
                 <th className="p-2.5 text-right">Security Deposit</th>
                 <th className="p-2.5 text-center">Inactive Days</th>
                 <th className="p-2.5 text-right">Actions</th>
@@ -203,7 +203,7 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
                 <tr>
                   <td colSpan="5" className="p-6 text-center text-slate-400">
                     <CheckCircle2 size={20} className="mx-auto mb-1 text-emerald-500 opacity-60" />
-                    All 19L bottles accounted for. No outstanding client balances.
+                    All returnable containers accounted for. No outstanding client balances.
                   </td>
                 </tr>
               ) : (
@@ -219,9 +219,20 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
                         <div className="text-[11px] text-slate-400 font-mono">{c.phone || 'No phone'}</div>
                       </td>
                       <td className="p-2.5 text-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                          {bottles} btls
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            {bottles} Units
+                          </span>
+                          {Array.isArray(c.returnableCustody) && c.returnableCustody.length > 0 && (
+                            <div className="flex flex-wrap justify-center gap-1">
+                              {c.returnableCustody.map(rc => (
+                                <span key={rc.itemId || 'legacy'} className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.2 rounded">
+                                  {rc.itemName}: <strong className="text-amber-800">{rc.balance}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="p-2.5 text-right font-mono font-semibold text-slate-700">
                         {deposit > 0 ? `Rs. ${deposit.toLocaleString()}` : <span className="text-rose-500 font-bold">Rs. 0</span>}

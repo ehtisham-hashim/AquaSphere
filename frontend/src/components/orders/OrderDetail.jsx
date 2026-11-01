@@ -512,8 +512,9 @@ export default function OrderDetail({ order, onClose, onSettle }) {
                             </td>
                             <td className="py-3.5 px-4 text-xs">
                               {d.bottlesReturnedGood > 0 && <span className="text-emerald-700 font-bold mr-2">↩ {d.bottlesReturnedGood} Good</span>}
-                              {d.bottlesReturnedBroken > 0 && <span className="text-rose-700 font-bold">💔 {d.bottlesReturnedBroken} Broken</span>}
-                              {!d.bottlesReturnedGood && !d.bottlesReturnedBroken && <span className="text-slate-400">—</span>}
+                              {d.bottlesReturnedBroken > 0 && <span className="text-amber-700 font-bold mr-2">💔 {d.bottlesReturnedBroken} Broken</span>}
+                              {d.bottlesLost > 0 && <span className="text-rose-700 font-bold">❌ {d.bottlesLost} Lost</span>}
+                              {!d.bottlesReturnedGood && !d.bottlesReturnedBroken && !d.bottlesLost && <span className="text-slate-400">—</span>}
                             </td>
                             <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
                               {parseFloat(d.cashReceived || 0) > 0 ? `Rs. ${parseFloat(d.cashReceived).toLocaleString()}` : '—'}

@@ -12,9 +12,10 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
 
   const [form, setForm] = useState({
     name: '', phone: '', type: 'Home', address: '', mapLink: '',
-    securityDeposit: 0, creditDuration: 1, remarks: '',
+    securityDeposit: 0, creditDuration: 1, remarks: '', marketerRef: '', buyerNtn: '', buyerStrn: '',
     buys19L: false, buys05LPet: false, buys15LPet: false,
-    buysPure05L: false, buysPure15L: false, buysMix05L: false, buysMix15L: false
+    buysPure05L: false, buysPure15L: false, buysMix05L: false, buysMix15L: false,
+    buysPureFine05L: false, buysPureFine15L: false
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -80,8 +81,20 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Type *</label>
               <select name="type" className={INPUT} value={form.type} onChange={handleChange}>
-                <option>Home</option><option>Restaurant</option><option>Shop</option><option>Distributor</option>
+                <option>Home</option><option>Restaurant</option><option>Shop</option><option>Commercial</option><option>Corporate</option><option>Distributor</option><option>Industrial</option>
               </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">Marketer / Reference</label>
+              <input name="marketerRef" className={INPUT} value={form.marketerRef} onChange={handleChange} placeholder="e.g. Aslam Khan / Direct"/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Buyer NTN</label>
+              <input name="buyerNtn" className={INPUT} value={form.buyerNtn} onChange={handleChange} placeholder="1234567-8"/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Buyer STRN</label>
+              <input name="buyerStrn" className={INPUT} value={form.buyerStrn} onChange={handleChange} placeholder="Sales Tax Reg #"/>
             </div>
           </div>
 
@@ -110,7 +123,7 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
             ) : (
               <div className="space-y-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
                 <div>
-                  <div className="font-bold text-[#0ea5e9] uppercase tracking-wider mb-1.5">Pure Preform Bottles</div>
+                  <div className="font-bold text-[#0ea5e9] uppercase tracking-wider mb-1.5">AquaSphere (Pure Preform)</div>
                   <div className="grid grid-cols-2 gap-2 pl-2.5 border-l border-[#0ea5e9]/40">
                     <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
                       <input type="checkbox" name="buysPure05L" checked={form.buysPure05L} onChange={handleChange} className="rounded text-[#0ea5e9] focus:ring-[#0ea5e9]" />
@@ -123,7 +136,7 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
                   </div>
                 </div>
                 <div className="pt-1.5 border-t border-slate-200">
-                  <div className="font-bold text-amber-600 uppercase tracking-wider mb-1.5">Mix Preform Bottles</div>
+                  <div className="font-bold text-amber-600 uppercase tracking-wider mb-1.5">Dasani (Mix Preform)</div>
                   <div className="grid grid-cols-2 gap-2 pl-2.5 border-l border-amber-500/40">
                     <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
                       <input type="checkbox" name="buysMix05L" checked={form.buysMix05L} onChange={handleChange} className="rounded text-amber-600 focus:ring-amber-500" />
@@ -132,6 +145,19 @@ export default function AddCustomerInlineModal({ onClose, onCustomerAdded }) {
                     <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
                       <input type="checkbox" name="buysMix15L" checked={form.buysMix15L} onChange={handleChange} className="rounded text-amber-600 focus:ring-amber-500" />
                       <span>1.5L Mix <span className="text-slate-400 font-normal">(27g)</span></span>
+                    </label>
+                  </div>
+                </div>
+                <div className="pt-1.5 border-t border-slate-200">
+                  <div className="font-bold text-teal-600 uppercase tracking-wider mb-1.5">Pure Fine Preform</div>
+                  <div className="grid grid-cols-2 gap-2 pl-2.5 border-l border-teal-500/40">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input type="checkbox" name="buysPureFine05L" checked={form.buysPureFine05L} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
+                      <span>0.5L Pure Fine</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+                      <input type="checkbox" name="buysPureFine15L" checked={form.buysPureFine15L} onChange={handleChange} className="rounded text-teal-600 focus:ring-teal-500" />
+                      <span>1.5L Pure Fine</span>
                     </label>
                   </div>
                 </div>

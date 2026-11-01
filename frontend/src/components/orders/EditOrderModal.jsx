@@ -33,12 +33,15 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     }
 
     if (isWadaana) {
-      if (nameLower.includes('pure')) {
+      if (nameLower.includes('pure fine')) {
+        category = 'PURE_FINE';
+        categoryLabel = 'PURE FINE PREFORM BOTTLES';
+      } else if (nameLower.includes('pure') || nameLower.includes('aquasphere')) {
         category = 'PURE';
-        categoryLabel = 'PURE PREFORM BOTTLES';
-      } else if (nameLower.includes('mix')) {
+        categoryLabel = 'AQUASPHERE (PURE PREFORM)';
+      } else if (nameLower.includes('mix') || nameLower.includes('dasani')) {
         category = 'MIX';
-        categoryLabel = 'MIX PREFORM BOTTLES';
+        categoryLabel = 'DASANI (MIX PREFORM)';
       }
     }
 
@@ -54,7 +57,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
   });
 
   const categoryOrder = isWadaana 
-    ? ['PURE PREFORM BOTTLES', 'MIX PREFORM BOTTLES', 'OTHER FINISHED GOODS']
+    ? ['AQUASPHERE (PURE PREFORM)', 'DASANI (MIX PREFORM)', 'PURE FINE PREFORM BOTTLES', 'OTHER FINISHED GOODS']
     : ['19L WATER BOTTLES', '0.5L PET PACKS', '1.5L PET PACKS', 'OTHER FINISHED GOODS'];
   
   const existingCategories = Array.from(new Set(availableItems.map(i => i.categoryLabel)));

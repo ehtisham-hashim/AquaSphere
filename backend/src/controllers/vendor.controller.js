@@ -6,6 +6,7 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import { broadcastDashboardUpdate } from './analytics.controller.js';
 
 /** Retrieves all vendors with aggregated purchase and payment totals */
 export const getVendors = asyncHandler(async (req, res) => {
@@ -62,7 +63,13 @@ export const getVendorById = asyncHandler(async (req, res) => {
     prisma[`${prefix}Vendor`].findUnique({
       where: { id },
       include: {
-        purchases: { orderBy: { createdAt: 'desc' }, include: { items: { include: { item: true } } } },
+        purchases: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            items: { include: { item: true } },
+            ledgerEntries: { where: { type: 'PAYMENT' }, select: { id: true, amount: true } }
+          }
+        },
         payments: { orderBy: { createdAt: 'desc' } }
       }
     }),
@@ -248,7 +255,7 @@ export const restoreVendor = asyncHandler(async (req, res) => {
   return sendSuccess(res, vendor, 200, { message: 'Vendor restored successfully' });
 });
 
-/** Records a vendor payment */
+/** Records a vendor payment with FIFO pooled debt allocation across open credit purchases */
 export const recordVendorPayment = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id: vendorId } = req.params;
@@ -279,6 +286,7 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
   const targetDate = paymentDate ? new Date(paymentDate) : new Date();
 
   const result = await prisma.$transaction(async (tx) => {
+    // 1. Create master payment record
     const payment = await tx[`${prefix}VendorPayment`].create({
       data: {
         vendorId,
@@ -291,21 +299,109 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
       }
     });
 
-    const ledgerRemarks = `Payment [${paymentMethod || 'CASH'}]${referenceNo ? ` Ref: ${referenceNo}` : ''}${remarks ? ` - ${remarks}` : ''}`;
-    const ledgerEntry = await tx[`${prefix}VendorLedgerEntry`].create({
-      data: { vendorId, type: 'PAYMENT', amount: paymentAmount, remarks: ledgerRemarks.trim(), createdAt: targetDate }
+    // 2. Fetch all open credit/partial purchases for this vendor ordered chronologically (FIFO)
+    const openPurchases = await tx[`${prefix}Purchase`].findMany({
+      where: {
+        vendorId,
+        status: { not: 'CANCELLED' },
+        paymentStatus: { in: ['CREDIT', 'PARTIAL'] }
+      },
+      include: {
+        ledgerEntries: {
+          where: { type: 'PAYMENT' },
+          select: { id: true, amount: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
     });
+
+    let remainingPool = paymentAmount;
+    const settledPurchases = [];
+
+    // 3. FIFO Allocation loop
+    for (const p of openPurchases) {
+      if (remainingPool <= 0) break;
+
+      const grandTotal = Number(p.grandTotal || 0);
+      const alreadyPaid = (p.ledgerEntries || []).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+      const due = Math.max(0, grandTotal - alreadyPaid);
+
+      if (due <= 0) {
+        if (p.paymentStatus !== 'PAID') {
+          await tx[`${prefix}Purchase`].update({
+            where: { id: p.id },
+            data: { paymentStatus: 'PAID' }
+          });
+        }
+        continue;
+      }
+
+      const alloc = Math.min(remainingPool, due);
+      if (alloc <= 0) continue;
+
+      const ledgerRemarks = `Payment [${paymentMethod || 'CASH'}] for Purchase ${p.invoiceNo || p.id.slice(0, 8)}${referenceNo ? ` Ref: ${referenceNo}` : ''}${remarks ? ` - ${remarks}` : ''}`.trim();
+
+      await tx[`${prefix}VendorLedgerEntry`].create({
+        data: {
+          vendorId,
+          purchaseId: p.id,
+          type: 'PAYMENT',
+          amount: alloc,
+          remarks: ledgerRemarks,
+          createdAt: targetDate
+        }
+      });
+
+      const newTotalPaid = alreadyPaid + alloc;
+      const newPaymentStatus = newTotalPaid >= grandTotal - 0.01 ? 'PAID' : 'PARTIAL';
+
+      await tx[`${prefix}Purchase`].update({
+        where: { id: p.id },
+        data: { paymentStatus: newPaymentStatus }
+      });
+
+      remainingPool -= alloc;
+      settledPurchases.push({
+        purchaseId: p.id,
+        invoiceNo: p.invoiceNo,
+        allocated: alloc,
+        newPaymentStatus
+      });
+    }
+
+    // 4. Record any advance credit if payment exceeds open obligations
+    if (remainingPool > 0.009) {
+      const advanceRemarks = `Advance Payment [${paymentMethod || 'CASH'}]${referenceNo ? ` Ref: ${referenceNo}` : ''}${remarks ? ` - ${remarks}` : ''}`.trim();
+      await tx[`${prefix}VendorLedgerEntry`].create({
+        data: {
+          vendorId,
+          purchaseId: null,
+          type: 'PAYMENT',
+          amount: remainingPool,
+          remarks: advanceRemarks,
+          createdAt: targetDate
+        }
+      });
+    }
 
     await createAuditLog(prefix, {
       action: 'VENDOR_PAYMENT_RECORDED',
       entityType: 'VENDOR_PAYMENT',
       entityId: payment.id,
-      details: JSON.stringify({ vendorId, vendorName: vendor.name, amount: paymentAmount, paymentMethod, proofUrl }),
+      details: JSON.stringify({
+        vendorId,
+        vendorName: vendor.name,
+        amount: paymentAmount,
+        paymentMethod,
+        proofUrl,
+        settledPurchasesCount: settledPurchases.length,
+        settledPurchases
+      }),
       performedBy: req.user?.id || 'SYSTEM'
     });
 
-    return { payment, ledgerEntry };
-  });
+    return { payment, settledPurchases };
+  }, { maxWait: 10000, timeout: 30000 });
 
   const ledgerSums = await prisma[`${prefix}VendorLedgerEntry`].groupBy({
     by: ['type'],
@@ -317,10 +413,13 @@ export const recordVendorPayment = asyncHandler(async (req, res) => {
   const totalPaid = Number(ledgerSums.find(s => s.type === 'PAYMENT')?._sum?.amount || 0);
 
   broadcastEvent(prefix, 'VENDOR_UPDATED', { vendorId });
+  broadcastEvent(prefix, 'PURCHASE_CREATED', { vendorId });
+  broadcastDashboardUpdate(prefix);
 
   return sendSuccess(res, result.payment, 201, {
     payableBalance: totalPurchases - totalPaid,
-    message: 'Vendor payment recorded successfully'
+    settledPurchases: result.settledPurchases,
+    message: `Vendor payment of Rs. ${paymentAmount.toLocaleString()} recorded and allocated across ${result.settledPurchases.length} purchase(s) successfully`
   });
 });
 

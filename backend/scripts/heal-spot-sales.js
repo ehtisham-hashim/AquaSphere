@@ -55,13 +55,8 @@ export const healSpotSalesInventory = async (prefix = 'aquasphere') => {
         continue;
       }
 
-      let qtyToDeduct = rawQty;
-      const normalizedType = String(sale.productType || '').toUpperCase();
-      if (normalizedType.includes('SINGLE_05L') || (normalizedType.includes('05L') && normalizedType.includes('SINGLE'))) {
-        qtyToDeduct = qtyToDeduct / 12;
-      } else if (normalizedType.includes('SINGLE_15L') || (normalizedType.includes('15L') && normalizedType.includes('SINGLE'))) {
-        qtyToDeduct = qtyToDeduct / 6;
-      }
+      // Base Unit Storage Law: cachedQty stores base bottles, so single bottles deduct 1 base bottle each
+      const qtyToDeduct = rawQty;
 
       // Atomic execution: check existence, create transaction record, decrement item stock
       await prisma.$transaction(async (tx) => {

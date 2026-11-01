@@ -1,4 +1,5 @@
 import { DollarSign, CheckCircle, AlertCircle, ShoppingCart, TrendingDown, Lock, Clock, Receipt } from 'lucide-react';
+import CashBreakdownSection from './CashBreakdownSection';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 
 export default function CashSummaryTab({
@@ -21,7 +22,7 @@ export default function CashSummaryTab({
   closeMsg = null,
   role = 'ACCOUNTANT',
 }) {
-  const company = getCompanyFromCookie();
+  const _company = getCompanyFromCookie();
   const totalIn = cashData?.totalCashCollected || (summary.cashFromOrders + summary.cashFromSpot) || 0;
   const fromOrders = cashData?.fromOrders || summary.cashFromOrders || 0;
   const fromSpot = cashData?.fromSpotSales || summary.cashFromSpot || 0;
@@ -65,19 +66,21 @@ export default function CashSummaryTab({
         ))}
       </div>
 
+      {/* Payment Channels & Size Breakdown */}
+      <CashBreakdownSection 
+        cashByMethod={cashData?.cashByMethod || cashData?.paymentsByMethod || summary?.cashByMethod} 
+        salesBySize={cashData?.salesBySize || summary?.salesBySize} 
+        cashBySize={cashData?.cashBySize || summary?.cashBySize} 
+      />
+
       {/* Sales & Activity breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {(company === 'wadaana' ? [
+        {[
           { label: 'Orders Delivered', value: summary.ordersDelivered || 0 },
           { label: 'Pending Orders', value: summary.pendingOrders || 0 },
           { label: 'Counter Sales', value: summary.spotSales || 0 },
           { label: 'Total Orders', value: summary.ordersTotal || 0 },
-        ] : [
-          { label: '19L Delivery Sales', value: summary.ordersDelivered || 0 },
-          { label: 'Counter Sales', value: summary.spotSales || 0 },
-          { label: '0.5L PET Sales', value: (summary.ordersDelivered || 0) > 0 ? `${summary.ordersDelivered * 2} packs` : '0 packs' },
-          { label: '1.5L PET Sales', value: (summary.ordersDelivered || 0) > 0 ? `${summary.ordersDelivered} packs` : '0 packs' },
-        ]).map((s) => (
+        ].map((s) => (
           <div key={s.label} className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 shadow-xs">
             <div className="text-xs text-slate-500 font-semibold">{s.label}</div>
             <div className="text-2xl font-black text-slate-800 mt-1 font-mono">{s.value}</div>
