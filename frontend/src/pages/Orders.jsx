@@ -85,12 +85,14 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [items, setItems] = useState([]);
+  const [marketers, setMarketers] = useState([]);
 
   // UI State
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClientTypes, setSelectedClientTypes] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
+  const [selectedMarketer, setSelectedMarketer] = useState('ALL');
   const [dateFilter, setDateFilter] = useState('ALL');
   const [statementMonth, setStatementMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [settleCustomer, setSettleCustomer] = useState(null);
@@ -113,18 +115,20 @@ export default function Orders() {
       setIsLoading(true);
     }
     try {
-      const [ordRes, custRes, itmRes] = await Promise.all([
+      const [ordRes, custRes, itmRes, mktRes] = await Promise.all([
         fetch(`${API_URL}/orders`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
         fetch(`${API_URL}/customers`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-        fetch(`${API_URL}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+        fetch(`${API_URL}/items`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+        fetch(`${API_URL}/customers/marketers`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
       ]);
-      const [ord, cust, itm] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json()]);
+      const [ord, cust, itm, mkt] = await Promise.all([ordRes.json(), custRes.json(), itmRes.json(), mktRes.json()]);
       if (ord.success) {
         setOrders(ord.data);
         ordersLoadedRef.current = true;
       }
       if (cust.success) setCustomers(cust.data);
       if (itm.success) setItems(itm.data || []);
+      if (mkt.success && mkt.data?.marketers) setMarketers(mkt.data.marketers);
     } catch (err) {
       console.error('Failed to fetch orders data:', err);
     } finally {
@@ -236,6 +240,20 @@ export default function Orders() {
     if (activeTab === 'Completed Orders' && (o.deliveryStatus !== 'DELIVERED' || o.paymentStatus !== 'PAID')) return false;
     if (activeTab === 'Cancelled Orders' && o.deliveryStatus !== 'CANCELLED') return false;
     
+    // Marketer filtering
+    if (selectedMarketer !== 'ALL') {
+      const mRef = o.customer?.marketerRef || '';
+      const mId = o.customer?.marketerId || '';
+      if (selectedMarketer === 'DIRECT') {
+        if (mId && mId !== 'DIRECT') return false;
+        if (!mId && mRef && mRef.toLowerCase() !== 'direct') return false;
+      } else {
+        const matchId = mId === selectedMarketer;
+        const matchRef = mRef.includes(selectedMarketer);
+        if (!matchId && !matchRef) return false;
+      }
+    }
+
     // Client type multi-select filtering
     if (selectedClientTypes.length > 0) {
       const rawType = (o.customer?.type || '').toUpperCase();
@@ -249,14 +267,14 @@ export default function Orders() {
       if (!matches) return false;
     }
 
-    // Multi-select product size filtering
+    // Dynamic finished goods product size filtering
     if (selectedSizes.length > 0) {
       const hasSize = o.items?.some(i => {
         const name = (i.item?.name || '').toLowerCase();
-        const sz = (name.includes('19l') || o.type === 'NINETEEN_L') ? '19L' :
-                   (name.includes('1.5') || name.includes('1500')) ? '1.5L' :
-                   (name.includes('0.5') || name.includes('500')) ? '0.5L' : null;
-        return sz && selectedSizes.includes(sz);
+        return selectedSizes.some(sz => {
+          const target = sz.toLowerCase();
+          return name.includes(target) || (target.includes('19l') && o.type === 'NINETEEN_L');
+        });
       });
       if (!hasSize) return false;
     }
@@ -264,22 +282,24 @@ export default function Orders() {
     // Date filtering
     if (dateFilter !== 'ALL' && !orderMatchesDate(o, dateFilter)) return false;
     
-    // Search query: Order ID, Customer Name, Phone Number
+    // Search query: Order ID, Customer Name, Phone Number, Customer Code, Marketer
     if (searchQuery) {
       const q = searchQuery.toLowerCase().trim();
       const orderIdStr = o.id.toLowerCase();
       const orderIdShort = `#${o.id.substring(0, 6).toLowerCase()}`;
       const custName = (o.customer?.name || '').toLowerCase();
       const custPhone = (o.customer?.phone || '').toLowerCase();
+      const custCode = (o.customer?.customerCode || '').toLowerCase();
+      const mktRef = (o.customer?.marketerRef || '').toLowerCase();
       
-      const matchesSearch = orderIdStr.includes(q) || orderIdShort.includes(q) || custName.includes(q) || custPhone.includes(q);
+      const matchesSearch = orderIdStr.includes(q) || orderIdShort.includes(q) || custName.includes(q) || custPhone.includes(q) || custCode.includes(q) || mktRef.includes(q);
       if (!matchesSearch) return false;
     }
 
     return true;
   });
 
-  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${selectedClientTypes.join(',')}_${selectedSizes.join(',')}_${activeTab}_${dateFilter}`);
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${selectedClientTypes.join(',')}_${selectedSizes.join(',')}_${selectedMarketer}_${activeTab}_${dateFilter}`);
 
   const ordersKpi = useMemo(() => {
     let totalValue = 0;
@@ -298,19 +318,26 @@ export default function Orders() {
     return { totalValue, totalUnits, unpaidAmount };
   }, [filteredOrders]);
 
-  const hasActiveOrderFilters = selectedSizes.length > 0 || selectedClientTypes.length > 0 || dateFilter !== 'ALL';
+  const hasActiveOrderFilters = selectedSizes.length > 0 || selectedClientTypes.length > 0 || dateFilter !== 'ALL' || selectedMarketer !== 'ALL';
   const handleResetOrderFilters = () => {
     setSelectedSizes([]);
     setSelectedClientTypes([]);
     setDateFilter('ALL');
+    setSelectedMarketer('ALL');
   };
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders', 'Month-End Statements'];
-  const productSizeOptions = [
-    { value: '19L', label: '19L Refill' },
-    { value: '1.5L', label: '1.5L PET' },
-    { value: '0.5L', label: '0.5L PET' }
-  ];
+  const productSizeOptions = useMemo(() => {
+    const fgItems = items.filter(i => i.type === 'FINISHED_GOOD' && !i.archivedAt);
+    if (fgItems.length > 0) {
+      return fgItems.map(i => ({ value: i.name, label: i.name }));
+    }
+    return [
+      { value: '19L', label: '19L Refill' },
+      { value: '1.5L', label: '1.5L PET' },
+      { value: '0.5L', label: '0.5L PET' }
+    ];
+  }, [items]);
 
   // Month-End Statements aggregation
   const monthOrders = orders.filter(o => {
@@ -452,6 +479,22 @@ export default function Orders() {
             onChange={setDateFilter}
             options={DATE_FILTER_OPTIONS}
           />
+
+          {/* Marketer Filter Dropdown */}
+          <select
+            aria-label="Filter by Marketer"
+            value={selectedMarketer}
+            onChange={e => setSelectedMarketer(e.target.value)}
+            className="text-xs font-semibold px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-brand shadow-2xs cursor-pointer hover:border-slate-300 transition-colors"
+          >
+            <option value="ALL">All Marketers</option>
+            <option value="DIRECT">Direct / Company</option>
+            {marketers.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.id} • {m.name}
+              </option>
+            ))}
+          </select>
 
           <MultiSelectDropdown
             label="Sizes"

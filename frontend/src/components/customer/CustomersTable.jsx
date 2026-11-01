@@ -102,11 +102,6 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                         <div>
                           <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
                             {c.name}
-                            {c.customerCode && (
-                              <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded">
-                                {c.customerCode}
-                              </span>
-                            )}
                             {c.archivedAt && (
                               <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase">
                                 Archived
@@ -118,15 +113,20 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-900 text-white tracking-wide">
+                              {c.customerCode || `#${c.id.slice(0, 6).toUpperCase()}`}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              c.marketerId && c.marketerId !== 'DIRECT'
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              👤 {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerId} • ${c.marketerName}` : (c.marketerName && c.marketerName !== 'Direct / Company' ? c.marketerName : 'Direct')}
+                            </span>
+                            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
                               {c.type}
                             </span>
-                            {c.marketerRef && (
-                              <span className="text-[10px] text-slate-500 font-medium">
-                                Ref: {c.marketerRef}
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>

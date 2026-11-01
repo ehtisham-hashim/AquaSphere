@@ -1,8 +1,34 @@
-import { MapPin, DollarSign, FileText, ShoppingBag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, ShoppingBag, DollarSign, FileText } from 'lucide-react';
 import { getTenantCatalog } from '../../constants/wadaanaProducts';
+import { API_URL } from '../../utils/api';
+import { useTenant } from '../../context/TenantContext';
 
 export default function CustomerFormFields({ formData, handleChange, isWadaana }) {
+  const { tenant } = useTenant();
   const products = getTenantCatalog(isWadaana ? 'wadaana' : 'aquasphere');
+  const [marketers, setMarketers] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchMarketers = async () => {
+      try {
+        const res = await fetch(`${API_URL}/customers/marketers`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (isMounted && json.success && json.data?.marketers) {
+          setMarketers(json.data.marketers);
+        }
+      } catch (err) {
+        console.error('Failed to load marketers:', err);
+      }
+    };
+    fetchMarketers();
+    return () => { isMounted = false; };
+  }, [tenant]);
+
   return (
     <>
       {/* Basic Info Section */}
@@ -10,6 +36,62 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
           <MapPin size={14} className="text-slate-500" /> Basic Details
         </h4>
+
+        {/* Customer ID & Marketer Attribution Box */}
+        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Customer System Code
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-1.5 rounded-lg tracking-wider">
+                {formData.customerCode || (isWadaana ? 'WAD313xxxx (Auto)' : 'JAM313xxxx (Auto)')}
+              </span>
+              <span className="text-[11px] text-slate-400">Sequential ID</span>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="customer-marketer" className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
+              <span>Referred By / Marketer</span>
+              {formData.marketerName && formData.marketerId === '' && (
+                <span className="text-[10px] text-emerald-600 font-bold">New: {formData.marketerName}</span>
+              )}
+            </label>
+            <div className="flex gap-1.5">
+              <select
+                id="customer-marketer"
+                className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                value={formData.marketerId || (formData.marketerRef?.includes('•') ? formData.marketerRef.split('•')[0].trim() : 'DIRECT')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'NEW') {
+                    const newName = window.prompt('Enter new marketer full name (e.g. Tariq Mehmood):');
+                    if (newName && newName.trim()) {
+                      handleChange({ target: { name: 'marketerName', value: newName.trim() } });
+                      handleChange({ target: { name: 'marketerRef', value: newName.trim() } });
+                      handleChange({ target: { name: 'marketerId', value: '' } });
+                    }
+                  } else {
+                    const sel = marketers.find(m => m.id === val);
+                    handleChange({ target: { name: 'marketerId', value: val } });
+                    handleChange({ target: { name: 'marketerName', value: sel?.name || '' } });
+                    handleChange({ target: { name: 'marketerRef', value: val === 'DIRECT' ? '' : `${val} • ${sel?.name || ''}` } });
+                  }
+                }}
+              >
+                <option value="DIRECT">Direct / Company (No Marketer)</option>
+                {marketers.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.id} — {m.name} ({m.segment || 'General'})
+                  </option>
+                ))}
+                <option value="NEW">+ Register New Marketer...</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="customer-name" className="block text-xs font-semibold text-slate-700 mb-1">
@@ -43,15 +125,6 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
             />
           </div>
 
-          {formData.customerCode && (
-            <div className="sm:col-span-2 flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-              <span className="text-xs font-semibold text-slate-500">System Customer ID:</span>
-              <span className="font-mono text-xs font-bold bg-slate-200 text-slate-800 px-2 py-0.5 rounded">
-                {formData.customerCode}
-              </span>
-            </div>
-          )}
-
           <div>
             <label htmlFor="customer-type" className="block text-xs font-semibold text-slate-700 mb-1">Customer Type</label>
             <select
@@ -67,21 +140,6 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               <option value="Distributor">Distributor / Reseller</option>
               <option value="Industrial">Industrial</option>
             </select>
-          </div>
-
-          <div>
-            <label htmlFor="customer-marketerRef" className="block text-xs font-semibold text-slate-700 mb-1">
-              Marketer / Reference
-            </label>
-            <input
-              id="customer-marketerRef"
-              type="text"
-              name="marketerRef"
-              value={formData.marketerRef || ''}
-              onChange={handleChange}
-              placeholder="e.g. Aslam Khan / Direct"
-              className="input-base text-xs"
-            />
           </div>
 
           <div>

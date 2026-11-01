@@ -54,6 +54,250 @@ const extractTenantProductFields = (prefix, body) => {
   return res;
 };
 
+/** Helper to retrieve or initialize the Marketer Registry from TenantSetting */
+export async function getMarketersRegistry(prefix) {
+  try {
+    const setting = await prisma[`${prefix}TenantSetting`].findUnique({
+      where: { key: 'MARKETERS_REGISTRY' }
+    });
+    if (setting?.value && Array.isArray(setting.value.marketers)) {
+      return setting.value;
+    }
+  } catch (err) {
+    console.error('Failed to load MARKETERS_REGISTRY from DB:', err);
+  }
+
+  // Scan existing customers to seed known marketers
+  let nextSeq = 1;
+  const existingCustomers = await prisma[`${prefix}Customer`].findMany({
+    where: { marketerRef: { not: null } },
+    select: { marketerRef: true }
+  });
+
+  const marketers = [];
+  const seenNames = new Set();
+
+  for (const c of existingCustomers) {
+    const raw = (c.marketerRef || '').trim();
+    if (!raw || raw.toLowerCase() === 'direct' || seenNames.has(raw.toLowerCase())) continue;
+
+    const mktMatch = raw.match(/^MKT-(\d+)\s*(?:[•\-–])\s*(.*)$/i);
+    let id, name;
+    if (mktMatch) {
+      const num = parseInt(mktMatch[1], 10);
+      id = `MKT-${String(num).padStart(2, '0')}`;
+      name = mktMatch[2]?.trim() || `Marketer ${num}`;
+      if (num >= nextSeq) nextSeq = num + 1;
+    } else {
+      id = `MKT-${String(nextSeq).padStart(2, '0')}`;
+      name = raw;
+      nextSeq++;
+    }
+
+    seenNames.add(name.toLowerCase());
+    marketers.push({
+      id,
+      name,
+      phone: '',
+      segment: prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET'
+    });
+  }
+
+  const initialRegistry = { nextMarketerSeq: nextSeq, marketers };
+  try {
+    await prisma[`${prefix}TenantSetting`].upsert({
+      where: { key: 'MARKETERS_REGISTRY' },
+      update: { value: initialRegistry },
+      create: { key: 'MARKETERS_REGISTRY', value: initialRegistry }
+    });
+  } catch (e) {
+    console.error('Failed to initialize MARKETERS_REGISTRY:', e);
+  }
+  return initialRegistry;
+}
+
+/** Helper to ensure a marketer exists in MARKETERS_REGISTRY, creating it if needed */
+export async function ensureMarketerInRegistry(prefix, marketerId, marketerName) {
+  if (!marketerName && !marketerId) return { marketerId: 'DIRECT', marketerName: 'Direct / Company' };
+  if (marketerId === 'DIRECT' || marketerName?.toLowerCase() === 'direct') {
+    return { marketerId: 'DIRECT', marketerName: 'Direct / Company' };
+  }
+
+  const registry = await getMarketersRegistry(prefix);
+  let existing = null;
+  if (marketerId && marketerId.startsWith('MKT-')) {
+    existing = registry.marketers.find(m => m.id.toUpperCase() === marketerId.toUpperCase());
+  }
+  if (!existing && marketerName) {
+    existing = registry.marketers.find(m => m.name.toLowerCase() === marketerName.trim().toLowerCase());
+  }
+
+  if (existing) {
+    return { marketerId: existing.id, marketerName: existing.name };
+  }
+
+  // Auto-register brand new marketer
+  const newId = marketerId && marketerId.startsWith('MKT-')
+    ? marketerId
+    : `MKT-${String(registry.nextMarketerSeq || (registry.marketers.length + 1)).padStart(2, '0')}`;
+  const newName = marketerName?.trim() || `Marketer ${newId}`;
+
+  const newMarketer = {
+    id: newId,
+    name: newName,
+    phone: '',
+    segment: prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET'
+  };
+
+  const nextSeq = Math.max((registry.nextMarketerSeq || 1) + 1, (parseInt(newId.replace(/\D/g, ''), 10) || 1) + 1);
+  registry.marketers.push(newMarketer);
+  registry.nextMarketerSeq = nextSeq;
+
+  try {
+    await prisma[`${prefix}TenantSetting`].upsert({
+      where: { key: 'MARKETERS_REGISTRY' },
+      update: { value: registry },
+      create: { key: 'MARKETERS_REGISTRY', value: registry }
+    });
+  } catch (e) {
+    console.error('Failed to update MARKETERS_REGISTRY:', e);
+  }
+
+  return { marketerId: newId, marketerName: newName };
+}
+
+/** Formats a customer's marketer attribution metadata */
+export function formatCustomerMarketer(c, registryMarketers = []) {
+  const raw = (c.marketerRef || '').trim();
+  if (!raw || raw.toLowerCase() === 'direct' || raw === 'DIRECT') {
+    return {
+      marketerId: 'DIRECT',
+      marketerName: 'Direct / Company',
+      marketerDisplay: 'Direct / Company'
+    };
+  }
+
+  // Matches "MKT-01 • Ali Raza" or "MKT-01 - Ali"
+  const mktMatch = raw.match(/^(MKT-\d+)(?:\s*[•\-–]\s*(.*))?$/i);
+  if (mktMatch) {
+    const id = mktMatch[1].toUpperCase();
+    const parsedName = mktMatch[2]?.trim();
+    const found = registryMarketers.find(m => m.id.toUpperCase() === id);
+    const name = parsedName || found?.name || id;
+    return {
+      marketerId: id,
+      marketerName: name,
+      marketerDisplay: `${id} • ${name}`
+    };
+  }
+
+  // Matches single name e.g. "Aslam"
+  const found = registryMarketers.find(m => m.name.toLowerCase() === raw.toLowerCase());
+  if (found) {
+    return {
+      marketerId: found.id,
+      marketerName: found.name,
+      marketerDisplay: `${found.id} • ${found.name}`
+    };
+  }
+
+  return {
+    marketerId: 'DIRECT',
+    marketerName: raw,
+    marketerDisplay: raw
+  };
+}
+
+/** Retrieves registered marketers with aggregated customer count and outstanding debt */
+export const getMarketers = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const registry = await getMarketersRegistry(prefix);
+
+  const customers = await prisma[`${prefix}Customer`].findMany({
+    where: { archivedAt: null },
+    select: {
+      id: true,
+      customerCode: true,
+      name: true,
+      marketerRef: true,
+      currentBalance: true
+    }
+  });
+
+  const marketersWithStats = registry.marketers.map(m => {
+    const assignedCustomers = customers.filter(c => {
+      const { marketerId, marketerName } = formatCustomerMarketer(c, registry.marketers);
+      return marketerId === m.id || (m.name && marketerName.toLowerCase() === m.name.toLowerCase());
+    });
+
+    const totalDebt = assignedCustomers.reduce((acc, c) => acc + Number(c.currentBalance || 0), 0);
+    const customerCodes = assignedCustomers.map(c => c.customerCode || `#${c.id.slice(0, 6)}`);
+
+    return {
+      ...m,
+      customersCount: assignedCustomers.length,
+      totalDebt,
+      customerCodes
+    };
+  });
+
+  const directCustomers = customers.filter(c => {
+    const { marketerId } = formatCustomerMarketer(c, registry.marketers);
+    return marketerId === 'DIRECT';
+  });
+
+  return sendSuccess(res, {
+    marketers: marketersWithStats,
+    directStats: {
+      customersCount: directCustomers.length,
+      totalDebt: directCustomers.reduce((acc, c) => acc + Number(c.currentBalance || 0), 0)
+    }
+  });
+});
+
+/** Creates and registers a new marketer */
+export const createMarketer = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { name, phone, segment } = req.body;
+  if (!name || !name.trim()) throw new ApiError(400, 'Marketer name is required');
+
+  const registry = await getMarketersRegistry(prefix);
+  const trimmedName = name.trim();
+
+  const existing = registry.marketers.find(m => m.name.toLowerCase() === trimmedName.toLowerCase());
+  if (existing) {
+    return sendSuccess(res, existing, 200, { message: 'Marketer already registered' });
+  }
+
+  const nextSeq = registry.nextMarketerSeq || (registry.marketers.length + 1);
+  const id = `MKT-${String(nextSeq).padStart(2, '0')}`;
+  const newMarketer = {
+    id,
+    name: trimmedName,
+    phone: phone ? phone.trim() : '',
+    segment: segment ? segment.trim() : (prefix.includes('wadaana') ? 'Wadaana B2B' : '19L / PET')
+  };
+
+  registry.marketers.push(newMarketer);
+  registry.nextMarketerSeq = nextSeq + 1;
+
+  await prisma[`${prefix}TenantSetting`].upsert({
+    where: { key: 'MARKETERS_REGISTRY' },
+    update: { value: registry },
+    create: { key: 'MARKETERS_REGISTRY', value: registry }
+  });
+
+  await createAuditLog(prefix, {
+    action: 'MARKETER_CREATED',
+    entityType: 'Marketer',
+    entityId: id,
+    performedBy: req.user?.name || req.user?.id || 'Admin',
+    details: `Marketer Registered: ${id} • ${trimmedName} (${newMarketer.segment})`
+  });
+
+  return sendSuccess(res, newMarketer, 201);
+});
+
 /** Retrieves customers with optional search filtering */
 export const getCustomers = asyncHandler(async (req, res) => {
   const { search, status, page, limit } = req.query;
@@ -76,6 +320,7 @@ export const getCustomers = asyncHandler(async (req, res) => {
   } : archivedFilter;
 
   const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
+  const registry = await getMarketersRegistry(prefix);
 
   if (hasExplicitLimit) {
     const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
@@ -92,7 +337,12 @@ export const getCustomers = asyncHandler(async (req, res) => {
       prisma[`${prefix}Customer`].count({ where })
     ]);
 
-    return sendSuccess(res, customers, 200, {
+    const enriched = customers.map(c => ({
+      ...c,
+      ...formatCustomerMarketer(c, registry.marketers)
+    }));
+
+    return sendSuccess(res, enriched, 200, {
       pagination: {
         total,
         page: parsedPage,
@@ -107,7 +357,12 @@ export const getCustomers = asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  return sendSuccess(res, customers);
+  const enriched = customers.map(c => ({
+    ...c,
+    ...formatCustomerMarketer(c, registry.marketers)
+  }));
+
+  return sendSuccess(res, enriched);
 });
 
 /** Retrieves detailed customer history */
@@ -115,7 +370,7 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const prefix = getTenantPrefix(req);
 
-  const [customer, auditLogs] = await Promise.all([
+  const [customer, auditLogs, registry] = await Promise.all([
     prisma[`${prefix}Customer`].findUnique({
       where: { id },
       include: {
@@ -147,17 +402,19 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
     prisma[`${prefix}AuditLog`].findMany({
       where: { entityType: 'Customer', entityId: id },
       orderBy: { createdAt: 'desc' }
-    })
+    }),
+    getMarketersRegistry(prefix)
   ]);
 
   if (!customer) throw new ApiError(404, 'Customer not found');
-  return sendSuccess(res, { ...customer, auditLogs });
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  return sendSuccess(res, { ...customer, ...marketerMeta, auditLogs });
 });
 
 /** Creates a new customer or restores archived record */
 export const createCustomer = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl, marketerRef, buyerNtn, buyerStrn } = req.body;
+  const { name, phone, type, address, mapLink, securityDeposit, currentBalance, creditDuration, remarks, homePictureUrl, marketerRef, marketerId, marketerName, buyerNtn, buyerStrn } = req.body;
 
   if (!name || !phone || !type) throw new ApiError(400, 'Name, phone, and type required');
   if (mapLink && !isValidGoogleMapsUrl(mapLink)) {
@@ -180,11 +437,26 @@ export const createCustomer = asyncHandler(async (req, res) => {
   });
   const customerCode = `${codePrefix}${String(maxSeq + 1).padStart(4, '0')}`;
 
+  // Resolve marketer attribution
+  let resolvedMarketerRef = null;
+  if (marketerId === 'DIRECT' || (marketerRef && marketerRef.trim().toLowerCase() === 'direct')) {
+    resolvedMarketerRef = null;
+  } else if (marketerId && marketerId.startsWith('MKT-')) {
+    const regRes = await ensureMarketerInRegistry(prefix, marketerId, marketerName || marketerRef);
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  } else if (marketerName && marketerName.trim()) {
+    const regRes = await ensureMarketerInRegistry(prefix, null, marketerName.trim());
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  } else if (marketerRef && marketerRef.trim()) {
+    const regRes = await ensureMarketerInRegistry(prefix, null, marketerRef.trim());
+    resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+  }
+
   const customerData = {
     name: name.trim(),
     phone: phone.trim(),
     customerCode,
-    marketerRef: marketerRef ? marketerRef.trim() : null,
+    marketerRef: resolvedMarketerRef,
     buyerNtn: buyerNtn ? buyerNtn.trim() : null,
     buyerStrn: buyerStrn ? buyerStrn.trim() : null,
     type,
@@ -219,7 +491,9 @@ export const createCustomer = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
-  return sendSuccess(res, customer, 201);
+  const registry = await getMarketersRegistry(prefix);
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  return sendSuccess(res, { ...customer, ...marketerMeta }, 201);
 });
 
 /** Updates customer profile */
@@ -248,7 +522,29 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   if (creditDuration !== undefined) updateData.creditDuration = parseInt(creditDuration, 10) || 1;
   if (remarks !== undefined) updateData.remarks = remarks;
   if (homePictureUrl !== undefined) updateData.homePictureUrl = homePictureUrl;
-  if (req.body.marketerRef !== undefined) updateData.marketerRef = req.body.marketerRef ? req.body.marketerRef.trim() : null;
+
+  // Marketer reference update
+  if (req.body.marketerId !== undefined || req.body.marketerName !== undefined || req.body.marketerRef !== undefined) {
+    const inputMarketerId = req.body.marketerId;
+    const inputMarketerName = req.body.marketerName;
+    const inputMarketerRef = req.body.marketerRef;
+
+    if (inputMarketerId === 'DIRECT' || (inputMarketerRef && inputMarketerRef.trim().toLowerCase() === 'direct')) {
+      updateData.marketerRef = null;
+    } else if (inputMarketerId && inputMarketerId.startsWith('MKT-')) {
+      const regRes = await ensureMarketerInRegistry(prefix, inputMarketerId, inputMarketerName);
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else if (inputMarketerName && inputMarketerName.trim()) {
+      const regRes = await ensureMarketerInRegistry(prefix, null, inputMarketerName.trim());
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else if (inputMarketerRef && inputMarketerRef.trim()) {
+      const regRes = await ensureMarketerInRegistry(prefix, null, inputMarketerRef.trim());
+      updateData.marketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+    } else {
+      updateData.marketerRef = null;
+    }
+  }
+
   if (req.body.buyerNtn !== undefined) updateData.buyerNtn = req.body.buyerNtn ? req.body.buyerNtn.trim() : null;
   if (req.body.buyerStrn !== undefined) updateData.buyerStrn = req.body.buyerStrn ? req.body.buyerStrn.trim() : null;
 
@@ -274,7 +570,9 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   });
 
   broadcastEvent(prefix, 'CUSTOMER_UPDATED', { customerId: customer.id });
-  return sendSuccess(res, customer);
+  const registry = await getMarketersRegistry(prefix);
+  const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
+  return sendSuccess(res, { ...customer, ...marketerMeta });
 });
 
 /** Deletes a customer permanently (cascading child data) or archives if requested */

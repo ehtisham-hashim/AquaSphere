@@ -171,16 +171,18 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
         {/* Name & Badges */}
         <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
-        {c.customerCode && (
-          <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded mt-1 inline-block">
-            {c.customerCode}
-          </span>
-        )}
         <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+          <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
+            🆔 {c.customerCode || c.id.slice(0, 8).toUpperCase()}
+          </span>
+          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+            c.marketerId && c.marketerId !== 'DIRECT'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'bg-slate-100 text-slate-600 border-slate-200'
+          }`}>
+            👤 Marketer: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerName || c.marketerRef} (${c.marketerId})` : (c.marketerName || c.marketerRef || 'Direct / Company')}
+          </span>
           <Badge variant={theme.badgeVariant}>{c.type || 'Standard'}</Badge>
-          {c.marketerRef && (
-            <Badge variant="amber">Ref: {c.marketerRef}</Badge>
-          )}
           <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
         </div>
         {(c.buyerNtn || c.buyerStrn) && (

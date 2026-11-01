@@ -30,12 +30,34 @@ export default function Customers() {
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
   const [filterPreset, setFilterPreset] = useState('ALL'); // 'ALL' | 'IN_DEBT' | 'HOLDING_BOTTLES' | 'UNSECURED_BOTTLES' | 'INACTIVE'
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedMarketer, setSelectedMarketer] = useState('ALL');
+  const [marketerOptions, setMarketerOptions] = useState([]);
   const [now] = useState(() => Date.now());
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const debounceTimerRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchMarketerList = async () => {
+      try {
+        const res = await fetch(`${API_URL}/customers/marketers`, {
+          headers: { 'x-tenant': tenant },
+          credentials: 'include'
+        });
+        const json = await res.json();
+        if (isMounted && json.success && json.data?.marketers) {
+          setMarketerOptions(json.data.marketers);
+        }
+      } catch (err) {
+        console.error('Failed to load marketer filter options:', err);
+      }
+    };
+    fetchMarketerList();
+    return () => { isMounted = false; };
+  }, [tenant]);
 
   const fetchCustomers = async (q = search, tab = activeTab, isBackground = false) => {
     if (!isBackground && customers.length === 0) {
@@ -195,9 +217,21 @@ export default function Customers() {
         if (!matches) return false;
       }
 
+      // 3. Marketer filter
+      if (selectedMarketer !== 'ALL') {
+        if (selectedMarketer === 'DIRECT') {
+          if (c.marketerId && c.marketerId !== 'DIRECT') return false;
+          if (!c.marketerId && c.marketerRef && c.marketerRef.toLowerCase() !== 'direct') return false;
+        } else {
+          const matchId = c.marketerId === selectedMarketer;
+          const matchRef = c.marketerRef && c.marketerRef.includes(selectedMarketer);
+          if (!matchId && !matchRef) return false;
+        }
+      }
+
       return true;
     });
-  }, [customers, filterPreset, selectedTypes, now]);
+  }, [customers, filterPreset, selectedTypes, selectedMarketer, now]);
 
   // KPI Summary for filtered list
   const kpiSummary = useMemo(() => {
@@ -234,11 +268,12 @@ export default function Customers() {
     return tabs;
   }, [tabCounts, isWadaana]);
 
-  const hasActiveFilters = filterPreset !== 'ALL' || selectedTypes.length > 0;
+  const hasActiveFilters = filterPreset !== 'ALL' || selectedTypes.length > 0 || selectedMarketer !== 'ALL';
 
   const handleResetFilters = () => {
     setFilterPreset('ALL');
     setSelectedTypes([]);
+    setSelectedMarketer('ALL');
   };
 
   return (
@@ -309,6 +344,22 @@ export default function Customers() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* Marketer Filter Dropdown */}
+              <select
+                aria-label="Filter by Marketer"
+                value={selectedMarketer}
+                onChange={e => setSelectedMarketer(e.target.value)}
+                className="text-xs font-semibold px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-brand shadow-2xs cursor-pointer hover:border-slate-300 transition-colors"
+              >
+                <option value="ALL">All Marketers</option>
+                <option value="DIRECT">Direct / Company</option>
+                {marketerOptions.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.id} • {m.name}
+                  </option>
+                ))}
+              </select>
+
               {/* Multi-Select Customer Types Dropdown */}
               <MultiSelectDropdown
                 label="Customer Types"
