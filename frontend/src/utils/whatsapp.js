@@ -157,6 +157,26 @@ export function openWhatsAppWeb(phone, text = '', options = {}) {
 export const openWhatsApp = openWhatsAppWeb;
 
 /**
+ * Direct WhatsApp URL builder for public customer-facing links.
+ * Bypasses the api.whatsapp.com intermediate splash screen ("Open app / Continue to WhatsApp Web")
+ * by directing desktop browsers directly to web.whatsapp.com, while routing mobile devices via wa.me / native app.
+ */
+export function getDirectWhatsAppUrl(phone, text = '') {
+  const normPhone = normalizeWhatsAppPhone(phone) || '923015072233';
+  const encoded = text ? encodeURIComponent(text) : '';
+
+  if (typeof navigator !== 'undefined') {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (typeof window !== 'undefined' && window.innerWidth < 768);
+    if (isMobile) {
+      return `https://wa.me/${normPhone}${encoded ? `?text=${encoded}` : ''}`;
+    }
+  }
+
+  return `https://web.whatsapp.com/send?phone=${normPhone}${encoded ? `&text=${encoded}` : ''}`;
+}
+
+/**
  * Standardized message templates for customers, drivers, and sales operations.
  */
 export const WhatsAppTemplates = {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SEOHead } from '../components/common/SEOHead';
+import { getDirectWhatsAppUrl } from '../utils/whatsapp';
 import { 
   ExternalLink, 
   Download, 
@@ -447,7 +448,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
               </p>
               <div className="flex items-center gap-3">
                 <a
-                  href="https://wa.me/923015072233?text=Hello%20AquaSphere"
+                  href={getDirectWhatsAppUrl("923015072233", "Hello AquaSphere")}
                   target="_blank"
                   rel="noreferrer"
                   className="w-9 h-9 rounded-none bg-slate-800/80 hover:bg-[#25D366] text-white flex items-center justify-center transition-all"
@@ -539,7 +540,7 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
       {/* Floating WhatsApp Action */}
       <a 
-        href="https://wa.me/923015072233?text=Hello%20AquaSphere" 
+        href={getDirectWhatsAppUrl("923015072233", "Hello AquaSphere")} 
         target="_blank" 
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold px-4 py-3 rounded-none shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40"

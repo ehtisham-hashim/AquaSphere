@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { SEOHead } from '../components/common/SEOHead';
+import { getDirectWhatsAppUrl } from '../utils/whatsapp';
 import { 
   Phone, 
   Clock, 
@@ -410,11 +411,16 @@ export default function LandingPage() {
   }, []);
 
   const getWhatsAppLink = (productName = '') => {
-    const number = settings.whatsapp?.replace(/\D/g, '') || '923015072233';
-    const msg = productName 
-      ? `Hello Aqua Sphere, I want to order: ${productName}`
-      : 'Hello Aqua Sphere, I want to inquire about drinking water.';
-    return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
+    const rawNumber = settings.whatsapp || '923015072233';
+    let msg = '';
+    if (!productName) {
+      msg = 'Hello Aqua Sphere, I want to inquire about drinking water.';
+    } else if (productName.startsWith('New Contact Form Inquiry:')) {
+      msg = productName;
+    } else {
+      msg = `Hello Aqua Sphere, I want to order: ${productName}`;
+    }
+    return getDirectWhatsAppUrl(rawNumber, msg);
   };
 
   const reviewsStructuredData = {
@@ -461,8 +467,7 @@ export default function LandingPage() {
     const email = fd.get('email') || '';
     const message = fd.get('message') || '';
     const text = `New Contact Form Inquiry:\nName: ${name}\nEmail: ${email}\nMessage: ${message}`;
-    const number = settings.whatsapp?.replace(/\D/g, '') || '923015072233';
-    window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(getWhatsAppLink(text), '_blank');
     e.target.reset();
   };
 
