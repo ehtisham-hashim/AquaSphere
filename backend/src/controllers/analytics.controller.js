@@ -30,6 +30,7 @@ const computeDashboardAnalytics = async (prefix) => {
         createdAt: true, 
         deliveryStatus: true,
         paymentStatus: true,
+        withGst: true,
         customer: { select: { id: true, name: true, phone: true } },
         items: { 
           select: { 
@@ -37,14 +38,6 @@ const computeDashboardAnalytics = async (prefix) => {
             quantity: true,
             item: { select: { name: true, unit: true } }
           } 
-        },
-        deliveries: {
-          select: {
-            qtyDelivered: true,
-            cashReceived: true,
-            paymentMethod: true,
-            createdAt: true
-          }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -180,7 +173,8 @@ const computeDashboardAnalytics = async (prefix) => {
 
   for (const o of orders) {
     const d = new Date(o.createdAt);
-    const total = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+    const sub = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
+    const total = o.withGst ? sub + Math.round(sub * 0.18) : sub;
     const isDelivered = o.deliveryStatus === 'DELIVERED';
     const isUnprocessed = o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL';
 
