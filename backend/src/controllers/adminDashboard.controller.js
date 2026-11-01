@@ -103,7 +103,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     }),
     // Spot sales cash & water litres in timeframe
     prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true, totalLitres: true, litresSold: true },
+      _sum: { cashCollected: true, amountPaid: true, totalLitres: true, litresSold: true },
       where: { createdAt: { gte: startDate, lte: endOfDay } }
     }),
     // Total customer receivables
@@ -170,7 +170,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   }));
 
   const orderPayments = Number(cashCollected._sum.amount || 0);
-  const spotCash = Number(spotSalesCash._sum.cashCollected || 0);
+  const spotCash = Math.max(Number(spotSalesCash._sum.amountPaid || 0), Number(spotSalesCash._sum.cashCollected || 0));
 
   res.status(200).json(new ApiResponse(200, {
     kpis: {
@@ -339,6 +339,7 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     fromOrders: totalPayments,
     fromSpotSales: totalSpotSales,
     paymentsByMethod: byMethod,
+    cashByMethod: byMethod,
     salesBySize,
     cashBySize,
     paymentsCount,

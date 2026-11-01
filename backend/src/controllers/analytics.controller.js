@@ -58,12 +58,21 @@ const computeDashboardAnalytics = async (prefix) => {
       where: { createdAt: { gte: minDate, lte: endOfDay } },
       select: {
         createdAt: true,
+        amountPaid: true,
+        paymentMethod: true,
         cashCollected: true,
+        debtAmount: true,
         creditAmount: true,
+        totalAmount: true,
         litresSold: true,
         totalLitres: true,
         items: {
-          select: { saleType: true, quantity: true }
+          select: {
+            saleType: true,
+            quantity: true,
+            unitPrice: true,
+            item: { select: { name: true } }
+          }
         }
       }
     }),
@@ -283,6 +292,7 @@ const computeDashboardAnalytics = async (prefix) => {
     const d = new Date(st.createdAt);
     const cashAmt = parseFloat(st.amountPaid || st.cashCollected || 0);
     const creditAmt = parseFloat(st.creditAmount || st.debtAmount || 0);
+    const saleAmt = parseFloat(st.totalAmount || (cashAmt + creditAmt) || 0);
     const method = (st.paymentMethod || 'CASH').toUpperCase();
     const totalLit = parseFloat(st.totalLitres || st.litresSold || 0);
     let customLit = 0;
@@ -297,16 +307,19 @@ const computeDashboardAnalytics = async (prefix) => {
 
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
+    day.sales += saleAmt;
     day.spotSalesCash += cashAmt;
     day.cashCollected += cashAmt;
     day.creditBilled += creditAmt;
     day.waterLitres = (day.waterLitres || 0) + totalLit;
+    month.sales += saleAmt;
     month.spotSalesCash += cashAmt;
     month.cash += cashAmt;
     month.waterLitres = (month.waterLitres || 0) + totalLit;
 
     const activeBuckets = getBucketsForDate(d);
     for (const b of activeBuckets) {
+      b.sales += saleAmt;
       b.spotSalesCash += cashAmt;
       b.cash += cashAmt;
       b.creditBilled += creditAmt;
@@ -320,11 +333,18 @@ const computeDashboardAnalytics = async (prefix) => {
           b.cashByMethod.CASH = (b.cashByMethod.CASH || 0) + cashAmt;
         }
       }
+      
+      let matchedSize = null;
+      for (const it of st.items || []) {
+        const sz = getBottleSize(it.item?.name);
+        if (sz) { matchedSize = sz; break; }
+      }
+      const targetSize = matchedSize || '19L';
       if (b.cashBySize) {
-        b.cashBySize['19L'] = (b.cashBySize['19L'] || 0) + cashAmt;
+        b.cashBySize[targetSize] = (b.cashBySize[targetSize] || 0) + cashAmt;
       }
       if (b.salesBySize) {
-        b.salesBySize['19L'] = (b.salesBySize['19L'] || 0) + (cashAmt + creditAmt);
+        b.salesBySize[targetSize] = (b.salesBySize[targetSize] || 0) + saleAmt;
       }
     }
   }

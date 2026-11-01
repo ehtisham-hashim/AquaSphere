@@ -68,7 +68,7 @@ export default function CashSummaryTab({
 
       {/* Payment Channels & Size Breakdown */}
       <CashBreakdownSection 
-        cashByMethod={cashData?.paymentsByMethod || summary?.cashByMethod} 
+        cashByMethod={cashData?.cashByMethod || cashData?.paymentsByMethod || summary?.cashByMethod} 
         salesBySize={cashData?.salesBySize || summary?.salesBySize} 
         cashBySize={cashData?.cashBySize || summary?.cashBySize} 
       />

@@ -327,7 +327,7 @@ export default function AdminDashboardView() {
           </div>
 
           <CashBreakdownSection
-            cashByMethod={cashData?.paymentsByMethod}
+            cashByMethod={cashData?.cashByMethod || cashData?.paymentsByMethod}
             salesBySize={cashData?.salesBySize}
             cashBySize={cashData?.cashBySize}
           />

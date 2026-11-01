@@ -66,7 +66,10 @@ export default function AccountantDashboardView({ data }) {
             sales: Number(yItem.sales || 0),
             cash: Number(yItem.cashCollected || yItem.cash || 0),
             expenses: Number(yItem.expenses || 0),
-            credit: Number(yItem.creditBilled || yItem.credit || 0)
+            credit: Number(yItem.creditBilled || yItem.credit || 0),
+            cashByMethod: data.yesterday?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.yesterday?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.yesterday?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === 'LAST_3_DAYS') {
@@ -77,7 +80,10 @@ export default function AccountantDashboardView({ data }) {
             sales: matched.reduce((acc, h) => acc + Number(h.sales || 0), 0),
             cash: matched.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
             expenses: matched.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
-            credit: matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0)
+            credit: matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0),
+            cashByMethod: data.last3Days?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.last3Days?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.last3Days?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
@@ -87,7 +93,10 @@ export default function AccountantDashboardView({ data }) {
             sales: last7.reduce((acc, h) => acc + Number(h.sales || 0), 0),
             cash: last7.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
             expenses: last7.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
-            credit: last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0)
+            credit: last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0),
+            cashByMethod: data.week?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.week?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.week?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       }

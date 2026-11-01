@@ -16,6 +16,19 @@ export default function CashBreakdownSection({ cashByMethod = {}, salesBySize = 
     { key: '0.5L', label: '0.5L PET', badgeBg: 'bg-teal-100 text-teal-800' },
   ];
 
+  const getChannelAmount = (key) => {
+    if (!cashByMethod || typeof cashByMethod !== 'object') return 0;
+    if (cashByMethod[key] !== undefined) return Number(cashByMethod[key]) || 0;
+    const upperKey = key.toUpperCase();
+    const lowerKey = key.toLowerCase();
+    for (const [k, v] of Object.entries(cashByMethod)) {
+      if (k.toUpperCase() === upperKey || k.toLowerCase() === lowerKey) {
+        return Number(v) || 0;
+      }
+    }
+    return 0;
+  };
+
   return (
     <div className="space-y-3">
       {/* Cash Inflow by Payment Channel */}
@@ -26,7 +39,7 @@ export default function CashBreakdownSection({ cashByMethod = {}, salesBySize = 
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           {channels.map(ch => {
-            const amount = Number(cashByMethod?.[ch.key] || 0);
+            const amount = getChannelAmount(ch.key);
             return (
               <div key={ch.key} className={`card-surface p-3 border ${ch.border} rounded-xl flex flex-col justify-between`}>
                 <div className="flex items-center justify-between mb-1">

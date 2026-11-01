@@ -105,7 +105,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: Number(yItem.creditBilled || 0),
             waterLitres: Number(yItem.waterLitres || 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.yesterday?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.yesterday?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.yesterday?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === 'LAST_3_DAYS') {
@@ -132,7 +135,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: cr,
             waterLitres: matched.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.last3Days?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.last3Days?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.last3Days?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
@@ -158,7 +164,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             creditBilled: cr,
             waterLitres: last7.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
             customWaterLitres: 0,
-            refillWaterLitres: 0
+            refillWaterLitres: 0,
+            cashByMethod: data.week?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
+            salesBySize: data.week?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
+            cashBySize: data.week?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
           };
         }
       }
