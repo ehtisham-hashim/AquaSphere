@@ -109,9 +109,46 @@ export function openWhatsAppWeb(phone, text = '', options = {}) {
     return;
   }
 
-  // Mode: Web or Auto (Default: Directly target the dedicated WhatsApp Web tab synchronously)
-  // This guarantees immediate focus without duplicate tabs or popup blocking
-  navigateWhatsAppWeb(webUrl);
+  // Mode: Web Only
+  if (mode === 'web') {
+    navigateWhatsAppWeb(webUrl);
+    return;
+  }
+
+  // Mode: Auto (Default: Try WhatsApp Desktop App first. If not open/handled, fallback to Web tab)
+  let appHandled = false;
+
+  const onBlur = () => {
+    appHandled = true;
+    cleanup();
+  };
+
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      appHandled = true;
+      cleanup();
+    }
+  };
+
+  const cleanup = () => {
+    window.removeEventListener('blur', onBlur);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    if (fallbackTimer) clearTimeout(fallbackTimer);
+  };
+
+  window.addEventListener('blur', onBlur, { once: true });
+  document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+
+  const fallbackTimer = setTimeout(() => {
+    cleanup();
+    // If the browser window stayed focused/visible, desktop app did not open -> Fallback to single Web tab
+    if (!appHandled && !document.hidden) {
+      navigateWhatsAppWeb(webUrl);
+    }
+  }, 1200);
+
+  // Trigger desktop protocol
+  window.location.assign(appUrl);
 }
 
 /**
