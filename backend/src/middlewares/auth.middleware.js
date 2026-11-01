@@ -37,8 +37,8 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 
   const decodedToken = verifyToken(token);
-  if (!decodedToken || !decodedToken.id) {
-    throw new ApiError(401, 'Invalid or expired token');
+  if (!decodedToken || !decodedToken.id || decodedToken.is2FA) {
+    throw new ApiError(401, 'Invalid, expired, or incomplete 2FA token');
   }
 
   const requestedPrefix = getTenantPrefix(req);

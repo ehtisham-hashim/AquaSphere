@@ -441,10 +441,19 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     });
 
     // 3. Reconcile Vendor Ledger and Payments
-    await tx[`${prefix}VendorLedgerEntry`].deleteMany({ where: { purchaseId: id } });
-    await tx[`${prefix}VendorPayment`].deleteMany({
-      where: { vendorId: existing.vendorId, referenceNo: existing.invoiceNo }
+    await tx[`${prefix}VendorLedgerEntry`].deleteMany({ where: { purchaseId: id, type: 'PURCHASE' } });
+
+    const existingPayments = await tx[`${prefix}VendorLedgerEntry`].findMany({
+      where: { purchaseId: id, type: 'PAYMENT' }
     });
+    const alreadyPaid = existingPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+
+    if (targetVendorId !== existing.vendorId && existingPayments.length > 0) {
+      await tx[`${prefix}VendorLedgerEntry`].updateMany({
+        where: { purchaseId: id, type: 'PAYMENT' },
+        data: { vendorId: targetVendorId }
+      });
+    }
 
     await tx[`${prefix}VendorLedgerEntry`].create({
       data: {
@@ -457,28 +466,49 @@ export const updatePurchase = asyncHandler(async (req, res) => {
       }
     });
 
+    let resolvedPaymentStatus;
     if (finalPaymentStatus === 'PAID') {
-      await tx[`${prefix}VendorPayment`].create({
-        data: {
-          vendorId: targetVendorId,
-          amount: newGrandTotal,
-          paymentMethod: 'CASH',
-          referenceNo: finalInvoiceNo,
-          remarks: `Cash payment at purchase (${finalInvoiceNo})`,
-          createdAt: finalPurchaseDate
-        }
-      });
+      const remainingToPay = Math.max(0, newGrandTotal - alreadyPaid);
+      if (remainingToPay > 0) {
+        await tx[`${prefix}VendorPayment`].create({
+          data: {
+            vendorId: targetVendorId,
+            amount: remainingToPay,
+            paymentMethod: 'CASH',
+            referenceNo: finalInvoiceNo,
+            remarks: `Cash payment for Purchase ${finalInvoiceNo}`,
+            createdAt: finalPurchaseDate
+          }
+        });
 
-      await tx[`${prefix}VendorLedgerEntry`].create({
-        data: {
-          vendorId: targetVendorId,
-          purchaseId: id,
-          type: 'PAYMENT',
-          amount: newGrandTotal,
-          remarks: `Cash Paid for Purchase ${finalInvoiceNo}`,
-          createdAt: finalPurchaseDate
-        }
+        await tx[`${prefix}VendorLedgerEntry`].create({
+          data: {
+            vendorId: targetVendorId,
+            purchaseId: id,
+            type: 'PAYMENT',
+            amount: remainingToPay,
+            remarks: `Cash Paid for Purchase ${finalInvoiceNo}`,
+            createdAt: finalPurchaseDate
+          }
+        });
+      }
+      resolvedPaymentStatus = 'PAID';
+    } else {
+      if (alreadyPaid >= newGrandTotal - 0.01) {
+        resolvedPaymentStatus = 'PAID';
+      } else if (alreadyPaid > 0) {
+        resolvedPaymentStatus = 'PARTIAL';
+      } else {
+        resolvedPaymentStatus = finalPaymentStatus || 'UNPAID';
+      }
+    }
+
+    if (resolvedPaymentStatus !== updated.paymentStatus) {
+      await tx[`${prefix}Purchase`].update({
+        where: { id },
+        data: { paymentStatus: resolvedPaymentStatus }
       });
+      updated.paymentStatus = resolvedPaymentStatus;
     }
 
     await createAuditLog(prefix, {

@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { getMarketersRegistry, formatCustomerMarketer } from './customer.controller.js';
+import { computeBottleStats } from '../services/bottleInventory.service.js';
 
 const getPrefix = getTenantPrefix;
 
@@ -131,11 +132,12 @@ export const getReportData = asyncHandler(async (req, res) => {
       // 1. Process Orders
       const orderTableRows = orders.map(o => {
         const mkt = formatCustomerMarketer(o.customer || {}, registry.marketers);
-        const orderBilled = o.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+        const itemsSubtotal = o.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+        const orderBilled = o.withGst ? itemsSubtotal + Math.round(itemsSubtotal * 0.18) : itemsSubtotal;
 
         const deliveryCash = o.deliveries.reduce((s, d) => s + Number(d.cashReceived || 0), 0);
         const paymentCash = o.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-        const orderCash = deliveryCash + paymentCash;
+        const orderCash = o.payments.length > 0 ? paymentCash : deliveryCash;
         const balance = Math.max(0, orderBilled - orderCash);
 
         totalBilled += orderBilled;
@@ -257,6 +259,7 @@ export const getReportData = asyncHandler(async (req, res) => {
       periodPayments.forEach(p => {
         const amt = Number(p.amount || 0);
         if (amt <= 0) return;
+        if (p.type === 'SECURITY_DEPOSIT') return;
         const channel = (p.type || 'CASH').toUpperCase();
         if (p.orderId) paymentOrderSet.add(`${p.orderId}_${amt}`);
 
@@ -448,11 +451,13 @@ export const getReportData = asyncHandler(async (req, res) => {
         const targetId = customerToMarketerMap.get(o.customerId) || 'DIRECT';
         const m = marketerMap.get(targetId);
         if (m) {
-          const billed = o.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+          const itemsSub = o.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+          const billed = o.withGst ? itemsSub + Math.round(itemsSub * 0.18) : itemsSub;
           const delivCash = o.deliveries.reduce((s, d) => s + Number(d.cashReceived || 0), 0);
           const payCash = o.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+          const orderCash = o.payments && o.payments.length > 0 ? payCash : delivCash;
           m.billedSales += billed;
-          m.cashCollected += (delivCash + payCash);
+          m.cashCollected += orderCash;
 
           o.items.forEach(it => {
             const pName = it.item?.name || 'Item';
@@ -555,10 +560,12 @@ export const getReportData = asyncHandler(async (req, res) => {
       table = debtorCustomers.map(c => {
         const mkt = formatCustomerMarketer(c, registry.marketers);
         const orderDebt = c.orders.reduce((sum, ord) => {
-          const ordBilled = ord.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+          const itemsSub = ord.items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+          const ordBilled = ord.withGst ? itemsSub + Math.round(itemsSub * 0.18) : itemsSub;
           const delivCash = ord.deliveries.reduce((s, d) => s + Number(d.cashReceived || 0), 0);
           const payCash = ord.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-          return sum + Math.max(0, ordBilled - (delivCash + payCash));
+          const ordCash = (ord.payments && ord.payments.length > 0) ? payCash : delivCash;
+          return sum + Math.max(0, ordBilled - ordCash);
         }, 0);
 
         const counterDebt = c.spotSales.reduce((sum, s) => sum + Number(s.debtAmount || 0), 0);
@@ -627,7 +634,7 @@ export const getReportData = asyncHandler(async (req, res) => {
         }),
         prisma[`${prefix}Payment`].aggregate({
           _sum: { amount: true },
-          where: { createdAt: { gte: start, lte: end }, orderId: null }
+          where: { createdAt: { gte: start, lte: end }, orderId: null, type: { not: 'SECURITY_DEPOSIT' } }
         }),
         prisma[`${prefix}Expense`].aggregate({
           _sum: { amount: true },
@@ -950,39 +957,26 @@ export const getReportData = asyncHandler(async (req, res) => {
 
     case 'fleet':
     case 'bottle-summary': {
-      const [transactions, customerBottleSum] = await Promise.all([
-        prisma[`${prefix}BottleTransaction`].groupBy({
-          by: ['type'],
-          _sum: { quantity: true }
-        }),
-        prisma[`${prefix}Customer`].aggregate({
-          _sum: { cachedBottleBalance: true },
-          where: { archivedAt: null }
-        })
-      ]);
-
-      const map = {};
-      transactions.forEach(t => {
-        map[t.type] = t._sum.quantity || 0;
-      });
-
-      const totalOwned = map.NEW_PURCHASE || 0;
-      const broken = map.RETURNED_BROKEN || 0;
-      const lost = map.MARKED_LOST || 0;
-
-      const withCustomers = Math.max(0, Number(customerBottleSum._sum.cachedBottleBalance || 0));
-      const atFactory = Math.max(0, totalOwned - withCustomers - broken - lost);
+      const stats = await computeBottleStats(prisma, prefix);
+      const totalOwned = stats.totalOwned;
+      const atFactory = stats.atFactory;
+      const atWarehouse = stats.atWarehouse;
+      const withCustomers = stats.withCustomers;
+      const broken = stats.broken;
+      const lost = stats.lost;
 
       kpis = [
         { label: 'Total Fleet Owned', value: totalOwned.toString() },
         { label: 'At Factory', value: atFactory.toString() },
         { label: 'With Customers', value: withCustomers.toString() },
+        { label: 'At Warehouse', value: atWarehouse.toString() },
         { label: 'Damaged / Lost', value: (broken + lost).toString() }
       ];
 
       chartData = [
         { name: 'At Factory', value: atFactory },
         { name: 'With Customers', value: withCustomers },
+        { name: 'At Warehouse', value: atWarehouse },
         { name: 'Damaged / Broken', value: broken },
         { name: 'Lost', value: lost }
       ];
@@ -990,6 +984,7 @@ export const getReportData = asyncHandler(async (req, res) => {
       table = [
         { '19L Asset Location / State': 'Bottles at Factory', 'Quantity': atFactory },
         { '19L Asset Location / State': 'Bottles with Customers', 'Quantity': withCustomers },
+        { '19L Asset Location / State': 'Bottles at Warehouse', 'Quantity': atWarehouse },
         { '19L Asset Location / State': 'Bottles Broken (Scrapped)', 'Quantity': broken },
         { '19L Asset Location / State': 'Bottles Lost (Unrecoverable)', 'Quantity': lost },
         { '19L Asset Location / State': 'Total Fleet Size', 'Quantity': totalOwned }

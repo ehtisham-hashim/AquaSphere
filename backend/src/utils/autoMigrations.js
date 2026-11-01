@@ -123,6 +123,41 @@ export async function ensureNativeSchemaColumns() {
     console.warn('[AutoMigrate] Notice during Wadaana customer code backfill:', err.message);
   }
 
+  // Ensure 19L Empty Bottles are flagged isReturnable = true and backfill BottleTransaction.itemId
+  for (const prefix of ['aquasphere', 'wadaana']) {
+    try {
+      const items = await prisma[`${prefix}Item`].findMany({
+        where: {
+          type: 'RAW_MATERIAL',
+          archivedAt: null,
+          AND: [
+            { name: { contains: '19', mode: 'insensitive' } },
+            { name: { contains: 'bottle', mode: 'insensitive' } }
+          ]
+        }
+      });
+      for (const it of items) {
+        if (!it.isReturnable) {
+          await prisma[`${prefix}Item`].update({
+            where: { id: it.id },
+            data: { isReturnable: true }
+          }).catch(() => {});
+          console.log(`[AutoMigrate] ✅ Marked ${it.name} as isReturnable = true for ${prefix}`);
+        }
+      }
+
+      const primaryReturnable = items.find(i => i.isReturnable) || items[0];
+      if (primaryReturnable) {
+        await prisma[`${prefix}BottleTransaction`].updateMany({
+          where: { itemId: null },
+          data: { itemId: primaryReturnable.id }
+        }).catch(() => {});
+      }
+    } catch (_err) {
+      // Safe no-op if table is not yet migrated
+    }
+  }
+
   // Ensure Wadaana 6 Finished Goods exist
   try {
     const wadaanaCatalog = [
@@ -372,12 +407,17 @@ export async function ensureShrinkWrapMaterials() {
         { fgMatch: ['aquasphere', '1.5'], rmMatch: ['pure', '1.5'], qty: 0.030 },
         { fgMatch: ['dasani', '0.5'], rmMatch: ['mix', '0.5'], qty: 0.013 },
         { fgMatch: ['dasani', '1.5'], rmMatch: ['mix', '1.5'], qty: 0.027 },
-        { fgMatch: ['pivrifine', '0.5'], rmMatch: ['pure', '0.5', 'white'], qty: 0.015 },
-        { fgMatch: ['pivrifine', '1.5'], rmMatch: ['pure', '1.5', 'white'], qty: 0.030 }
+        { fgMatch: ['pivrifine', '0.5'], fgAltMatch: ['pure fine', '0.5'], rmMatch: ['pure', '0.5', 'white'], qty: 0.015 },
+        { fgMatch: ['pivrifine', '1.5'], fgAltMatch: ['pure fine', '1.5'], rmMatch: ['pure', '1.5', 'white'], qty: 0.030 }
       ];
 
       for (const mapping of wadaanaBOM) {
-        const fg = wadaanaFGs.find(f => mapping.fgMatch.every(t => f.name.toLowerCase().includes(t.toLowerCase())));
+        const fg = wadaanaFGs.find(f => {
+          const n = f.name.toLowerCase();
+          const matchPrimary = mapping.fgMatch.every(t => n.includes(t.toLowerCase()));
+          const matchAlt = mapping.fgAltMatch && mapping.fgAltMatch.every(t => n.includes(t.toLowerCase()));
+          return matchPrimary || matchAlt;
+        });
         const rm = findWadaanaRm(mapping.rmMatch) || findWadaanaRm(mapping.rmMatch.slice(0, 2));
         if (fg && rm) {
           const existing = await prisma.wadaanaRecipeItem.findFirst({

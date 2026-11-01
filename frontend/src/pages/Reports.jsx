@@ -544,12 +544,27 @@ export default function Reports() {
                             Object.keys(displayTable[0]).map((key, fIdx) => {
                               const val = reportData.summaryRow[key];
                               const isNumeric = typeof val === 'number';
+                              const isCurrency = isNumeric && (
+                                key.includes('(Rs)') ||
+                                key.includes('Revenue') ||
+                                key.includes('Cost') ||
+                                key.includes('Cash') ||
+                                key.includes('Amount') ||
+                                key.includes('Price') ||
+                                key.includes('Billed') ||
+                                key.includes('Debt') ||
+                                key.includes('Balance') ||
+                                key.includes('Paid') ||
+                                key.includes('Payable') ||
+                                key.includes('Margin') ||
+                                key.includes('Expense')
+                              );
                               return (
                                 <td 
                                   key={fIdx} 
                                   className={`px-4 py-3 whitespace-nowrap ${isNumeric ? 'text-right' : 'text-left'}`}
                                 >
-                                  {isNumeric ? `Rs. ${val.toLocaleString()}` : (val || '—')}
+                                  {isCurrency ? `Rs. ${val.toLocaleString()}` : isNumeric ? val.toLocaleString() : (val || '—')}
                                 </td>
                               );
                             })

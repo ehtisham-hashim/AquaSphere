@@ -8,8 +8,8 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { uploadImage } from '../utils/cloudinaryUpload.js';
 import {
-  extractReturnablesFromOrderItems,
   creditEmptyBottlesToFactory,
+  debitEmptyBottlesFromFactory,
   resolveReturnableRawMaterial
 } from '../services/bottleInventory.service.js';
 import pkg from '@prisma/client';
@@ -750,33 +750,50 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
             }
           });
 
-          // Revert customer bottle balance if returnable container
-          const returnables = await extractReturnablesFromOrderItems(tx, prefix, [{ itemId: line.itemId, quantity: line.quantity }]);
-          const primaryReturnable = returnables[0] || null;
-          const is19L = line.item?.name?.toLowerCase().includes('19');
-          if (primaryReturnable || is19L) {
-            const resolvedId = primaryReturnable?.rawMaterialId || null;
-            const returnQty = primaryReturnable ? primaryReturnable.quantityIssued : Math.round(returnBaseUnits);
-            await tx[`${prefix}BottleTransaction`].create({
-              data: {
-                type: 'RETURNED_GOOD',
-                quantity: returnQty,
-                itemId: resolvedId,
-                customerId: existing.customerId || null,
-                reason: `Reversal of deleted Counter Sale (${existing.saleNumber || existing.id})`
-              }
-            });
-
-            if (existing.customerId) {
-              await tx[`${prefix}Customer`].update({
-                where: { id: existing.customerId },
-                data: { cachedBottleBalance: { decrement: returnQty } }
-              });
-            }
-          }
         }
       }
     }
+
+    // 1b. Revert returnable bottles issued and returned
+    const existingBottleTxs = await tx[`${prefix}BottleTransaction`].findMany({
+      where: {
+        reason: { contains: existing.saleNumber || existing.id }
+      }
+    });
+
+    for (const bTx of existingBottleTxs) {
+      const q = Number(bTx.quantity || 0);
+      if (bTx.type === 'RETURNED_GOOD') {
+        if (q > 0) {
+          await debitEmptyBottlesFromFactory(tx, prefix, {
+            quantity: q,
+            rawMaterialId: bTx.itemId,
+            customerId: existing.customerId,
+            reason: `Reversal of deleted Counter Sale (${existing.saleNumber || existing.id})`,
+            skipTransactionLog: true
+          });
+          if (existing.customerId) {
+            await tx[`${prefix}Customer`].update({
+              where: { id: existing.customerId },
+              data: { cachedBottleBalance: { increment: q } }
+            }).catch(() => null);
+          }
+        }
+      } else if (bTx.type === 'DELIVERED_TO_CUSTOMER') {
+        if (q > 0 && existing.customerId) {
+          await tx[`${prefix}Customer`].update({
+            where: { id: existing.customerId },
+            data: { cachedBottleBalance: { decrement: q } }
+          }).catch(() => null);
+        }
+      }
+    }
+
+    await tx[`${prefix}BottleTransaction`].deleteMany({
+      where: {
+        reason: { contains: existing.saleNumber || existing.id }
+      }
+    });
 
     // Revert mineral dosing transactions if any were deducted for this sale
     const mineralTxs = await tx[`${prefix}InventoryTransaction`].findMany({

@@ -14,7 +14,8 @@ export default function RecordPaymentModal({ order, onClose, onSuccess }) {
 
   if (!order) return null;
 
-  const total = order.items?.reduce((s, i) => s + (parseFloat(i.price) * i.quantity), 0) || 0;
+  const sub = order.items?.reduce((s, i) => s + (parseFloat(i.price) * i.quantity), 0) || 0;
+  const total = order.withGst ? sub + Math.round(sub * 0.18) : sub;
   const alreadyPaid = order.payments?.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0) || (order.paymentStatus === 'PAID' ? total : 0);
   const outstanding = Math.max(0, total - alreadyPaid);
 

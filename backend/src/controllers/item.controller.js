@@ -699,7 +699,13 @@ export const deleteItem = asyncHandler(async (req, res) => {
       where: { itemId: id }
     });
 
-    // 8. Delete the item
+    // 8. Nullify bottle transaction item references
+    await tx[`${prefix}BottleTransaction`].updateMany({
+      where: { itemId: id },
+      data: { itemId: null }
+    });
+
+    // 9. Delete the item
     await tx[`${prefix}Item`].delete({
       where: { id }
     });

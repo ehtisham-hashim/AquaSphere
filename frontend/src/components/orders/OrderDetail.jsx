@@ -30,7 +30,9 @@ export default function OrderDetail({ order, onClose, onSettle }) {
   const deliveries = order.deliveries || [];
   const payments = order.payments || [];
 
-  const grandTotal = items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
+  const subtotal = items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
+  const gstAmount = order.withGst ? Math.round(subtotal * 0.18) : 0;
+  const grandTotal = subtotal + gstAmount;
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
   const canSettle = balanceDue > 0 && order.deliveryStatus !== 'CANCELLED' && user?.role !== 'TRANSPORT_MANAGER';

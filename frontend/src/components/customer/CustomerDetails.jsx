@@ -426,14 +426,12 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                         ))}
                       </div>
                     )}
-                    {(c.cachedBottleBalance || 0) > 0 && (
-                      <button
-                        onClick={() => setIsBottleModalOpen(true)}
-                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto"
-                      >
-                        Retrieve / Adjust
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setIsBottleModalOpen(true)}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto cursor-pointer"
+                    >
+                      Retrieve / Adjust
+                    </button>
                   </>
                 ) : (
                   <span className="text-[10px] text-slate-400 mt-0.5 block">

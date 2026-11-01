@@ -19,7 +19,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
   const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
-  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles, customerReceivablesAgg] = await Promise.all([
+  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles, customerReceivablesAgg, vendorPayments] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: { 
         createdAt: { gte: minDate, lte: endOfDay },
@@ -104,6 +104,10 @@ const computeDashboardAnalytics = async (prefix) => {
     prisma[`${prefix}Customer`].aggregate({
       _sum: { currentBalance: true },
       where: { currentBalance: { gt: 0 }, archivedAt: null }
+    }),
+    prisma[`${prefix}VendorPayment`].findMany({
+      where: { createdAt: { gte: minDate, lte: endOfDay } },
+      select: { createdAt: true, amount: true }
     })
   ]);
 
@@ -144,6 +148,7 @@ const computeDashboardAnalytics = async (prefix) => {
       '0.5L': 0
     },
     expenses: 0,
+    vendorPayments: 0,
     credit: 0,
     bottlesSold: 0,
     purchases: 0,
@@ -177,8 +182,8 @@ const computeDashboardAnalytics = async (prefix) => {
   const getDKey = (d) => d.toISOString().split('T')[0];
   const getMKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0, waterLitres: 0 });
-  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, purchases: 0, waterLitres: 0 });
+  const ensureDay = (key) => (dayMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, vendorPayments: 0, purchases: 0, waterLitres: 0 });
+  const ensureMonth = (key) => (monthMap[key] ||= { sales: 0, deliveredSales: 0, unprocessedSales: 0, unprocessedOrdersCount: 0, orderCash: 0, spotSalesCash: 0, cash: 0, expenses: 0, vendorPayments: 0, purchases: 0, waterLitres: 0 });
 
   for (const o of orders) {
     const d = new Date(o.createdAt);
@@ -240,6 +245,7 @@ const computeDashboardAnalytics = async (prefix) => {
   }
 
   for (const p of payments) {
+    if (p.type === 'SECURITY_DEPOSIT') continue;
     const d = new Date(p.createdAt);
     const amt = parseFloat(p.amount || 0);
     const day = ensureDay(getDKey(d));
@@ -266,7 +272,7 @@ const computeDashboardAnalytics = async (prefix) => {
 
   // Allocate order payments to cashBySize
   for (const o of orders) {
-    const oPayments = payments.filter(p => p.orderId === o.id);
+    const oPayments = payments.filter(p => p.orderId === o.id && p.type !== 'SECURITY_DEPOSIT');
     const oPaid = oPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     if (oPaid > 0) {
       const d = new Date(o.createdAt);
@@ -369,22 +375,33 @@ const computeDashboardAnalytics = async (prefix) => {
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.purchases += total;
-    day.expenses += total;
     month.purchases += total;
-    month.expenses += total;
 
     const activeBuckets = getBucketsForDate(d);
     for (const b of activeBuckets) {
       b.purchases += total;
       b.purchasesCount += 1;
-      b.expenses += total;
+    }
+  }
+
+  for (const vp of vendorPayments) {
+    const d = new Date(vp.createdAt);
+    const amt = parseFloat(vp.amount || 0);
+    const day = ensureDay(getDKey(d));
+    const month = ensureMonth(getMKey(d));
+    day.vendorPayments = (day.vendorPayments || 0) + amt;
+    month.vendorPayments = (month.vendorPayments || 0) + amt;
+
+    const activeBuckets = getBucketsForDate(d);
+    for (const b of activeBuckets) {
+      b.vendorPayments = (b.vendorPayments || 0) + amt;
     }
   }
 
   const allBuckets = [daily, yesterday, last3Days, week, monthly, yearly];
   for (const b of allBuckets) {
     b.credit = Math.max(0, b.deliveredSales - (b.orderCash || 0)) + b.creditBilled;
-    b.netCash = b.cash - b.expenses;
+    b.netCash = b.cash - (b.expenses + (b.vendorPayments || 0));
   }
 
   const totalBottlesInCirculation = customersWithBottles.reduce((sum, c) => sum + (c.cachedBottleBalance || 0), 0);
@@ -417,12 +434,12 @@ const computeDashboardAnalytics = async (prefix) => {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
     const dateKey = getDKey(d);
-    const bucket = dayMap[dateKey] || { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, purchases: 0 };
+    const bucket = dayMap[dateKey] || { sales: 0, ordersCount: 0, orderCash: 0, spotSalesCash: 0, cashCollected: 0, creditBilled: 0, expenses: 0, vendorPayments: 0, purchases: 0 };
     dailySalesHistory.push({
       date: dateKey,
       day: d.toLocaleDateString('en-US', { weekday: 'short' }),
       ...bucket,
-      netCash: bucket.cashCollected - bucket.expenses
+      netCash: bucket.cashCollected - (bucket.expenses + (bucket.vendorPayments || 0))
     });
   }
 
@@ -430,11 +447,11 @@ const computeDashboardAnalytics = async (prefix) => {
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0);
     const mKey = getMKey(d);
-    const bucket = monthMap[mKey] || { sales: 0, cash: 0, expenses: 0, purchases: 0, spotSalesCash: 0, orderCash: 0 };
+    const bucket = monthMap[mKey] || { sales: 0, cash: 0, expenses: 0, vendorPayments: 0, purchases: 0, spotSalesCash: 0, orderCash: 0 };
     monthlyTrend.push({
       month: d.toLocaleDateString('en-US', { month: 'short' }),
       ...bucket,
-      netCash: bucket.cash - bucket.expenses
+      netCash: bucket.cash - (bucket.expenses + (bucket.vendorPayments || 0))
     });
   }
 
@@ -855,7 +872,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         total19L: dayBatches.reduce((s, b) => s + Number(b.quantity || 0), 0),
         packs15L: dayBatches.reduce((s, b) => s + Number(b.packs15L || 0), 0),
         packs05L: dayBatches.reduce((s, b) => s + Number(b.packs05L || 0), 0),
-        totalWaste: dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) + Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0)), 0)
+        totalWaste: dayBatches.reduce((s, b) => s + (Number(b.wasteQuantity || 0) || (Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0))), 0)
       });
     }
   }
@@ -891,7 +908,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     total19L: todaysBatchesAgg._sum.quantity || 0,
     packs15L: todaysBatchesAgg._sum.packs15L || 0,
     packs05L: todaysBatchesAgg._sum.packs05L || 0,
-    totalWaste: (todaysBatchesAgg._sum.wasteQuantity || 0) + (todaysBatchesAgg._sum.brokenBottles15L || 0) + (todaysBatchesAgg._sum.brokenBottles05L || 0)
+    totalWaste: Number(todaysBatchesAgg._sum.wasteQuantity || 0) || ((todaysBatchesAgg._sum.brokenBottles15L || 0) + (todaysBatchesAgg._sum.brokenBottles05L || 0))
   };
 
   const userIds = [...new Set(recentBatches.map(b => b.producedBy).filter(Boolean))];
@@ -955,7 +972,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         quantity: b.quantity || 0,
         packs15L: b.packs15L || 0,
         packs05L: b.packs05L || 0,
-        wasteQuantity: (b.wasteQuantity || 0) + (b.brokenBottles15L || 0) + (b.brokenBottles05L || 0)
+        wasteQuantity: Number(b.wasteQuantity || 0) || (Number(b.brokenBottles15L || 0) + Number(b.brokenBottles05L || 0))
       })
     })),
     recentPurchases: [],
@@ -1103,9 +1120,9 @@ export const getProductionLoss = asyncHandler(async (req, res) => {
 
     if (!batchWaste) {
       if (isWadaana) {
-        batchWaste = (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0));
+        batchWaste = Number(b.wasteQuantity || 0) || (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0));
       } else {
-        batchWaste = (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0) + Number(b.wasteQuantity || 0));
+        batchWaste = Number(b.wasteQuantity || 0) || (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0));
       }
     }
     totalWasteBottles += batchWaste;

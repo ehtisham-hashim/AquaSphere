@@ -1,0 +1,5 @@
+name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks
+"Al-Madina Test Mart","+92 300 5123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,5,7,"Tariq Mehmood",10,5,2,"1234567-8","","Tuesday & Friday delivery"
+"Dr. Kamran Clinic Test","0321-9876543","Corporate","Street 4, Cantt Area","",2000,0,2,14,"DIRECT",2,0,0,"","","Morning delivery"
+"Haji Muhammad Test","0333 1112233","Home","House 14, Block B","",1000,500,1,7,"MKT-01 • Ali Raza",1,0,0,"","","Ring bell on arrival"
+"Duplicate Phone Test","0300 512 3456","Commercial","Should be skipped as duplicate phone","",0,0,0,7,"DIRECT",0,0,0,"","","Duplicate of row 1"

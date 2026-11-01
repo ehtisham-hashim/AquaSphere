@@ -26,4 +26,28 @@ const upload = multer({
   },
 });
 
+const CSV_MIME_TYPES = [
+  'text/csv',
+  'application/csv',
+  'application/vnd.ms-excel',
+  'text/plain',
+  'text/x-csv',
+  'application/x-csv'
+];
+
+export const csvUpload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    const isCsvExt = file.originalname && file.originalname.toLowerCase().endsWith('.csv');
+    if (CSV_MIME_TYPES.includes(file.mimetype) || isCsvExt) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only .csv files are accepted.'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB limit
+  }
+});
+
 export default upload;

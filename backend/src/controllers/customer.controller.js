@@ -7,11 +7,39 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import Papa from 'papaparse';
 import {
   getCustomerReturnableCustodyBreakdown,
   getAllReturnableRawMaterials,
-  debitEmptyBottlesFromFactory
+  debitEmptyBottlesFromFactory,
+  resolveReturnableRawMaterial
 } from '../services/bottleInventory.service.js';
+
+/** Normalizes Pakistani phone numbers to 03XXXXXXXXX format */
+export const normalizePakistanPhone = (rawPhone) => {
+  if (!rawPhone) return '';
+  let digits = String(rawPhone).trim().replace(/[^\d+]/g, '');
+  if (digits.startsWith('+92')) digits = '0' + digits.slice(3);
+  else if (digits.startsWith('92') && digits.length === 12) digits = '0' + digits.slice(2);
+  else if (digits.startsWith('3') && digits.length === 10) digits = '0' + digits;
+  return digits;
+};
+
+export const parseBoolCsv = (val) => {
+  if (typeof val === 'boolean') return val;
+  return ['true', 'yes', 'y', '1', 'on'].includes(String(val || '').trim().toLowerCase());
+};
+
+export const normalizeCustomerType = (rawType) => {
+  const s = String(rawType || '').trim().toLowerCase();
+  if (!s) return 'Home';
+  if (s.includes('comm') || s.includes('shop') || s.includes('mart') || s.includes('store')) return 'Commercial';
+  if (s.includes('corp') || s.includes('office') || s.includes('clinic') || s.includes('bank') || s.includes('school')) return 'Corporate';
+  if (s.includes('dist') || s.includes('whole') || s.includes('agency')) return 'Distributor';
+  if (s.includes('ind') || s.includes('factory') || s.includes('plant')) return 'Industrial';
+  const valid = ['Home', 'Commercial', 'Corporate', 'Distributor', 'Industrial'];
+  return valid.find(t => t.toLowerCase() === s) || 'Home';
+};
 
 export const sanitizeGoogleMapsUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
@@ -539,19 +567,23 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   // Calculate next sequential Customer ID
   const codePrefix = prefix === 'wadaana' ? 'WAD313' : 'JAM313';
-  const existingWithCode = await prisma[`${prefix}Customer`].findMany({
-    where: { customerCode: { not: null } },
-    select: { customerCode: true }
-  });
-  let maxSeq = 0;
-  existingWithCode.forEach(c => {
-    const match = c.customerCode?.match(new RegExp(`${codePrefix}(\\d+)`));
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxSeq) maxSeq = num;
-    }
-  });
-  const customerCode = `${codePrefix}${String(maxSeq + 1).padStart(4, '0')}`;
+  const getNextCustomerCode = async () => {
+    const existingWithCode = await prisma[`${prefix}Customer`].findMany({
+      where: { customerCode: { not: null } },
+      select: { customerCode: true }
+    });
+    let maxSeq = 0;
+    existingWithCode.forEach(c => {
+      const match = c.customerCode?.match(new RegExp(`${codePrefix}(\\d+)`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    });
+    return `${codePrefix}${String(maxSeq + 1).padStart(4, '0')}`;
+  };
+
+  const customerCode = await getNextCustomerCode();
 
   // Resolve marketer attribution
   let resolvedMarketerRef = null;
@@ -568,9 +600,12 @@ export const createCustomer = asyncHandler(async (req, res) => {
     resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
   }
 
+  const cleanPhone = normalizePakistanPhone(phone);
+  const openingBottles = Math.max(0, parseInt(req.body.cachedBottleBalance || 0, 10) || 0);
+
   const customerData = {
     name: name.trim(),
-    phone: phone.trim(),
+    phone: cleanPhone || phone.trim(),
     customerCode,
     marketerRef: resolvedMarketerRef,
     buyerNtn: buyerNtn ? buyerNtn.trim() : null,
@@ -580,6 +615,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     mapLink: mapLink ? sanitizeGoogleMapsUrl(mapLink) : null,
     deposit: securityDeposit ? parseInt(securityDeposit, 10) : 0,
     currentBalance: currentBalance ? parseFloat(currentBalance) : 0.0,
+    cachedBottleBalance: openingBottles,
     creditDuration: creditDuration ? parseInt(creditDuration, 10) : 1,
     remarks: remarks || null,
     homePictureUrl: homePictureUrl || null,
@@ -594,9 +630,39 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
   if (activeCustomer) throw new ApiError(400, `A customer with phone number "${phone}" already exists.`);
 
-  const customer = archivedCustomer
-    ? await prisma[`${prefix}Customer`].update({ where: { id: archivedCustomer.id }, data: customerData })
-    : await prisma[`${prefix}Customer`].create({ data: customerData });
+  let customer;
+  if (archivedCustomer) {
+    customer = await prisma[`${prefix}Customer`].update({ where: { id: archivedCustomer.id }, data: customerData });
+  } else {
+    try {
+      customer = await prisma[`${prefix}Customer`].create({ data: customerData });
+    } catch (createErr) {
+      if (createErr.code === 'P2002' && createErr.meta?.target?.includes('customer_code')) {
+        customerData.customerCode = await getNextCustomerCode();
+        customer = await prisma[`${prefix}Customer`].create({ data: customerData });
+      } else {
+        throw createErr;
+      }
+    }
+  }
+
+  // If opening returnable bottles were provided, log opening BottleTransaction
+  if (openingBottles > 0) {
+    try {
+      const primaryReturnable = await resolveReturnableRawMaterial(prisma, prefix);
+      await prisma[`${prefix}BottleTransaction`].create({
+        data: {
+          customerId: customer.id,
+          itemId: primaryReturnable?.id || null,
+          type: 'DELIVERED_TO_CUSTOMER',
+          quantity: openingBottles,
+          reason: 'Opening Custody Balance'
+        }
+      });
+    } catch (btErr) {
+      console.error('Failed to log opening custody BottleTransaction:', btErr);
+    }
+  }
 
   await createAuditLog(prefix, {
     action: 'CUSTOMER_CREATED',
@@ -922,7 +988,10 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
 
     const availableDeposit = Math.max(0, Number(customer.deposit || 0));
     const depositToApply = settleFromSecurity ? Math.min(availableDeposit, currentCustomerDebt) : 0;
-    let remainingPool = cash + depositToApply;
+    
+    let remainingDepositPool = depositToApply;
+    let remainingCashPool = cash;
+    let remainingPool = remainingDepositPool + remainingCashPool;
 
     if (remainingPool <= 0) {
       throw new ApiError(400, 'No payment or security deposit available to apply');
@@ -936,33 +1005,43 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
       const alloc = Math.min(remainingPool, ob.due);
       if (alloc <= 0) continue;
 
-      const currentType = (depositToApply >= alloc && cash === 0) ? 'SECURITY_DEPOSIT' : safePaymentType;
+      let allocDeposit = 0;
+      let allocCash = 0;
+      if (remainingDepositPool > 0) {
+        allocDeposit = Math.min(remainingDepositPool, alloc);
+        remainingDepositPool -= allocDeposit;
+      }
+      const needCash = alloc - allocDeposit;
+      if (needCash > 0 && remainingCashPool > 0) {
+        allocCash = Math.min(remainingCashPool, needCash);
+        remainingCashPool -= allocCash;
+      }
 
       if (ob.kind === 'ORDER') {
         const ord = ob.record;
         const newPaid = ob.paid + alloc;
         const newStatus = newPaid >= ob.total ? 'PAID' : 'PARTIAL';
 
-        await tx[`${prefix}Payment`].create({
-          data: {
-            orderId: ord.id,
-            customerId,
-            amount: alloc,
-            type: currentType
-          }
-        });
-
-        await tx[`${prefix}Delivery`].create({
-          data: {
-            orderId: ord.id,
-            qtyDelivered: 0,
-            bottlesReturnedGood: 0,
-            bottlesReturnedBroken: 0,
-            cashReceived: alloc,
-            paymentMethod: normMethod,
-            remarks: remarks ? `Debt Pool Settlement: ${remarks}` : 'Debt Pool Settlement (FIFO)'
-          }
-        });
+        if (allocDeposit > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: ord.id,
+              customerId,
+              amount: allocDeposit,
+              type: 'SECURITY_DEPOSIT'
+            }
+          });
+        }
+        if (allocCash > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: ord.id,
+              customerId,
+              amount: allocCash,
+              type: safePaymentType
+            }
+          });
+        }
 
         await tx[`${prefix}Order`].update({
           where: { id: ord.id },
@@ -973,39 +1052,49 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
       } else if (ob.kind === 'SPOT_SALE') {
         const ss = ob.record;
         const newDebt = Math.max(0, ob.due - alloc);
-        const newAmountPaid = Number(ss.amountPaid || ss.cashCollected || 0) + alloc;
 
         await tx[`${prefix}SpotSale`].update({
           where: { id: ss.id },
           data: {
-            amountPaid: newAmountPaid,
             debtAmount: newDebt,
             creditAmount: newDebt,
             remarks: `${ss.remarks ? ss.remarks + ' | ' : ''}Settled Rs. ${alloc} (${normMethod})`
           }
         });
 
-        await tx[`${prefix}Payment`].create({
-          data: {
-            orderId: null,
-            customerId,
-            amount: alloc,
-            type: currentType
-          }
-        });
+        if (allocDeposit > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: null,
+              customerId,
+              amount: allocDeposit,
+              type: 'SECURITY_DEPOSIT'
+            }
+          });
+        }
+        if (allocCash > 0) {
+          await tx[`${prefix}Payment`].create({
+            data: {
+              orderId: null,
+              customerId,
+              amount: allocCash,
+              type: safePaymentType
+            }
+          });
+        }
 
         settledSpotSales.push({ id: ss.id, saleNumber: ss.saleNumber, allocated: alloc, remainingDebt: newDebt });
       }
 
-      remainingPool -= alloc;
+      remainingPool = remainingDepositPool + remainingCashPool;
     }
 
-    if (remainingPool > 0) {
+    if (remainingCashPool > 0) {
       await tx[`${prefix}Payment`].create({
         data: {
           orderId: null,
           customerId,
-          amount: remainingPool,
+          amount: remainingCashPool,
           type: safePaymentType
         }
       });
@@ -1049,5 +1138,274 @@ export const settleCustomerLumpSumPayment = asyncHandler(async (req, res) => {
   broadcastEvent(prefix, 'ORDER_UPDATED');
   broadcastEvent(prefix, 'COUNTER_SALE_CREATED');
   return sendSuccess(res, result, 200, { message: 'Customer debt settled successfully' });
+});
+
+/**
+ * GET /api/v1/customers/csv-template
+ * Downloads a tenant-aware sample CSV template (OWNER only)
+ */
+export const downloadCustomerCsvTemplate = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only the Owner can download or use the bulk customer CSV template');
+  }
+  const prefix = getTenantPrefix(req);
+  const isWadaana = prefix === 'wadaana';
+
+  const csvContent = isWadaana
+    ? [
+        'name,phone,type,address,mapLink,securityDeposit,currentBalance,creditDuration,marketerRef,qtyPure05L,qtyPure15L,qtyMix05L,qtyMix15L,qtyPureFine05L,qtyPureFine15L,buyerNtn,buyerStrn,remarks',
+        '"Khyber Beverages Wholesale","03005556677","Distributor","Industrial Estate, Hattar","",0,25000,15,"Tariq Mehmood",1000,500,2000,1000,0,0,"7654321-0","12-34-5678-901-23","B2B Preform Distributor"',
+        '"Shaheen Traders","03458889900","Commercial","Circular Road, Abbottabad","",0,0,7,"DIRECT",0,0,500,500,200,200,"","","Weekly preform dispatch"'
+      ].join('\n')
+    : [
+        'name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks',
+        '"Al-Madina Cash & Carry","03005123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,3,7,"Tariq Mehmood",5,10,5,"1234567-8","","Deliver every Tuesday & Friday"',
+        '"Dr. Kamran Clinic","03219876543","Corporate","Street 4, Cantt Area","",2000,0,2,14,"DIRECT",2,0,0,"","","Morning delivery before 11 AM"'
+      ].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${prefix}_customers_template.csv"`);
+  return res.status(200).send('\uFEFF' + csvContent);
+});
+
+/**
+ * POST /api/v1/customers/bulk-import
+ * Bulk imports customers from CSV file or parsed JSON rows (Strictly OWNER only)
+ */
+export const bulkImportCustomers = asyncHandler(async (req, res) => {
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only the Owner is authorized to bulk import customers via CSV');
+  }
+
+  const prefix = getTenantPrefix(req);
+  const codePrefix = prefix === 'wadaana' ? 'WAD313' : 'JAM313';
+
+  let rawRows;
+  if (req.file && req.file.buffer) {
+    const csvText = req.file.buffer.toString('utf8').replace(/^\uFEFF/, '');
+    const parsed = Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: 'greedy',
+      transformHeader: (h) => h.trim()
+    });
+    rawRows = parsed.data || [];
+  } else if (Array.isArray(req.body?.rows)) {
+    rawRows = req.body.rows;
+  } else if (typeof req.body?.csvText === 'string') {
+    const parsed = Papa.parse(req.body.csvText.replace(/^\uFEFF/, ''), {
+      header: true,
+      skipEmptyLines: 'greedy',
+      transformHeader: (h) => h.trim()
+    });
+    rawRows = parsed.data || [];
+  } else {
+    throw new ApiError(400, 'Please provide a valid CSV file or rows array');
+  }
+
+  if (rawRows.length === 0) {
+    throw new ApiError(400, 'The uploaded CSV file contains no customer rows');
+  }
+  if (rawRows.length > 2000) {
+    throw new ApiError(400, 'Maximum 2,000 customers can be imported in a single batch');
+  }
+
+  // Load existing customers to check phone duplicates and highest sequential customerCode
+  const existingCustomers = await prisma[`${prefix}Customer`].findMany({
+    select: { id: true, phone: true, customerCode: true, archivedAt: true }
+  });
+
+  const activePhoneSet = new Set();
+  const archivedPhoneMap = new Map();
+  let maxSeq = 0;
+
+  for (const c of existingCustomers) {
+    const match = c.customerCode?.match(new RegExp(`${codePrefix}(\\d+)`));
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+    const cleanP = normalizePakistanPhone(c.phone?.includes('_archived_') ? c.phone.split('_archived_')[0] : c.phone);
+    if (c.archivedAt) {
+      if (cleanP) archivedPhoneMap.set(cleanP, c.id);
+    } else if (cleanP) {
+      activePhoneSet.add(cleanP);
+      activePhoneSet.add(c.phone.trim());
+    }
+  }
+
+  const seenInCsv = new Set();
+  const validPayloads = [];
+  const skippedRows = [];
+
+  for (let i = 0; i < rawRows.length; i++) {
+    const r = rawRows[i];
+    const rowNumber = i + 2; // 1-indexed + header row
+    const name = String(r.name || r.Name || r.customer_name || r['Customer Name'] || '').trim();
+    const rawPhone = String(r.phone || r.Phone || r.mobile || r['Phone Number'] || '').trim();
+    const phone = normalizePakistanPhone(rawPhone);
+
+    if (!name) {
+      skippedRows.push({ row: rowNumber, name: '—', phone: rawPhone, reason: 'Missing customer name' });
+      continue;
+    }
+    if (!phone || phone.length < 7) {
+      skippedRows.push({ row: rowNumber, name, phone: rawPhone, reason: `Invalid phone number "${rawPhone}"` });
+      continue;
+    }
+    if (seenInCsv.has(phone)) {
+      skippedRows.push({ row: rowNumber, name, phone, reason: 'Duplicate phone number inside this CSV file' });
+      continue;
+    }
+    if (activePhoneSet.has(phone) || activePhoneSet.has(rawPhone)) {
+      skippedRows.push({ row: rowNumber, name, phone, reason: 'Customer with this phone already exists in database' });
+      continue;
+    }
+
+    const rawMapLink = String(r.mapLink || r.map_link || r['Google Maps Link'] || '').trim();
+    if (rawMapLink && !isValidGoogleMapsUrl(rawMapLink)) {
+      skippedRows.push({ row: rowNumber, name, phone, reason: 'Invalid Google Maps URL format' });
+      continue;
+    }
+
+    seenInCsv.add(phone);
+
+    // Resolve marketer attribution
+    const rawMarketer = String(r.marketerRef || r.marketer || r['Marketer Name'] || '').trim();
+    let resolvedMarketerRef = null;
+    if (rawMarketer && rawMarketer.toLowerCase() !== 'direct') {
+      const mktMatch = rawMarketer.match(/^(MKT-\d+)(?:\s*[•\-–]\s*(.*))?$/i);
+      if (mktMatch) {
+        const regRes = await ensureMarketerInRegistry(prefix, mktMatch[1].toUpperCase(), mktMatch[2]?.trim() || '');
+        resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+      } else {
+        const regRes = await ensureMarketerInRegistry(prefix, null, rawMarketer);
+        resolvedMarketerRef = `${regRes.marketerId} • ${regRes.marketerName}`;
+      }
+    }
+
+    maxSeq++;
+    const customerCode = `${codePrefix}${String(maxSeq).padStart(4, '0')}`;
+
+    const q19 = Math.max(0, parseInt(r.qty19L || 0, 10) || 0);
+    const q05 = Math.max(0, parseInt(r.qty05LPet || 0, 10) || 0);
+    const q15 = Math.max(0, parseInt(r.qty15LPet || 0, 10) || 0);
+
+    const qp05 = Math.max(0, parseInt(r.qtyPure05L || 0, 10) || 0);
+    const qp15 = Math.max(0, parseInt(r.qtyPure15L || 0, 10) || 0);
+    const qm05 = Math.max(0, parseInt(r.qtyMix05L || 0, 10) || 0);
+    const qm15 = Math.max(0, parseInt(r.qtyMix15L || 0, 10) || 0);
+    const qpf05 = Math.max(0, parseInt(r.qtyPureFine05L || 0, 10) || 0);
+    const qpf15 = Math.max(0, parseInt(r.qtyPureFine15L || 0, 10) || 0);
+
+    const tenantProducts = prefix === 'aquasphere'
+      ? {
+          buys19L: parseBoolCsv(r.buys19L) || q19 > 0,
+          qty19L: q19,
+          buys05LPet: parseBoolCsv(r.buys05LPet) || q05 > 0,
+          qty05LPet: q05,
+          buys15LPet: parseBoolCsv(r.buys15LPet) || q15 > 0,
+          qty15LPet: q15
+        }
+      : {
+          buysPure05L: parseBoolCsv(r.buysPure05L) || qp05 > 0,
+          qtyPure05L: qp05,
+          buysPure15L: parseBoolCsv(r.buysPure15L) || qp15 > 0,
+          qtyPure15L: qp15,
+          buysMix05L: parseBoolCsv(r.buysMix05L) || qm05 > 0,
+          qtyMix05L: qm05,
+          buysMix15L: parseBoolCsv(r.buysMix15L) || qm15 > 0,
+          qtyMix15L: qm15,
+          buysPureFine05L: parseBoolCsv(r.buysPureFine05L) || qpf05 > 0,
+          qtyPureFine05L: qpf05,
+          buysPureFine15L: parseBoolCsv(r.buysPureFine15L) || qpf15 > 0,
+          qtyPureFine15L: qpf15
+        };
+
+    const openingBottles = Math.max(0, parseInt(r.cachedBottleBalance || r.bottlesInCustody || 0, 10) || 0);
+
+    validPayloads.push({
+      archivedIdToRestore: archivedPhoneMap.get(phone) || null,
+      data: {
+        name,
+        phone,
+        customerCode,
+        marketerRef: resolvedMarketerRef,
+        buyerNtn: r.buyerNtn ? String(r.buyerNtn).trim() : null,
+        buyerStrn: r.buyerStrn ? String(r.buyerStrn).trim() : null,
+        type: normalizeCustomerType(r.type || r.Type),
+        address: r.address ? String(r.address).trim() : null,
+        mapLink: rawMapLink ? sanitizeGoogleMapsUrl(rawMapLink) : null,
+        deposit: Math.max(0, parseInt(r.securityDeposit || r.deposit || 0, 10) || 0),
+        currentBalance: Math.max(0, parseFloat(r.currentBalance || r.debt || 0) || 0),
+        cachedBottleBalance: openingBottles,
+        creditDuration: Math.max(1, parseInt(r.creditDuration || 7, 10) || 7),
+        remarks: r.remarks ? String(r.remarks).trim() : null,
+        archivedAt: null,
+        ...tenantProducts
+      }
+    });
+  }
+
+  if (validPayloads.length === 0) {
+    return sendSuccess(res, {
+      importedCount: 0,
+      skippedCount: skippedRows.length,
+      skippedRows,
+      importedCustomers: []
+    }, 200, { message: 'No valid new customers to import. Check skipped rows for details.' });
+  }
+
+  const importedCustomers = await prisma.$transaction(async (tx) => {
+    const primaryReturnable = await resolveReturnableRawMaterial(tx, prefix);
+    const created = [];
+
+    for (const item of validPayloads) {
+      const cust = item.archivedIdToRestore
+        ? await tx[`${prefix}Customer`].update({
+            where: { id: item.archivedIdToRestore },
+            data: item.data
+          })
+        : await tx[`${prefix}Customer`].create({
+            data: item.data
+          });
+
+      // If customer has an opening bottle custody balance, record an opening BottleTransaction
+      if (item.data.cachedBottleBalance > 0) {
+        await tx[`${prefix}BottleTransaction`].create({
+          data: {
+            customerId: cust.id,
+            itemId: primaryReturnable?.id || null,
+            type: 'DELIVERED_TO_CUSTOMER',
+            quantity: item.data.cachedBottleBalance,
+            reason: 'CSV Bulk Import — Opening Custody Balance'
+          }
+        });
+      }
+
+      created.push(cust);
+    }
+
+    await createAuditLog(prefix, {
+      action: 'CUSTOMERS_BULK_IMPORTED',
+      entityType: 'Customer',
+      entityId: 'BULK_CSV',
+      performedBy: req.user?.name || req.user?.id || 'OWNER',
+      details: `Bulk imported ${created.length} customers via CSV (${skippedRows.length} skipped)`
+    });
+
+    return created;
+  }, { maxWait: 15000, timeout: 45000 });
+
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'CUSTOMER_UPDATED', { bulkImportedCount: importedCustomers.length });
+
+  return sendSuccess(res, {
+    importedCount: importedCustomers.length,
+    skippedCount: skippedRows.length,
+    skippedRows,
+    importedCustomers
+  }, 201, {
+    message: `Successfully imported ${importedCustomers.length} customer(s)${skippedRows.length > 0 ? ` (${skippedRows.length} skipped)` : ''}`
+  });
 });
 

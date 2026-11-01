@@ -52,7 +52,7 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
   const selectedCustody = customer.returnableCustody?.find(rc => rc.itemId === selectedItemId);
   const selectedItemBalance = selectedCustody 
     ? Number(selectedCustody.inCustody ?? selectedCustody.balance ?? 0) 
-    : currentOverallBalance;
+    : (customer.returnableCustody?.length > 0 ? 0 : currentOverallBalance);
   const selectedItem = returnableItems.find(i => i.id === selectedItemId);
 
   const handleSubmit = async (e) => {
@@ -65,7 +65,7 @@ export default function BottleAdjustmentModal({ customer, onClose, onSuccess }) 
     }
 
     const isReturnType = ['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(type);
-    if (isReturnType && qty > selectedItemBalance && selectedItemBalance > 0) {
+    if (isReturnType && qty > selectedItemBalance) {
       return setError(`Cannot retrieve more than ${selectedItemBalance} ${selectedItem?.unit || 'units'} currently held by customer.`);
     }
 

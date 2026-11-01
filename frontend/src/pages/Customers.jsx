@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Users, RotateCcw } from 'lucide-react';
-import { CustomersTable, AddCustomerModal, CustomerDetails } from '../components/customer';
+import { Plus, Search, Users, RotateCcw, FileSpreadsheet } from 'lucide-react';
+import { CustomersTable, AddCustomerModal, CustomerDetails, BulkImportCustomersModal } from '../components/customer';
 import { TableSkeleton } from '../components/common/Skeleton';
 import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 import MultiSelectDropdown from '../components/common/MultiSelectDropdown';
@@ -24,6 +24,7 @@ export default function Customers() {
   const customerIdParam = searchParams.get('id') || searchParams.get('customerId');
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
+  const isOwner = user?.role === 'OWNER';
   const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'ADMIN'].includes(user?.role);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -35,6 +36,7 @@ export default function Customers() {
   const [now] = useState(() => Date.now());
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const debounceTimerRef = useRef(null);
@@ -297,15 +299,28 @@ export default function Customers() {
           <PageHeader
             title="Customer Directory"
             actions={
-              canAddCustomer && (
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="btn-primary"
-                >
-                  <Plus size={15} />
-                  <span>Add Customer</span>
-                </button>
-              )
+              <div className="flex items-center gap-2">
+                {isOwner && (
+                  <button 
+                    type="button"
+                    onClick={() => setIsCsvModalOpen(true)}
+                    className="btn-secondary flex items-center gap-1.5 text-xs font-bold"
+                    title="Bulk Import Customers via CSV (Owner Only)"
+                  >
+                    <FileSpreadsheet size={15} />
+                    <span>Import CSV</span>
+                  </button>
+                )}
+                {canAddCustomer && (
+                  <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="btn-primary"
+                  >
+                    <Plus size={15} />
+                    <span>Add Customer</span>
+                  </button>
+                )}
+              </div>
             }
           />
 
@@ -450,6 +465,15 @@ export default function Customers() {
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
           onCustomerAdded={() => fetchCustomers(search, activeTab)} 
+        />
+      )}
+
+      {isOwner && (
+        <BulkImportCustomersModal
+          isOpen={isCsvModalOpen}
+          onClose={() => setIsCsvModalOpen(false)}
+          existingCustomers={customers}
+          onImportSuccess={() => fetchCustomers(search, activeTab)}
         />
       )}
 

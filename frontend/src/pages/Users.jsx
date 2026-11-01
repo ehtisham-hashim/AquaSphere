@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
 import { PageHeader } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
@@ -9,6 +10,8 @@ import { formatRole } from '../constants/roleAccess';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
@@ -116,12 +119,14 @@ export default function Users() {
         title="Users & Roles"
         subtitle="Manage employee accounts and operational system permissions"
         actions={
-          <button 
-            onClick={openAddModal}
-            className="btn-primary"
-          >
-            <Plus size={14} /> <span>Add User</span>
-          </button>
+          isOwner && (
+            <button 
+              onClick={openAddModal}
+              className="btn-primary"
+            >
+              <Plus size={14} /> <span>Add User</span>
+            </button>
+          )
         }
       />
       
@@ -196,24 +201,28 @@ export default function Users() {
                     )}
                   </td>
                   <td className="table-td text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <button 
-                        onClick={() => openEditModal(u)} 
-                        className="btn-outline text-xs py-1 px-2.5"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => toggleStatus(u.id, u.isActive)} 
-                        className={`text-xs py-1 px-2.5 rounded-xl font-bold transition border ${
-                          u.isActive 
-                            ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                        }`}
-                      >
-                        {u.isActive ? 'Archive' : 'Restore'}
-                      </button>
-                    </div>
+                    {isOwner ? (
+                      <div className="flex justify-end gap-1.5">
+                        <button 
+                          onClick={() => openEditModal(u)} 
+                          className="btn-outline text-xs py-1 px-2.5"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => toggleStatus(u.id, u.isActive)} 
+                          className={`text-xs py-1 px-2.5 rounded-xl font-bold transition border ${
+                            u.isActive 
+                              ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100' 
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {u.isActive ? 'Archive' : 'Restore'}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-medium italic">Read-only</span>
+                    )}
                   </td>
                 </tr>
               )))}

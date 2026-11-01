@@ -6,3 +6,4 @@ export { default as CustomerDetails } from './CustomerDetails';
 export { default as EditCustomerModal } from './EditCustomerModal';
 export { default as BottleAdjustmentModal } from './BottleAdjustmentModal';
 export { default as CustomerAlerts } from './CustomerAlerts';
+export { default as BulkImportCustomersModal } from './BulkImportCustomersModal';
