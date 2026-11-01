@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { SEOHead } from '../components/common/SEOHead';
 import { 
@@ -19,6 +19,8 @@ import {
   ArrowDown,
   Send,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Factory,
   Mail,
   User,
@@ -154,9 +156,217 @@ const DEFAULT_SETTINGS = {
   ]
 };
 
+
+const getProductSpecs = (product) => {
+  if (product.specs && Array.isArray(product.specs) && product.specs.length > 0) {
+    return product.specs;
+  }
+  const name = (product.name || '').toLowerCase();
+  if (name.includes('19l') || name.includes('19 litre') || name.includes('19 liter')) {
+    return [
+      'pH 7.2 – 7.8 (Balanced Alkaline Hydration)',
+      'TDS 120 – 160 mg/L (PSQCA & WHO Certified)',
+      '100% Food-Grade BPA-Free Polycarbonate',
+      'Doorstep Delivery & Quick Weekly Exchange'
+    ];
+  }
+  if (name.includes('1.5l') || name.includes('500ml') || name.includes('bottle')) {
+    return [
+      'pH 6.5 – 8.5 (Naturally Purified)',
+      'TDS 130 – 250 mg/L (Optimal Mineral Balance)',
+      '100% Recyclable Food-Grade Sealed PET',
+      'Hermetically Sealed Tamper-Proof Cap'
+    ];
+  }
+  if (name.includes('dispenser') || name.includes('table top')) {
+    return [
+      'Dual Flow Hot & Cold Instant Taps',
+      'Food-Grade Stainless Steel Internal Reservoir',
+      'Energy Efficient Low Power Compressor',
+      'Compatible with Standard 19L Bottles'
+    ];
+  }
+  return [
+    'Heavy-Duty Ergonomic Metal Stand',
+    'Food-Grade Fast-Flow Manual Dispensing Tap',
+    'Compact Design for Countertops & Offices',
+    'Zero Electricity Required & Easy Maintenance'
+  ];
+};
+
+function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWhatsAppLink, optImg, WhatsAppIcon }) {
+  if (activeIdx === null || !products || !products[activeIdx]) return null;
+  const currentProd = products[activeIdx];
+  const specs = getProductSpecs(currentProd);
+
+  // Wheel scroll debounce for carousel navigation
+  const lastScrollTime = useRef(0);
+  const handleWheel = (e) => {
+    const now = Date.now();
+    if (now - lastScrollTime.current < 400) return;
+    if (Math.abs(e.deltaY) > 25) {
+      lastScrollTime.current = now;
+      if (e.deltaY > 0) {
+        onSelectIdx((activeIdx + 1) % products.length);
+      } else {
+        onSelectIdx((activeIdx - 1 + products.length) % products.length);
+      }
+    }
+  };
+
+  // Keyboard navigation & body scroll lock
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        onSelectIdx((activeIdx + 1) % products.length);
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        onSelectIdx((activeIdx - 1 + products.length) % products.length);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'auto';
+    };
+  }, [activeIdx, products.length, onClose, onSelectIdx]);
+
+  return (
+    <div 
+      className="lp-showcase-backdrop fixed inset-0 z-50 flex flex-col justify-between overflow-hidden"
+      onWheel={handleWheel}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Product showcase for ${currentProd.name}`}
+    >
+      {/* Massive Elegancia-style Watermark Text Background */}
+      <div className="lp-showcase-watermark" aria-hidden="true">
+        AQUASPHERE
+      </div>
+
+      {/* Top Header Bar with Dash Progress Indicators & Close */}
+      <div className="lp-showcase-top-bar">
+        <div className="w-10 hidden sm:block" />
+
+        {/* Top Dash Progress Indicators */}
+        <div className="lp-showcase-dashes" role="tablist" aria-label="Product selection dashes">
+          {products.map((p, i) => (
+            <button
+              key={p.id || i}
+              type="button"
+              role="tab"
+              aria-selected={i === activeIdx}
+              aria-label={`Select ${p.name}`}
+              onClick={() => onSelectIdx(i)}
+              className={`lp-showcase-dash ${i === activeIdx ? 'is-active' : ''}`}
+            />
+          ))}
+        </div>
+
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="lp-showcase-close-btn"
+          aria-label="Close product showcase"
+        >
+          <X className="w-5 h-5 text-slate-700" />
+        </button>
+      </div>
+
+      {/* Main Content Area: Left Details, Right Product Image */}
+      <div className="lp-showcase-content">
+        {/* Previous Product Arrow */}
+        <button
+          type="button"
+          onClick={() => onSelectIdx((activeIdx - 1 + products.length) % products.length)}
+          className="lp-showcase-nav-arrow lp-nav-prev"
+          aria-label="Previous product"
+        >
+          <ChevronLeft className="w-6 h-6 text-slate-700" />
+        </button>
+
+        <div className="lp-showcase-grid">
+          {/* Left Column: Product Information */}
+          <div className="lp-showcase-left">
+            <span className="lp-showcase-counter">
+              Product {activeIdx + 1} of {products.length}
+            </span>
+            <h2 className="lp-showcase-title">
+              {currentProd.name}.
+            </h2>
+            <p className="lp-showcase-desc">
+              {currentProd.desc}
+            </p>
+
+            {/* Bullet Points with Blue Dots (Elegancia style) */}
+            <ul className="lp-showcase-specs">
+              {specs.map((item, i) => (
+                <li key={i} className="lp-showcase-spec-item">
+                  <span className="lp-showcase-spec-dot" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Price & Order on WhatsApp CTA */}
+            <div className="lp-showcase-actions">
+              <div className="lp-showcase-price-tag">
+                <span className="lp-showcase-price-label">Price</span>
+                <span className="lp-showcase-price-val">{currentProd.price}</span>
+              </div>
+              <a
+                href={getWhatsAppLink(currentProd.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lp-showcase-whatsapp-btn"
+              >
+                <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
+                <span>Order on WhatsApp</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Right Column: Product Image with Reflection Shadow */}
+          <div className="lp-showcase-right">
+            <div className="lp-showcase-image-wrapper">
+              <img
+                src={optImg(currentProd.image, 900)}
+                alt={currentProd.name}
+                className="lp-showcase-img"
+              />
+              <div className="lp-showcase-shadow" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+
+        {/* Next Product Arrow */}
+        <button
+          type="button"
+          onClick={() => onSelectIdx((activeIdx + 1) % products.length)}
+          className="lp-showcase-nav-arrow lp-nav-next"
+          aria-label="Next product"
+        >
+          <ChevronRight className="w-6 h-6 text-slate-700" />
+        </button>
+      </div>
+
+      {/* Bottom Information Hint */}
+      <div className="lp-showcase-bottom-bar">
+        <span className="text-xs text-slate-400 font-medium">
+          Scroll or use arrow keys to browse products • Press Esc or ✕ to close
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedProductIdx, setSelectedProductIdx] = useState(null);
 
   // Reviews Carousel State (Interactive Circular Progress Bar)
   const reviewsList = (settings.reviews && settings.reviews.length > 0) ? settings.reviews : DEFAULT_SETTINGS.reviews;
@@ -539,7 +749,7 @@ export default function LandingPage() {
           </div>
 
           <div className="lp-products">
-            {settings.products?.map((prod) => (
+            {settings.products?.map((prod, idx) => (
               <div key={prod.id} className="lp-product">
                 <div className="lp-product-image-box">
                   <img 
@@ -559,16 +769,26 @@ export default function LandingPage() {
                       <span className="lp-price-label">Price</span>
                       <p className="lp-price">{prod.price}</p>
                     </div>
-                    <a 
-                      href={getWhatsAppLink(prod.name)} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="lp-btn-whatsapp"
-                      aria-label={`Order ${prod.name} on WhatsApp`}
-                    >
-                      <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                      <span>Order WhatsApp</span>
-                    </a>
+                    <div className="lp-product-actions">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProductIdx(idx)}
+                        className="lp-btn-view-product"
+                        aria-label={`View details for ${prod.name}`}
+                      >
+                        <span>View Product</span>
+                      </button>
+                      <a 
+                        href={getWhatsAppLink(prod.name)} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="lp-btn-whatsapp-icon"
+                        title={`Order ${prod.name} on WhatsApp`}
+                        aria-label={`Order ${prod.name} on WhatsApp`}
+                      >
+                        <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>

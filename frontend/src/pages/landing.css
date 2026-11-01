@@ -1870,3 +1870,380 @@
     width: 100%;
   }
 }
+
+/* --------------------------------------------------------------------------
+   ELEGANCIA-INSPIRED PRODUCT SHOWCASE MODAL & CAROUSEL
+   -------------------------------------------------------------------------- */
+.lp-showcase-backdrop {
+  background: #ffffff;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  animation: lpModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lpModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lp-showcase-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-size: clamp(80px, 14vw, 240px);
+  font-weight: 900;
+  color: #0f172a;
+  opacity: 0.038;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.lp-showcase-top-bar {
+  position: relative;
+  z-index: 10;
+  padding: 24px 36px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-showcase-dashes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-showcase-dash {
+  width: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background-color: #e2e8f0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-showcase-dash:hover {
+  background-color: #cbd5e1;
+}
+
+.lp-showcase-dash.is-active {
+  width: 44px;
+  background-color: #0284c7;
+}
+
+.lp-showcase-close-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lp-showcase-close-btn:hover {
+  background: #e2e8f0;
+  transform: scale(1.06);
+}
+
+.lp-showcase-content {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 10px 24px;
+}
+
+.lp-showcase-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 50px;
+  align-items: center;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.lp-showcase-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lp-showcase-counter {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #0284c7;
+  margin-bottom: 10px;
+}
+
+.lp-showcase-title {
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-size: clamp(34px, 4.2vw, 56px);
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin: 0 0 14px 0;
+  letter-spacing: -0.02em;
+}
+
+.lp-showcase-desc {
+  font-size: 16.5px;
+  color: #64748b;
+  line-height: 1.65;
+  margin-bottom: 26px;
+  max-width: 520px;
+}
+
+.lp-showcase-specs {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lp-showcase-spec-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lp-showcase-spec-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background-color: #0284c7;
+  flex-shrink: 0;
+}
+
+.lp-showcase-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.lp-showcase-price-tag {
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-showcase-price-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.lp-showcase-price-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.lp-showcase-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #25D366;
+  color: #ffffff;
+  padding: 13px 26px;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.28);
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lp-showcase-whatsapp-btn:hover {
+  background-color: #20ba59;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(37, 211, 102, 0.38);
+}
+
+.lp-showcase-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.lp-showcase-image-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-showcase-img {
+  max-height: 480px;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.12));
+  animation: lpImgSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lpImgSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.lp-showcase-shadow {
+  width: 220px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0) 70%);
+  margin-top: -8px;
+}
+
+.lp-showcase-nav-arrow {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.lp-showcase-nav-arrow:hover {
+  background: #f8fafc;
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+}
+
+.lp-showcase-bottom-bar {
+  text-align: center;
+  padding: 14px 20px 20px;
+  z-index: 10;
+}
+
+/* Card Button Updates in Product Grid */
+.lp-product-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-btn-view-product {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 750;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  white-space: nowrap;
+}
+
+.lp-btn-view-product:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
+}
+
+.lp-btn-whatsapp-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: #25D366;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);
+  flex-shrink: 0;
+}
+
+.lp-btn-whatsapp-icon:hover {
+  background-color: #20ba59;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
+}
+
+@media (max-width: 900px) {
+  .lp-showcase-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    text-align: center;
+    overflow-y: auto;
+    max-height: calc(100vh - 160px);
+    padding: 10px;
+  }
+  .lp-showcase-left {
+    align-items: center;
+  }
+  .lp-showcase-specs {
+    align-items: flex-start;
+  }
+  .lp-showcase-actions {
+    justify-content: center;
+  }
+  .lp-showcase-img {
+    max-height: 260px;
+  }
+  .lp-showcase-watermark {
+    font-size: 18vw;
+  }
+  .lp-showcase-nav-arrow {
+    width: 38px;
+    height: 38px;
+  }
+}
