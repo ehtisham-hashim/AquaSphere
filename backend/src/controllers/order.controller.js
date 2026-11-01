@@ -7,6 +7,11 @@ import { getTenantPrefix } from '../utils/tenant.js';
 import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { getTenantOperationalDefaults } from './settings.controller.js';
+import {
+  extractReturnablesFromOrderItems,
+  creditEmptyBottlesToFactory,
+  debitEmptyBottlesFromFactory
+} from '../services/bottleInventory.service.js';
 
 /** Resolves and standardizes items in an order payload */
 async function resolveOrderItems(prefix, items) {
@@ -86,7 +91,17 @@ export const getOrders = asyncHandler(async (req, res) => {
 
   const include = {
     customer: true,
-    items: { include: { item: true } },
+    items: {
+      include: {
+        item: {
+          include: {
+            recipeFinishedGoods: {
+              include: { rawMaterial: true }
+            }
+          }
+        }
+      }
+    },
     payments: true,
     deliveries: true
   };
@@ -324,14 +339,25 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     paymentMethod = 'CASH', 
     settleFromSecurity = false,
     remarks,
-    bypassBottleCheck
+    bypassBottleCheck,
+    returnableItemId = null
   } = req.body;
 
   const order = await prisma.$transaction(async (tx) => {
     const o = await tx[`${prefix}Order`].findUnique({ 
       where: { id }, 
       include: { 
-        items: { include: { item: true } }, 
+        items: {
+          include: {
+            item: {
+              include: {
+                recipeFinishedGoods: {
+                  include: { rawMaterial: true }
+                }
+              }
+            }
+          }
+        }, 
         customer: true,
         payments: true,
         deliveries: true
@@ -372,12 +398,15 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Order is already delivered. Enter cash received, bottle returns/losses, or select settle from security deposit.');
       }
 
-      const qty19LOnOrder = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
+      const returnables = await extractReturnablesFromOrderItems(tx, prefix, o.items);
+      const primaryReturnable = returnables[0] || null;
+      const targetItemId = req.body.returnableItemId || primaryReturnable?.rawMaterialId || null;
+      const totalReturnableQty = returnables.reduce((sum, r) => sum + r.quantityIssued, 0);
       const prevReturned = o.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0) + (d.bottlesReturnedBroken || 0) + (d.bottlesLost || 0), 0) || 0;
-      const remainingBottlesAllowed = Math.max(0, qty19LOnOrder - prevReturned);
+      const remainingBottlesAllowed = Math.max(0, totalReturnableQty - prevReturned);
 
-      if (qty19LOnOrder > 0 && (totalEmptiesAccounted > remainingBottlesAllowed)) {
-        throw new ApiError(400, `Returned/lost bottles (${totalEmptiesAccounted}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
+      if (totalReturnableQty > 0 && totalEmptiesAccounted > remainingBottlesAllowed) {
+        throw new ApiError(400, `Returned/lost containers (${totalEmptiesAccounted}) exceed maximum allowed remaining (${remainingBottlesAllowed}).`);
       }
 
       const customerSnapshot = await tx[`${prefix}Customer`].findUnique({
@@ -429,24 +458,24 @@ export const deliverOrder = asyncHandler(async (req, res) => {
 
         if (retGood > 0) {
           await tx[`${prefix}BottleTransaction`].create({
-            data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
+            data: { customerId: o.customerId, itemId: targetItemId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
           });
-          const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
-          if (emptyBottle) {
-            await tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } });
-            await tx[`${prefix}InventoryTransaction`].create({
-              data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
-            });
-          }
+          await creditEmptyBottlesToFactory(tx, prefix, {
+            quantity: retGood,
+            rawMaterialId: targetItemId,
+            orderId: o.id,
+            customerId: o.customerId,
+            reason: 'BOTTLE_RETRIEVAL'
+          });
         }
         if (retBroken > 0) {
           await tx[`${prefix}BottleTransaction`].create({
-            data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
+            data: { customerId: o.customerId, itemId: targetItemId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Payment Settlement)` }
           });
         }
         if (retLost > 0) {
           await tx[`${prefix}BottleTransaction`].create({
-            data: { customerId: o.customerId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Marked Lost during Settlement)` }
+            data: { customerId: o.customerId, itemId: targetItemId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Marked Lost during Settlement)` }
           });
         }
       }
@@ -494,12 +523,14 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       }
     }
 
-    const has19L = o.items.some(i => i.item?.name?.toLowerCase().includes('19l'));
-    const qty19L = o.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0) || (has19L ? qty : 0);
+    const returnables = await extractReturnablesFromOrderItems(tx, prefix, o.items);
+    const primaryReturnable = returnables[0] || null;
+    const totalReturnableQty = returnables.reduce((sum, r) => sum + r.quantityIssued, 0);
+    const resolvedReturnableId = returnableItemId || primaryReturnable?.rawMaterialId || null;
 
     const currentBottles = o.customer.cachedBottleBalance || 0;
-    if ((totalEmptiesAccounted > currentBottles + qty19L) && !bypassBottleCheck) {
-      throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} bottles, but returning/lost ${totalEmptiesAccounted}. Proceed anyway?`);
+    if ((totalEmptiesAccounted > currentBottles + totalReturnableQty) && !bypassBottleCheck) {
+      throw new ApiError(400, `SOFT_BLOCK_BOTTLES: Customer holds only ${currentBottles} containers, but returning/lost ${totalEmptiesAccounted}. Proceed anyway?`);
     }
 
     // Group 1: Non-dependent creates
@@ -523,11 +554,11 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       );
     }
 
-    // 19L bottle custody update (minerals/caps deducted exclusively at production batch completion)
-    if (has19L && qty19L > 0) {
+    // Returnable container custody update
+    if (totalReturnableQty > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'DELIVERED_TO_CUSTOMER', quantity: qty19L, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
+          data: { customerId: o.customerId, itemId: resolvedReturnableId, type: 'DELIVERED_TO_CUSTOMER', quantity: totalReturnableQty, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
         })
       );
     }
@@ -535,21 +566,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     if (retGood > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
+          data: { customerId: o.customerId, itemId: resolvedReturnableId, type: 'RETURNED_GOOD', quantity: retGood, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
         })
       );
     }
     if (retBroken > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
+          data: { customerId: o.customerId, itemId: resolvedReturnableId, type: 'RETURNED_BROKEN', quantity: retBroken, reason: `Order #${o.id.substring(0, 8).toUpperCase()}` }
         })
       );
     }
     if (retLost > 0) {
       initialCreates.push(
         tx[`${prefix}BottleTransaction`].create({
-          data: { customerId: o.customerId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Reported Lost during Delivery)` }
+          data: { customerId: o.customerId, itemId: resolvedReturnableId, type: 'MARKED_LOST', quantity: retLost, reason: `Order #${o.id.substring(0, 8).toUpperCase()} (Reported Lost during Delivery)` }
         })
       );
     }
@@ -557,15 +588,13 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     await Promise.all(initialCreates);
 
     if (retGood > 0) {
-      const emptyBottle = await tx[`${prefix}Item`].findFirst({ where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } } });
-      if (emptyBottle) {
-        await Promise.all([
-          tx[`${prefix}Item`].update({ where: { id: emptyBottle.id }, data: { cachedQty: { increment: retGood }, factoryQty: { increment: retGood } } }),
-          tx[`${prefix}InventoryTransaction`].create({
-            data: { itemId: emptyBottle.id, quantity: retGood, direction: 'IN', reason: 'BOTTLE_RETRIEVAL', refType: 'ORDER', refId: o.id, location: 'FACTORY' }
-          })
-        ]);
-      }
+      await creditEmptyBottlesToFactory(tx, prefix, {
+        quantity: retGood,
+        rawMaterialId: resolvedReturnableId,
+        orderId: o.id,
+        customerId: o.customerId,
+        reason: 'BOTTLE_RETRIEVAL'
+      });
     }
 
     // Deduct finished goods exclusively from Factory Floor in base units (parallel batch)
@@ -623,7 +652,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
     }
 
     if (prefix !== 'wadaana') {
-      customerUpdateData.cachedBottleBalance = { increment: qty19L - totalEmptiesAccounted };
+      customerUpdateData.cachedBottleBalance = { increment: totalReturnableQty - totalEmptiesAccounted };
     }
 
     const finalPaymentStatus = (o.paymentStatus === 'PAID' || totalPaidForOrder >= orderTotal)
@@ -932,31 +961,21 @@ export const deleteOrder = asyncHandler(async (req, res) => {
       // 1b. Revert empty bottle returns retrieved during delivery
       const retGoodTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0), 0) || 0;
       const retBrokenTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedBroken || 0), 0) || 0;
+      const retLostTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesLost || 0), 0) || 0;
+
+      const returnables = await extractReturnablesFromOrderItems(tx, prefix, order.items);
+      const primaryReturnable = returnables[0] || null;
+      const totalReturnableQty = returnables.reduce((sum, r) => sum + r.quantityIssued, 0);
 
       if (retGoodTotal > 0) {
-        const emptyBottle = await tx[`${prefix}Item`].findFirst({
-          where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+        await debitEmptyBottlesFromFactory(tx, prefix, {
+          quantity: retGoodTotal,
+          rawMaterialId: primaryReturnable?.rawMaterialId,
+          orderId: order.id,
+          customerId: order.customerId,
+          reason: 'ORDER_DELETED_EMPTY_BOTTLE_REVERSAL',
+          skipTransactionLog: false
         });
-        if (emptyBottle) {
-          await tx[`${prefix}Item`].update({
-            where: { id: emptyBottle.id },
-            data: {
-              cachedQty: { decrement: retGoodTotal },
-              factoryQty: { decrement: retGoodTotal }
-            }
-          });
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: {
-              itemId: emptyBottle.id,
-              quantity: retGoodTotal,
-              direction: 'OUT',
-              reason: 'ORDER_DELETED_EMPTY_BOTTLE_REVERSAL',
-              refType: 'ORDER',
-              refId: order.id,
-              location: 'FACTORY'
-            }
-          });
-        }
       }
 
       // 1c. Revert customer debt and bottle custody
@@ -974,10 +993,8 @@ export const deleteOrder = asyncHandler(async (req, res) => {
         customerUpdateData.currentBalance = { decrement: unpaidDebtAdded };
       }
 
-      if (prefix !== 'wadaana') {
-        const retLostTotal = order.deliveries?.reduce((sum, d) => sum + (d.bottlesLost || 0), 0) || 0;
-        const qty19L = order.items.filter(i => i.item?.name?.toLowerCase().includes('19l')).reduce((sum, i) => sum + i.quantity, 0);
-        const custodyAdded = qty19L - retGoodTotal - retBrokenTotal - retLostTotal;
+      if (prefix !== 'wadaana' || totalReturnableQty > 0) {
+        const custodyAdded = totalReturnableQty - retGoodTotal - retBrokenTotal - retLostTotal;
         if (custodyAdded !== 0) {
           customerUpdateData.cachedBottleBalance = { decrement: custodyAdded };
         }

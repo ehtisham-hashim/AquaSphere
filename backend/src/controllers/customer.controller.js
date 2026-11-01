@@ -7,6 +7,11 @@ import { createAuditLog } from '../utils/auditLog.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
 import { broadcastDashboardUpdate } from './analytics.controller.js';
+import {
+  getCustomerReturnableCustodyBreakdown,
+  getAllReturnableRawMaterials,
+  debitEmptyBottlesFromFactory
+} from '../services/bottleInventory.service.js';
 
 export const sanitizeGoogleMapsUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
@@ -337,7 +342,9 @@ export const getCustomers = asyncHandler(async (req, res) => {
       prisma[`${prefix}Customer`].count({ where })
     ]);
 
-    const enriched = customers.map(c => ({
+    const custodyEnriched = await attachReturnableCustodyToCustomers(prisma, prefix, customers);
+
+    const enriched = custodyEnriched.map(c => ({
       ...c,
       ...formatCustomerMarketer(c, registry.marketers)
     }));
@@ -357,13 +364,112 @@ export const getCustomers = asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  const enriched = customers.map(c => ({
+  const custodyEnriched = await attachReturnableCustodyToCustomers(prisma, prefix, customers);
+
+  const enriched = custodyEnriched.map(c => ({
     ...c,
     ...formatCustomerMarketer(c, registry.marketers)
   }));
 
   return sendSuccess(res, enriched);
 });
+
+/** Batch attaches returnable custody breakdown to customers without N+1 queries */
+async function attachReturnableCustodyToCustomers(prismaClient, prefix, customers) {
+  const returnableItems = await getAllReturnableRawMaterials(prismaClient, prefix);
+  const returnableMap = new Map(returnableItems.map(item => [item.id, item]));
+  const defaultReturnable = returnableItems[0] || null;
+
+  const customerIdsWithCustody = customers
+    .filter(c => Number(c.cachedBottleBalance || 0) > 0)
+    .map(c => c.id);
+
+  const custodyByCustomer = new Map();
+
+  if (customerIdsWithCustody.length > 0) {
+    let txGroups;
+    try {
+      txGroups = await prismaClient[`${prefix}BottleTransaction`].groupBy({
+        by: ['customerId', 'itemId', 'type'],
+        where: { customerId: { in: customerIdsWithCustody } },
+        _sum: { quantity: true }
+      });
+    } catch (_err) {
+      txGroups = await prismaClient[`${prefix}BottleTransaction`].groupBy({
+        by: ['customerId', 'type'],
+        where: { customerId: { in: customerIdsWithCustody } },
+        _sum: { quantity: true }
+      });
+    }
+
+    for (const row of txGroups) {
+      const cid = row.customerId;
+      const resolvedId = row.itemId || defaultReturnable?.id || 'DEFAULT_19L';
+      const itemMeta = returnableMap.get(resolvedId) || defaultReturnable || {
+        id: resolvedId,
+        name: 'Empty 19L Bottles',
+        unit: 'bottle'
+      };
+
+      if (!custodyByCustomer.has(cid)) {
+        custodyByCustomer.set(cid, new Map());
+      }
+      const custItemMap = custodyByCustomer.get(cid);
+      if (!custItemMap.has(resolvedId)) {
+        custItemMap.set(resolvedId, {
+          itemId: itemMeta.id,
+          name: itemMeta.name,
+          unit: itemMeta.unit || 'bottle',
+          inCustody: 0
+        });
+      }
+
+      const entry = custItemMap.get(resolvedId);
+      const qty = Number(row._sum?.quantity || 0);
+      if (row.type === 'DELIVERED_TO_CUSTOMER') entry.inCustody += qty;
+      else if (['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(row.type)) {
+        entry.inCustody -= qty;
+      }
+    }
+  }
+
+  return customers.map(c => {
+    const itemMap = custodyByCustomer.get(c.id);
+    const returnableCustody = itemMap
+      ? Array.from(itemMap.values()).map(e => {
+          const custody = Math.max(0, e.inCustody);
+          return { ...e, inCustody: custody, balance: custody, itemName: e.name };
+        }).filter(entry => entry.inCustody > 0)
+      : [];
+
+    const balance = Number(c.cachedBottleBalance || 0);
+    const sumCustody = returnableCustody.reduce((s, e) => s + e.inCustody, 0);
+    if (balance > sumCustody) {
+      const primaryName = defaultReturnable?.name || 'Empty 19L Bottles';
+      const primaryId = defaultReturnable?.id || 'DEFAULT_19L';
+      const existing = returnableCustody.find(ri => ri.itemId === primaryId);
+      const diff = balance - sumCustody;
+      if (existing) {
+        existing.inCustody += diff;
+        existing.balance = existing.inCustody;
+      } else {
+        returnableCustody.unshift({
+          itemId: primaryId,
+          name: primaryName,
+          itemName: primaryName,
+          unit: defaultReturnable?.unit || 'bottle',
+          inCustody: diff,
+          balance: diff
+        });
+      }
+    }
+
+    return {
+      ...c,
+      returnableCustody
+    };
+  });
+}
 
 /** Retrieves detailed customer history */
 export const getCustomerDetails = asyncHandler(async (req, res) => {
@@ -384,7 +490,16 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
           orderBy: { createdAt: 'desc' }
         },
         bottleTransactions: {
-          select: { id: true, type: true, quantity: true, reason: true, runningBalance: true, createdAt: true },
+          select: {
+            id: true,
+            type: true,
+            quantity: true,
+            reason: true,
+            runningBalance: true,
+            createdAt: true,
+            itemId: true,
+            item: { select: { id: true, name: true, unit: true, isReturnable: true } }
+          },
           orderBy: { createdAt: 'desc' }
         },
         payments: {
@@ -408,7 +523,8 @@ export const getCustomerDetails = asyncHandler(async (req, res) => {
 
   if (!customer) throw new ApiError(404, 'Customer not found');
   const marketerMeta = formatCustomerMarketer(customer, registry.marketers);
-  return sendSuccess(res, { ...customer, ...marketerMeta, auditLogs });
+  const returnableCustody = await getCustomerReturnableCustodyBreakdown(prisma, prefix, id, Number(customer.cachedBottleBalance || 0));
+  return sendSuccess(res, { ...customer, ...marketerMeta, returnableCustody, auditLogs });
 });
 
 /** Creates a new customer or restores archived record */
@@ -649,15 +765,13 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
 
         const retGoodTotal = ord.deliveries?.reduce((sum, d) => sum + (d.bottlesReturnedGood || 0), 0) || 0;
         if (retGoodTotal > 0) {
-          const emptyBottle = await tx[`${prefix}Item`].findFirst({
-            where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
+          await debitEmptyBottlesFromFactory(tx, prefix, {
+            quantity: retGoodTotal,
+            customerId: id,
+            orderId: ord.id,
+            reason: 'CUSTOMER_DELETED_EMPTY_BOTTLE_REVERSAL',
+            skipTransactionLog: true
           });
-          if (emptyBottle) {
-            await tx[`${prefix}Item`].update({
-              where: { id: emptyBottle.id },
-              data: { cachedQty: { decrement: retGoodTotal }, factoryQty: { decrement: retGoodTotal } }
-            });
-          }
         }
       }
 

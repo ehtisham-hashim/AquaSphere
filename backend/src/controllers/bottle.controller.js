@@ -4,10 +4,15 @@ import { ApiError } from '../utils/ApiError.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import {
+  resolveReturnableRawMaterial,
+  creditEmptyBottlesToFactory,
+  getAllReturnableRawMaterials
+} from '../services/bottleInventory.service.js';
 
 /** Computes bottle fleet reconciliation statistics across factory, warehouse, and customers */
 async function computeBottleStats(client, prefix) {
-  const [txnSums, customerSum] = await Promise.all([
+  const [txnSums, customerSum, returnableItems] = await Promise.all([
     client[`${prefix}BottleTransaction`].groupBy({
       by: ['type'],
       _sum: { quantity: true }
@@ -15,7 +20,8 @@ async function computeBottleStats(client, prefix) {
     client[`${prefix}Customer`].aggregate({
       where: { archivedAt: null },
       _sum: { cachedBottleBalance: true }
-    })
+    }),
+    getAllReturnableRawMaterials(client, prefix)
   ]);
 
   const map = {};
@@ -32,17 +38,33 @@ async function computeBottleStats(client, prefix) {
   const withCustomers = Math.max(0, customerSum._sum.cachedBottleBalance || 0);
   const totalOwned = Math.max(0, totalPurchased + factoryAdjustments - lostCount - brokenCount);
   const atWarehouse = Math.max(0, movedToWarehouse - movedToFactory + warehouseAdjustments);
-  const atFactory = Math.max(0, totalOwned - withCustomers - atWarehouse);
+
+  const rawMaterialFactoryStock = returnableItems.reduce(
+    (sum, item) => sum + Math.round(Number(item.factoryQty !== undefined ? item.factoryQty : item.cachedQty || 0)),
+    0
+  );
+
+  // If new purchase transactions weren't seeded initially, reconcile from real physical stock
+  const atFactory = totalPurchased > 0
+    ? Math.max(0, totalOwned - withCustomers - atWarehouse)
+    : Math.max(0, rawMaterialFactoryStock);
 
   return {
     totalPurchased,
-    totalOwned,
+    totalOwned: totalPurchased > 0 ? totalOwned : (atFactory + atWarehouse + withCustomers),
     atFactory,
     atWarehouse,
     withCustomers,
     broken: brokenCount,
     lost: lostCount,
-    equationReconciled: (atFactory + atWarehouse + withCustomers) === totalOwned
+    returnableItems: returnableItems.map(i => ({
+      id: i.id,
+      name: i.name,
+      cachedQty: Number(i.cachedQty || 0),
+      factoryQty: Number(i.factoryQty || 0),
+      warehouseQty: Number(i.warehouseQty || 0)
+    })),
+    equationReconciled: totalPurchased > 0 ? (atFactory + atWarehouse + withCustomers) === totalOwned : true
   };
 }
 
@@ -69,7 +91,8 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
       include: {
-        customer: { select: { id: true, name: true, phone: true } }
+        customer: { select: { id: true, name: true, phone: true } },
+        item: { select: { id: true, name: true, unit: true, isReturnable: true } }
       }
     }),
     prisma[`${prefix}BottleTransaction`].count({ where })
@@ -88,7 +111,7 @@ export const getBottleTransactions = asyncHandler(async (req, res) => {
 /** Records bottle movements, issuances, returns, or breakages with fleet balance adjustments */
 export const createBottleTransaction = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { customerId, type, quantity, reason } = req.body;
+  const { customerId, itemId, type, quantity, reason } = req.body;
 
   const qty = parseInt(quantity, 10);
   if (!type || isNaN(qty) || qty <= 0) {
@@ -129,12 +152,20 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
       if (!customer) throw new ApiError(404, 'Customer not found');
     }
 
+    // Resolve returnable item dynamically (via passed itemId or primary catalog returnable raw material)
+    const returnableItem = await resolveReturnableRawMaterial(tx, prefix, { rawMaterialId: itemId });
+
     const createdTxn = await tx[`${prefix}BottleTransaction`].create({
       data: {
         customerId: customerId || null,
+        itemId: returnableItem?.id || null,
         type,
         quantity: qty,
         reason: reason || null
+      },
+      include: {
+        item: { select: { id: true, name: true, unit: true, isReturnable: true } },
+        customer: { select: { id: true, name: true, phone: true } }
       }
     });
 
@@ -149,32 +180,16 @@ export const createBottleTransaction = asyncHandler(async (req, res) => {
           data: { cachedBottleBalance: { increment: balanceChange } }
         });
       }
+    }
 
-      if (type === 'RETURNED_GOOD') {
-        const emptyBottleItem = await tx[`${prefix}Item`].findFirst({
-          where: { type: 'RAW_MATERIAL', name: { contains: 'empty', mode: 'insensitive' } }
-        });
-        if (emptyBottleItem) {
-          await tx[`${prefix}Item`].update({
-            where: { id: emptyBottleItem.id },
-            data: { 
-              cachedQty: { increment: qty },
-              factoryQty: { increment: qty }
-            }
-          });
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: {
-              itemId: emptyBottleItem.id,
-              quantity: qty,
-              direction: 'IN',
-              reason: 'BOTTLE_RETRIEVAL',
-              refType: 'CUSTOMER',
-              refId: customerId,
-              location: 'FACTORY'
-            }
-          });
-        }
-      }
+    // Single-Location Raw Material Law: Returned Good empties are credited back to plant floor stock
+    if (type === 'RETURNED_GOOD') {
+      await creditEmptyBottlesToFactory(tx, prefix, {
+        quantity: qty,
+        rawMaterialId: returnableItem?.id,
+        customerId: customerId || null,
+        reason: reason || 'BOTTLE_RETRIEVAL'
+      });
     }
 
     return createdTxn;

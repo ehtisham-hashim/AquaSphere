@@ -68,6 +68,7 @@ model AquasphereItem {
   reorderLevel      Decimal            @default(0.0) @map("reorder_level")
   retailPrice       Decimal            @default(0.0) @map("retail_price")
   sellableOnCounter Boolean            @default(false) @map("sellable_on_counter")
+  isReturnable      Boolean            @default(false) @map("is_returnable")
   archivedAt        DateTime?          @map("archived_at")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
@@ -81,10 +82,12 @@ model AquasphereItem {
   recipeFinishedGoods   AquasphereRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    AquasphereRecipeItem[]                 @relation("RecipeRawMaterial")
   spotSaleItems         AquasphereSpotSaleItem[]
+  bottleTransactions    AquasphereBottleTransaction[]
 
   @@index([name])
   @@index([type])
   @@index([archivedAt])
+  @@index([isReturnable])
   @@map("items")
   @@schema("aquasphere")
 }
@@ -122,6 +125,8 @@ model AquasphereBottleTransaction {
   id             String                          @id @default(uuid())
   customerId     String?                         @map("customer_id")
   customer       AquasphereCustomer?             @relation(fields: [customerId], references: [id])
+  itemId         String?                         @map("item_id")
+  item           AquasphereItem?                 @relation(fields: [itemId], references: [id])
   type           AquasphereBottleTransactionType @map("txn_type")
   quantity       Int
   reason         String?
@@ -130,6 +135,7 @@ model AquasphereBottleTransaction {
   createdAt      DateTime                        @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
+  @@index([customerId, itemId])
   @@map("bottle_transactions")
   @@schema("aquasphere")
 }
@@ -731,6 +737,7 @@ model WadaanaItem {
   reorderLevel      Decimal         @default(0.0) @map("reorder_level")
   retailPrice       Decimal         @default(0.0) @map("retail_price")
   sellableOnCounter Boolean         @default(false) @map("sellable_on_counter")
+  isReturnable      Boolean         @default(false) @map("is_returnable")
   archivedAt        DateTime?       @map("archived_at")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
@@ -744,10 +751,12 @@ model WadaanaItem {
   recipeFinishedGoods   WadaanaRecipeItem[]                 @relation("RecipeFinishedGood")
   recipeRawMaterials    WadaanaRecipeItem[]                 @relation("RecipeRawMaterial")
   spotSaleItems         WadaanaSpotSaleItem[]
+  bottleTransactions    WadaanaBottleTransaction[]
 
   @@index([name])
   @@index([type])
   @@index([archivedAt])
+  @@index([isReturnable])
   @@map("items")
   @@schema("wadaana")
 }
@@ -785,6 +794,8 @@ model WadaanaBottleTransaction {
   id             String                       @id @default(uuid())
   customerId     String?                      @map("customer_id")
   customer       WadaanaCustomer?             @relation(fields: [customerId], references: [id])
+  itemId         String?                      @map("item_id")
+  item           WadaanaItem?                 @relation(fields: [itemId], references: [id])
   type           WadaanaBottleTransactionType @map("txn_type")
   quantity       Int
   reason         String?
@@ -793,6 +804,7 @@ model WadaanaBottleTransaction {
   createdAt      DateTime                     @default(now()) @map("created_at")
 
   @@index([customerId, type, createdAt])
+  @@index([customerId, itemId])
   @@map("bottle_transactions")
   @@schema("wadaana")
 }

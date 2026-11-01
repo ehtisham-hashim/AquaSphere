@@ -135,6 +135,8 @@ export default function CounterSales() {
       clearCache('items');
       clearCache('customers');
       clearCache('daily-close');
+      clearCache('bottles');
+      clearCache('inventory');
       fetchData(true);
     } catch (err) {
       toast.error('Error recording sale');

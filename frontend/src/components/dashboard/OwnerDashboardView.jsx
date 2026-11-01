@@ -433,6 +433,9 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         </div>
       </div>
 
+      {/* Customer Risk & Bottle Intelligence Hub — Consolidated & Non-Bloated */}
+      <CustomerRiskHub />
+
       {/* 3. Operational Cockpit: 2-Column Split for high-density overview with minimal scrolling */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 pt-1">
         {/* Left Column (7 cols): Purchasing, Payables & Logistics */}
@@ -546,9 +549,6 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
           <ProductionScrapLossWidget timeframe={timeframe} />
         </div>
       </div>
-
-      {/* Customer Risk & Bottle Intelligence Hub — Consolidated & Non-Bloated */}
-      <CustomerRiskHub />
 
       {/* Unprocessed Orders Modal */}
       <UnprocessedOrdersModal

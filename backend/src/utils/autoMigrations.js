@@ -34,8 +34,17 @@ export async function ensureNativeSchemaColumns() {
     `ALTER TABLE "aquasphere"."deliveries" ADD COLUMN IF NOT EXISTS "bottles_lost" INTEGER DEFAULT 0;`,
     `ALTER TABLE "wadaana"."deliveries" ADD COLUMN IF NOT EXISTS "bottles_lost" INTEGER DEFAULT 0;`,
 
+    `ALTER TABLE "aquasphere"."items" ADD COLUMN IF NOT EXISTS "is_returnable" BOOLEAN NOT NULL DEFAULT false;`,
+    `ALTER TABLE "wadaana"."items" ADD COLUMN IF NOT EXISTS "is_returnable" BOOLEAN NOT NULL DEFAULT false;`,
+    `ALTER TABLE "aquasphere"."bottle_transactions" ADD COLUMN IF NOT EXISTS "item_id" TEXT;`,
+    `ALTER TABLE "wadaana"."bottle_transactions" ADD COLUMN IF NOT EXISTS "item_id" TEXT;`,
+
     `CREATE UNIQUE INDEX IF NOT EXISTS "customers_customer_code_key" ON "aquasphere"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS "wadaana_customers_customer_code_key" ON "wadaana"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`
+    `CREATE UNIQUE INDEX IF NOT EXISTS "wadaana_customers_customer_code_key" ON "wadaana"."customers"("customer_code") WHERE "customer_code" IS NOT NULL;`,
+    `CREATE INDEX IF NOT EXISTS "items_is_returnable_idx" ON "aquasphere"."items"("is_returnable");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_items_is_returnable_idx" ON "wadaana"."items"("is_returnable");`,
+    `CREATE INDEX IF NOT EXISTS "bottle_tx_customer_item_idx" ON "aquasphere"."bottle_transactions"("customer_id", "item_id");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_bottle_tx_customer_item_idx" ON "wadaana"."bottle_transactions"("customer_id", "item_id");`
   ];
 
   for (const sql of ddlStatements) {

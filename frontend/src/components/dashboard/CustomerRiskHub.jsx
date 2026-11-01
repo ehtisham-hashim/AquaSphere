@@ -165,7 +165,7 @@ export default function CustomerRiskHub({ className = '' }) {
               }`}
             >
               <Package size={13} />
-              <span>19L Bottles</span>
+              <span>Returnable Custody</span>
               {tabCounts.bottles > 0 && (
                 <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                   activeTab === 'bottles' ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'

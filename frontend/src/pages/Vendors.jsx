@@ -8,6 +8,7 @@ import { useLiveEvent } from '../context/SSEContext';
 import VendorTable from '../components/vendors/VendorTable';
 import AddEditVendorModal from '../components/vendors/AddEditVendorModal';
 import VendorDetailModal from '../components/vendors/VendorDetailModal';
+import VendorPaymentModal from '../components/vendors/VendorPaymentModal';
 import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 
 export default function Vendors() {
@@ -22,6 +23,8 @@ export default function Vendors() {
   const [editingVendor, setEditingVendor] = useState(null);
   const [vendorToDelete, setVendorToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [vendorToPay, setVendorToPay] = useState(null);
 
   const isOwner = user?.role === 'OWNER';
   const isOwnerOrAccountant = isOwner || user?.role === 'ACCOUNTANT';
@@ -84,6 +87,11 @@ export default function Vendors() {
       notes: v.notes || ''
     });
     setIsModalOpen(true);
+  };
+
+  const handleOpenPayment = (v) => {
+    setVendorToPay(v);
+    setIsPaymentModalOpen(true);
   };
 
   const handleViewDetails = async (v) => {
@@ -263,6 +271,7 @@ export default function Vendors() {
         canAddEdit={canAddEdit}
         canPayOrArchive={canPayOrArchive}
         onView={handleViewDetails}
+        onPay={handleOpenPayment}
         onEdit={handleOpenEdit}
         onToggleArchive={handleToggleArchive}
         onDeleteVendor={setVendorToDelete}
@@ -285,8 +294,25 @@ export default function Vendors() {
         selectedVendorDetail={selectedVendorDetail}
         onClose={() => setSelectedVendorDetail(null)}
         canPayOrArchive={canPayOrArchive}
+        onPay={handleOpenPayment}
         onDeleteVendor={setVendorToDelete}
         isOwner={isOwner}
+      />
+
+      {/* Vendor Lump-Sum Pooled Payment Modal */}
+      <VendorPaymentModal
+        isOpen={isPaymentModalOpen && canPayOrArchive}
+        vendor={vendorToPay}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setVendorToPay(null);
+        }}
+        onSuccess={() => {
+          fetchVendors();
+          if (selectedVendorDetail && vendorToPay && selectedVendorDetail.id === vendorToPay.id) {
+            handleViewDetails(vendorToPay);
+          }
+        }}
       />
 
       <DeleteConfirmationModal

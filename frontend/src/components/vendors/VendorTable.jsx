@@ -1,4 +1,4 @@
-import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, Eye, Loader2, Trash2 } from 'lucide-react';
+import { Building2, Phone, Mail, MapPin, Archive, RefreshCw, Edit2, Eye, Loader2, Trash2, DollarSign } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
@@ -8,6 +8,7 @@ export default function VendorTable({
   canAddEdit,
   canPayOrArchive,
   onView,
+  onPay,
   onEdit,
   onToggleArchive,
   onDeleteVendor,
@@ -104,6 +105,16 @@ export default function VendorTable({
 
                 <td className="table-td text-right">
                   <div className="flex items-center justify-end gap-1">
+                    {canPayOrArchive && onPay && Number(v.payableBalance || 0) > 0 && !v.archivedAt && (
+                      <button
+                        onClick={() => onPay(v)}
+                        className="py-1 px-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 inline-flex items-center gap-1 transition"
+                        title="Settle Outstanding Vendor Debt"
+                      >
+                        <DollarSign size={13} className="text-emerald-600" /> Pay
+                      </button>
+                    )}
+
                     <button
                       onClick={() => onView(v)}
                       className="btn-secondary py-1 px-2 text-xs inline-flex items-center gap-1"

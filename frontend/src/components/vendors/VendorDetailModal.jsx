@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { X, Calendar, FileText, ShoppingCart, Receipt, Trash2 } from 'lucide-react';
+import { X, Calendar, FileText, ShoppingCart, Receipt, Trash2, DollarSign } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 
 export default function VendorDetailModal({
   selectedVendorDetail,
   onClose,
+  canPayOrArchive = false,
+  onPay,
   onDeleteVendor,
   isOwner = false
 }) {
@@ -65,6 +67,15 @@ export default function VendorDetailModal({
                   Rs {Number(selectedVendorDetail.payableBalance || 0).toLocaleString()}
                 </span>
               </div>
+              {canPayOrArchive && onPay && Number(selectedVendorDetail.payableBalance || 0) > 0 && !selectedVendorDetail.archivedAt && (
+                <button
+                  onClick={() => onPay(selectedVendorDetail)}
+                  className="py-1 px-2.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 inline-flex items-center gap-1 transition"
+                  title="Settle Outstanding Vendor Debt"
+                >
+                  <DollarSign size={13} className="text-emerald-600" /> Pay Debt
+                </button>
+              )}
             </div>
           </div>
 

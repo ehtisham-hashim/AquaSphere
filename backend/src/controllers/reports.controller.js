@@ -49,11 +49,11 @@ export const getReportData = asyncHandler(async (req, res) => {
   if (startDate) start.setUTCHours(0, 0, 0, 0);
   if (endDate && !month) end.setUTCHours(23, 59, 59, 999);
 
-  let kpis = [];
-  let chartData = [];
+  let kpis;
+  let chartData;
   let secondaryBreakdown = {};
   let summaryRow = null;
-  let table = [];
+  let table;
 
   switch (reportType) {
     case 'sales': {
@@ -734,7 +734,9 @@ export const getReportData = asyncHandler(async (req, res) => {
             const parsed = JSON.parse(b.remarks);
             if (Array.isArray(parsed.producedItems)) producedItems = parsed.producedItems;
             else if (Array.isArray(parsed)) producedItems = parsed;
-          } catch {}
+          } catch {
+            // ignore non-JSON remarks
+          }
         }
 
         // Aggregate yield dynamically

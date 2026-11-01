@@ -407,20 +407,34 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
               <div className="p-2">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  {!isWadaana ? '19L Bottle Custody' : 'Credit Terms'}
+                  {!isWadaana ? 'Returnable Custody' : 'Credit Terms'}
                 </span>
                 <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
-                  {!isWadaana ? `${c.cachedBottleBalance || 0} Empty` : `${c.creditDuration || 1} Days`}
+                  {!isWadaana ? `${c.cachedBottleBalance || 0} Units` : `${c.creditDuration || 1} Days`}
                 </span>
                 {!isWadaana ? (
-                  (c.cachedBottleBalance || 0) > 0 && (
-                    <button
-                      onClick={() => setIsBottleModalOpen(true)}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-0.5 block mx-auto"
-                    >
-                      Retrieve / Adjust
-                    </button>
-                  )
+                  <>
+                    {Array.isArray(c.returnableCustody) && c.returnableCustody.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1 mt-1">
+                        {c.returnableCustody.map((rc) => (
+                          <span
+                            key={rc.itemId || 'legacy'}
+                            className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-medium"
+                          >
+                            {rc.itemName}: <span className="font-bold text-amber-700">{rc.balance}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(c.cachedBottleBalance || 0) > 0 && (
+                      <button
+                        onClick={() => setIsBottleModalOpen(true)}
+                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto"
+                      >
+                        Retrieve / Adjust
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
                     Allowed credit span

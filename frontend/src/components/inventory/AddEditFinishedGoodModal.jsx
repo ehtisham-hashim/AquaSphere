@@ -3,6 +3,7 @@ import { X, PackageCheck, Loader2, Info, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { formatRawMaterialQty } from '../../utils/unitFormat';
 
 export default function AddEditFinishedGoodModal({
   isOpen,
@@ -294,15 +295,7 @@ export default function AddEditFinishedGoodModal({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setFactoryStock('0'); setWarehouseStock('0'); }}
-                    className="px-2 py-1 text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition"
-                    title="Zero out all stock"
-                  >
-                    Reset Stock to 0
-                  </button>
-                  <div className="text-right pl-2 border-l border-slate-200">
+                  <div className="text-right">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Available</span>
                     <span className="text-sm font-mono font-black text-brand">
                       {totalCalculatedStock.toLocaleString()}{' '}
@@ -413,8 +406,7 @@ export default function AddEditFinishedGoodModal({
                         </div>
 
                         <div className="col-span-2 text-right font-mono text-slate-500 text-[11px]">
-                          {Math.round(Number(mat.cachedQty || 0)).toLocaleString()}{' '}
-                          <span className="text-[10px] text-slate-400 font-sans">{mat.unit}</span>
+                          {formatRawMaterialQty(mat.cachedQty, mat.unit)}
                         </div>
 
                         <div className="col-span-3 flex items-center justify-end gap-1.5 pl-2">

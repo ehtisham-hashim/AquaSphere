@@ -66,6 +66,7 @@ export default function LogCounterSaleForm({
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [customerId, setCustomerId] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [bottlesReturnedGood, setBottlesReturnedGood] = useState(0);
 
   // Physical paper ledger / sheet photo upload
   const { tenant } = useTenant();
@@ -430,7 +431,8 @@ export default function LogCounterSaleForm({
       customerId: customerId || null,
       remarks,
       receiptUrl: receiptUrl || null,
-      allowNegativeStock: allowStockOverride
+      allowNegativeStock: allowStockOverride,
+      bottlesReturnedGood: parseInt(bottlesReturnedGood || 0)
     });
 
     // Instant reset
@@ -439,6 +441,7 @@ export default function LogCounterSaleForm({
     setExtraItems({});
     setRefillQty(0);
     setCustomWaterLitres(0);
+    setBottlesReturnedGood(0);
     setIsAmountPaidManual(false);
     setAllowStockOverride(false);
     setRemarks('');
@@ -1018,6 +1021,43 @@ export default function LogCounterSaleForm({
                 <span className="font-bold">Fully Paid</span>
               </div>
             )}
+
+            {/* Empty Returnable Bottles Returned at Counter */}
+            <div className="p-2.5 bg-sky-50/75 border border-sky-200/80 rounded-lg space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-[11px] font-bold text-sky-900 flex items-center gap-1.5">
+                    <span>Empty Returnable Bottles Collected</span>
+                  </label>
+                  <p className="text-[10px] text-sky-700">
+                    Credits plant empty bottle stock directly {selectedCustomer ? '& deducts custody balance' : ''}.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 bg-white border border-sky-200 rounded-lg p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setBottlesReturnedGood(prev => Math.max(0, parseInt(prev || 0) - 1))}
+                    className="p-1 hover:bg-slate-100 rounded text-slate-600 active:scale-95 transition"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bottlesReturnedGood}
+                    onChange={(e) => setBottlesReturnedGood(Math.max(0, parseInt(e.target.value || 0)))}
+                    className="w-12 text-center text-xs font-mono font-bold border-0 p-0 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBottlesReturnedGood(prev => parseInt(prev || 0) + 1)}
+                    className="p-1 hover:bg-slate-100 rounded text-slate-600 active:scale-95 transition"
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Customer Account Selector */}
             <div>

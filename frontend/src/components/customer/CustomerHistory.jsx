@@ -117,7 +117,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
     },
     ...(showBottleLedger ? [{ 
       id: 'bottles', 
-      label: 'Bottle Ledger', 
+      label: 'Returnable Custody Ledger', 
       count: bottleTransactions.length, 
       icon: Droplet 
     }] : []),
@@ -397,6 +397,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-xs tracking-wider select-none sticky top-0 z-10">
                 <tr>
                   <th className="py-3 px-4">Date & Time</th>
+                  <th className="py-3 px-4">Returnable Item</th>
                   <th className="py-3 px-4">Transaction Type</th>
                   <th className="py-3 px-4 text-center">Quantity Change</th>
                   <th className="py-3 px-4">Reason / Notes</th>
@@ -405,20 +406,25 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
               <tbody className="divide-y divide-slate-100">
                 {bottleTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-10 text-center text-slate-400 italic text-sm">
-                      No bottle transactions logged for this customer.
+                    <td colSpan={5} className="py-10 text-center text-slate-400 italic text-sm">
+                      No returnable custody transactions logged for this customer.
                     </td>
                   </tr>
                 ) : (
                   bottlePagination.paginatedItems.map((tx) => {
                     const isIncrease = ['DELIVERED_TO_CUSTOMER', 'NEW_PURCHASE'].includes(tx.type);
                     const isDecrease = ['RETURNED_GOOD', 'RETURNED_BROKEN', 'MARKED_LOST'].includes(tx.type);
+                    const itemName = tx.item?.name || 'Empty 19L Bottles';
+                    const itemUnit = tx.item?.unit || 'units';
                     return (
                       <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3.5 px-4 text-slate-700 text-xs whitespace-nowrap">
                           {formatDate(tx.createdAt)}
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap font-medium text-slate-900">
+                        <td className="py-3.5 px-4 whitespace-nowrap font-semibold text-slate-800 text-xs">
+                          {itemName}
+                        </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap font-medium text-slate-700 text-xs">
                           {BOTTLE_TYPE_LABELS[tx.type] || tx.type}
                         </td>
                         <td className="py-3.5 px-4 text-center whitespace-nowrap">
@@ -429,7 +435,7 @@ export default function CustomerHistory({ customer, isWadaana, onViewOrder }) {
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : 'bg-slate-100 text-slate-700 border border-slate-200'
                           }`}>
-                            {isIncrease ? `+${tx.quantity}` : isDecrease ? `-${tx.quantity}` : tx.quantity} bottles
+                            {isIncrease ? `+${tx.quantity}` : isDecrease ? `-${tx.quantity}` : tx.quantity} {itemUnit}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-slate-600 italic text-xs">

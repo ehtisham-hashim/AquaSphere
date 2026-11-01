@@ -34,6 +34,8 @@ export const getItems = asyncHandler(async (req, res) => {
         // Base Unit Storage Law: finished goods are stored in base bottles
         item.unit = 'bottle';
       }
+      item.hasReturnableContainer = Boolean(item.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable));
+      item.returnableRawMaterials = item.recipeFinishedGoods?.filter(r => r.rawMaterial?.isReturnable).map(r => r.rawMaterial) || [];
     }
     return item;
   });
@@ -54,14 +56,38 @@ export const getItemById = asyncHandler(async (req, res) => {
   return sendSuccess(res, item);
 });
 
+const CONTINUOUS_UNITS = new Set([
+  'kg', 'kgs', 'kilogram', 'kilograms',
+  'g', 'gm', 'gram', 'grams',
+  'mg', 'l', 'ltr', 'litre', 'litres', 'liter', 'liters', 'ml'
+]);
+
 /** Creates a new catalog item or appends stock if name exists */
 export const createItem = asyncHandler(async (req, res) => {
-  const { name, type = 'RAW_MATERIAL', unit = 'kg', packSize = 1, reorderLevel = 0, initialStock = 0, quantityToAdd = 0, factoryStock, warehouseStock, recipe = [], retailPrice = 0, sellableOnCounter = false } = req.body;
+  const {
+    name,
+    type = 'RAW_MATERIAL',
+    unit = 'kg',
+    packSize = 1,
+    reorderLevel = 0,
+    initialStock = 0,
+    quantityToAdd = 0,
+    factoryStock,
+    warehouseStock,
+    recipe = [],
+    retailPrice = 0,
+    sellableOnCounter = false,
+    isReturnable = false
+  } = req.body;
   const prefix = getTenantPrefix(req);
 
   if (!name || !name.trim()) throw new ApiError(400, 'Item name is required');
   const cleanName = name.trim();
   const parsedPackSize = Math.max(1, parseInt(packSize, 10) || 1);
+
+  if (Boolean(isReturnable) && CONTINUOUS_UNITS.has(String(unit || '').trim().toLowerCase())) {
+    throw new ApiError(400, 'Returnable items must use a discrete countable unit (e.g., bottle, pcs, crate), not weight or volume (kg/litres).');
+  }
 
   const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
   const initF = hasLocationStock ? Math.max(0, parseFloat(factoryStock) || 0) : Math.max(0, parseFloat(initialStock || quantityToAdd || 0));
@@ -110,7 +136,8 @@ export const createItem = asyncHandler(async (req, res) => {
           unit: unit || existingItem.unit,
           ...(req.body.packSize !== undefined ? { packSize: parsedPackSize } : {}),
           ...(req.body.retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(req.body.retailPrice) || 0) } : {}),
-          ...(req.body.sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(req.body.sellableOnCounter) } : {})
+          ...(req.body.sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(req.body.sellableOnCounter) } : {}),
+          ...(req.body.isReturnable !== undefined ? { isReturnable: Boolean(req.body.isReturnable) } : {})
         },
         include: { recipeFinishedGoods: { include: { rawMaterial: true } } }
       });
@@ -130,6 +157,7 @@ export const createItem = asyncHandler(async (req, res) => {
         reorderLevel: parseFloat(reorderLevel) || 0,
         retailPrice: Math.max(0, parseFloat(retailPrice) || 0),
         sellableOnCounter: Boolean(sellableOnCounter),
+        isReturnable: Boolean(isReturnable),
         cachedQty: addQty > 0 ? addQty : 0,
         factoryQty: initF > 0 ? initF : 0,
         warehouseQty: initW > 0 ? initW : 0
@@ -174,7 +202,7 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter } = req.body;
+  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter, isReturnable } = req.body;
   const prefix = getTenantPrefix(req);
 
   const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
@@ -185,12 +213,19 @@ export const updateItem = asyncHandler(async (req, res) => {
     const item = await tx[`${prefix}Item`].findUnique({ where: { id } });
     if (!item) throw new ApiError(404, 'Item not found');
 
+    const targetUnit = unit || item.unit;
+    const targetIsReturnable = isReturnable !== undefined ? Boolean(isReturnable) : item.isReturnable;
+    if (targetIsReturnable && CONTINUOUS_UNITS.has(String(targetUnit || '').trim().toLowerCase())) {
+      throw new ApiError(400, 'Returnable items must use a discrete countable unit (e.g., bottle, pcs, crate), not weight or volume (kg/litres).');
+    }
+
     const updateData = {
       ...(name && name.trim() ? { name: name.trim() } : {}),
       ...(unit ? { unit } : {}),
       ...(reorderLevel !== undefined ? { reorderLevel: parseFloat(reorderLevel) || 0 } : {}),
       ...(retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(retailPrice) || 0) } : {}),
-      ...(sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(sellableOnCounter) } : {})
+      ...(sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(sellableOnCounter) } : {}),
+      ...(isReturnable !== undefined ? { isReturnable: Boolean(isReturnable) } : {})
     };
 
     if (hasLocationStock) {

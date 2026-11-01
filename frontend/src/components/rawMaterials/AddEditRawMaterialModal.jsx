@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { X, Package, Check, AlertCircle, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL as API } from '../../utils/api';
+import { isContinuousUnit } from '../../utils/unitFormat';
 
-const COMMON_UNITS = ['pcs', 'kg', 'litres', 'bags', 'rolls', 'boxes', 'packs'];
+const COMMON_UNITS = ['pcs', 'bottle', 'cap', 'kg', 'litres', 'bags', 'rolls', 'boxes', 'packs', 'crate'];
 
 export default function AddEditRawMaterialModal({ 
   isOpen, 
@@ -22,6 +23,7 @@ export default function AddEditRawMaterialModal({
   const [reorderLevel, setReorderLevel] = useState('100');
   const [stock, setStock] = useState('');
   const [sellableOnCounter, setSellableOnCounter] = useState(false);
+  const [isReturnable, setIsReturnable] = useState(false);
   const [retailPrice, setRetailPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -33,8 +35,9 @@ export default function AddEditRawMaterialModal({
       setName(editingItem.name || '');
       setUnit(editingItem.unit || defaultUnit);
       setReorderLevel(String(editingItem.reorderLevel ?? 100));
-      setStock(editingItem.cachedQty !== undefined && editingItem.cachedQty !== null ? String(editingItem.cachedQty) : '0');
+      setStock(editingItem.cachedQty !== undefined && editingItem.cachedQty !== null ? String(Number(editingItem.cachedQty)) : '0');
       setSellableOnCounter(Boolean(editingItem.sellableOnCounter));
+      setIsReturnable(Boolean(editingItem.isReturnable));
       setRetailPrice(editingItem.retailPrice !== undefined && editingItem.retailPrice !== null ? String(editingItem.retailPrice) : '');
     } else {
       setName('');
@@ -42,6 +45,7 @@ export default function AddEditRawMaterialModal({
       setReorderLevel('100');
       setStock('');
       setSellableOnCounter(false);
+      setIsReturnable(false);
       setRetailPrice('');
     }
   }, [isOpen, editingItem, defaultUnit]);
@@ -72,6 +76,7 @@ export default function AddEditRawMaterialModal({
             currentStock: parseFloat(stock || 0),
             retailPrice: parseFloat(retailPrice || 0),
             sellableOnCounter,
+            isReturnable: isContinuousUnit(unit) ? false : isReturnable,
             type: 'RAW_MATERIAL'
           })
         });
@@ -92,6 +97,7 @@ export default function AddEditRawMaterialModal({
             initialStock: parseFloat(stock || 0),
             retailPrice: parseFloat(retailPrice || 0),
             sellableOnCounter,
+            isReturnable: isContinuousUnit(unit) ? false : isReturnable,
             type: 'RAW_MATERIAL'
           })
         });
@@ -203,7 +209,7 @@ export default function AddEditRawMaterialModal({
               <input
                 type="number"
                 min="0"
-                step="any"
+                step={isContinuousUnit(unit) ? "0.001" : "1"}
                 value={reorderLevel}
                 onChange={(e) => setReorderLevel(e.target.value)}
                 placeholder="100"
@@ -220,7 +226,7 @@ export default function AddEditRawMaterialModal({
               <input
                 type="number"
                 min="0"
-                step="any"
+                step={isContinuousUnit(unit) ? "0.001" : "1"}
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
                 placeholder="0"
@@ -233,6 +239,29 @@ export default function AddEditRawMaterialModal({
               ) : (
                 <p className="text-[10px] text-slate-400 font-medium">Opening stock balance (optional).</p>
               )}
+            </div>
+          </div>
+
+          {/* Returnable Container / Custody Asset */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className={`text-xs font-bold text-slate-800 flex items-center gap-2 ${isContinuousUnit(unit) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    disabled={isContinuousUnit(unit)}
+                    checked={!isContinuousUnit(unit) && isReturnable}
+                    onChange={(e) => setIsReturnable(e.target.checked)}
+                    className="w-4 h-4 text-brand rounded border-slate-300 focus:ring-brand"
+                  />
+                  <span>Returnable Container / Custody Asset</span>
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5 ml-6">
+                  {isContinuousUnit(unit)
+                    ? `Continuous weight/volume units (${unit}) cannot be tracked as returnable custody assets.`
+                    : 'Check this for bottles, crates, or containers that are retrieved from customers and tracked in custody balances.'}
+                </p>
+              </div>
             </div>
           </div>
 
