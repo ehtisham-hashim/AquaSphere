@@ -20,7 +20,9 @@ import {
   ShieldCheck,
   AlertCircle,
   ArrowRight,
-  LogOut
+  LogOut,
+  MessageSquare,
+  Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -207,6 +209,38 @@ export default function WebsiteAdmin() {
       ...prev,
       products: [...(prev.products || []), newProd]
     }));
+  };
+
+  const handleReviewChange = (index, field, val) => {
+    setSettings(prev => {
+      const newReviews = [...(prev.reviews || [])];
+      newReviews[index] = { ...newReviews[index], [field]: val };
+      return { ...prev, reviews: newReviews };
+    });
+  };
+
+  const addReview = () => {
+    const newRev = {
+      id: `rev_${Date.now()}`,
+      name: 'New Client',
+      role: 'Verified Customer',
+      company: 'Rawalpindi',
+      rating: 5,
+      time_ago: 'Just now',
+      headline: 'Excellent Service',
+      comment: 'AquaSphere provides the purest mineral water and prompt delivery across Rawalpindi & Islamabad. Highly recommended!'
+    };
+    setSettings(prev => ({
+      ...prev,
+      reviews: [...(prev.reviews || []), newRev]
+    }));
+  };
+
+  const removeReview = (index) => {
+    setSettings(prev => {
+      const newReviews = (prev.reviews || []).filter((_, i) => i !== index);
+      return { ...prev, reviews: newReviews };
+    });
   };
 
   const removeProduct = (index) => {
@@ -486,6 +520,7 @@ export default function WebsiteAdmin() {
             { id: 'hero', label: 'Hero Section', icon: Sparkles },
             { id: 'products', label: 'Products Catalog', icon: Package },
             { id: 'about', label: 'About & Technology', icon: Layers },
+            { id: 'reviews', label: 'Client Reviews', icon: MessageSquare },
             { id: 'cloudinary', label: 'Cloudinary Assets', icon: ImageIcon },
           ].map(tab => {
             const Icon = tab.icon;
@@ -769,6 +804,133 @@ export default function WebsiteAdmin() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4.5: CLIENT REVIEWS */}
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+              <h3 className="text-sm font-bold text-white mb-2">Reviews Section Header</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Section Tag Badge</label>
+                  <input 
+                    type="text" 
+                    value={settings?.reviews_tag || ''} 
+                    onChange={(e) => handleGeneralChange('reviews_tag', e.target.value)} 
+                    placeholder="TRUSTED BY HOMES AND CORPORATE CLIENTS"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Title Text</label>
+                    <input 
+                      type="text" 
+                      value={settings?.reviews_title || ''} 
+                      onChange={(e) => handleGeneralChange('reviews_title', e.target.value)} 
+                      placeholder="What our clients"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Italic Accent Word</label>
+                    <input 
+                      type="text" 
+                      value={settings?.reviews_title_accent || ''} 
+                      onChange={(e) => handleGeneralChange('reviews_title_accent', e.target.value)} 
+                      placeholder="say"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 font-serif italic"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white">Interactive Client Testimonials</h3>
+                <p className="text-xs text-slate-400">Each review corresponds to a circle on the interactive progress bar on the landing page.</p>
+              </div>
+              <button 
+                onClick={addReview}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-lg cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Review</span>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {settings?.reviews?.map((rev, idx) => (
+                <div key={rev.id || idx} className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex flex-col gap-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center justify-center text-xs font-bold">
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-white">{rev.name || ('Reviewer ' + (idx + 1))}</span>
+                      <div className="flex items-center gap-1 text-amber-400 ml-2">
+                        {[...Array(rev.rating || 5)].map((_, i) => (
+                          <Star key={i} className="w-3 h-3 fill-amber-400" />
+                        ))}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => removeReview(idx)}
+                      className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Client Name</label>
+                      <input 
+                        type="text" 
+                        value={rev.name} 
+                        onChange={(e) => handleReviewChange(idx, 'name', e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Role / Customer Type</label>
+                      <input 
+                        type="text" 
+                        value={rev.role} 
+                        onChange={(e) => handleReviewChange(idx, 'role', e.target.value)}
+                        placeholder="e.g. Verified Home Delivery Client"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Company / Location</label>
+                      <input 
+                        type="text" 
+                        value={rev.company} 
+                        onChange={(e) => handleReviewChange(idx, 'company', e.target.value)}
+                        placeholder="e.g. Rawalpindi Cantt"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Review Testimonial Text</label>
+                    <textarea 
+                      rows={3}
+                      value={rev.comment} 
+                      onChange={(e) => handleReviewChange(idx, 'comment', e.target.value)}
+                      placeholder="Write the full client review here..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 leading-relaxed"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

@@ -64,6 +64,13 @@
   overflow-x: hidden;
   width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
+}
+
+.lp *,
+.lp *::before,
+.lp *::after {
+  box-sizing: border-box;
 }
 
 /* --------------------------------------------------------------------------
@@ -571,7 +578,7 @@
 .lp-product {
   background: #ffffff;
   border: 1px solid var(--lp-border-subtle);
-  border-radius: var(--lp-radius-lg);
+  border-radius: 0;
   padding: 24px;
   box-shadow: var(--lp-shadow-sm);
   display: flex;
@@ -589,7 +596,7 @@
   width: 100%;
   height: 230px;
   background: radial-gradient(circle at 50% 50%, #f8fcff 0%, #e0f2fe 100%);
-  border-radius: var(--lp-radius-md);
+  border-radius: 0;
   padding: 16px;
   margin-bottom: 20px;
   display: flex;
@@ -842,14 +849,16 @@
 .lp-contact-form input,
 .lp-contact-form textarea {
   width: 100%;
+  max-width: 100%;
   padding: 13px 16px 13px 44px;
   border-radius: var(--lp-radius-md);
   border: 1px solid var(--lp-border-light);
   background: #ffffff;
   color: var(--lp-text-heading);
-  font-size: 15px;
+  font-size: 16px; /* 16px prevents automatic iOS Safari zoom */
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 .lp-contact-form textarea {
@@ -869,63 +878,298 @@
   color: var(--lp-text-light);
 }
 
+
 /* --------------------------------------------------------------------------
-   RESPONSIVE
+   7. CLIENT REVIEWS SECTION (WHAT OUR CLIENTS SAY)
+   -------------------------------------------------------------------------- */
+.lp-reviews-section {
+  position: relative;
+  padding: 85px 0;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  overflow: hidden;
+}
+
+.lp-reviews-wrapper {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+.lp-reviews-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.lp-reviews-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #0f172a;
+  margin-bottom: 16px;
+}
+
+.lp-reviews-badge-square {
+  width: 8px;
+  height: 8px;
+  background-color: #0f172a;
+  border-radius: 1.5px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.lp-reviews-heading {
+  font-size: 42px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin: 0 0 32px 0;
+  letter-spacing: -0.025em;
+}
+
+.lp-reviews-accent {
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #0f172a;
+  margin-left: 2px;
+}
+
+.lp-reviews-avatars-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lp-review-avatar-btn {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  border-radius: 50%;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  opacity: 0.45;
+}
+
+.lp-review-avatar-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.06);
+}
+
+.lp-review-avatar-btn.is-active {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.lp-review-ring-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60px;
+  height: 60px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.lp-review-ring-bg {
+  fill: none;
+  stroke: #cbd5e1;
+  stroke-width: 2.5;
+}
+
+.lp-review-ring-progress {
+  fill: none;
+  stroke: #ef4444; /* Vibrant accent matching reference */
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.05s linear;
+}
+
+.lp-review-avatar-inner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: all 0.25s ease;
+}
+
+.lp-review-avatar-btn.is-active .lp-review-avatar-inner {
+  background: #ffffff;
+  border-color: #fecdd3;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2);
+}
+
+.lp-review-avatar-icon {
+  width: 22px;
+  height: 22px;
+  color: #94a3b8;
+  transition: color 0.25s ease;
+}
+
+.lp-review-avatar-btn.is-active .lp-review-avatar-icon {
+  color: #ef4444;
+}
+
+.lp-reviews-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.lp-review-card {
+  animation: lpFadeIn 0.35s ease-out;
+}
+
+@keyframes lpFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lp-review-stars-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.lp-review-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.lp-review-stars-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: -0.01em;
+}
+
+.lp-review-quote {
+  font-size: 22px;
+  line-height: 1.65;
+  color: #1e293b;
+  font-weight: 450;
+  margin: 0 0 22px 0;
+  font-style: normal;
+  letter-spacing: -0.015em;
+}
+
+.lp-review-author-line {
+  font-size: 15.5px;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.lp-review-author-name {
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.lp-review-author-sep {
+  color: #64748b;
+}
+
+.lp-review-author-role {
+  color: #475569;
+  font-weight: 500;
+}
+
+.lp-review-author-company {
+  color: #ef4444; /* Accent red matching inspiration */
+  font-weight: 750;
+  margin-left: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE (Breakpoints: 1100px, 900px, 768px, 480px)
    -------------------------------------------------------------------------- */
 @media (max-width: 1100px) {
+  .lp-reviews-wrapper {
+    grid-template-columns: 360px 1fr;
+    gap: 40px;
+  }
+  .lp-reviews-heading {
+    font-size: 36px;
+  }
+  .lp-review-quote {
+    font-size: 20px;
+    line-height: 1.6;
+  }
+  .lp-section-container {
+    padding: 0 20px;
+  }
+
   .lp-products {
     grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
   }
 
   .lp-about-grid {
     grid-template-columns: 1fr;
+    gap: 28px;
   }
 
   .lp-about-highlights {
     grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
 }
 
 @media (max-width: 900px) {
+  .lp-reviews-wrapper {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .lp-reviews-section {
+    padding: 60px 0;
+  }
+  .lp-reviews-heading {
+    margin-bottom: 24px;
+  }
+  .lp-hero {
+    min-height: auto;
+    padding: 96px 20px 72px;
+  }
+
   .lp-contact-layout {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 28px;
+    margin-top: 28px;
   }
 
   .lp-location-info-bar {
     grid-template-columns: 1fr;
-    gap: 18px;
-  }
-}
-
-@media (max-width: 768px) {
-  .lp-hero {
-    min-height: auto;
-    padding: 70px 16px 64px;
-  }
-
-  .lp-hero h1 {
-    font-size: 34px;
-    line-height: 1.18;
-  }
-
-  .lp-hero p {
-    font-size: 16px;
-    margin-bottom: 28px;
-  }
-
-  .lp-hero-trust-bar {
     gap: 16px;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .lp-about-section {
-    padding: 64px 0;
-  }
-
-  .lp-about-main-card {
-    padding: 28px 20px;
   }
 
   .lp-about-highlights {
@@ -935,67 +1179,1143 @@
 
   .lp-project-card {
     min-height: 420px;
-    border-radius: var(--lp-radius-lg);
   }
 
   .lp-project-overlay {
-    padding: 36px 24px;
+    padding: 44px 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .lp-reviews-section {
+    padding: 48px 0;
+  }
+  .lp-reviews-heading {
+    font-size: 30px;
+    margin-bottom: 20px;
+  }
+  .lp-reviews-badge {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+  .lp-review-quote {
+    font-size: 18px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+  }
+  .lp-review-author-line {
+    font-size: 14.5px;
+  }
+  /* Mobile padding reductions & overflow prevention */
+  .lp-section-container {
+    padding: 0 16px;
+  }
+
+  .lp-section-header {
+    margin-bottom: 36px;
+  }
+
+  .lp-section-title {
+    font-size: clamp(24px, 5.5vw, 32px);
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-section-subtitle {
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-section,
+  .lp-products-section,
+  .lp-location-section,
+  .lp-contact-section {
+    padding: 56px 0;
+  }
+
+  .lp-project {
+    padding: 16px 0 48px;
+  }
+
+  /* Hero Section */
+  .lp-hero {
+    min-height: auto;
+    padding: 68px 16px 54px;
+  }
+
+  .lp-hero-badge {
+    max-width: 100%;
+    font-size: 12px;
+    padding: 6px 14px;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .lp-hero h1 {
+    font-size: clamp(28px, 6.5vw, 38px);
+    line-height: 1.18;
+    margin-bottom: 16px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-hero p {
+    font-size: 15.5px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-hero-actions {
+    gap: 12px;
+  }
+
+  .lp-hero-trust-bar {
+    gap: 14px;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 36px;
+    padding-top: 24px;
+    width: 100%;
+  }
+
+  .lp-trust-item {
+    font-size: 13px;
+  }
+
+  /* About Section */
+  .lp-about-main-card {
+    padding: 28px 20px;
+    border-radius: var(--lp-radius-md);
+  }
+
+  .lp-about-card-title {
+    font-size: 22px;
+    margin-bottom: 12px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-card-text {
+    font-size: 14.5px;
+    line-height: 1.65;
+    margin-bottom: 20px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-pillars {
+    gap: 16px;
+  }
+
+  .lp-pillar-card {
+    padding: 22px 18px;
+    border-radius: var(--lp-radius-md);
+    gap: 16px;
+  }
+
+  .lp-pillar-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .lp-pillar-title {
+    font-size: 18px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-pillar-text {
+    font-size: 14px;
+    overflow-wrap: break-word;
+  }
+
+  /* Wadaana JV banner */
+  .lp-project-card {
+    min-height: auto;
+    border-radius: var(--lp-radius-md);
+  }
+
+  .lp-project-overlay {
+    padding: 36px 22px;
+    max-width: 100%;
   }
 
   .lp-project-overlay h2 {
-    font-size: 24px;
+    font-size: clamp(20px, 4.5vw, 28px);
+    margin-bottom: 14px;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
-  .lp-products-section {
-    padding: 64px 0;
+  .lp-project-overlay p {
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    overflow-wrap: break-word;
   }
 
+  /* Products Section: Stack grids to single column & smaller image boxes */
   .lp-products {
     grid-template-columns: 1fr;
     gap: 20px;
   }
 
-  .lp-location-section {
-    padding: 64px 0;
+  .lp-product {
+    padding: 20px 16px;
+    border-radius: 0;
   }
 
+  .lp-product-image-box {
+    height: 180px;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 0;
+  }
+
+  .lp-product-title {
+    font-size: 19px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-product-desc {
+    font-size: 14px;
+    margin-bottom: 16px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-price {
+    font-size: 20px;
+  }
+
+  /* Location Section & Map iframe reduction */
   .lp-location-card {
     padding: 24px 18px;
-    border-radius: var(--lp-radius-lg);
+    border-radius: var(--lp-radius-md);
+  }
+
+  .lp-location-info-bar {
+    gap: 16px;
+    padding-bottom: 22px;
+    margin-bottom: 22px;
+  }
+
+  .lp-location-info-item div strong {
+    font-size: 14px;
+  }
+
+  .lp-location-info-item div span {
+    font-size: 13px;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .lp-map-box {
-    height: 300px;
+    height: 280px;
+    margin-bottom: 22px;
+    border-radius: var(--lp-radius-md);
   }
 
-  .lp-contact-section {
-    padding: 64px 0;
-  }
-
+  /* Contact Section & Form iOS zoom prevention */
   .lp-contact-card {
-    padding: 28px 18px;
-    border-radius: var(--lp-radius-lg);
+    padding: 26px 18px;
+    border-radius: var(--lp-radius-md);
+  }
+
+  .lp-contact-details-panel {
+    padding: 22px 18px;
+    border-radius: var(--lp-radius-md);
+    gap: 16px;
+  }
+
+  .lp-channel-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .lp-channel-info strong {
+    font-size: 13.5px;
+  }
+
+  .lp-channel-info span {
+    font-size: 13px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-contact-form {
+    gap: 16px;
+  }
+
+  .lp-contact-form input,
+  .lp-contact-form textarea {
+    font-size: 16px;
+    padding: 12px 14px 12px 42px;
   }
 }
 
 @media (max-width: 480px) {
-  .lp-hero h1 {
-    font-size: 28px;
+  .lp-reviews-section {
+    padding: 38px 0;
+  }
+  .lp-reviews-heading {
+    font-size: 25px;
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+  .lp-reviews-avatars-row {
+    gap: 12px;
+  }
+  .lp-review-avatar-btn {
+    width: 52px;
+    height: 52px;
+  }
+  .lp-review-ring-svg {
+    width: 52px;
+    height: 52px;
+  }
+  .lp-review-avatar-inner {
+    width: 42px;
+    height: 42px;
+  }
+  .lp-review-avatar-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .lp-review-quote {
+    font-size: 15.5px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .lp-review-stars-row {
+    margin-bottom: 12px;
+  }
+  .lp-review-stars-label {
+    font-size: 12px;
+  }
+  .lp-review-author-line {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  /* Small screen & Mobile overflow prevention (320px - 480px) */
+  .lp-section-container {
+    padding: 0 12px;
+  }
+
+  .lp-section-header {
+    margin-bottom: 24px;
+  }
+
+  .lp-section-tag {
+    font-size: 11px;
+    padding: 4px 12px;
+    margin-bottom: 10px;
+    gap: 5px;
   }
 
   .lp-section-title {
-    font-size: 26px;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
-  .lp-btn-primary,
-  .lp-btn-secondary,
-  .lp-btn-whatsapp,
-  .lp-btn {
-    width: 100%;
+  .lp-section-subtitle {
+    font-size: 13.5px;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-section,
+  .lp-products-section,
+  .lp-location-section,
+  .lp-contact-section {
+    padding: 40px 0;
+  }
+
+  .lp-project {
+    padding: 10px 0 40px;
+  }
+
+  /* Hero Section */
+  .lp-hero {
+    padding: 44px 12px 38px;
+  }
+
+  .lp-hero-badge {
+    font-size: 10.5px;
+    padding: 4px 10px;
+    margin-bottom: 14px;
+    gap: 5px;
+    line-height: 1.35;
+    max-width: 100%;
+  }
+
+  .lp-hero h1 {
+    font-size: 24px;
+    line-height: 1.22;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-hero p {
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin-bottom: 20px;
+    overflow-wrap: break-word;
   }
 
   .lp-hero-actions {
     width: 100%;
     flex-direction: column;
+    gap: 10px;
+  }
+
+  .lp-hero-trust-bar {
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 18px;
+    width: 100%;
+  }
+
+  .lp-trust-item {
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  /* About Section */
+  .lp-about-main-card {
+    padding: 18px 12px;
+  }
+
+  .lp-about-badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    margin-bottom: 10px;
+  }
+
+  .lp-about-card-title {
+    font-size: 19px;
+    margin-bottom: 10px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-card-text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin-bottom: 16px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-highlights {
+    padding-top: 14px;
+    gap: 12px;
+  }
+
+  .lp-highlight-item {
+    gap: 10px;
+  }
+
+  .lp-highlight-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .lp-highlight-item div strong {
+    font-size: 13px;
+  }
+
+  .lp-highlight-item div span {
+    font-size: 11.5px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-about-pillars {
+    gap: 12px;
+  }
+
+  .lp-pillar-card {
+    padding: 14px 12px;
+    gap: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lp-pillar-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--lp-radius-sm);
+  }
+
+  .lp-pillar-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .lp-pillar-title {
+    font-size: 16px;
+    margin-bottom: 4px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-pillar-text {
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+  }
+
+  /* Wadaana JV banner */
+  .lp-project-overlay {
+    padding: 22px 14px;
+  }
+
+  .lp-project-tag {
+    font-size: 10.5px;
+    padding: 4px 10px;
+    margin-bottom: 12px;
+  }
+
+  .lp-project-overlay h2 {
+    font-size: 18px;
+    line-height: 1.3;
+    margin-bottom: 12px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-project-overlay p {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 18px;
+    overflow-wrap: break-word;
+  }
+
+  /* Products Section: Smaller image boxes on mobile & stacked footer */
+  .lp-product {
+    padding: 14px 12px;
+  }
+
+  .lp-product-image-box {
+    height: 140px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .lp-product-title {
+    font-size: 17px;
+    margin-bottom: 4px;
+    overflow-wrap: break-word;
+  }
+
+  .lp-product-desc {
+    font-size: 13px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+    overflow-wrap: break-word;
+  }
+
+  .lp-product-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding-top: 12px;
+  }
+
+  .lp-product-price-wrapper {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .lp-price-label {
+    font-size: 10.5px;
+  }
+
+  .lp-price {
+    font-size: 18px;
+  }
+
+  /* Location Section & Map iframe reduction */
+  .lp-location-card {
+    padding: 16px 12px;
+  }
+
+  .lp-location-info-bar {
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+  }
+
+  .lp-location-info-item {
+    gap: 10px;
+  }
+
+  .lp-location-info-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .lp-location-info-item div strong {
+    font-size: 13px;
+  }
+
+  .lp-location-info-item div span {
+    font-size: 12px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-map-box {
+    height: 220px;
+    margin-bottom: 16px;
+  }
+
+  .lp-map-box a {
+    top: 8px;
+    left: 8px;
+    padding: 6px 10px;
+    font-size: 11px;
+    max-width: calc(100% - 16px);
+  }
+
+  /* Contact Section & Form Inputs (16px font-size to prevent iOS zoom) */
+  .lp-contact-card {
+    padding: 18px 12px;
+  }
+
+  .lp-contact-details-panel {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+
+  .lp-contact-channel {
+    gap: 10px;
+  }
+
+  .lp-channel-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .lp-channel-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .lp-channel-info strong {
+    font-size: 12.5px;
+  }
+
+  .lp-channel-info span {
+    font-size: 12px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .lp-contact-form {
+    gap: 12px;
+  }
+
+  .lp-form-group {
+    gap: 4px;
+  }
+
+  .lp-form-group label {
+    font-size: 12.5px;
+  }
+
+  .lp-contact-form input,
+  .lp-contact-form textarea {
+    font-size: 16px; /* Strict 16px to prevent iOS Safari auto-zoom */
+    padding: 11px 12px 11px 38px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .lp-input-wrapper svg {
+    left: 12px;
+    width: 15px;
+    height: 15px;
+  }
+
+  .lp-contact-form textarea {
+    min-height: 95px;
+  }
+
+  /* Make ALL buttons full-width under 480px */
+  .lp-btn-primary,
+  .lp-btn-secondary,
+  .lp-btn-whatsapp,
+  .lp-btn {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 12px 16px;
+    font-size: 13.5px;
+  }
+
+  .lp-hero-actions .lp-btn-primary,
+  .lp-hero-actions .lp-btn-secondary,
+  .lp-project-overlay .lp-btn-primary,
+  .lp-product-footer .lp-btn-whatsapp,
+  .lp-location-card .lp-btn-primary,
+  .lp-contact-form .lp-btn-primary {
+    width: 100%;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   ELEGANCIA-INSPIRED PRODUCT SHOWCASE MODAL & CAROUSEL
+   -------------------------------------------------------------------------- */
+.lp-showcase-backdrop {
+  background: #ffffff;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  animation: lpModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lpModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lp-showcase-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-size: clamp(34px, 8.5vw, 115px);
+  font-weight: 900;
+  color: #64748b;
+  opacity: 0.07;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
+  z-index: 1;
+}
+
+.lp-showcase-top-bar {
+  position: relative;
+  z-index: 10;
+  padding: 24px 36px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-showcase-dashes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-showcase-dash {
+  width: 28px;
+  height: 4px;
+  border-radius: 0;
+  background-color: #e2e8f0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-showcase-dash:hover {
+  background-color: #cbd5e1;
+}
+
+.lp-showcase-dash.is-active {
+  width: 44px;
+  background-color: #0284c7;
+}
+
+.lp-showcase-close-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 0;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lp-showcase-close-btn:hover {
+  background: #e2e8f0;
+  transform: scale(1.06);
+}
+
+.lp-showcase-content {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 10px 24px;
+}
+
+.lp-showcase-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 50px;
+  align-items: center;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.lp-showcase-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lp-showcase-counter {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #0284c7;
+  margin-bottom: 10px;
+}
+
+.lp-showcase-title {
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-size: clamp(34px, 4.2vw, 56px);
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin: 0 0 14px 0;
+  letter-spacing: -0.02em;
+}
+
+.lp-showcase-desc {
+  font-size: 16.5px;
+  color: #64748b;
+  line-height: 1.65;
+  margin-bottom: 26px;
+  max-width: 520px;
+}
+
+.lp-showcase-specs {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lp-showcase-spec-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lp-showcase-spec-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 0;
+  background-color: #0284c7;
+  flex-shrink: 0;
+}
+
+.lp-showcase-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.lp-showcase-price-tag {
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-showcase-price-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.lp-showcase-price-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.lp-showcase-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #25D366;
+  color: #ffffff;
+  padding: 13px 26px;
+  border-radius: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.28);
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lp-showcase-whatsapp-btn:hover {
+  background-color: #20ba59;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(37, 211, 102, 0.38);
+}
+
+.lp-showcase-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.lp-showcase-image-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-showcase-img {
+  max-height: 480px;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.12));
+  animation: lpImgSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lpImgSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.lp-showcase-shadow {
+  width: 220px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0) 70%);
+  margin-top: -8px;
+}
+
+.lp-showcase-nav-arrow {
+  width: 48px;
+  height: 48px;
+  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.lp-showcase-nav-arrow:hover {
+  background: #f8fafc;
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.14);
+}
+
+.lp-showcase-bottom-bar {
+  text-align: center;
+  padding: 14px 20px 20px;
+  z-index: 10;
+}
+
+/* Card Button Updates in Product Grid */
+.lp-product-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-btn-view-product {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 750;
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  white-space: nowrap;
+}
+
+.lp-btn-view-product:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
+}
+
+.lp-btn-whatsapp-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
+  background-color: #25D366;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);
+  flex-shrink: 0;
+}
+
+.lp-btn-whatsapp-icon:hover {
+  background-color: #20ba59;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
+}
+
+@media (max-width: 900px) {
+  .lp-showcase-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    text-align: center;
+    overflow-y: auto;
+    max-height: calc(100vh - 160px);
+    padding: 10px;
+  }
+  .lp-showcase-left {
+    align-items: center;
+  }
+  .lp-showcase-specs {
+    align-items: flex-start;
+  }
+  .lp-showcase-actions {
+    justify-content: center;
+  }
+  .lp-showcase-img {
+    max-height: 260px;
+  }
+  .lp-showcase-watermark {
+    font-size: clamp(26px, 7vw, 56px);
+    letter-spacing: 0.06em;
+    opacity: 0.065;
+  }
+  .lp-showcase-nav-arrow {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lp-showcase-top-bar {
+    padding: 14px 14px 6px;
+  }
+  .lp-showcase-dash {
+    width: 20px;
+    height: 3px;
+  }
+  .lp-showcase-dash.is-active {
+    width: 32px;
+  }
+  .lp-showcase-close-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .lp-showcase-content {
+    padding: 6px 8px;
+  }
+  .lp-showcase-grid {
+    gap: 16px;
+    padding: 4px 6px;
+    max-height: calc(100vh - 140px);
+  }
+  .lp-showcase-title {
+    font-size: clamp(22px, 5.5vw, 28px);
+    margin-bottom: 8px;
+  }
+  .lp-showcase-desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .lp-showcase-specs {
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .lp-showcase-spec-item {
+    font-size: 13px;
+  }
+  .lp-showcase-img {
+    max-height: 190px;
+  }
+  .lp-showcase-shadow {
+    width: 140px;
+    height: 12px;
+  }
+  .lp-showcase-watermark {
+    font-size: clamp(17px, 5.8vw, 25px);
+    letter-spacing: 0.05em;
+    opacity: 0.06;
+  }
+  .lp-showcase-nav-arrow {
+    width: 32px;
+    height: 32px;
+  }
+  .lp-showcase-whatsapp-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 18px;
+    font-size: 13.5px;
+  }
+  .lp-showcase-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
   }
 }
