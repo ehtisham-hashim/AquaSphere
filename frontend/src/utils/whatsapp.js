@@ -57,9 +57,32 @@ export function sanitizeMapUrl(mapLink, address) {
   return null;
 }
 
+// Persistent named tab reference to prevent tab explosion
+let activeWhatsAppTab = null;
+
 /**
- * Opens WhatsApp Desktop app if open/installed, otherwise automatically falls back to WhatsApp Web.
- * Reuses existing browser tab ('AquaSphereWhatsAppTab') to prevent tab explosion.
+ * Synchronously navigates or focuses the single reusable WhatsApp Web tab.
+ */
+function navigateWhatsAppWeb(webUrl) {
+  try {
+    if (activeWhatsAppTab && !activeWhatsAppTab.closed) {
+      activeWhatsAppTab.location.href = webUrl;
+      activeWhatsAppTab.focus();
+      return activeWhatsAppTab;
+    }
+  } catch (_e) {
+    // Cross-origin access fallback
+  }
+  activeWhatsAppTab = window.open(webUrl, 'AquaSphereWhatsAppTab');
+  if (activeWhatsAppTab && activeWhatsAppTab.focus) {
+    activeWhatsAppTab.focus();
+  }
+  return activeWhatsAppTab;
+}
+
+/**
+ * Opens WhatsApp Web/App, synchronously reusing an existing browser tab ('AquaSphereWhatsAppTab')
+ * to eliminate duplicate tabs and prevent popup blockers.
  * Copies message to clipboard automatically as a safety measure.
  */
 export function openWhatsAppWeb(phone, text = '', options = {}) {
@@ -80,54 +103,15 @@ export function openWhatsAppWeb(phone, text = '', options = {}) {
     ? `https://web.whatsapp.com/send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
     : `https://web.whatsapp.com/send?text=${encodedText}`;
 
-  // Mode: Web Only
-  if (mode === 'web') {
-    const win = window.open(webUrl, 'AquaSphereWhatsAppTab');
-    if (win && win.focus) win.focus();
-    return;
-  }
-
   // Mode: App Only
   if (mode === 'app') {
     window.location.assign(appUrl);
     return;
   }
 
-  // Mode: Auto (Default: Try WhatsApp Desktop App first. If not open/handled, fallback to Web tab)
-  let appHandled = false;
-
-  const onBlur = () => {
-    appHandled = true;
-    cleanup();
-  };
-
-  const onVisibilityChange = () => {
-    if (document.hidden) {
-      appHandled = true;
-      cleanup();
-    }
-  };
-
-  const cleanup = () => {
-    window.removeEventListener('blur', onBlur);
-    document.removeEventListener('visibilitychange', onVisibilityChange);
-    if (fallbackTimer) clearTimeout(fallbackTimer);
-  };
-
-  window.addEventListener('blur', onBlur, { once: true });
-  document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-
-  const fallbackTimer = setTimeout(() => {
-    cleanup();
-    // If the browser window stayed focused/visible, desktop app did not open -> Fallback to Web
-    if (!appHandled && !document.hidden) {
-      const win = window.open(webUrl, 'AquaSphereWhatsAppTab');
-      if (win && win.focus) win.focus();
-    }
-  }, 1200);
-
-  // Trigger desktop protocol
-  window.location.assign(appUrl);
+  // Mode: Web or Auto (Default: Directly target the dedicated WhatsApp Web tab synchronously)
+  // This guarantees immediate focus without duplicate tabs or popup blocking
+  navigateWhatsAppWeb(webUrl);
 }
 
 /**

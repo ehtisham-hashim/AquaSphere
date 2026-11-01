@@ -14,7 +14,8 @@ import { useLiveEvent } from '../context/SSEContext';
 const CUSTOMER_TYPE_OPTIONS = [
   { value: 'Commercial', label: 'Commercial' },
   { value: 'Corporate', label: 'Corporate' },
-  { value: 'Household', label: 'Household' },
+  { value: 'Home', label: 'Home / Household' },
+  { value: 'Distributor', label: 'Distributor' },
   { value: 'Industrial', label: 'Industrial' }
 ];
 
@@ -146,7 +147,7 @@ export default function Customers() {
       if (bottles > 0) holdingBottles++;
       if (bottles > covered) unsecured++;
 
-      const lastDate = c.lastOrderDate || c.lastDeliveryAt;
+      const lastDate = c.lastOrderDate || c.lastDeliveryAt || c.createdAt;
       if (lastDate) {
         const diffDays = Math.floor((now - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 7) inactive++;
@@ -175,7 +176,7 @@ export default function Customers() {
         const covered = Math.floor(Number(c.deposit || 0) / 1000);
         if (bottles <= covered) return false;
       } else if (filterPreset === 'INACTIVE') {
-        const lastDate = c.lastOrderDate || c.lastDeliveryAt;
+        const lastDate = c.lastOrderDate || c.lastDeliveryAt || c.createdAt;
         if (!lastDate) return false;
         const diffDays = Math.floor((now - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays < 7) return false;
@@ -183,7 +184,15 @@ export default function Customers() {
 
       // 2. Multi-select customer types
       if (selectedTypes.length > 0) {
-        if (!selectedTypes.includes(c.type)) return false;
+        const rawType = (c.type || '').toUpperCase();
+        const matches = selectedTypes.some(t => {
+          const target = t.toUpperCase();
+          if (target.includes('HOME') || target.includes('HOUSE')) {
+            return rawType.includes('HOME') || rawType.includes('HOUSE');
+          }
+          return rawType === target || rawType.includes(target);
+        });
+        if (!matches) return false;
       }
 
       return true;

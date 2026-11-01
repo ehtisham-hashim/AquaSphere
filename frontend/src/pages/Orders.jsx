@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, RotateCcw } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, RotateCcw, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
@@ -34,6 +34,14 @@ const DATE_FILTER_OPTIONS = [
   { value: '1_WEEK', label: '1 Week' },
   { value: '1_MONTH', label: '1 Month' },
   { value: '1_YEAR', label: '1 Year' },
+];
+
+const STANDARDIZED_CLIENT_OPTIONS = [
+  { value: 'Commercial', label: 'Commercial' },
+  { value: 'Corporate', label: 'Corporate' },
+  { value: 'Home', label: 'Home / Household' },
+  { value: 'Distributor', label: 'Distributor' },
+  { value: 'Industrial', label: 'Industrial' }
 ];
 
 const parseOrderDate = (d) => {
@@ -81,7 +89,7 @@ export default function Orders() {
   // UI State
   const [activeTab, setActiveTab] = useState('All Orders');
   const [searchQuery, setSearchQuery] = useState('');
-  const [clientFilter, setClientFilter] = useState('All Clients');
+  const [selectedClientTypes, setSelectedClientTypes] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [dateFilter, setDateFilter] = useState('ALL');
   const [statementMonth, setStatementMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -228,8 +236,18 @@ export default function Orders() {
     if (activeTab === 'Completed Orders' && (o.deliveryStatus !== 'DELIVERED' || o.paymentStatus !== 'PAID')) return false;
     if (activeTab === 'Cancelled Orders' && o.deliveryStatus !== 'CANCELLED') return false;
     
-    // Client type filtering
-    if (clientFilter !== 'All Clients' && o.customer?.type !== clientFilter) return false;
+    // Client type multi-select filtering
+    if (selectedClientTypes.length > 0) {
+      const rawType = (o.customer?.type || '').toUpperCase();
+      const matches = selectedClientTypes.some(t => {
+        const target = t.toUpperCase();
+        if (target.includes('HOME') || target.includes('HOUSE')) {
+          return rawType.includes('HOME') || rawType.includes('HOUSE');
+        }
+        return rawType === target || rawType.includes(target);
+      });
+      if (!matches) return false;
+    }
 
     // Multi-select product size filtering
     if (selectedSizes.length > 0) {
@@ -261,7 +279,7 @@ export default function Orders() {
     return true;
   });
 
-  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${clientFilter}_${selectedSizes.join(',')}_${activeTab}_${dateFilter}`);
+  const pagination = usePagination(filteredOrders, 50, `${searchQuery}_${selectedClientTypes.join(',')}_${selectedSizes.join(',')}_${activeTab}_${dateFilter}`);
 
   const ordersKpi = useMemo(() => {
     let totalValue = 0;
@@ -280,15 +298,14 @@ export default function Orders() {
     return { totalValue, totalUnits, unpaidAmount };
   }, [filteredOrders]);
 
-  const hasActiveOrderFilters = selectedSizes.length > 0 || clientFilter !== 'All Clients' || dateFilter !== 'ALL';
+  const hasActiveOrderFilters = selectedSizes.length > 0 || selectedClientTypes.length > 0 || dateFilter !== 'ALL';
   const handleResetOrderFilters = () => {
     setSelectedSizes([]);
-    setClientFilter('All Clients');
+    setSelectedClientTypes([]);
     setDateFilter('ALL');
   };
 
   const tabs = ['All Orders', 'Pending Orders', 'Unpaid Orders', 'Completed Orders', 'Cancelled Orders', 'Month-End Statements'];
-  const clientTypes = ['All Clients', ...new Set(customers.map(c => c.type))];
   const productSizeOptions = [
     { value: '19L', label: '19L Refill' },
     { value: '1.5L', label: '1.5L PET' },
@@ -444,16 +461,13 @@ export default function Orders() {
             onChange={setSelectedSizes}
           />
 
-          <div className="w-full sm:w-40">
-            <select 
-              className="select-base text-xs py-1.5 px-2.5 w-full font-medium"
-              value={clientFilter}
-              onChange={e => setClientFilter(e.target.value)}
-              aria-label="Filter orders by client"
-            >
-              {clientTypes.map(type => <option key={type} value={type}>{type}</option>)}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            label="Clients"
+            icon={Users}
+            options={STANDARDIZED_CLIENT_OPTIONS}
+            selectedValues={selectedClientTypes}
+            onChange={setSelectedClientTypes}
+          />
 
           {hasActiveOrderFilters && (
             <button
@@ -519,7 +533,7 @@ export default function Orders() {
                   <th className="table-th text-center">Month Orders</th>
                   <th className="table-th">Delivered Breakdown</th>
                   <th className="table-th text-right">Month Billed</th>
-                  <th className="table-th text-right">Current Balance</th>
+                  <th className="table-th text-right">Current Debt</th>
                   <th className="table-th text-right">Actions</th>
                 </tr>
               </thead>
@@ -574,9 +588,15 @@ export default function Orders() {
                           Rs. {Math.round(s.totalBilled).toLocaleString()}
                         </td>
                         <td className="table-td text-right font-mono font-bold">
-                          <span className={balance > 0 ? 'text-rose-600' : 'text-emerald-600'}>
-                            Rs. {balance.toLocaleString()}
-                          </span>
+                          {balance === 0 ? (
+                            <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Cleared (Rs. 0)
+                            </span>
+                          ) : (
+                            <span className="text-rose-700 font-black">
+                              Rs. {balance.toLocaleString()}
+                            </span>
+                          )}
                         </td>
                         <td className="table-td text-right">
                           <div className="flex justify-end items-center gap-1.5">
@@ -586,7 +606,7 @@ export default function Orders() {
                                 onClick={() => setSettleCustomer(cust)}
                                 className="px-2.5 py-1 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition shadow-xs"
                               >
-                                Settle Balance
+                                Settle Debt
                               </button>
                             )}
                             <button
@@ -625,12 +645,11 @@ export default function Orders() {
                   <tr>
                     <td colSpan="6" className="p-12 text-center text-slate-500">
                       <p>No orders found.</p>
-                      {(dateFilter !== 'ALL' || clientFilter !== 'All Clients' || searchQuery) && (
+                      {(dateFilter !== 'ALL' || selectedClientTypes.length > 0 || selectedSizes.length > 0 || searchQuery) && (
                         <div className="mt-2">
                           <button
                             onClick={() => {
-                              setDateFilter('ALL');
-                              setClientFilter('All Clients');
+                              handleResetOrderFilters();
                               setSearchQuery('');
                             }}
                             className="text-xs text-brand hover:underline font-semibold"

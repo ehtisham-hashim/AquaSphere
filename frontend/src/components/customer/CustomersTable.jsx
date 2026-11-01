@@ -83,8 +83,9 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
               </tr>
             ) : (
               pagination.paginatedItems.map((c) => {
-                const daysInactive = c.lastOrderDate 
-                  ? Math.floor((new Date() - new Date(c.lastOrderDate)) / (1000 * 60 * 60 * 24))
+                const lastActivity = c.lastOrderDate || c.lastDeliveryAt || c.createdAt;
+                const daysInactive = lastActivity 
+                  ? Math.floor((new Date() - new Date(lastActivity)) / (1000 * 60 * 60 * 24))
                   : null;
 
                 return (
@@ -165,9 +166,15 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                     </td>
                     <td className="table-td">
                       <div className="flex flex-col gap-0.5 tabular-nums">
-                        <span className={`font-semibold ${parseFloat(c.currentBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
-                        </span>
+                        {parseFloat(c.currentBalance || 0) === 0 ? (
+                          <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md w-fit">
+                            Cleared (Rs. 0)
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-amber-600">
+                            Current Debt: Rs. {parseFloat(c.currentBalance || 0).toLocaleString()}
+                          </span>
+                        )}
                       </div>
                     </td>
                     {!isWadaana && (
