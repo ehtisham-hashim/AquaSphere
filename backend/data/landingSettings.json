@@ -70,5 +70,41 @@
       "price": "PKR 1500",
       "image": "https://res.cloudinary.com/wgstyulb/image/upload/v1791005490/product_1777147740_9305.png"
     }
+  ],
+  "reviews_tag": "TRUSTED BY HOMES & CORPORATE CLIENTS",
+  "reviews_title": "What our clients",
+  "reviews_title_accent": "say",
+  "reviews_subtitle": "Real experiences from families, clinics, and businesses who rely on AquaSphere for pristine daily hydration.",
+  "reviews": [
+    {
+      "id": "rev_1",
+      "name": "Monster King",
+      "role": "Verified Home Delivery Client",
+      "company": "Rawalpindi",
+      "rating": 5,
+      "time_ago": "10 months ago",
+      "headline": "Luxury in every drop",
+      "comment": "Luxury in every drop, exceptional water purity, and the staff is genuinely professional and caring. The bottles arrive sealed, spotless, and right on time every week. AquaSphere has made healthy hydration effortless for our household."
+    },
+    {
+      "id": "rev_2",
+      "name": "Zubair Jamshaid",
+      "role": "Verified Customer",
+      "company": "Rawalpindi Cantt",
+      "rating": 5,
+      "time_ago": "8 months ago",
+      "headline": "High quality product with quick delivery",
+      "comment": "High quality product with lightning quick delivery! The TDS count and crisp mineral taste are always consistent. Their team is polite, reliable, and prompt whenever we reorder. By far the best drinking water service in Rawalpindi."
+    },
+    {
+      "id": "rev_3",
+      "name": "Sadam Kham",
+      "role": "Local Guide & Verified Client",
+      "company": "Islamabad / Rawalpindi",
+      "rating": 5,
+      "time_ago": "2 months ago",
+      "headline": "Excellent Service",
+      "comment": "I'm very satisfied with Aqua Sphere Mineral Water. The water quality is excellent, fresh, and hygienically packed. Their service is professional, and the staff is very cooperative. Highly recommended for clean and reliable drinking water."
+    }
   ]
 }

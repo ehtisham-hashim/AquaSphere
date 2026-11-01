@@ -22,7 +22,8 @@ import {
   Factory,
   Mail,
   User,
-  MessageSquare
+  MessageSquare,
+  Star
 } from 'lucide-react';
 import './landing.css';
 
@@ -114,12 +115,78 @@ const DEFAULT_SETTINGS = {
       price: "PKR 1500",
       image: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005490/product_1777147740_9305.png"
     }
+  ],
+  reviews_tag: "TRUSTED BY HOMES & CORPORATE CLIENTS",
+  reviews_title: "What our clients",
+  reviews_title_accent: "say",
+  reviews_subtitle: "Real experiences from families, clinics, and businesses who rely on AquaSphere for pristine daily hydration.",
+  reviews: [
+    {
+      id: "rev_1",
+      name: "Monster King",
+      role: "Verified Home Delivery Client",
+      company: "Rawalpindi",
+      rating: 5,
+      time_ago: "10 months ago",
+      headline: "Luxury in every drop",
+      comment: "Luxury in every drop, exceptional water purity, and the staff is genuinely professional and caring. The bottles arrive sealed, spotless, and right on time every week. AquaSphere has made healthy hydration effortless for our household."
+    },
+    {
+      id: "rev_2",
+      name: "Zubair Jamshaid",
+      role: "Verified Customer",
+      company: "Rawalpindi Cantt",
+      rating: 5,
+      time_ago: "8 months ago",
+      headline: "High quality product with quick delivery",
+      comment: "High quality product with lightning quick delivery! The TDS count and crisp mineral taste are always consistent. Their team is polite, reliable, and prompt whenever we reorder. By far the best drinking water service in Rawalpindi."
+    },
+    {
+      id: "rev_3",
+      name: "Sadam Kham",
+      role: "Local Guide & Verified Client",
+      company: "Islamabad / Rawalpindi",
+      rating: 5,
+      time_ago: "2 months ago",
+      headline: "Excellent Service",
+      comment: "I'm very satisfied with Aqua Sphere Mineral Water. The water quality is excellent, fresh, and hygienically packed. Their service is professional, and the staff is very cooperative. Highly recommended for clean and reliable drinking water."
+    }
   ]
 };
 
 export default function LandingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Reviews Carousel State (Interactive Circular Progress Bar)
+  const reviewsList = (settings.reviews && settings.reviews.length > 0) ? settings.reviews : DEFAULT_SETTINGS.reviews;
+  const [activeReviewIdx, setActiveReviewIdx] = useState(0);
+  const [reviewProgress, setReviewProgress] = useState(0);
+  const [isReviewPaused, setIsReviewPaused] = useState(false);
+
+  useEffect(() => {
+    if (isReviewPaused || !reviewsList || reviewsList.length <= 1) return;
+    const intervalMs = 50;
+    const durationMs = 5500;
+    const step = (intervalMs / durationMs) * 100;
+
+    const timer = setInterval(() => {
+      setReviewProgress((prev) => {
+        if (prev >= 100) {
+          setActiveReviewIdx((curr) => (curr + 1) % reviewsList.length);
+          return 0;
+        }
+        return prev + step;
+      });
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [isReviewPaused, reviewsList, activeReviewIdx]);
+
+  const handleSelectReview = (idx) => {
+    setActiveReviewIdx(idx);
+    setReviewProgress(0);
+  };
 
   useEffect(() => {
     fetch('/api/landing-page')
@@ -138,6 +205,43 @@ export default function LandingPage() {
       ? `Hello Aqua Sphere, I want to order: ${productName}`
       : 'Hello Aqua Sphere, I want to inquire about drinking water.';
     return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const reviewsStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "AquaSphere Mineral Water & Purification",
+    "image": "https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png",
+    "url": "https://theaquasphere.org/",
+    "telephone": "+92-301-5072233",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road",
+      "addressLocality": "Rawalpindi Cantt",
+      "addressRegion": "Punjab",
+      "postalCode": "46000",
+      "addressCountry": "PK"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "5.0",
+      "reviewCount": String(reviewsList.length),
+      "bestRating": "5",
+      "worstRating": "1"
+    },
+    "review": reviewsList.map(r => ({
+      "@type": "Review",
+      "author": {
+        "@type": "Person",
+        "name": r.name
+      },
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": r.rating || 5,
+        "bestRating": "5"
+      },
+      "reviewBody": r.comment
+    }))
   };
 
   const sendContact = (e) => {
@@ -161,6 +265,7 @@ export default function LandingPage() {
         description="AquaSphere delivers certified 100% pure drinking water, 19L refills, food-grade wholesale empty bottles, PET packs, and dispensers. Fast doorstep delivery for homes, corporate offices, and global distribution."
         keywords="pure drinking water delivery, 19L water bottle refill, wholesale empty bottles, pure water Islamabad, drinking water Rawalpindi, mineral water plant, bottled water supplier, water refill near me, 19 litre water bottle price, 500ml water bottle pack, 1.5L mineral water, water dispenser, bottle caps, bulk drinking water supplier, RO water plant, BPA free water bottle, commercial water supplier"
         canonicalUrl="https://theaquasphere.org/"
+        structuredData={reviewsStructuredData}
       />
 
       {/* 1. TOP INFORMATION BAR */}
@@ -472,7 +577,127 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 7. LOCATION SECTION */}
+      {/* 7. CLIENT REVIEWS SECTION (WHAT OUR CLIENTS SAY) */}
+      <section 
+        id="reviews" 
+        className="lp-reviews-section"
+        onMouseEnter={() => setIsReviewPaused(true)}
+        onMouseLeave={() => setIsReviewPaused(false)}
+        aria-label="What our clients say"
+      >
+        <div className="lp-section-container">
+          <div className="lp-reviews-wrapper">
+            {/* Left Column: Heading and Indicator Avatars with Circular Status Bar */}
+            <div className="lp-reviews-left">
+              <div className="lp-reviews-badge">
+                <span className="lp-reviews-badge-square" aria-hidden="true" />
+                <span>{settings.reviews_tag || "TRUSTED BY HOMES & CORPORATE CLIENTS"}</span>
+              </div>
+              <h2 className="lp-reviews-heading">
+                {settings.reviews_title || "What our clients"}{' '}
+                <span className="lp-reviews-accent">{settings.reviews_title_accent || "say"}</span>
+              </h2>
+
+              {/* Avatar Indicator Circles with Circular Status Ring */}
+              <div 
+                className="lp-reviews-avatars-row" 
+                role="tablist" 
+                aria-label="Client review selection"
+              >
+                {reviewsList.map((rev, idx) => {
+                  const isActive = idx === activeReviewIdx;
+                  // Radius: 25px -> Circumference = 2 * PI * 25 ≈ 157.08
+                  const radius = 25;
+                  const circumference = 2 * Math.PI * radius;
+                  const strokeOffset = isActive 
+                    ? circumference - (circumference * reviewProgress) / 100 
+                    : circumference;
+
+                  return (
+                    <button
+                      key={rev.id || idx}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-label={`View review by ${rev.name}`}
+                      onClick={() => handleSelectReview(idx)}
+                      className={`lp-review-avatar-btn ${isActive ? 'is-active' : ''}`}
+                    >
+                      <svg 
+                        className="lp-review-ring-svg" 
+                        width="58" 
+                        height="58" 
+                        viewBox="0 0 58 58"
+                        aria-hidden="true"
+                      >
+                        {/* Background track circle */}
+                        <circle
+                          cx="29"
+                          cy="29"
+                          r={radius}
+                          className="lp-review-ring-bg"
+                        />
+                        {/* Animated progress status circle */}
+                        {isActive && (
+                          <circle
+                            cx="29"
+                            cy="29"
+                            r={radius}
+                            className="lp-review-ring-progress"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeOffset}
+                          />
+                        )}
+                      </svg>
+
+                      <div className="lp-review-avatar-inner">
+                        <User className="lp-review-avatar-icon" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Column: Quote and Author Info */}
+            <div className="lp-reviews-right">
+              {reviewsList[activeReviewIdx] && (
+                <div 
+                  className="lp-review-card"
+                  key={reviewsList[activeReviewIdx].id || activeReviewIdx}
+                >
+                  {/* Star Rating */}
+                  <div className="lp-review-stars-row">
+                    <div className="lp-review-stars" aria-label="5 out of 5 stars">
+                      {[...Array(reviewsList[activeReviewIdx].rating || 5)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                    <span className="lp-review-stars-label">
+                      5.0 Google Rating · {reviewsList[activeReviewIdx].time_ago || "Verified Review"}
+                    </span>
+                  </div>
+
+                  {/* Main Testimonial Quote */}
+                  <blockquote className="lp-review-quote">
+                    “{reviewsList[activeReviewIdx].comment}”
+                  </blockquote>
+
+                  {/* Reviewer Details */}
+                  <div className="lp-review-author-line">
+                    <span className="lp-review-author-name">{reviewsList[activeReviewIdx].name}</span>
+                    <span className="lp-review-author-sep">, </span>
+                    <span className="lp-review-author-role">{reviewsList[activeReviewIdx].role} </span>
+                    <span className="lp-review-author-company">@{reviewsList[activeReviewIdx].company}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. LOCATION SECTION */}
       <section id="location" className="lp-location-section">
         <div className="lp-section-container">
           <div className="lp-section-header">
