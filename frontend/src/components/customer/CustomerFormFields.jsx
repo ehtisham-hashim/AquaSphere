@@ -54,41 +54,31 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           <div>
             <label htmlFor="customer-marketer" className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
               <span>Referred By / Marketer</span>
-              {formData.marketerName && formData.marketerId === '' && (
-                <span className="text-[10px] text-emerald-600 font-bold">New: {formData.marketerName}</span>
-              )}
+              <span className="text-[10px] text-slate-400">Select or type name</span>
             </label>
-            <div className="flex gap-1.5">
-              <select
-                id="customer-marketer"
-                className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
-                value={formData.marketerId || (formData.marketerRef?.includes('•') ? formData.marketerRef.split('•')[0].trim() : 'DIRECT')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'NEW') {
-                    const newName = window.prompt('Enter new marketer full name (e.g. Tariq Mehmood):');
-                    if (newName && newName.trim()) {
-                      handleChange({ target: { name: 'marketerName', value: newName.trim() } });
-                      handleChange({ target: { name: 'marketerRef', value: newName.trim() } });
-                      handleChange({ target: { name: 'marketerId', value: '' } });
-                    }
-                  } else {
-                    const sel = marketers.find(m => m.id === val);
-                    handleChange({ target: { name: 'marketerId', value: val } });
-                    handleChange({ target: { name: 'marketerName', value: sel?.name || '' } });
-                    handleChange({ target: { name: 'marketerRef', value: val === 'DIRECT' ? '' : `${val} • ${sel?.name || ''}` } });
-                  }
-                }}
-              >
-                <option value="DIRECT">Direct / Company (No Marketer)</option>
-                {marketers.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.id} — {m.name} ({m.segment || 'General'})
-                  </option>
-                ))}
-                <option value="NEW">+ Register New Marketer...</option>
-              </select>
-            </div>
+            <input
+              id="customer-marketer"
+              name="marketerRef"
+              list="marketers-list"
+              className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+              placeholder="e.g. Aslam Khan, MKT-01, or Direct"
+              value={formData.marketerRef || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                const match = marketers.find(m => `${m.id} • ${m.name}` === val || m.id === val || m.name.toLowerCase() === val.toLowerCase());
+                handleChange({ target: { name: 'marketerRef', value: val } });
+                handleChange({ target: { name: 'marketerId', value: match ? match.id : '' } });
+                handleChange({ target: { name: 'marketerName', value: match ? match.name : val } });
+              }}
+            />
+            <datalist id="marketers-list">
+              <option value="Direct">Direct / Company (No Marketer)</option>
+              {marketers.map(m => (
+                <option key={m.id} value={`${m.id} • ${m.name}`}>
+                  {m.id} — {m.name} ({m.segment || 'General'})
+                </option>
+              ))}
+            </datalist>
           </div>
         </div>
 
