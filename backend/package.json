@@ -17,7 +17,7 @@
     "seed:bom": "node scripts/seed-production-bom.js",
     "seed": "node seed_users.js && node scripts/seed-production-bom.js",
     "migrate:shrink-wrap": "node scripts/migrate-shrink-wrap.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test tests/erp-audit.test.mjs"
   },
   "keywords": [],
   "author": "",
@@ -46,6 +46,7 @@
     "morgan": "^1.12.0",
     "multer": "^2.2.0",
     "nodemailer": "^10.0.13",
+    "papaparse": "^5.7.0",
     "pdfkit": "^0.19.1",
     "pg": "^8.22.0",
     "streamifier": "^0.1.1",
