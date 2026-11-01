@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { X, Edit3, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Edit3, Upload, Image as ImageIcon, Clipboard } from 'lucide-react';
 import { API_URL as API } from '../../utils/api';
 import CustomerFormFields from './CustomerFormFields';
 import { useTenant } from '../../context/TenantContext';
@@ -16,6 +16,29 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const processImageFile = useCallback((file) => {
+    if (!file) return false;
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, and WEBP images are allowed');
+      return false;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return false;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+    return true;
+  }, []);
 
   useEffect(() => {
     if (customer && isOpen) {
@@ -38,7 +61,60 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
     }
   }, [customer, isOpen]);
 
+  // Global clipboard paste listener (Ctrl+V) when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items || [];
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            if (processImageFile(file)) {
+              toast.success('Customer photo pasted from clipboard!');
+            }
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen, processImageFile]);
+
   if (!isOpen || !customer) return null;
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        toast.info('Press Ctrl+V anywhere in this window to paste your copied photo.');
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      let foundImage = false;
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const ext = imageType.split('/')[1] || 'png';
+          const file = new File([blob], `pasted_customer_photo.${ext}`, { type: imageType });
+          if (processImageFile(file)) {
+            toast.success('Customer photo loaded from clipboard!');
+            foundImage = true;
+          }
+          break;
+        }
+      }
+      if (!foundImage) {
+        toast.info('No image found in clipboard. Copy an image first, then press Ctrl+V.');
+      }
+    } catch (_err) {
+      toast.info('Clipboard access restricted by browser. Simply press Ctrl+V to paste.');
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -50,25 +126,7 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      toast.error('Only JPEG, PNG, and WEBP images are allowed');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
-      return;
-    }
-
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    processImageFile(file);
   };
 
   const handleRemoveImage = () => {
@@ -192,9 +250,20 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
 
           {/* Customer Photo Upload Section */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ImageIcon size={14} className="text-slate-500" /> Customer / House Photo
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon size={14} className="text-slate-500" /> Customer / House Photo
+              </h4>
+              <button
+                type="button"
+                onClick={handlePasteFromClipboard}
+                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                title="Paste image directly from clipboard (or press Ctrl+V)"
+              >
+                <Clipboard size={12} />
+                <span>Paste (Ctrl+V)</span>
+              </button>
+            </div>
             {imagePreview ? (
               <div className="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-emerald-400 to-teal-500 shadow-md">
                 <div className="w-full h-full rounded-full bg-white p-0.5 overflow-hidden">
@@ -210,12 +279,24 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-xl hover:border-emerald-500 cursor-pointer transition">
-                <Upload size={24} className="text-slate-400 mb-1" />
-                <span className="text-xs font-semibold text-slate-600">Upload Customer Photo</span>
-                <span className="text-[10px] text-slate-400">JPEG, PNG, WEBP max 5MB</span>
-                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-xl hover:border-emerald-500 cursor-pointer transition bg-slate-50/50 hover:bg-emerald-50/20">
+                  <Upload size={22} className="text-slate-400 mb-1" />
+                  <span className="text-xs font-semibold text-slate-600">Upload Photo File</span>
+                  <span className="text-[10px] text-slate-400">JPEG, PNG, WEBP max 5MB</span>
+                  <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                </label>
+                <button
+                  type="button"
+                  onClick={handlePasteFromClipboard}
+                  className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-200 rounded-xl hover:border-emerald-500 cursor-pointer transition bg-slate-50/50 hover:bg-emerald-50/20 group text-left"
+                  title="Click to paste from clipboard or press Ctrl+V"
+                >
+                  <Clipboard size={22} className="text-slate-400 group-hover:text-emerald-600 mb-1 transition-colors" />
+                  <span className="text-xs font-semibold text-slate-600 group-hover:text-emerald-700 transition-colors">Paste from Clipboard</span>
+                  <span className="text-[10px] text-slate-400 text-center">Copy from WhatsApp, then press Ctrl+V</span>
+                </button>
+              </div>
             )}
           </div>
 
