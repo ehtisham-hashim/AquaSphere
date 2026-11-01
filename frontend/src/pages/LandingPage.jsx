@@ -106,7 +106,7 @@ const DEFAULT_SETTINGS = {
       name: "Dispenser",
       desc: "Instant water access",
       price: "PKR 35000",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552637/Aqua_Sphere_Water_Cooler_Product_Render.png"
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793555453/Aqua_Sphere_Water_Cooler_Product_Render.png"
     },
     {
       id: "p5",
