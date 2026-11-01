@@ -101,7 +101,9 @@ function launchDesktopProtocol(appUrl) {
     setTimeout(() => {
       try {
         if (link.parentNode) link.parentNode.removeChild(link);
-      } catch (_) {}
+      } catch (_) {
+        /* ignore cleanup error */
+      }
     }, 1000);
   } catch (_e) {
     window.location.assign(appUrl);

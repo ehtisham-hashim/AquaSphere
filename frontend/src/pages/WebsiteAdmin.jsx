@@ -20,7 +20,9 @@ import {
   ShieldCheck,
   AlertCircle,
   ArrowRight,
-  LogOut
+  LogOut,
+  MessageSquare,
+  Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 

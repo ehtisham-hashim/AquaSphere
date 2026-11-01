@@ -26,9 +26,13 @@ import {
   Mail,
   User,
   MessageSquare,
-  Star
+  Star,
+  Eye
 } from 'lucide-react';
 import './landing.css';
+import './certificates-reports.css';
+import { CERTIFICATE_SECTIONS, ALL_CERTIFICATES } from '../data/certificatesData';
+import CertificateLightboxModal from '../components/common/CertificateLightboxModal';
 
 // Official WhatsApp icon SVG with vibrant green default
 function WhatsAppIcon({ className = "w-5 h-5" }) {
@@ -196,34 +200,20 @@ const getProductSpecs = (product) => {
 };
 
 function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWhatsAppLink, optImg, WhatsAppIcon }) {
-  if (activeIdx === null || !products || !products[activeIdx]) return null;
-  const currentProd = products[activeIdx];
-  const specs = getProductSpecs(currentProd);
-
   // Wheel scroll debounce for carousel navigation
   const lastScrollTime = useRef(0);
-  const handleWheel = (e) => {
-    const now = Date.now();
-    if (now - lastScrollTime.current < 400) return;
-    if (Math.abs(e.deltaY) > 25) {
-      lastScrollTime.current = now;
-      if (e.deltaY > 0) {
-        onSelectIdx((activeIdx + 1) % products.length);
-      } else {
-        onSelectIdx((activeIdx - 1 + products.length) % products.length);
-      }
-    }
-  };
+  const totalProducts = products?.length || 0;
 
   // Keyboard navigation & body scroll lock
   useEffect(() => {
+    if (activeIdx === null || totalProducts === 0) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        onSelectIdx((activeIdx + 1) % products.length);
+        onSelectIdx((activeIdx + 1) % totalProducts);
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        onSelectIdx((activeIdx - 1 + products.length) % products.length);
+        onSelectIdx((activeIdx - 1 + totalProducts) % totalProducts);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -232,7 +222,24 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'auto';
     };
-  }, [activeIdx, products.length, onClose, onSelectIdx]);
+  }, [activeIdx, totalProducts, onClose, onSelectIdx]);
+
+  if (activeIdx === null || !products || !products[activeIdx]) return null;
+  const currentProd = products[activeIdx];
+  const specs = getProductSpecs(currentProd);
+
+  const handleWheel = (e) => {
+    const now = Date.now();
+    if (now - lastScrollTime.current < 400) return;
+    if (Math.abs(e.deltaY) > 25) {
+      lastScrollTime.current = now;
+      if (e.deltaY > 0) {
+        onSelectIdx((activeIdx + 1) % totalProducts);
+      } else {
+        onSelectIdx((activeIdx - 1 + totalProducts) % totalProducts);
+      }
+    }
+  };
 
   return (
     <div 
@@ -368,6 +375,7 @@ export default function LandingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProductIdx, setSelectedProductIdx] = useState(null);
+  const [selectedCertIdx, setSelectedCertIdx] = useState(null);
 
   // Reviews Carousel State (Interactive Circular Progress Bar)
   const reviewsList = (settings.reviews && settings.reviews.length > 0) ? settings.reviews : DEFAULT_SETTINGS.reviews;
@@ -412,7 +420,7 @@ export default function LandingPage() {
 
   const getWhatsAppLink = (productName = '') => {
     const rawNumber = settings.whatsapp || '923015072233';
-    let msg = '';
+    let msg;
     if (!productName) {
       msg = 'Hello Aqua Sphere, I want to inquire about drinking water.';
     } else if (productName.startsWith('New Contact Form Inquiry:')) {
@@ -922,7 +930,110 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. LOCATION SECTION */}
+      {/* 8. OFFICIAL CERTIFICATIONS & LICENSING (ELEGANCIA-STYLE) */}
+      <section id="certifications" className="py-20 bg-slate-50 border-t border-slate-200/80">
+        <div className="lp-section-container">
+          <div className="lp-section-header">
+            <span className="lp-section-tag">
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+              <span>Government Approved & PSQCA Certified</span>
+            </span>
+            <h2 className="lp-section-title">Official Standards & Certifications</h2>
+            <p className="lp-section-subtitle">
+              AquaSphere operates with complete regulatory transparency, holding national quality marks, corporate incorporation, and health safety approvals.
+            </p>
+          </div>
+
+          {/* Two Stacked Sections of 3 Certificates each */}
+          <div className="space-y-12 max-w-7xl mx-auto mt-10">
+            {CERTIFICATE_SECTIONS.map((section, sIdx) => (
+              <div key={section.id} className="cert-section-block mb-10">
+                <div className="cert-section-header flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <div className="cert-section-title-wrap">
+                      <span className="cert-section-number">{sIdx + 1}</span>
+                      <h3 className="cert-section-title">{section.categoryName}</h3>
+                    </div>
+                    <p className="cert-section-sub">{section.subtitle}</p>
+                  </div>
+                </div>
+
+                <div className="cert-cards-grid mt-6">
+                  {section.certificates.map((cert) => {
+                    const globalIdx = ALL_CERTIFICATES.findIndex(c => c.id === cert.id);
+                    return (
+                      <article
+                        key={cert.id}
+                        onClick={() => setSelectedCertIdx(globalIdx)}
+                        className="cert-card-elegancia group"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`View certificate: ${cert.title}`}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedCertIdx(globalIdx);
+                          }
+                        }}
+                      >
+                        {/* Certificate Framed Preview Box */}
+                        <div className="cert-card-img-box">
+                          <div className="cert-card-img-frame">
+                            <img
+                              src={cert.image}
+                              alt={cert.title}
+                              loading="lazy"
+                            />
+                          </div>
+                          <span className="cert-card-zoom-badge">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Click to View</span>
+                          </span>
+                        </div>
+
+                        {/* Card Content Details */}
+                        <div className="cert-card-body">
+                          <div className="cert-card-top-info">
+                            <div className="cert-card-badge-row">
+                              <span className="cert-badge-pill">{cert.badge}</span>
+                              <span className="text-[11px] font-semibold text-slate-500">{cert.validity}</span>
+                            </div>
+                            <h4 className="cert-card-title">{cert.title}</h4>
+                            <p className="cert-card-authority">{cert.authority}</p>
+                            <p className="cert-card-number">{cert.number}</p>
+                          </div>
+
+                          {/* Card Footer CTA */}
+                          <div className="cert-card-footer">
+                            <span className="cert-view-link">
+                              <span>View Full Certificate</span>
+                              <ChevronRight className="w-4 h-4" />
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-medium">Click to inspect</span>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Elegancia-style bottom link */}
+          <div className="mt-8 text-center">
+            <Link
+              to="/certificates"
+              className="inline-flex items-center gap-2 text-sm font-bold text-sky-700 hover:text-sky-800 transition-colors group"
+            >
+              <span>See all license details & lab test reports</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 9. LOCATION SECTION */}
       <section id="location" className="lp-location-section">
         <div className="lp-section-container">
           <div className="lp-section-header">
@@ -1267,6 +1378,14 @@ export default function LandingPage() {
           WhatsAppIcon={WhatsAppIcon}
         />
       )}
+
+      {/* 12. CERTIFICATE LIGHTBOX MODAL */}
+      <CertificateLightboxModal
+        certificates={ALL_CERTIFICATES}
+        activeIdx={selectedCertIdx}
+        onClose={() => setSelectedCertIdx(null)}
+        onSelectIdx={(idx) => setSelectedCertIdx(idx)}
+      />
 
     </div>
   );

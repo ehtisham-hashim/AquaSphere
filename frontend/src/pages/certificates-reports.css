@@ -1,148 +1,385 @@
-/* Scoped showcase and card styles for Certificates & Reports */
+/* ==========================================================================
+   AquaSphere — Elegancia-Inspired Certificates & Reports Stylesheet
+   Pure Water Aesthetic, Zero Rounded Corners, High-Res Previews & Lightbox
+   ========================================================================== */
 
 .docs-showcase {
   width: 100%;
   min-height: 80vh;
-  padding: 50px 20px 80px;
+  padding: 40px 20px 80px;
   position: relative;
+  background: #f8fafc;
 }
 
 .showcase-header {
   max-width: 900px;
-  margin: 0 auto 45px;
+  margin: 0 auto 36px;
   text-align: center;
 }
 
 .showcase-tag {
   display: inline-block;
-  padding: 7px 18px;
-  margin-bottom: 14px;
-  border-radius: 999px;
-  background: rgba(224, 242, 254, 0.95);
-  border: 1px solid rgba(125, 211, 252, 0.9);
+  padding: 6px 16px;
+  margin-bottom: 12px;
+  border-radius: 0;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
   color: #0369a1;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .showcase-header h1 {
-  font-size: clamp(32px, 5vw, 54px);
-  line-height: 1.12;
-  font-weight: 900;
+  font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
+  font-size: clamp(32px, 4.5vw, 50px);
+  line-height: 1.15;
+  font-weight: 800;
   color: #0f172a;
-  letter-spacing: -1.5px;
-  margin-bottom: 14px;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
 }
 
 .showcase-header h1 span {
-  background: linear-gradient(135deg, #0284c7, #06b6d4, #2563eb);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #0284c7;
 }
 
-.showcase-header h2,
 .showcase-header p {
-  max-width: 720px;
+  max-width: 700px;
   margin: 0 auto;
   color: #64748b;
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 15.5px;
+  line-height: 1.65;
 }
 
-.docs-grid-premium {
-  width: min(96%, 1400px);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px;
-  align-items: start;
+/* Tab Switcher (Certificates vs Lab Reports) */
+.docs-tab-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 44px;
 }
 
-.single-report-grid {
-  width: min(96%, 1150px);
-  grid-template-columns: 1fr;
-}
-
-.doc-premium-card {
-  width: 100%;
-  padding: 28px;
-  border-radius: 28px;
+.docs-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 0;
+  font-size: 13.5px;
+  font-weight: 750;
+  border: 1px solid #cbd5e1;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.doc-premium-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 30px 70px rgba(2, 132, 199, 0.15);
+.docs-tab-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
-.doc-card-top-line {
-  width: 80px;
-  height: 5px;
-  border-radius: 999px;
-  margin-bottom: 16px;
-  background: linear-gradient(90deg, #0284c7, #06b6d4);
+.docs-tab-btn.is-active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
 }
 
-.pdf-frame {
+/* Stacked Section Container */
+.cert-section-block {
+  max-width: 1320px;
+  margin: 0 auto 56px;
   width: 100%;
-  height: 780px;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
 }
 
-.pdf-frame-large {
-  height: 1000px;
+.cert-section-header {
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #e2e8f0;
 }
 
-.file-link {
+.cert-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.cert-section-number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 26px;
-  border-radius: 0;
-  background: linear-gradient(135deg, #0284c7, #06b6d4);
+  width: 24px;
+  height: 24px;
+  background: #0284c7;
   color: #ffffff;
-  text-decoration: none;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
-  box-shadow: 0 10px 25px rgba(2, 132, 199, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0;
 }
 
-.file-link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 35px rgba(2, 132, 199, 0.35);
+.cert-section-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.015em;
+  margin: 0;
 }
 
-@media (max-width: 992px) {
-  .docs-grid-premium,
-  .single-report-grid {
-    grid-template-columns: 1fr;
+.cert-section-sub {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* 3-Column Certificate Grid (Elegancia Style) */
+.cert-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+}
+
+/* Individual Certificate Card */
+.cert-card-elegancia {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  position: relative;
+  text-align: left;
+}
+
+.cert-card-elegancia:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(2, 132, 199, 0.12);
+  border-color: #38bdf8;
+}
+
+/* Certificate Image Preview Box */
+.cert-card-img-box {
+  width: 100%;
+  height: 230px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cert-card-img-frame {
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cert-card-img-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.35s ease;
+}
+
+.cert-card-elegancia:hover .cert-card-img-frame img {
+  transform: scale(1.03);
+}
+
+/* Hover Zoom Overlay Badge */
+.cert-card-zoom-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #ffffff;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cert-card-elegancia:hover .cert-card-zoom-badge {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Certificate Content Details */
+.cert-card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.cert-card-top-info {
+  margin-bottom: 14px;
+}
+
+.cert-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cert-badge-pill {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 0;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.cert-card-title {
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+  transition: color 0.2s ease;
+}
+
+.cert-card-elegancia:hover .cert-card-title {
+  color: #0284c7;
+}
+
+.cert-card-authority {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0 0 4px 0;
+}
+
+.cert-card-number {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cert-card-footer {
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cert-view-link {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #0284c7;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: gap 0.2s ease, color 0.2s ease;
+}
+
+.cert-card-elegancia:hover .cert-view-link {
+  color: #0369a1;
+  gap: 8px;
+}
+
+/* Single Lab Report Grid */
+.single-report-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.single-report-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  padding: 24px;
+}
+
+.single-report-img-box {
+  width: 100%;
+  height: 520px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.single-report-img-box img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.single-report-img-box:hover img {
+  transform: scale(1.02);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1100px) {
+  .cert-cards-grid {
+    gap: 20px;
   }
-  .pdf-frame {
-    height: 650px;
+  .cert-card-img-box {
+    height: 200px;
   }
-  .pdf-frame-large {
-    height: 780px;
+}
+
+@media (max-width: 900px) {
+  .cert-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
   }
 }
 
 @media (max-width: 640px) {
-  .doc-premium-card {
-    padding: 18px;
-    border-radius: 20px;
+  .docs-showcase {
+    padding: 24px 12px 60px;
   }
-  .pdf-frame {
-    height: 520px;
+  .cert-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
-  .pdf-frame-large {
-    height: 620px;
+  .cert-card-img-box {
+    height: 190px;
+  }
+  .cert-section-block {
+    margin-bottom: 40px;
+  }
+  .single-report-img-box {
+    height: 340px;
   }
 }
