@@ -1903,15 +1903,17 @@
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: 'Playfair Display', Georgia, Cambria, 'Times New Roman', serif;
-  font-size: clamp(80px, 14vw, 240px);
+  font-size: clamp(34px, 8.5vw, 115px);
   font-weight: 900;
-  color: #0f172a;
-  opacity: 0.038;
-  letter-spacing: 0.18em;
+  color: #64748b;
+  opacity: 0.07;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
   z-index: 1;
 }
 
@@ -2240,10 +2242,80 @@
     max-height: 260px;
   }
   .lp-showcase-watermark {
-    font-size: 18vw;
+    font-size: clamp(26px, 7vw, 56px);
+    letter-spacing: 0.06em;
+    opacity: 0.065;
   }
   .lp-showcase-nav-arrow {
     width: 38px;
     height: 38px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lp-showcase-top-bar {
+    padding: 14px 14px 6px;
+  }
+  .lp-showcase-dash {
+    width: 20px;
+    height: 3px;
+  }
+  .lp-showcase-dash.is-active {
+    width: 32px;
+  }
+  .lp-showcase-close-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .lp-showcase-content {
+    padding: 6px 8px;
+  }
+  .lp-showcase-grid {
+    gap: 16px;
+    padding: 4px 6px;
+    max-height: calc(100vh - 140px);
+  }
+  .lp-showcase-title {
+    font-size: clamp(22px, 5.5vw, 28px);
+    margin-bottom: 8px;
+  }
+  .lp-showcase-desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .lp-showcase-specs {
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .lp-showcase-spec-item {
+    font-size: 13px;
+  }
+  .lp-showcase-img {
+    max-height: 190px;
+  }
+  .lp-showcase-shadow {
+    width: 140px;
+    height: 12px;
+  }
+  .lp-showcase-watermark {
+    font-size: clamp(17px, 5.8vw, 25px);
+    letter-spacing: 0.05em;
+    opacity: 0.06;
+  }
+  .lp-showcase-nav-arrow {
+    width: 32px;
+    height: 32px;
+  }
+  .lp-showcase-whatsapp-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 18px;
+    font-size: 13.5px;
+  }
+  .lp-showcase-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
   }
 }
