@@ -8,35 +8,42 @@
  */
 export function normalizeWhatsAppPhone(phone) {
   if (!phone) return '';
-  const digits = String(phone).replace(/\D/g, '');
+  const cleanStr = String(phone).split('_archived_')[0];
+  const digits = cleanStr.replace(/\D/g, '');
   if (!digits) return '';
 
+  if (digits.startsWith('0092')) {
+    return `92${digits.slice(4)}`;
+  }
   if (digits.startsWith('0')) {
     return `92${digits.slice(1)}`;
   }
   if (digits.startsWith('92')) {
     return digits;
   }
+  if (digits.length === 10 && digits.startsWith('3')) {
+    return `92${digits}`;
+  }
   return digits;
 }
 
 /**
- * Gets currently configured dispatch mode ('auto', 'app', or 'web'). Defaults to 'auto'.
+ * Gets currently configured dispatch mode ('app', 'web', or 'auto'). Defaults to 'app'.
  */
 export function getWhatsAppMode() {
   try {
-    return localStorage.getItem('aquasphere_whatsapp_mode') || 'auto';
+    return localStorage.getItem('aquasphere_whatsapp_mode') || 'app';
   } catch {
-    return 'auto';
+    return 'app';
   }
 }
 
 /**
- * Sets dispatch mode preference ('auto', 'app', or 'web').
+ * Sets dispatch mode preference ('app', 'web', or 'auto').
  */
 export function setWhatsAppMode(mode) {
   try {
-    const valid = ['auto', 'app', 'web'].includes(mode) ? mode : 'auto';
+    const valid = ['auto', 'app', 'web'].includes(mode) ? mode : 'app';
     localStorage.setItem('aquasphere_whatsapp_mode', valid);
   } catch {
     // ignore local storage errors
@@ -81,9 +88,29 @@ function navigateWhatsAppWeb(webUrl) {
 }
 
 /**
- * Opens WhatsApp Web/App, synchronously reusing an existing browser tab ('AquaSphereWhatsAppTab')
- * to eliminate duplicate tabs and prevent popup blockers.
- * Copies message to clipboard automatically as a safety measure.
+ * Reliably launches a desktop protocol handler (e.g. whatsapp://) via anchor click
+ * without cancelling ongoing async tasks or triggering navigation errors in the tab.
+ */
+function launchDesktopProtocol(appUrl) {
+  try {
+    const link = document.createElement('a');
+    link.href = appUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      try {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      } catch (_) {}
+    }, 1000);
+  } catch (_e) {
+    window.location.assign(appUrl);
+  }
+}
+
+/**
+ * Opens WhatsApp Desktop App (or Web if explicitly chosen), ensuring the customer chat opens directly.
+ * Preserves clipboard image when requested for seamless Ctrl+V sending.
  */
 export function openWhatsAppWeb(phone, text = '', options = {}) {
   const mode = options.mode || getWhatsAppMode();
@@ -103,52 +130,14 @@ export function openWhatsAppWeb(phone, text = '', options = {}) {
     ? `https://web.whatsapp.com/send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`
     : `https://web.whatsapp.com/send?text=${encodedText}`;
 
-  // Mode: App Only
-  if (mode === 'app') {
-    window.location.assign(appUrl);
-    return;
-  }
-
-  // Mode: Web Only
+  // Mode: Web Only (Single Reused Tab)
   if (mode === 'web') {
     navigateWhatsAppWeb(webUrl);
     return;
   }
 
-  // Mode: Auto (Default: Try WhatsApp Desktop App first. If not open/handled, fallback to Web tab)
-  let appHandled = false;
-
-  const onBlur = () => {
-    appHandled = true;
-    cleanup();
-  };
-
-  const onVisibilityChange = () => {
-    if (document.hidden) {
-      appHandled = true;
-      cleanup();
-    }
-  };
-
-  const cleanup = () => {
-    window.removeEventListener('blur', onBlur);
-    document.removeEventListener('visibilitychange', onVisibilityChange);
-    if (fallbackTimer) clearTimeout(fallbackTimer);
-  };
-
-  window.addEventListener('blur', onBlur, { once: true });
-  document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-
-  const fallbackTimer = setTimeout(() => {
-    cleanup();
-    // If the browser window stayed focused/visible, desktop app did not open -> Fallback to single Web tab
-    if (!appHandled && !document.hidden) {
-      navigateWhatsAppWeb(webUrl);
-    }
-  }, 1200);
-
-  // Trigger desktop protocol
-  window.location.assign(appUrl);
+  // Default / Mode 'app' / Mode 'auto': Launch Desktop App directly
+  launchDesktopProtocol(appUrl);
 }
 
 /**

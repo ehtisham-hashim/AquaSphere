@@ -96,15 +96,15 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
   const [waMode, setWaMode] = useState(() => getWhatsAppMode());
 
   const handleToggleWaMode = () => {
-    const nextMode = waMode === 'auto' ? 'app' : waMode === 'app' ? 'web' : 'auto';
+    const nextMode = waMode === 'app' ? 'web' : waMode === 'web' ? 'auto' : 'app';
     setWhatsAppMode(nextMode);
     setWaMode(nextMode);
     toast.success(
-      nextMode === 'auto'
-        ? 'WhatsApp: Auto (Desktop App if open, otherwise Web Tab)'
-        : nextMode === 'app'
-        ? 'WhatsApp: Desktop App only (whatsapp://)'
-        : 'WhatsApp: Web Tab only (Single Reused Tab)'
+      nextMode === 'app'
+        ? 'WhatsApp: Desktop App (whatsapp://)'
+        : nextMode === 'web'
+        ? 'WhatsApp: Web Tab only (Single Reused Tab)'
+        : 'WhatsApp: Auto (Desktop App direct)'
     );
   };
 
