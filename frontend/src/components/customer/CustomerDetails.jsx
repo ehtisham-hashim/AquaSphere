@@ -170,17 +170,19 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
         </div>
 
         {/* Name & Badges */}
-        <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
-        <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-          <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
-            🆔 {c.customerCode || c.id.slice(0, 8).toUpperCase()}
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
+          <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs tracking-wide">
+            {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
           </span>
+        </div>
+        <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
           <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
             c.marketerId && c.marketerId !== 'DIRECT'
               ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
               : 'bg-slate-100 text-slate-600 border-slate-200'
           }`}>
-            👤 Marketer: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerName || c.marketerRef} (${c.marketerId})` : (c.marketerName || c.marketerRef || 'Direct / Company')}
+            👤 Marketer / Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerName || c.marketerRef} (${c.marketerId})` : (c.marketerName || c.marketerRef || 'Direct / Company')}
           </span>
           <Badge variant={theme.badgeVariant}>{c.type || 'Standard'}</Badge>
           <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
@@ -278,10 +280,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           {/* Header & Polished Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Customer Overview</h2>
-                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                  Profile Details
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">{c.name}</h2>
+                <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2 py-0.5 rounded-md shadow-2xs">
+                  {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
+                </span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                  c.marketerId && c.marketerId !== 'DIRECT'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
+                  Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerId} • ${c.marketerName || c.marketerRef}` : (c.marketerName || c.marketerRef || 'Direct')}
                 </span>
               </div>
               <p className="text-slate-500 text-xs mt-0.5">Complete financial, credit, and product profiles</p>

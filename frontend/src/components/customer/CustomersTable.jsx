@@ -113,20 +113,8 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <span className="font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-slate-900 text-white tracking-wide">
-                              {c.customerCode || `#${c.id.slice(0, 6).toUpperCase()}`}
-                            </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              c.marketerId && c.marketerId !== 'DIRECT'
-                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                            }`}>
-                              👤 {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerId} • ${c.marketerName}` : (c.marketerName && c.marketerName !== 'Direct / Company' ? c.marketerName : 'Direct')}
-                            </span>
-                            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block">
-                              {c.type}
-                            </span>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            {c.type || 'Standard'}
                           </div>
                         </div>
                       </div>
