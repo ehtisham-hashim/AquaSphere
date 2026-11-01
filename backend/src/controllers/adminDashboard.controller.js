@@ -261,13 +261,9 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     }
   }
 
-  const [paymentsSum, spotSalesSum, paymentsByMethodList, paymentsCount, spotSalesCount, ordersList] = await Promise.all([
+  const [paymentsSum, paymentsByMethodList, paymentsCount, spotSalesCount, ordersList, spotSalesList] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: startOfDay, lte: endOfDay } }
-    }),
-    prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true },
       where: { createdAt: { gte: startOfDay, lte: endOfDay } }
     }),
     prisma[`${prefix}Payment`].groupBy({
@@ -287,20 +283,34 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
         payments: { select: { amount: true } },
         items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
       }
+    }),
+    prisma[`${prefix}SpotSale`].findMany({
+      where: { createdAt: { gte: startOfDay, lte: endOfDay } },
+      select: { amountPaid: true, cashCollected: true, paymentMethod: true }
     })
   ]);
 
   const totalPayments = Number(paymentsSum._sum.amount || 0);
-  const totalSpotSales = Number(spotSalesSum._sum.cashCollected || 0);
+  const totalSpotSales = spotSalesList.reduce((sum, s) => sum + Number(s.amountPaid || s.cashCollected || 0), 0);
 
-  // Group payments by method (spot sales cash is physical cash)
-  const byMethod = { CASH: totalSpotSales, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
+  // Group payments and spot sales by actual method
+  const byMethod = { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
   paymentsByMethodList.forEach(p => {
-    const method = p.type || 'CASH';
+    const method = (p.type || 'CASH').toUpperCase();
     if (byMethod[method] !== undefined) {
       byMethod[method] += Number(p._sum.amount || 0);
     } else {
       byMethod.CASH += Number(p._sum.amount || 0);
+    }
+  });
+
+  spotSalesList.forEach(s => {
+    const method = (s.paymentMethod || 'CASH').toUpperCase();
+    const amt = Number(s.amountPaid || s.cashCollected || 0);
+    if (byMethod[method] !== undefined) {
+      byMethod[method] += amt;
+    } else {
+      byMethod.CASH += amt;
     }
   });
 

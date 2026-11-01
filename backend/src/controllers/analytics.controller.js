@@ -281,8 +281,9 @@ const computeDashboardAnalytics = async (prefix) => {
 
   for (const st of spotSales) {
     const d = new Date(st.createdAt);
-    const cashAmt = parseFloat(st.cashCollected || 0);
-    const creditAmt = parseFloat(st.creditAmount || 0);
+    const cashAmt = parseFloat(st.amountPaid || st.cashCollected || 0);
+    const creditAmt = parseFloat(st.creditAmount || st.debtAmount || 0);
+    const method = (st.paymentMethod || 'CASH').toUpperCase();
     const totalLit = parseFloat(st.totalLitres || st.litresSold || 0);
     let customLit = 0;
     let refillLit = 0;
@@ -313,7 +314,11 @@ const computeDashboardAnalytics = async (prefix) => {
       b.customWaterLitres += customLit;
       b.refillWaterLitres += refillLit;
       if (b.cashByMethod) {
-        b.cashByMethod.CASH = (b.cashByMethod.CASH || 0) + cashAmt;
+        if (b.cashByMethod[method] !== undefined) {
+          b.cashByMethod[method] += cashAmt;
+        } else {
+          b.cashByMethod.CASH = (b.cashByMethod.CASH || 0) + cashAmt;
+        }
       }
       if (b.cashBySize) {
         b.cashBySize['19L'] = (b.cashBySize['19L'] || 0) + cashAmt;
@@ -651,13 +656,9 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const nextDate = new Date(targetDate);
   nextDate.setDate(nextDate.getDate() + 1);
 
-  const [deliveryPayments, spotSalesAgg, expensesAgg, creditSalesAgg, vendorCashPayments, spotSalesTotalAgg, paymentsByMethodList, todaysOrders] = await Promise.all([
+  const [deliveryPayments, expensesAgg, creditSalesAgg, vendorCashPayments, spotSalesTotalAgg, paymentsByMethodList, todaysOrders, spotSalesList] = await Promise.all([
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate } }
-    }),
-    prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true, creditAmount: true, litresSold: true },
       where: { createdAt: { gte: targetDate, lt: nextDate } }
     }),
     prisma[`${prefix}Expense`].aggregate({
@@ -687,26 +688,40 @@ export const getDailySummary = asyncHandler(async (req, res) => {
         payments: { select: { amount: true } },
         items: { select: { quantity: true, price: true, item: { select: { name: true } } } }
       }
+    }),
+    prisma[`${prefix}SpotSale`].findMany({
+      where: { createdAt: { gte: targetDate, lt: nextDate } },
+      select: { amountPaid: true, cashCollected: true, paymentMethod: true }
     })
   ]);
 
   const totalDeliveryAmount = parseFloat(deliveryPayments._sum.amount || 0);
-  const totalSpotSales = parseFloat(spotSalesAgg._sum.cashCollected || 0);
+  const totalSpotSales = spotSalesList.reduce((sum, s) => sum + parseFloat(s.amountPaid || s.cashCollected || 0), 0);
   const totalCreditSales = parseFloat(creditSalesAgg._sum.creditAmount || 0);
   const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
   const totalVendorCash = parseFloat(vendorCashPayments._sum.amount || 0);
-  const totalLitres = parseFloat(spotSalesTotalAgg._sum.totalLitres || spotSalesTotalAgg._sum.litresSold || spotSalesAgg._sum.litresSold || 0);
+  const totalLitres = parseFloat(spotSalesTotalAgg._sum.totalLitres || spotSalesTotalAgg._sum.litresSold || 0);
   const totalBottles = parseInt(spotSalesTotalAgg._sum.totalBottles || 0, 10);
   const totalCaps = parseInt(spotSalesTotalAgg._sum.totalCaps || 0, 10);
   const netCash = Math.max(0, totalDeliveryAmount + totalSpotSales - totalExpenses - totalVendorCash);
 
-  const cashByMethod = { CASH: totalSpotSales, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
+  const cashByMethod = { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
   paymentsByMethodList.forEach(p => {
-    const m = p.type || 'CASH';
+    const m = (p.type || 'CASH').toUpperCase();
     if (cashByMethod[m] !== undefined) {
       cashByMethod[m] += parseFloat(p._sum.amount || 0);
     } else {
       cashByMethod.CASH += parseFloat(p._sum.amount || 0);
+    }
+  });
+
+  spotSalesList.forEach(s => {
+    const m = (s.paymentMethod || 'CASH').toUpperCase();
+    const amt = parseFloat(s.amountPaid || s.cashCollected || 0);
+    if (cashByMethod[m] !== undefined) {
+      cashByMethod[m] += amt;
+    } else {
+      cashByMethod.CASH += amt;
     }
   });
 
