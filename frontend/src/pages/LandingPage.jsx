@@ -235,7 +235,7 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
 
   return (
     <div 
-      className="lp-showcase-backdrop fixed inset-0 z-50 flex flex-col justify-between overflow-hidden"
+      className="lp-showcase-backdrop fixed inset-0 z-[9999] flex flex-col justify-between overflow-hidden"
       onWheel={handleWheel}
       role="dialog"
       aria-modal="true"
@@ -1249,6 +1249,19 @@ export default function LandingPage() {
         <WhatsAppIcon className="w-6 h-6 text-white shrink-0" />
         <span className="text-xs font-bold hidden sm:inline">ORDER ON WHATSAPP</span>
       </a>
+
+      {/* 11. ELEGANCIA-INSPIRED PRODUCT SHOWCASE MODAL */}
+      {selectedProductIdx !== null && (
+        <ProductShowcaseModal
+          products={settings.products || DEFAULT_SETTINGS.products}
+          activeIdx={selectedProductIdx}
+          onClose={() => setSelectedProductIdx(null)}
+          onSelectIdx={(idx) => setSelectedProductIdx(idx)}
+          getWhatsAppLink={getWhatsAppLink}
+          optImg={optImg}
+          WhatsAppIcon={WhatsAppIcon}
+        />
+      )}
 
     </div>
   );
