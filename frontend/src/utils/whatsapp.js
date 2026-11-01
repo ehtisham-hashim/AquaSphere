@@ -101,8 +101,8 @@ function launchDesktopProtocol(appUrl) {
     setTimeout(() => {
       try {
         if (link.parentNode) link.parentNode.removeChild(link);
-      } catch (_) {
-        /* ignore cleanup error */
+      } catch (_cleanupErr) {
+        // Ignore node already removed
       }
     }, 1000);
   } catch (_e) {

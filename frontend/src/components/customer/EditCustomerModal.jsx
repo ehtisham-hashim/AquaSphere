@@ -53,6 +53,11 @@ export default function EditCustomerModal({ isOpen, customer, onClose, onCustome
         creditDuration: customer.creditDuration || 1,
         remarks: customer.remarks || '',
         homePictureUrl: customer.homePictureUrl || '',
+        marketerRef: customer.marketerRef || '',
+        marketerId: customer.marketerId || '',
+        marketerName: customer.marketerName || '',
+        buyerNtn: customer.buyerNtn || '',
+        buyerStrn: customer.buyerStrn || '',
         ...extractCustomerProductFields(customer)
       });
       setImagePreview(customer.homePictureUrl || null);

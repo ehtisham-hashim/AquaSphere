@@ -16,6 +16,11 @@ const initialFormData = {
   creditDuration: 1,
   remarks: '',
   homePictureUrl: '',
+  marketerRef: '',
+  marketerId: '',
+  marketerName: '',
+  buyerNtn: '',
+  buyerStrn: '',
   ...getInitialCustomerProductFields()
 };
 

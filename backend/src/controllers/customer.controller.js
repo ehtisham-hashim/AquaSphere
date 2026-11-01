@@ -1151,15 +1151,20 @@ export const downloadCustomerCsvTemplate = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const isWadaana = prefix === 'wadaana';
 
+  const registry = await getMarketersRegistry(prefix);
+  const sampleMarketer = registry.marketers.length > 0
+    ? `${registry.marketers[0].id} • ${registry.marketers[0].name}`
+    : 'Tariq Mehmood';
+
   const csvContent = isWadaana
     ? [
         'name,phone,type,address,mapLink,securityDeposit,currentBalance,creditDuration,marketerRef,qtyPure05L,qtyPure15L,qtyMix05L,qtyMix15L,qtyPureFine05L,qtyPureFine15L,buyerNtn,buyerStrn,remarks',
-        '"Khyber Beverages Wholesale","03005556677","Distributor","Industrial Estate, Hattar","",0,25000,15,"Tariq Mehmood",1000,500,2000,1000,0,0,"7654321-0","12-34-5678-901-23","B2B Preform Distributor"',
+        `"Khyber Beverages Wholesale","03005556677","Distributor","Industrial Estate, Hattar","",0,25000,15,"${sampleMarketer}",1000,500,2000,1000,0,0,"7654321-0","12-34-5678-901-23","B2B Preform Distributor"`,
         '"Shaheen Traders","03458889900","Commercial","Circular Road, Abbottabad","",0,0,7,"DIRECT",0,0,500,500,200,200,"","","Weekly preform dispatch"'
       ].join('\n')
     : [
         'name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks',
-        '"Al-Madina Cash & Carry","03005123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,3,7,"Tariq Mehmood",5,10,5,"1234567-8","","Deliver every Tuesday & Friday"',
+        `"Al-Madina Cash & Carry","03005123456","Commercial","Main GT Road, Hassan Abdal","https://maps.google.com/?q=33.823,72.689",3000,1500,3,7,"${sampleMarketer}",5,10,5,"1234567-8","","Deliver every Tuesday & Friday"`,
         '"Dr. Kamran Clinic","03219876543","Corporate","Street 4, Cantt Area","",2000,0,2,14,"DIRECT",2,0,0,"","","Morning delivery before 11 AM"'
       ].join('\n');
 

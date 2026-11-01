@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { MapPin, ShoppingBag, DollarSign, FileText } from 'lucide-react';
+import { MapPin, ShoppingBag, DollarSign, FileText, Plus, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getTenantCatalog } from '../../constants/wadaanaProducts';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
@@ -8,6 +9,9 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
   const { tenant } = useTenant();
   const products = getTenantCatalog(isWadaana ? 'wadaana' : 'aquasphere');
   const [marketers, setMarketers] = useState([]);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [newMarketerName, setNewMarketerName] = useState('');
+  const [registeringLoading, setRegisteringLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -28,6 +32,76 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
     fetchMarketers();
     return () => { isMounted = false; };
   }, [tenant]);
+
+  const handleRegisterMarketer = async () => {
+    const trimmed = newMarketerName.trim();
+    if (!trimmed) {
+      toast.error('Please enter marketer name');
+      return;
+    }
+    setRegisteringLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/customers/marketers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant': tenant
+        },
+        credentials: 'include',
+        body: JSON.stringify({ name: trimmed })
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const added = json.data;
+        setMarketers(prev => {
+          const exists = prev.some(m => m.id === added.id);
+          return exists ? prev : [...prev, added];
+        });
+        handleChange({ target: { name: 'marketerId', value: added.id } });
+        handleChange({ target: { name: 'marketerName', value: added.name } });
+        handleChange({ target: { name: 'marketerRef', value: `${added.id} • ${added.name}` } });
+        toast.success(`Marketer "${added.name}" registered (${added.id})`);
+        setIsRegistering(false);
+        setNewMarketerName('');
+      } else {
+        throw new Error(json.message || 'Failed to register marketer');
+      }
+    } catch (_err) {
+      const fallbackId = `MKT-${String(marketers.length + 1).padStart(2, '0')}`;
+      const fallback = { id: fallbackId, name: trimmed, segment: isWadaana ? 'Wadaana B2B' : '19L / PET' };
+      setMarketers(prev => [...prev, fallback]);
+      handleChange({ target: { name: 'marketerId', value: fallback.id } });
+      handleChange({ target: { name: 'marketerName', value: fallback.name } });
+      handleChange({ target: { name: 'marketerRef', value: `${fallback.id} • ${fallback.name}` } });
+      toast.success(`Marketer "${trimmed}" added (${fallbackId})`);
+      setIsRegistering(false);
+      setNewMarketerName('');
+    } finally {
+      setRegisteringLoading(false);
+    }
+  };
+
+  const getSelectedValue = () => {
+    if (isRegistering) return '__NEW__';
+    if (formData.marketerId && formData.marketerId !== 'DIRECT') {
+      return formData.marketerId;
+    }
+    if (formData.marketerRef) {
+      if (formData.marketerRef.toLowerCase() === 'direct') return 'DIRECT';
+      const m = formData.marketerRef.match(/^(MKT-\d+)/i);
+      if (m) return m[1].toUpperCase();
+      const byName = marketers.find(mkt => mkt.name.toLowerCase() === formData.marketerRef.toLowerCase());
+      if (byName) return byName.id;
+    }
+    if (formData.marketerName) {
+      const byName = marketers.find(mkt => mkt.name.toLowerCase() === formData.marketerName.toLowerCase());
+      if (byName) return byName.id;
+    }
+    return 'DIRECT';
+  };
+
+  const selectedVal = getSelectedValue();
+  const isCustomOption = selectedVal !== 'DIRECT' && selectedVal !== '__NEW__' && !marketers.some(m => m.id === selectedVal);
 
   return (
     <>
@@ -54,41 +128,109 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
           <div>
             <label htmlFor="customer-marketer" className="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
               <span>Referred By / Marketer</span>
-              {formData.marketerName && formData.marketerId === '' && (
-                <span className="text-[10px] text-emerald-600 font-bold">New: {formData.marketerName}</span>
+              {!isRegistering ? (
+                <button
+                  type="button"
+                  onClick={() => setIsRegistering(true)}
+                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-0.5"
+                >
+                  <Plus size={12} />
+                  <span>New Marketer</span>
+                </button>
+              ) : (
+                <span className="text-[10px] text-emerald-600 font-semibold">Registering New...</span>
               )}
             </label>
-            <div className="flex gap-1.5">
-              <select
-                id="customer-marketer"
-                className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
-                value={formData.marketerId || (formData.marketerRef?.includes('•') ? formData.marketerRef.split('•')[0].trim() : 'DIRECT')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'NEW') {
-                    const newName = window.prompt('Enter new marketer full name (e.g. Tariq Mehmood):');
-                    if (newName && newName.trim()) {
-                      handleChange({ target: { name: 'marketerName', value: newName.trim() } });
-                      handleChange({ target: { name: 'marketerRef', value: newName.trim() } });
-                      handleChange({ target: { name: 'marketerId', value: '' } });
-                    }
-                  } else {
-                    const sel = marketers.find(m => m.id === val);
-                    handleChange({ target: { name: 'marketerId', value: val } });
-                    handleChange({ target: { name: 'marketerName', value: sel?.name || '' } });
-                    handleChange({ target: { name: 'marketerRef', value: val === 'DIRECT' ? '' : `${val} • ${sel?.name || ''}` } });
+            <select
+              id="customer-marketer"
+              name="marketerSelect"
+              className="w-full text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+              value={selectedVal}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__NEW__') {
+                  setIsRegistering(true);
+                  return;
+                }
+                setIsRegistering(false);
+                if (val === 'DIRECT') {
+                  handleChange({ target: { name: 'marketerId', value: 'DIRECT' } });
+                  handleChange({ target: { name: 'marketerName', value: '' } });
+                  handleChange({ target: { name: 'marketerRef', value: '' } });
+                } else {
+                  const sel = marketers.find(m => m.id === val);
+                  if (sel) {
+                    handleChange({ target: { name: 'marketerId', value: sel.id } });
+                    handleChange({ target: { name: 'marketerName', value: sel.name } });
+                    handleChange({ target: { name: 'marketerRef', value: `${sel.id} • ${sel.name}` } });
                   }
-                }}
-              >
-                <option value="DIRECT">Direct / Company (No Marketer)</option>
-                {marketers.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.id} — {m.name} ({m.segment || 'General'})
-                  </option>
-                ))}
-                <option value="NEW">+ Register New Marketer...</option>
-              </select>
-            </div>
+                }
+              }}
+            >
+              <option value="DIRECT">Direct / Company (No Marketer)</option>
+              {isCustomOption && (
+                <option value={selectedVal}>
+                  {formData.marketerRef || formData.marketerName || selectedVal}
+                </option>
+              )}
+              {marketers.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.id} — {m.name} ({m.segment || 'General'})
+                </option>
+              ))}
+              <option value="__NEW__" className="text-emerald-600 font-bold">
+                + Register New Marketer...
+              </option>
+            </select>
+
+            {/* Inline Add Marketer Input (No prompt alert, instant dropdown update) */}
+            {isRegistering && (
+              <div className="mt-2 p-2 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-800">Register New Marketer</span>
+                  <button
+                    type="button"
+                    onClick={() => { setIsRegistering(false); setNewMarketerName(''); }}
+                    className="text-slate-400 hover:text-slate-600 text-xs"
+                    aria-label="Cancel"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Enter full name (e.g. Tariq Mehmood)"
+                    value={newMarketerName}
+                    onChange={(e) => setNewMarketerName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleRegisterMarketer();
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1 text-xs px-2.5 py-1.5 border border-emerald-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={registeringLoading || !newMarketerName.trim()}
+                    onClick={handleRegisterMarketer}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    {registeringLoading && <Loader2 size={12} className="animate-spin" />}
+                    <span>{registeringLoading ? 'Adding...' : 'Add'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsRegistering(false); setNewMarketerName(''); }}
+                    className="px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
