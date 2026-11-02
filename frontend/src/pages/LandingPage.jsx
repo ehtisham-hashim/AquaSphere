@@ -206,6 +206,17 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
   const lastScrollTime = useRef(0);
   const totalProducts = products?.length || 0;
 
+  // Immediate eager preloading of all product images inside modal
+  useEffect(() => {
+    if (!products || !Array.isArray(products)) return;
+    products.forEach((p) => {
+      if (p?.image) {
+        const img = new Image();
+        img.src = optImg(p.image, 900);
+      }
+    });
+  }, [products, optImg]);
+
   // Keyboard navigation & body scroll lock
   useEffect(() => {
     if (activeIdx === null || totalProducts === 0) return;
@@ -339,11 +350,24 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
           {/* Right Column: Product Image with Reflection Shadow */}
           <div className="lp-showcase-right">
             <div className="lp-showcase-image-wrapper">
-              <img
-                src={optImg(currentProd.image, 900)}
-                alt={currentProd.name}
-                className="lp-showcase-img"
-              />
+              {products.map((prod, idx) => {
+                const isActive = idx === activeIdx;
+                return (
+                  <img
+                    key={prod.id || idx}
+                    src={optImg(prod.image, 900)}
+                    alt={prod.name}
+                    loading="eager"
+                    decoding="sync"
+                    fetchPriority={isActive ? "high" : "low"}
+                    draggable={false}
+                    className={`lp-showcase-img ${isActive ? 'is-active' : 'is-hidden'}`}
+                    style={{
+                      display: isActive ? 'block' : 'none',
+                    }}
+                  />
+                );
+              })}
               <div className="lp-showcase-shadow" aria-hidden="true" />
             </div>
           </div>
@@ -417,6 +441,20 @@ export default function LandingPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Eagerly preload all product images (both 900w showcase & 500w cards) immediately for zero-latency instant transitions
+  useEffect(() => {
+    const prods = settings.products || DEFAULT_SETTINGS.products;
+    if (!prods || !Array.isArray(prods)) return;
+    prods.forEach((p) => {
+      if (p?.image) {
+        const img900 = new Image();
+        img900.src = optImg(p.image, 900);
+        const img500 = new Image();
+        img500.src = optImg(p.image, 500);
+      }
+    });
+  }, [settings.products]);
 
   const getWhatsAppLink = (productName = '') => {
     const rawNumber = settings.whatsapp || '923015072233';

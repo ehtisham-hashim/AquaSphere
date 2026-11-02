@@ -2119,18 +2119,17 @@
   max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.12));
-  animation: lpImgSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-user-drag: none;
+  image-rendering: -webkit-optimize-contrast;
 }
 
-@keyframes lpImgSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.lp-showcase-img.is-active {
+  display: block;
+}
+
+.lp-showcase-img.is-hidden {
+  display: none !important;
 }
 
 .lp-showcase-shadow {
