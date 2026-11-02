@@ -168,6 +168,49 @@ export function getDirectWhatsAppUrl(phone, text = '') {
 }
 
 /**
+ * Universal smart auto-detecting WhatsApp opener.
+ * Intelligently opens:
+ * - On Mobile: Native WhatsApp mobile application directly with prefilled message
+ * - On Desktop: WhatsApp Desktop application (via protocol) with automatic fallback to WhatsApp Web tab
+ */
+export function openAutoWhatsApp(phone, text = '') {
+  const normPhone = normalizeWhatsAppPhone(phone) || '923015072233';
+  const encodedText = text ? encodeURIComponent(text) : '';
+
+  const isMobile = typeof navigator !== 'undefined' && (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (typeof window !== 'undefined' && window.innerWidth < 768)
+  );
+
+  if (isMobile) {
+    // Direct mobile app protocol with fallback to wa.me
+    window.location.href = `whatsapp://send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`;
+    setTimeout(() => {
+      window.open(`https://wa.me/${normPhone}${encodedText ? `?text=${encodedText}` : ''}`, '_blank');
+    }, 750);
+    return;
+  }
+
+  // Desktop: Try Desktop App first, fallback to Web if app not present
+  const appUrl = `whatsapp://send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`;
+  const webUrl = `https://web.whatsapp.com/send?phone=${normPhone}${encodedText ? `&text=${encodedText}` : ''}`;
+
+  let appFocused = false;
+  const onBlur = () => { appFocused = true; };
+  window.addEventListener('blur', onBlur, { once: true });
+
+  launchDesktopProtocol(appUrl);
+
+  setTimeout(() => {
+    window.removeEventListener('blur', onBlur);
+    if (!appFocused) {
+      navigateWhatsAppWeb(webUrl);
+    }
+  }, 1200);
+}
+
+
+/**
  * Standardized message templates for customers, drivers, and sales operations.
  */
 export const WhatsAppTemplates = {

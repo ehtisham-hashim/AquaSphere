@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { SEOHead } from '../components/common/SEOHead';
-import { getDirectWhatsAppUrl } from '../utils/whatsapp';
+import { getDirectWhatsAppUrl, openAutoWhatsApp } from '../utils/whatsapp';
 import { 
   Phone, 
   Clock, 
@@ -27,7 +28,9 @@ import {
   User,
   MessageSquare,
   Star,
-  Eye
+  Eye,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import './landing.css';
 import './certificates-reports.css';
@@ -56,6 +59,7 @@ const DEFAULT_SETTINGS = {
   opening_hours: "Monday to Saturday - 8AM to 8PM",
   location: "Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt",
   whatsapp: "923015072233",
+  contact_email: "info@theaquasphere.org",
   logo_url: "https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png",
   hero_bg_url: "https://res.cloudinary.com/wgstyulb/image/upload/v1791005808/hero-bg.jpg",
   hero_title: "Always want safe",
@@ -199,7 +203,7 @@ const getProductSpecs = (product) => {
   ];
 };
 
-function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWhatsAppLink, optImg, WhatsAppIcon }) {
+function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWhatsAppLink, optImg, WhatsAppIcon, onWhatsAppClick }) {
   // Wheel scroll debounce for carousel navigation
   const lastScrollTime = useRef(0);
   const totalProducts = products?.length || 0;
@@ -327,6 +331,7 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
               </div>
               <a
                 href={getWhatsAppLink(currentProd.name)}
+                onClick={(e) => onWhatsAppClick ? onWhatsAppClick(e, currentProd.name) : undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="lp-showcase-whatsapp-btn"
@@ -376,6 +381,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProductIdx, setSelectedProductIdx] = useState(null);
   const [selectedCertIdx, setSelectedCertIdx] = useState(null);
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactStatus, setContactStatus] = useState(null);
 
   // Reviews Carousel State (Interactive Circular Progress Bar)
   const reviewsList = (settings.reviews && settings.reviews.length > 0) ? settings.reviews : DEFAULT_SETTINGS.reviews;
@@ -431,6 +438,17 @@ export default function LandingPage() {
     return getDirectWhatsAppUrl(rawNumber, msg);
   };
 
+  const handleWhatsAppAction = (e, productName = '') => {
+    if (!e || (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey)) {
+      if (e && e.preventDefault) e.preventDefault();
+      const rawNumber = settings.whatsapp || '923015072233';
+      const msg = productName
+        ? `Hello Aqua Sphere, I want to order: ${productName}`
+        : 'Hello Aqua Sphere, I want to inquire about drinking water.';
+      openAutoWhatsApp(rawNumber, msg);
+    }
+  };
+
   const reviewsStructuredData = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -468,15 +486,55 @@ export default function LandingPage() {
     }))
   };
 
-  const sendContact = (e) => {
+  const sendContact = async (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const name = fd.get('name') || '';
-    const email = fd.get('email') || '';
-    const message = fd.get('message') || '';
-    const text = `New Contact Form Inquiry:\nName: ${name}\nEmail: ${email}\nMessage: ${message}`;
-    window.open(getWhatsAppLink(text), '_blank');
-    e.target.reset();
+    setContactStatus(null);
+    const formEl = e.currentTarget;
+    const fd = new FormData(formEl);
+    const name = String(fd.get('name') || '').trim();
+    const email = String(fd.get('email') || '').trim();
+    const message = String(fd.get('message') || '').trim();
+
+    if (!name || !email || !message) {
+      toast.error('Please fill in your name, email, and message.');
+      setContactStatus({
+        type: 'error',
+        message: 'Please provide all required fields (Name, Email, and Message).'
+      });
+      return;
+    }
+
+    setContactSubmitting(true);
+    try {
+      const res = await fetch('/api/landing-page/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, message })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(data.message || 'Your inquiry has been sent to our team!');
+        setContactStatus({
+          type: 'success',
+          message: data.message || 'Thank you! Your message has been sent to our team. We will get back to you shortly.'
+        });
+        formEl.reset();
+      } else {
+        toast.error(data.message || 'Failed to submit inquiry.');
+        setContactStatus({
+          type: 'error',
+          message: data.message || 'Failed to submit inquiry. Please try again or reach out on WhatsApp.'
+        });
+      }
+    } catch (_err) {
+      toast.error('Network error. Please try again later.');
+      setContactStatus({
+        type: 'error',
+        message: 'Network error. Please try again later or contact us directly on WhatsApp.'
+      });
+    } finally {
+      setContactSubmitting(false);
+    }
   };
 
   return (
@@ -627,7 +685,13 @@ export default function LandingPage() {
               <span>{settings.hero_button || 'Explore Products'}</span>
               <ArrowDown className="w-4 h-4" />
             </a>
-            <a href={getWhatsAppLink()} target="_blank" rel="noreferrer" className="lp-btn-secondary">
+            <a 
+              href={getWhatsAppLink()} 
+              onClick={(e) => handleWhatsAppAction(e)}
+              target="_blank" 
+              rel="noreferrer" 
+              className="lp-btn-secondary"
+            >
               <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />
               <span>Order on WhatsApp</span>
             </a>
@@ -793,6 +857,7 @@ export default function LandingPage() {
                       </button>
                       <a 
                         href={getWhatsAppLink(prod.name)} 
+                        onClick={(e) => handleWhatsAppAction(e, prod.name)}
                         target="_blank" 
                         rel="noreferrer" 
                         className="lp-btn-whatsapp-icon"
@@ -1123,7 +1188,9 @@ export default function LandingPage() {
                   </div>
                   <div className="lp-channel-info">
                     <strong>Phone Support</strong>
-                    <span>{settings.phone}</span>
+                    <a href={`tel:${settings.phone}`} className="hover:text-cyan-600 transition-colors">
+                      {settings.phone}
+                    </a>
                   </div>
                 </div>
 
@@ -1133,7 +1200,30 @@ export default function LandingPage() {
                   </div>
                   <div className="lp-channel-info">
                     <strong>WhatsApp Inquiries</strong>
-                    <span>+{settings.whatsapp}</span>
+                    <a 
+                      href={getWhatsAppLink()} 
+                      onClick={(e) => handleWhatsAppAction(e)} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="hover:text-emerald-500 transition-colors"
+                    >
+                      +{settings.whatsapp}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="lp-contact-channel">
+                  <div className="lp-channel-icon">
+                    <Mail className="w-5 h-5 text-sky-600" />
+                  </div>
+                  <div className="lp-channel-info">
+                    <strong>Email Support</strong>
+                    <a 
+                      href={`mailto:${settings.contact_email || 'info@theaquasphere.org'}`} 
+                      className="hover:text-cyan-600 transition-colors"
+                    >
+                      {settings.contact_email || 'info@theaquasphere.org'}
+                    </a>
                   </div>
                 </div>
 
@@ -1159,11 +1249,26 @@ export default function LandingPage() {
               </div>
 
               <form onSubmit={sendContact} className="lp-contact-form">
+                {contactStatus && (
+                  <div className={`p-4 mb-2 flex items-start gap-3 rounded-none text-xs font-medium border ${
+                    contactStatus.type === 'success'
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                  }`}>
+                    {contactStatus.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    )}
+                    <span>{contactStatus.message}</span>
+                  </div>
+                )}
+
                 <div className="lp-form-group">
                   <label htmlFor="contact-name">Your Name</label>
                   <div className="lp-input-wrapper">
                     <User className="w-4 h-4" />
-                    <input id="contact-name" name="name" type="text" placeholder="Enter your full name" required />
+                    <input id="contact-name" name="name" type="text" placeholder="Enter your full name" required disabled={contactSubmitting} />
                   </div>
                 </div>
 
@@ -1171,7 +1276,7 @@ export default function LandingPage() {
                   <label htmlFor="contact-email">Email Address</label>
                   <div className="lp-input-wrapper">
                     <Mail className="w-4 h-4" />
-                    <input id="contact-email" name="email" type="email" placeholder="name@domain.com" required />
+                    <input id="contact-email" name="email" type="email" placeholder="name@domain.com" required disabled={contactSubmitting} />
                   </div>
                 </div>
 
@@ -1179,13 +1284,22 @@ export default function LandingPage() {
                   <label htmlFor="contact-message">Message or Order Inquiry</label>
                   <div className="lp-input-wrapper">
                     <MessageSquare className="w-4 h-4" />
-                    <textarea id="contact-message" name="message" placeholder="Tell us how we can help with your drinking water needs..." required></textarea>
+                    <textarea id="contact-message" name="message" placeholder="Tell us how we can help with your drinking water needs..." required disabled={contactSubmitting}></textarea>
                   </div>
                 </div>
 
-                <button type="submit" className="lp-btn-primary w-full">
-                  <span>Send Message</span>
-                  <Send className="w-4 h-4" />
+                <button type="submit" disabled={contactSubmitting} className="lp-btn-primary w-full disabled:opacity-60 cursor-pointer">
+                  {contactSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Sending Message...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Send Message</span>
+                      <Send className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -1218,10 +1332,11 @@ export default function LandingPage() {
               <div className="flex items-center gap-2.5 pt-2">
                 <a 
                   href={getWhatsAppLink()} 
+                  onClick={(e) => handleWhatsAppAction(e)}
                   target="_blank" 
                   rel="noreferrer" 
                   title="WhatsApp" 
-                  className="w-10 h-10 rounded-none bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 text-[#25D366] flex items-center justify-center transition-all shadow-sm"
+                  className="w-10 h-10 rounded-none bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 text-[#25D366] flex items-center justify-center transition-all shadow-sm cursor-pointer"
                 >
                   <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
                 </a>
@@ -1276,12 +1391,29 @@ export default function LandingPage() {
                   </div>
                 </li>
                 <li className="flex items-start gap-3 group">
+                  <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 group-hover:border-cyan-500/50 transition-colors">
+                    <Mail className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <span className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-0.5">Email Support</span>
+                    <a href={`mailto:${settings.contact_email || 'info@theaquasphere.org'}`} className="text-slate-200 hover:text-cyan-400 transition-colors font-medium">
+                      {settings.contact_email || 'info@theaquasphere.org'}
+                    </a>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 group">
                   <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 group-hover:border-emerald-500/50 transition-colors">
                     <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />
                   </div>
                   <div>
                     <span className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-0.5">WhatsApp Orders</span>
-                    <a href={getWhatsAppLink()} target="_blank" rel="noreferrer" className="text-slate-200 hover:text-[#25D366] transition-colors font-medium">
+                    <a 
+                      href={getWhatsAppLink()} 
+                      onClick={(e) => handleWhatsAppAction(e)}
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="text-slate-200 hover:text-[#25D366] transition-colors font-medium cursor-pointer"
+                    >
                       +{settings.whatsapp}
                     </a>
                   </div>
@@ -1356,9 +1488,10 @@ export default function LandingPage() {
       {/* 10. FLOATING WHATSAPP BUTTON */}
       <a 
         href={getWhatsAppLink()} 
+        onClick={(e) => handleWhatsAppAction(e)}
         target="_blank" 
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold px-4 py-3 rounded-none shadow-2xl transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold px-4 py-3 rounded-none shadow-2xl transition-all hover:scale-105 cursor-pointer"
         title="Chat on WhatsApp"
         aria-label="Order on WhatsApp"
       >
@@ -1376,6 +1509,7 @@ export default function LandingPage() {
           getWhatsAppLink={getWhatsAppLink}
           optImg={optImg}
           WhatsAppIcon={WhatsAppIcon}
+          onWhatsAppClick={handleWhatsAppAction}
         />
       )}
 
