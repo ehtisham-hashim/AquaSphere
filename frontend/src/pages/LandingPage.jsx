@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { SEOHead } from '../components/common/SEOHead';
 import { getDirectWhatsAppUrl, openAutoWhatsApp } from '../utils/whatsapp';
+import PublicNavbar from '../components/common/PublicNavbar';
 import { 
   Phone, 
   Clock, 
   MapPin, 
-  Menu, 
   X, 
-  Settings, 
-  LogIn,
   ExternalLink,
   Droplets,
   Award,
@@ -378,7 +376,6 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
 
 export default function LandingPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProductIdx, setSelectedProductIdx] = useState(null);
   const [selectedCertIdx, setSelectedCertIdx] = useState(null);
   const [contactSubmitting, setContactSubmitting] = useState(false);
@@ -549,116 +546,8 @@ export default function LandingPage() {
         structuredData={reviewsStructuredData}
       />
 
-      {/* 1. TOP INFORMATION BAR */}
-      <div className="bg-[#030a16] text-slate-300 text-xs sm:text-sm font-medium py-2 px-4 sm:px-8 border-b border-white/10">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
-          <div className="flex items-center gap-2">
-            <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span>Land Line: <strong className="text-white">{settings.phone}</strong></span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span>{settings.opening_hours}</span>
-          </div>
-          <div className="flex items-center gap-2 truncate max-w-md">
-            <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span>{settings.location}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. MAIN NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#06162a]/90 backdrop-blur-xl border-b border-white/10 shadow-lg transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-22 flex items-center justify-between">
-          
-          {/* Logo */}
-          <a href="#hero" className="flex items-center group py-2" aria-label="AquaSphere Pure Drinking Water Delivery">
-            <img 
-              src={optImg(settings.logo_url, 800)} 
-              alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" 
-              width="160"
-              height="56"
-              className="h-12 sm:h-14 w-auto object-contain transition-transform group-hover:scale-105"
-              loading="eager"
-              fetchpriority="high"
-            />
-          </a>
-
-          {/* Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7">
-            <a href="#hero" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Home</a>
-            <a href="#products" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Products</a>
-            <a href="#about" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">About</a>
-            <Link to="/reports" className="text-cyan-200 hover:text-white text-sm font-semibold transition-colors">Reports</Link>
-            <Link to="/certificates" className="text-cyan-200 hover:text-white text-sm font-semibold transition-colors">Certificates</Link>
-            <a href="#location" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Location</a>
-            <a href="#contact" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Contact</a>
-          </nav>
-
-          {/* Header Action Buttons */}
-          <div className="hidden sm:flex items-center gap-2.5">
-            <Link 
-              to="/website-admin" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/30 rounded-none transition-all shadow-sm"
-              title="Edit Landing Page Content"
-            >
-              <Settings className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Website Admin</span>
-            </Link>
-
-            <a 
-              href="https://theaquasphere.org/login" 
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-none transition-all shadow-sm"
-              title="Open Software ERP Portal"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Software Admin</span>
-            </a>
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <button 
-            onClick={() => setMobileMenuOpen(prev => !prev)} 
-            className="lg:hidden p-2 text-white hover:text-cyan-400 rounded-none focus:outline-none"
-            aria-label="Toggle Navigation"
-            type="button"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Mobile Dropdown Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-[#06162a]/95 border-b border-white/10 px-6 py-5 flex flex-col gap-3 text-sm font-semibold text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-top-2">
-            <a href="#hero" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Home</a>
-            <a href="#products" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Products</a>
-            <a href="#about" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">About</a>
-            <Link to="/reports" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Reports</Link>
-            <Link to="/certificates" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Certificates</Link>
-            <a href="#location" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Location</a>
-            <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Contact</a>
-            
-            <div className="pt-3 border-t border-white/10 flex flex-col gap-2.5">
-              <Link 
-                to="/website-admin" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-cyan-200 bg-cyan-950/60 border border-cyan-500/30 rounded-none"
-              >
-                <Settings className="w-4 h-4 text-cyan-400" />
-                <span>Website Admin</span>
-              </Link>
-              <a 
-                href="https://theaquasphere.org/login" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-none shadow-sm"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Software Admin</span>
-              </a>
-            </div>
-          </div>
-        )}
-      </header>
+      {/* 1. TOP INFORMATION BAR & MAIN NAVBAR */}
+      <PublicNavbar settings={settings} />
 
       {/* 3. HERO */}
       <section
@@ -1250,17 +1139,24 @@ export default function LandingPage() {
 
               <form onSubmit={sendContact} className="lp-contact-form">
                 {contactStatus && (
-                  <div className={`p-4 mb-2 flex items-start gap-3 rounded-none text-xs font-medium border ${
+                  <div className={`p-4 mb-4 flex items-start gap-3.5 rounded-none border-l-4 shadow-sm transition-all ${
                     contactStatus.type === 'success'
-                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-                      : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-950 border-t border-r border-b border-t-emerald-200 border-r-emerald-200 border-b-emerald-200'
+                      : 'bg-rose-50 border-rose-500 text-rose-950 border-t border-r border-b border-t-rose-200 border-r-rose-200 border-b-rose-200'
                   }`}>
                     {contactStatus.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                     )}
-                    <span>{contactStatus.message}</span>
+                    <div className="flex-1">
+                      <p className={`text-sm font-bold leading-tight mb-1 ${contactStatus.type === 'success' ? 'text-emerald-900' : 'text-rose-900'}`}>
+                        {contactStatus.type === 'success' ? 'Message Sent Successfully!' : 'Unable to Send Message'}
+                      </p>
+                      <p className={`text-xs font-medium leading-relaxed ${contactStatus.type === 'success' ? 'text-emerald-800' : 'text-rose-800'}`}>
+                        {contactStatus.message}
+                      </p>
+                    </div>
                   </div>
                 )}
 

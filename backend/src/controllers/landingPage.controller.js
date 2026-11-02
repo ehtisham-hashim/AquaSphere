@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cloudinary from '../config/cloudinary.js';
 import { broadcastEvent } from '../utils/sseBus.js';
+import { sendContactInquiryEmail } from '../utils/mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,11 +77,11 @@ export const submitContactInquiry = async (req, res) => {
     }
 
     // Read current settings to get target company contact email
-    let contactEmail = 'info@theaquasphere.org';
+    let contactEmail = process.env.COMPANY_CONTACT_EMAIL || 'meh942007@gmail.com';
     try {
       const rawSettings = await fs.readFile(SETTINGS_FILE, 'utf-8');
       const settings = JSON.parse(rawSettings);
-      if (settings?.contact_email) {
+      if (settings?.contact_email && settings.contact_email !== 'info@theaquasphere.org') {
         contactEmail = settings.contact_email;
       }
     } catch (_err) {
@@ -114,20 +115,19 @@ export const submitContactInquiry = async (req, res) => {
       console.warn('[Contact] Failed to persist inquiry to disk:', persistErr.message);
     }
 
-    // Import mailer dynamically / execute dispatch
-    import('../utils/mailer.js').then(({ sendContactInquiryEmail }) => {
-      sendContactInquiryEmail({
+    // Await email dispatch directly to guarantee delivery before response
+    try {
+      const emailResult = await sendContactInquiryEmail({
         name: newInquiry.name,
         email: newInquiry.email,
         message: newInquiry.message,
         toEmail: contactEmail,
         tenant: 'aquasphere'
-      }).catch(emailErr => {
-        console.error('[Contact] Background mail delivery failed:', emailErr.message);
       });
-    }).catch(importErr => {
-      console.error('[Contact] Could not load mailer utility:', importErr.message);
-    });
+      console.log('[Contact] Inquiry email result:', emailResult);
+    } catch (emailErr) {
+      console.error('[Contact] Mail delivery failed:', emailErr.message);
+    }
 
     return res.status(200).json({
       success: true,

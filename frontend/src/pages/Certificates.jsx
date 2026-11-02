@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SEOHead } from '../components/common/SEOHead';
-import { getDirectWhatsAppUrl } from '../utils/whatsapp';
+import { getDirectWhatsAppUrl, openAutoWhatsApp } from '../utils/whatsapp';
+import PublicNavbar from '../components/common/PublicNavbar';
 import { CERTIFICATE_SECTIONS, ALL_CERTIFICATES, REPORTS_DATA } from '../data/certificatesData';
 import CertificateLightboxModal from '../components/common/CertificateLightboxModal';
 import { 
@@ -10,10 +11,6 @@ import {
   Phone, 
   Clock, 
   MapPin, 
-  Menu, 
-  X, 
-  LogIn, 
-  Settings,
   ChevronRight,
   FileText,
   Award,
@@ -35,11 +32,22 @@ export default function Certificates({ initialTab = 'certificates' }) {
   const location = useLocation();
   const isReportsRoute = location.pathname === '/reports' || initialTab === 'reports';
   const [activeTab, setActiveTab] = useState(isReportsRoute ? 'reports' : 'certificates');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settings, setSettings] = useState(null);
 
   // Lightbox Modal State
   const [lightboxCertIdx, setLightboxCertIdx] = useState(null);
   const [lightboxList, setLightboxList] = useState(ALL_CERTIFICATES);
+
+  useEffect(() => {
+    fetch('/api/landing-page')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setSettings(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setActiveTab(isReportsRoute ? 'reports' : 'certificates');
@@ -79,137 +87,8 @@ export default function Certificates({ initialTab = 'certificates' }) {
         }}
       />
       
-      {/* 1. TOP INFORMATION BAR */}
-      <div className="bg-gradient-to-r from-[#082f49] via-[#0369a1] to-[#38bdf8] text-white text-xs sm:text-sm font-semibold py-2.5 px-4 sm:px-8 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
-          <div className="flex items-center gap-2">
-            <span>📞 Land Line: <strong>051-545-443-8</strong></span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span>⏰ Monday to Saturday - 8AM to 5PM</span>
-          </div>
-          <div className="flex items-center gap-2 truncate max-w-md">
-            <span>📍 Plot No. 3 Lieutenant Zafar Mehmood Shaheed Road Rawalpindi Cantt</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. MAIN NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#0f172a]/95 backdrop-blur-xl border-b border-white/15 transition-all shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-28 flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center group py-2">
-            <img 
-              src={LOGO_URL} 
-              alt="AquaSphere Pure Drinking Water & Wholesale Bottles Logo" width="180" height="72" 
-              className="h-16 sm:h-20 md:h-24 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-md"
-              loading="eager"
-            />
-          </Link>
-
-          {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-7">
-            <Link to="/" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Home</Link>
-            <Link to="/#products" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Products</Link>
-            <Link to="/#about" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">About</Link>
-            <Link 
-              to="/reports" 
-              onClick={() => setActiveTab('reports')}
-              className={`text-sm font-semibold transition-colors ${
-                activeTab === 'reports' ? 'text-cyan-300 font-bold' : 'text-white/90 hover:text-cyan-400'
-              }`}
-            >
-              Reports
-            </Link>
-            <Link 
-              to="/certificates" 
-              onClick={() => setActiveTab('certificates')}
-              className={`text-sm font-semibold transition-colors ${
-                activeTab === 'certificates' ? 'text-cyan-300 font-bold' : 'text-white/90 hover:text-cyan-400'
-              }`}
-            >
-              Certificates
-            </Link>
-            <Link to="/#location" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Location</Link>
-            <Link to="/#contact" className="text-white/90 hover:text-cyan-400 text-sm font-semibold transition-colors">Contact</Link>
-          </nav>
-
-          {/* Header Action Buttons */}
-          <div className="hidden sm:flex items-center gap-2.5">
-            <Link 
-              to="/website-admin" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-cyan-200 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 rounded-none transition-all shadow-sm"
-              title="Edit Landing Page Content"
-            >
-              <Settings className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Website Admin</span>
-            </Link>
-
-            <a 
-              href="https://theaquasphere.org/login" 
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 rounded-none transition-all shadow-sm shadow-sky-600/30"
-              title="Open Software ERP Portal"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Software Admin</span>
-            </a>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button 
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 text-white hover:text-cyan-400 transition-colors"
-            aria-label="Toggle Navigation Menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Mobile Dropdown */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-[#0b1329] border-t border-white/10 px-4 py-4 flex flex-col gap-3 text-sm font-semibold text-white/90">
-            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Home</Link>
-            <Link to="/#products" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Products</Link>
-            <Link to="/#about" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">About</Link>
-            <Link 
-              to="/reports" 
-              onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }} 
-              className={`hover:text-cyan-400 py-1 ${activeTab === 'reports' ? 'text-cyan-400 font-extrabold' : ''}`}
-            >
-              Reports
-            </Link>
-            <Link 
-              to="/certificates" 
-              onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }} 
-              className={`hover:text-cyan-400 py-1 ${activeTab === 'certificates' ? 'text-cyan-400 font-extrabold' : ''}`}
-            >
-              Certificates
-            </Link>
-            <Link to="/#location" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Location</Link>
-            <Link to="/#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-cyan-400 py-1">Contact</Link>
-            
-            <div className="pt-3 border-t border-white/10 flex flex-col gap-2.5">
-              <Link 
-                to="/website-admin" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-cyan-200 bg-cyan-950/60 border border-cyan-500/40 rounded-none"
-              >
-                <Settings className="w-4 h-4 text-cyan-400" />
-                <span>Website Admin</span>
-              </Link>
-              <a 
-                href="https://theaquasphere.org/login" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 text-xs font-bold text-white bg-gradient-to-r from-sky-600 to-cyan-600 rounded-none shadow-sm"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Software Admin</span>
-              </a>
-            </div>
-          </div>
-        )}
-      </header>
+      {/* 1. TOP INFORMATION BAR & MAIN NAVBAR */}
+      <PublicNavbar settings={settings || {}} />
 
       {/* 3. SHOWCASE CONTENT */}
       <main className="flex-1 docs-showcase">
@@ -519,14 +398,21 @@ export default function Certificates({ initialTab = 'certificates' }) {
 
       {/* Floating WhatsApp Action */}
       <a 
-        href={getDirectWhatsAppUrl("923015072233", "Hello AquaSphere")} 
+        href={getDirectWhatsAppUrl(settings?.whatsapp || "923015072233", "Hello AquaSphere")} 
+        onClick={(e) => {
+          if (!e || (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey)) {
+            if (e && e.preventDefault) e.preventDefault();
+            openAutoWhatsApp(settings?.whatsapp || "923015072233", "Hello AquaSphere");
+          }
+        }}
         target="_blank" 
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold px-4 py-3 rounded-none shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold px-4 py-3 rounded-none shadow-2xl hover:scale-105 transition-all shadow-emerald-950/40 cursor-pointer"
         title="Chat on WhatsApp"
+        aria-label="Order on WhatsApp"
       >
         <WhatsAppIcon className="w-6 h-6 text-white shrink-0" />
-        <span className="text-xs font-bold hidden sm:inline">Order Now</span>
+        <span className="text-xs font-bold hidden sm:inline">ORDER ON WHATSAPP</span>
       </a>
     </div>
   );
