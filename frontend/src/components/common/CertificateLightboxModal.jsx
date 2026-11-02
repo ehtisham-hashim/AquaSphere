@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Move
 } from 'lucide-react';
+import { getPdfDocument, renderPdfToCanvas } from '../../utils/pdfViewerHelper';
 
 export default function CertificateLightboxModal({
   certificates = [],
@@ -29,15 +30,99 @@ export default function CertificateLightboxModal({
   const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const viewportRef = useRef(null);
 
+  // High-DPI Vector Canvas State
+  const canvasRef = useRef(null);
+  const activeRenderTaskRef = useRef(null);
+  const [isVectorPdfLoaded, setIsVectorPdfLoaded] = useState(false);
+  const [isPdfRendering, setIsPdfRendering] = useState(false);
+
   // Reset zoom & scroll position whenever active document changes
   useEffect(() => {
     setZoom(1);
     setFitMode('page');
+    setIsVectorPdfLoaded(false);
     if (viewportRef.current) {
       viewportRef.current.scrollLeft = 0;
       viewportRef.current.scrollTop = 0;
     }
   }, [activeIdx]);
+
+  // Dynamic High-DPI PDF Vector Rendering Effect
+  useEffect(() => {
+    let isCancelled = false;
+    setIsVectorPdfLoaded(false);
+
+    if (activeRenderTaskRef.current) {
+      activeRenderTaskRef.current.cancel();
+      activeRenderTaskRef.current = null;
+    }
+
+    if (!currentCert?.pdfUrl) {
+      setIsPdfRendering(false);
+      return;
+    }
+
+    setIsPdfRendering(true);
+
+    const renderTimer = setTimeout(async () => {
+      try {
+        const pdfDoc = await getPdfDocument(currentCert.pdfUrl);
+        if (isCancelled || !pdfDoc || !canvasRef.current) {
+          if (!isCancelled) setIsPdfRendering(false);
+          return;
+        }
+
+        const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+        // On Windows and standard monitors, force at least 2.0 DPR for vector crispness
+        const dpr = Math.max(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2.0);
+
+        let targetWidth = null;
+        let targetHeight = null;
+
+        if (fitMode === 'width') {
+          targetWidth = Math.min(winWidth - 48, 980) * zoom;
+        } else {
+          targetHeight = Math.max(winHeight - 210, 400) * zoom;
+        }
+
+        const task = await renderPdfToCanvas({
+          pdfDoc,
+          pageNum: 1,
+          canvas: canvasRef.current,
+          targetWidth,
+          targetHeight,
+          dpr
+        });
+
+        if (isCancelled || !task) {
+          if (!isCancelled) setIsPdfRendering(false);
+          return;
+        }
+
+        activeRenderTaskRef.current = task;
+        await task.promise;
+
+        if (!isCancelled) {
+          setIsVectorPdfLoaded(true);
+          setIsPdfRendering(false);
+        }
+      } catch (_err) {
+        if (!isCancelled) {
+          setIsPdfRendering(false);
+        }
+      }
+    }, 40);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(renderTimer);
+      if (activeRenderTaskRef.current) {
+        activeRenderTaskRef.current.cancel();
+        activeRenderTaskRef.current = null;
+      }
+    };
+  }, [currentCert?.pdfUrl, activeIdx, zoom, fitMode]);
 
   const handleZoomIn = useCallback(() => {
     setZoom((prev) => Math.min(3.0, Number((prev + 0.25).toFixed(2))));
@@ -226,6 +311,11 @@ export default function CertificateLightboxModal({
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>{currentCert.badge || 'Verified'}</span>
           </span>
+          {isVectorPdfLoaded && (
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 rounded-none shrink-0">
+              HD Vector
+            </span>
+          )}
           {hasMultiple && (
             <span className="text-xs font-semibold text-slate-400 truncate hidden md:inline">
               Document {activeIdx + 1} of {certificates.length}
@@ -346,15 +436,48 @@ export default function CertificateLightboxModal({
         [&::-webkit-scrollbar-thumb]:bg-slate-700/90 [&::-webkit-scrollbar-thumb]:hover:bg-cyan-600 
         [&::-webkit-scrollbar-track]:bg-slate-950/60`}
       >
-        <div className="relative bg-white shadow-2xl border border-slate-700 shrink-0 transition-size duration-150 ease-out select-none">
+        <div 
+          className="relative bg-white shadow-2xl border border-slate-700 shrink-0 transition-size duration-150 ease-out select-none flex items-center justify-center overflow-hidden"
+          style={getImageStyle()}
+        >
+          {/* 1. Instant High-Res 300 DPI Preview Image */}
           <img
             src={currentCert.image}
             alt={currentCert.title}
-            style={getImageStyle()}
-            className="select-none pointer-events-none block object-contain"
+            style={{
+              ...getImageStyle(),
+              imageRendering: '-webkit-optimize-contrast',
+            }}
+            className={`select-none pointer-events-none block object-contain transition-opacity duration-200 ${
+              isVectorPdfLoaded ? 'opacity-0 absolute inset-0' : 'opacity-100'
+            }`}
             loading="eager"
             draggable={false}
           />
+
+          {/* 2. Razor-Sharp Vector PDF Canvas */}
+          {currentCert.pdfUrl && (
+            <canvas
+              ref={canvasRef}
+              style={{
+                ...getImageStyle(),
+                imageRendering: '-webkit-optimize-contrast',
+              }}
+              className={`select-none pointer-events-none block transition-opacity duration-200 ${
+                isVectorPdfLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
+              }`}
+            />
+          )}
+
+          {/* Vector rendering indicator */}
+          {isPdfRendering && !isVectorPdfLoaded && (
+            <div className="absolute top-3 right-3 pointer-events-none z-20">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-cyan-300 bg-slate-950/85 border border-cyan-800/80 backdrop-blur-md shadow-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                <span>Loading HD Vector...</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Floating Non-Intrusive Pan & Scroll Navigation Guide */}

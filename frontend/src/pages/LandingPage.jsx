@@ -85,44 +85,44 @@ const DEFAULT_SETTINGS = {
     {
       id: "p1",
       name: "19L Bottle",
-      desc: "Security Fee / Per Refill PKR 280",
-      price: "PKR 1000",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552631/Aqua_Sphere_19-Liter_Water_Jug.png"
+      desc: "Standard 19-liter pure mineral water bottle with refill options",
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793627739/product_1777146556_7174.png"
     },
     {
       id: "p2",
       name: "1.5L Bottle",
       desc: "Daily hydration",
-      price: "PKR 100",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552634/Aquasphere_1.5L_Blue-Capped_Water_Bottle.png"
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793628388/Aquasphere_1.5L_Blue-Capped_Water_Bottle.png"
     },
     {
       id: "p3",
       name: "500ml Bottle",
       desc: "Portable and convenient",
-      price: "PKR 50",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552631/Aqua_Sphere_Mountain_Bottle_Cutout.png"
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793627795/product_1777145702_1235.png"
     },
     {
       id: "p4",
       name: "Dispenser",
       desc: "Instant water access",
-      price: "PKR 35000",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793555453/Aqua_Sphere_Water_Cooler_Product_Render.png"
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793628459/Aqua_Sphere_Water_Dispenser_Cutout.png"
     },
     {
       id: "p5",
       name: "Table Top Dispenser",
       desc: "Compact Design, Pure Hydration.",
-      price: "PKR 2500",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552633/AQUA_SPHERE_Tilted_Water_Dispenser.png"
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793628336/Aqua_SphereTable_top_dispensor.png"
     },
     {
       id: "p6",
       name: "Tap & Stand",
       desc: "Simple Setup, Pure Water",
-      price: "PKR 1500",
-      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793552631/Aqua_Sphere_Mountain_Bottle_Cutout.png"
+      price: "",
+      image: "https://res.cloudinary.com/nm7nuaas/image/upload/v1793628311/AQUA_Water_Cooler_Tap_and_Stand.png"
     }
   ],
   reviews_tag: "TRUSTED BY HOMES & CORPORATE CLIENTS",
@@ -321,12 +321,8 @@ function ProductShowcaseModal({ products, activeIdx, onClose, onSelectIdx, getWh
               ))}
             </ul>
 
-            {/* Price & Order on WhatsApp CTA */}
+            {/* Order on WhatsApp CTA */}
             <div className="lp-showcase-actions">
-              <div className="lp-showcase-price-tag">
-                <span className="lp-showcase-price-label">Price</span>
-                <span className="lp-showcase-price-val">{currentProd.price}</span>
-              </div>
               <a
                 href={getWhatsAppLink(currentProd.name)}
                 onClick={(e) => onWhatsAppClick ? onWhatsAppClick(e, currentProd.name) : undefined}
@@ -731,11 +727,7 @@ export default function LandingPage() {
                   <h3 className="lp-product-title">{prod.name}</h3>
                   <p className="lp-product-desc">{prod.desc}</p>
                   <div className="lp-product-footer">
-                    <div className="lp-product-price-wrapper">
-                      <span className="lp-price-label">Price</span>
-                      <p className="lp-price">{prod.price}</p>
-                    </div>
-                    <div className="lp-product-actions">
+                    <div className="lp-product-actions w-full">
                       <button
                         type="button"
                         onClick={() => setSelectedProductIdx(idx)}

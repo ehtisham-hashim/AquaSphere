@@ -60,6 +60,9 @@ export default defineConfig({
             if (id.includes('framer-motion')) {
               return 'vendor-motion';
             }
+            if (id.includes('pdfjs-dist')) {
+              return 'vendor-pdf';
+            }
             if (
               id.includes('/node_modules/react/') ||
               id.includes('/node_modules/react-dom/') ||
