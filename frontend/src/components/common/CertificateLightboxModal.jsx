@@ -64,6 +64,13 @@ export default function CertificateLightboxModal({
 
     setIsPdfRendering(true);
 
+    // Safety auto-dismiss: Vector loading badge must NEVER persist longer than 2.5s
+    const safetyTimer = setTimeout(() => {
+      if (!isCancelled) {
+        setIsPdfRendering(false);
+      }
+    }, 2500);
+
     const renderTimer = setTimeout(async () => {
       try {
         const pdfDoc = await getPdfDocument(currentCert.pdfUrl);
@@ -101,13 +108,19 @@ export default function CertificateLightboxModal({
         }
 
         activeRenderTaskRef.current = task;
-        await task.promise;
+        
+        // Timeout rendering to avoid blocking if GPU canvas is slow
+        const renderTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Vector rendering timeout')), 2500)
+        );
+        await Promise.race([task.promise, renderTimeout]);
 
         if (!isCancelled) {
           setIsVectorPdfLoaded(true);
-          setIsPdfRendering(false);
         }
       } catch (_err) {
+        // Silently fallback to the crisp 300 DPI preview image
+      } finally {
         if (!isCancelled) {
           setIsPdfRendering(false);
         }
@@ -117,6 +130,7 @@ export default function CertificateLightboxModal({
     return () => {
       isCancelled = true;
       clearTimeout(renderTimer);
+      clearTimeout(safetyTimer);
       if (activeRenderTaskRef.current) {
         activeRenderTaskRef.current.cancel();
         activeRenderTaskRef.current = null;

@@ -1,15 +1,22 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Initialize PDF.js worker using Vite asset URL resolution
+// Initialize PDF.js worker using Vite asset URL resolution with unpkg fallback
 if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  } catch {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '6.4.299'}/build/pdf.worker.min.mjs`;
+  }
 }
 
 const docCache = new Map();
 
 /**
  * Loads and caches a PDF document from URL.
+ * Enforces a strict 3-second timeout so it never hangs indefinitely.
  * Returns null gracefully if network or loading fails.
  */
 export async function getPdfDocument(url) {
@@ -21,9 +28,19 @@ export async function getPdfDocument(url) {
   try {
     const loadingTask = pdfjsLib.getDocument({
       url,
-      enableWebGL: true
+      cMapPacked: true
     });
-    const doc = await loadingTask.promise;
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => {
+        try {
+          loadingTask.destroy?.();
+        } catch (_e) {}
+        reject(new Error('PDF loading timeout (3s limit reached)'));
+      }, 3000)
+    );
+
+    const doc = await Promise.race([loadingTask.promise, timeoutPromise]);
     docCache.set(url, doc);
     return doc;
   } catch (err) {
