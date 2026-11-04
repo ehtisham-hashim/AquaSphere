@@ -35,7 +35,9 @@ export async function getPdfDocument(url) {
       setTimeout(() => {
         try {
           loadingTask.destroy?.();
-        } catch (_e) {}
+        } catch (_e) {
+          // Ignore destruction errors on timeout
+        }
         reject(new Error('PDF loading timeout (3s limit reached)'));
       }, 3000)
     );
