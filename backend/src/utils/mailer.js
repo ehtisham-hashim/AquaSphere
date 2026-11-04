@@ -201,6 +201,11 @@ export function build2FAEmailHtml({ otp, tenant = 'aquasphere', userName = '' })
  * @param {string} [params.userName=''] - Name of recipient user
  */
 export async function sendOwner2FAEmail({ to, otp, tenant = 'aquasphere', userName = '' }) {
+  if (!process.env.MAIL_PASSWORD?.trim()) {
+    console.warn('[2FA Mailer] MAIL_PASSWORD is not configured. Cannot dispatch 2FA email.');
+    return { success: false, disabled: true, error: 'MAIL_PASSWORD not configured' };
+  }
+
   const mailer = getTransporter();
 
   // Resolve recipients

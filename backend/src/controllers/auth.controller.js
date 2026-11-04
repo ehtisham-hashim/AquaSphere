@@ -27,6 +27,32 @@ const getAuthCookieOptions = (req, includeMaxAge = true) => {
 };
 
 /**
+ * Checks if Owner 2FA is active and properly configured with necessary environment variables.
+ * If ENFORCE_OWNER_2FA is not 'true', or if OWNER_2FA_PRIMARY_EMAIL or MAIL_PASSWORD are omitted,
+ * 2FA automatically disables itself to protect against owner lockouts.
+ *
+ * @returns {boolean}
+ */
+export const isOwner2FAEnabled = () => {
+  const isEnforced = process.env.ENFORCE_OWNER_2FA === 'true';
+  if (!isEnforced) return false;
+
+  const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL?.trim();
+  if (!primaryEmail) {
+    console.warn('[2FA Auth] ENFORCE_OWNER_2FA is "true", but OWNER_2FA_PRIMARY_EMAIL is not set. Automatically disabling 2FA to prevent owner lockout.');
+    return false;
+  }
+
+  const mailPassword = process.env.MAIL_PASSWORD?.trim();
+  if (!mailPassword) {
+    console.warn('[2FA Auth] ENFORCE_OWNER_2FA is "true", but MAIL_PASSWORD is not set. Automatically disabling 2FA to prevent owner lockout.');
+    return false;
+  }
+
+  return true;
+};
+
+/**
  * Authenticates a user by email, password, and tenant, generating a JWT token and HTTP-only cookie.
  *
  * @param {import('express').Request} req - Express request object containing email, password, tenant.
@@ -55,7 +81,7 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  if (process.env.ENFORCE_OWNER_2FA === 'true' && user.role === 'OWNER') {
+  if (user.role === 'OWNER' && isOwner2FAEnabled()) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 300 * 1000); // 5 minutes validity
     await prisma[`${prefix}User`].update({
@@ -63,11 +89,11 @@ export const login = asyncHandler(async (req, res) => {
       data: { otpCode: otp, otpExpiresAt: expiresAt }
     });
 
-    const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL || user.email;
-    const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL || null;
+    const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL.trim();
+    const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL?.trim() || null;
     const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
 
-    // Send 2FA email via ZeptoMail
+    // Send 2FA email
     sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
     console.log(`[2FA OTP] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
@@ -176,6 +202,10 @@ export const verifyOwnerOtp = asyncHandler(async (req, res) => {
  * Resends a fresh 6-digit OTP code to the Owner's registered email(s).
  */
 export const resendOwnerOtp = asyncHandler(async (req, res) => {
+  if (!isOwner2FAEnabled()) {
+    throw new ApiError(400, 'Owner 2FA is not enabled or email settings are missing. Please log in directly.');
+  }
+
   const { tempToken } = req.body;
   if (!tempToken) {
     throw new ApiError(400, 'Temporary token required');
@@ -199,11 +229,11 @@ export const resendOwnerOtp = asyncHandler(async (req, res) => {
     data: { otpCode: otp, otpExpiresAt: expiresAt }
   });
 
-  const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL || user.email;
-  const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL || null;
+  const primaryEmail = process.env.OWNER_2FA_PRIMARY_EMAIL.trim();
+  const secondaryEmail = process.env.OWNER_2FA_SECONDARY_EMAIL?.trim() || null;
   const recipients = [primaryEmail, secondaryEmail].filter(Boolean);
 
-  // Send 2FA email via ZeptoMail
+  // Send 2FA email
   sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
   console.log(`[2FA OTP Resend] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
