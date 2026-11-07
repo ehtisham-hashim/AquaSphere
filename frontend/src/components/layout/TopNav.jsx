@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
+import { useLiveEvent } from '../../context/SSEContext';
 import { API_URL } from '../../utils/api';
 import { Menu, Bell, X, Clock, AlertTriangle, UserPlus, LogOut, Receipt, CheckCircle } from 'lucide-react';
 import { formatRole } from '../../constants/roleAccess';
@@ -74,41 +75,65 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   const [confirmedAlerts, setConfirmedAlerts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('confirmed_alerts') || '[]'); } catch { return []; }
   });
-  const [now] = useState(() => new Date().getTime());
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
+  const alertsMenuRef = useRef(null);
 
-
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (alertsMenuRef.current && !alertsMenuRef.current.contains(e.target)) {
+        setShowAlertsMenu(false);
+      }
+    };
+    if (showAlertsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showAlertsMenu]);
 
   const currentPage = PAGE_TITLES[location.pathname] || {
     title: location.pathname.replace('/', '').replace(/-/g, ' ').toUpperCase(),
     subtitle: isWadaana ? 'Wadaana Industrial OS' : 'AquaSphere Management OS'
   };
 
-  useEffect(() => {
+  const fetchAuditAlerts = useCallback(async () => {
     if (user?.role !== 'OWNER' && user?.role !== 'ADMIN') return;
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
 
-    const fetchAuditAlerts = async () => {
-      try {
-        const res = await fetch(`${API_URL}/admin/notification-alerts`, {
-          headers: { 'x-tenant': currentTenant },
-          credentials: 'include'
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setAlerts(json.data);
-        }
-      } catch (err) {
-        console.error('Error fetching notification alerts:', err);
+    try {
+      const res = await fetch(`${API_URL}/admin/notification-alerts`, {
+        headers: { 'x-tenant': currentTenant },
+        credentials: 'include'
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setAlerts(json.data);
       }
-    };
-    fetchAuditAlerts();
-    const interval = setInterval(fetchAuditAlerts, 15000);
-    return () => clearInterval(interval);
+    } catch (err) {
+      console.error('Error fetching notification alerts:', err);
+    }
   }, [user?.role, currentTenant]);
 
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (user?.role !== 'OWNER' && user?.role !== 'ADMIN') return;
+    fetchAuditAlerts();
+    const interval = setInterval(() => {
+      setNow(Date.now());
+      fetchAuditAlerts();
+    }, 45000);
+    return () => clearInterval(interval);
+  }, [fetchAuditAlerts, user?.role]);
+
+  useLiveEvent(['CUSTOMER_UPDATED', 'ORDER_UPDATED', 'INVENTORY_CHANGED'], fetchAuditAlerts);
+
   const handleSnooze = (alertId) => {
-    const expireTime = new Date().getTime() + 3600 * 1000; // Snooze for 1 hour
+    const expireTime = now + 3600 * 1000; // Snooze for 1 hour
     const updated = { ...snoozedAlerts, [alertId]: expireTime };
     setSnoozedAlerts(updated);
     localStorage.setItem('snoozed_alerts', JSON.stringify(updated));
@@ -158,7 +183,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
       <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
         {/* Alerts Bell Icon */}
-        <div className="relative">
+        <div className="relative" ref={alertsMenuRef}>
           <button
             onClick={() => setShowAlertsMenu(!showAlertsMenu)}
             className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all shrink-0"
@@ -242,7 +267,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
         {/* Company Badge (Static / Strict Tenant Isolation) */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-lg border border-slate-200/80 text-xs font-bold text-slate-700">
-            <span className={`w-2 h-2 rounded-full ${isWadaana ? 'bg-purple-600' : 'bg-brand'}`} />
+            <span className="w-2 h-2 rounded-full bg-brand" />
             <span>{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</span>
           </div>
         </div>

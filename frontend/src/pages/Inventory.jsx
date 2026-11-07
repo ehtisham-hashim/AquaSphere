@@ -32,7 +32,7 @@ export default function Inventory() {
   });
   const [isLoading, setIsLoading] = useState(() => {
     const cached = peekCachedData(`${API}/items?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
   const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [selectedMovement, setSelectedMovement] = useState('ALL');
@@ -41,7 +41,7 @@ export default function Inventory() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const hasLoadedRef = useRef(Boolean(items && items.length > 0));
+  const hasLoadedRef = useRef(!isLoading);
 
   const fetchInventoryData = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) {

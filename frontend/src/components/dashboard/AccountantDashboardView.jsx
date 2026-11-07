@@ -123,8 +123,8 @@ export default function AccountantDashboardView({ data }) {
       setLoadingExpenses(true);
       try {
         const [closeRes, expensesRes] = await Promise.all([
-          fetch(`${API_URL}/daily-close/status?date=${today}&tenant=${tenant}`, { credentials: 'include' }),
-          fetch(`${API_URL}/expenses?startDate=${today}&endDate=${today}&tenant=${tenant}`, { credentials: 'include' })
+          fetch(`${API_URL}/daily-close/status?date=${today}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+          fetch(`${API_URL}/expenses?startDate=${today}&endDate=${today}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
         ]);
 
         const closeData = await closeRes.json();

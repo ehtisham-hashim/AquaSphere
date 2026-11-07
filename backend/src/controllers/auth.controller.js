@@ -96,7 +96,7 @@ export const login = asyncHandler(async (req, res) => {
     // Send 2FA email
     sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
-    console.log(`[2FA OTP] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
+    console.log(`[2FA OTP] Code generated and sent to Owner (${recipients.join(', ')})`);
 
     const tempToken = generateToken({ id: user.id, role: user.role, tenant: prefix, is2FA: true }, '15m');
 
@@ -236,7 +236,7 @@ export const resendOwnerOtp = asyncHandler(async (req, res) => {
   // Send 2FA email
   sendOwner2FAEmail({ to: recipients, otp, tenant: prefix, userName: user.name });
 
-  console.log(`[2FA OTP Resend] Code generated and sent to Owner (${recipients.join(', ')}): ${otp}`);
+  console.log(`[2FA OTP Resend] Code generated and sent to Owner (${recipients.join(', ')})`);
 
   const newTempToken = generateToken({ id: user.id, role: user.role, tenant: prefix, is2FA: true }, '15m');
 

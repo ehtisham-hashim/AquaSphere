@@ -16,6 +16,7 @@ import {
   CounterSaleReceiptModal,
   ManageCounterSuppliesModal
 } from '../components/counterSales';
+import DeleteConfirmationModal from '../components/ui/DeleteConfirmationModal';
 import { useLiveEvent } from '../context/SSEContext';
 
 export default function CounterSales() {
@@ -38,17 +39,13 @@ export default function CounterSales() {
   const [submitting, setSubmitting] = useState(false);
 
   const [liveSaleNumber, setLiveSaleNumber] = useState(generateSaleNumber());
-  const [liveDateTime, setLiveDateTime] = useState(new Date());
+  const [saleToDelete, setSaleToDelete] = useState(null);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
 
   const [receiptSale, setReceiptSale] = useState(null);
   const [lastRecordedSale, setLastRecordedSale] = useState(null);
   const [showSuppliesModal, setShowSuppliesModal] = useState(false);
   const hasLoadedRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setLiveDateTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) setLoading(true);
@@ -145,15 +142,19 @@ export default function CounterSales() {
     }
   };
 
-  const handleDeleteSale = async (sale) => {
+  const handleDeleteSale = (sale) => {
     if (!isOwner) {
       toast.error('Only Owner can delete counter sales.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to delete sale ${sale.saleNumber || sale.id}? Finished goods stock and customer debt will be restored.`)) return;
+    setSaleToDelete(sale);
+  };
 
+  const handleConfirmDeleteSale = async () => {
+    if (!saleToDelete) return;
+    setIsDeletingSale(true);
     try {
-      const res = await fetch(`${API_URL}/spot-sales/${sale.id}`, {
+      const res = await fetch(`${API_URL}/spot-sales/${saleToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'x-tenant': tenant
@@ -170,9 +171,12 @@ export default function CounterSales() {
       clearCache('items');
       clearCache('customers');
       clearCache('daily-close');
+      setSaleToDelete(null);
       fetchData(true);
     } catch (err) {
       toast.error('Failed to delete sale record');
+    } finally {
+      setIsDeletingSale(false);
     }
   };
 
@@ -312,7 +316,6 @@ export default function CounterSales() {
         <LogCounterSaleForm 
           liveSaleNumber={liveSaleNumber}
           user={user}
-          liveDateTime={liveDateTime}
           finishedGoods={finishedGoods}
           counterRawMaterials={counterRawMaterials}
           customers={customers}
@@ -369,6 +372,17 @@ export default function CounterSales() {
           onSuppliesChanged={() => fetchData(true)}
         />
       )}
+
+      <DeleteConfirmationModal
+        isOpen={Boolean(saleToDelete)}
+        onClose={() => setSaleToDelete(null)}
+        onConfirm={handleConfirmDeleteSale}
+        title="Delete Counter Sale"
+        message={`Are you sure you want to delete sale ${saleToDelete?.saleNumber || saleToDelete?.id}? Finished goods stock and customer debt will be restored.`}
+        confirmText="Delete Sale"
+        variant="danger"
+        loading={isDeletingSale}
+      />
     </div>
   );
 }

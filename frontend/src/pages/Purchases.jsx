@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_URL as API } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
@@ -23,9 +24,23 @@ export default function Purchases() {
   const isAccountant = user?.role === 'ACCOUNTANT';
   const canAddPurchase = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
 
-  const [purchases, setPurchases] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [materials, setMaterials] = useState([]);
+  const [purchases, setPurchases] = useState(() => {
+    const cached = peekCachedData(`${API}/purchases`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [vendors, setVendors] = useState(() => {
+    const cached = peekCachedData(`${API}/vendors`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data.filter(v => !v.archivedAt) : [];
+  });
+  const [materials, setMaterials] = useState(() => {
+    const cached = peekCachedData(`${API}/items?type=RAW_MATERIAL`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data.filter(m => !m.archivedAt) : [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const cached = peekCachedData(`${API}/purchases`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data));
+  });
+  const hasLoadedRef = useRef(!loading);
 
   // Modal & Selected state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,30 +66,36 @@ export default function Purchases() {
       ]);
       const vData = await vendorsRes.json();
       const mData = await materialsRes.json();
-      if (vData.success) setVendors(vData.data.filter(v => !v.archivedAt));
-      if (mData.success) setMaterials(mData.data.filter(m => !m.archivedAt));
+      if (vData.success && Array.isArray(vData.data)) setVendors(vData.data.filter(v => !v.archivedAt));
+      if (mData.success && Array.isArray(mData.data)) setMaterials(mData.data.filter(m => !m.archivedAt));
     } catch (err) {
       console.error('Error fetching vendors/materials:', err);
     }
   }, [tenant]);
 
   // Fetch purchases list with search & date filters
-  const fetchPurchases = useCallback(async () => {
+  const fetchPurchases = useCallback(async (isBackground = false) => {
+    if (!isBackground && !hasLoadedRef.current) setLoading(true);
     try {
       const qParams = new URLSearchParams();
       if (searchQuery.trim()) qParams.append('search', searchQuery.trim());
       if (dateFilter && dateFilter !== 'ALL') qParams.append('dateFilter', dateFilter);
 
-      const res = await fetch(`${API}/purchases?${qParams.toString()}`, {
+      const qs = qParams.toString();
+      const url = qs ? `${API}/purchases?${qs}` : `${API}/purchases`;
+      const res = await fetch(url, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const data = await res.json();
-      if (data.success) {
-        setPurchases(data.data || []);
+      if (data.success && Array.isArray(data.data)) {
+        setPurchases(data.data);
       }
     } catch (err) {
       console.error('Error fetching purchase data:', err);
+    } finally {
+      setLoading(false);
+      hasLoadedRef.current = true;
     }
   }, [tenant, searchQuery, dateFilter]);
 
@@ -87,7 +108,7 @@ export default function Purchases() {
   }, [fetchPurchases]);
 
   useLiveEvent(['PURCHASE_CREATED', 'INVENTORY_CHANGED'], () => {
-    fetchPurchases();
+    fetchPurchases(true);
     fetchCatalogs();
   });
 
@@ -194,6 +215,7 @@ export default function Purchases() {
       {/* Main Table */}
       <PurchasesTable
         purchases={purchases}
+        loading={loading}
         onView={setSelectedPurchase}
         onPrint={setSelectedPurchase}
         onEdit={handleOpenEditModal}

@@ -21,7 +21,7 @@ export default function ExpensesHeader({
 }) {
   const { user } = useAuth();
   const { isWadaana } = useTenant();
-  const canLogExpense = ['OWNER', 'ACCOUNTANT'].includes(user?.role);
+  const canLogExpense = ['OWNER', 'ACCOUNTANT', 'TRANSPORT_MANAGER'].includes(user?.role);
 
   return (
     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">

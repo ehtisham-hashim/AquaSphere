@@ -369,10 +369,10 @@ export const createExpense = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
   }
 
-  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'];
+  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
   if (req.user?.role === 'TRANSPORT_MANAGER') {
     if (!TM_ALLOWED_CATEGORIES.includes(category)) {
-      throw new ApiError(403, 'Transport managers are only permitted to log vehicle expenses (Fuel, Vehicle Repairs).');
+      throw new ApiError(403, 'Transport managers are only permitted to log vehicle expenses (Fuel, Vehicle Repairs, Maintenance).');
     }
     if (!vehicleId) {
       throw new ApiError(400, 'Please select a car/vehicle for transport expenses');

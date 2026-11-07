@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, X, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, X, Loader2 } from 'lucide-react';
 
 export default function DeleteConfirmationModal({
   isOpen,
@@ -9,9 +9,12 @@ export default function DeleteConfirmationModal({
   cancelText = "Cancel",
   onConfirm,
   onClose,
-  loading = false
+  loading = false,
+  variant = 'danger'
 }) {
   if (!isOpen) return null;
+
+  const isPrimary = variant === 'primary';
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
@@ -21,8 +24,12 @@ export default function DeleteConfirmationModal({
       >
         {/* Header */}
         <div className="p-6 pb-0 flex items-start gap-4">
-          <div className="p-3 bg-red-50 text-red-600 rounded-2xl border border-red-100 flex-shrink-0">
-            <AlertTriangle size={24} />
+          <div className={`p-3 rounded-2xl border flex-shrink-0 ${
+            isPrimary 
+              ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+              : 'bg-red-50 text-red-600 border-red-100'
+          }`}>
+            {isPrimary ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-bold text-slate-900">{title}</h3>
@@ -51,7 +58,7 @@ export default function DeleteConfirmationModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="btn-danger text-xs py-2 px-4 flex items-center gap-1.5"
+            className={`${isPrimary ? 'btn-primary' : 'btn-danger'} text-xs py-2 px-4 flex items-center gap-1.5`}
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : null}
             {confirmText}

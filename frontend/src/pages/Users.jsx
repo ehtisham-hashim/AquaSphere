@@ -7,6 +7,7 @@ import { PageHeader } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
 import { formatRole } from '../constants/roleAccess';
+import { toast } from 'sonner';
 
 export default function Users() {
   const { tenant, isWadaana } = useTenant();
@@ -73,36 +74,59 @@ export default function Users() {
 
   const submitUser = async (e) => {
     e.preventDefault();
-    if (isEditing) {
-      const payload = { ...formData };
-      if (!payload.password) delete payload.password;
-      
-      await fetch(`${API_URL}/users/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
-        body: JSON.stringify(payload),
-        credentials: 'include'
-      });
-    } else {
-      await fetch(`${API_URL}/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
-        body: JSON.stringify(formData),
-        credentials: 'include'
-      });
+    try {
+      let res;
+      if (isEditing) {
+        const payload = { ...formData };
+        if (!payload.password) delete payload.password;
+        
+        res = await fetch(`${API_URL}/users/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+          body: JSON.stringify(payload),
+          credentials: 'include'
+        });
+      } else {
+        res = await fetch(`${API_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+          body: JSON.stringify(formData),
+          credentials: 'include'
+        });
+      }
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Failed to save user');
+        return;
+      }
+      toast.success(isEditing ? 'User updated successfully' : 'User created successfully');
+      setIsModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast.error('Network error saving user');
     }
-    setIsModalOpen(false);
-    fetchUsers();
   };
 
   const toggleStatus = async (id, currentStatus) => {
-    await fetch(`${API_URL}/users/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
-      body: JSON.stringify({ company: tenant, isActive: !currentStatus }),
-      credentials: 'include'
-    });
-    fetchUsers();
+    try {
+      const res = await fetch(`${API_URL}/users/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-tenant': tenant },
+        body: JSON.stringify({ company: tenant, isActive: !currentStatus }),
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Failed to update user status');
+        return;
+      }
+      toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast.error('Network error updating user status');
+    }
   };
 
   const filteredUsers = users.filter(u => 

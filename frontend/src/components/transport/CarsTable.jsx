@@ -15,7 +15,7 @@ export default function CarsTable({
 }) {
   const { user } = useAuth();
   const { isWadaana } = useTenant();
-  const canManage = user?.role === 'TRANSPORT_MANAGER';
+  const canManage = ['OWNER', 'ADMIN', 'TRANSPORT_MANAGER'].includes(user?.role);
   const pagination = usePagination(vehicles || [], 50, search);
 
   return (

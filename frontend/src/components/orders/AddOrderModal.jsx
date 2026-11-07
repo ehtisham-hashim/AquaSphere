@@ -57,7 +57,10 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     if (!searchTerm.trim()) return;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(searchTerm)}`, { credentials: 'include' });
+        const res = await fetch(`${API_URL}/customers?search=${encodeURIComponent(searchTerm)}`, {
+          headers: { 'x-tenant': activeTenant },
+          credentials: 'include'
+        });
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setAsyncCustomers(prev => {
@@ -71,7 +74,7 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, activeTenant]);
 
   const selectedCustomer = asyncCustomers.find(c => c.id === orderData.customerId) || customers.find(c => c.id === orderData.customerId);
 

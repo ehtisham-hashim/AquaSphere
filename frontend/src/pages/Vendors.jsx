@@ -21,7 +21,7 @@ export default function Vendors() {
   });
   const [loading, setLoading] = useState(() => {
     const cached = peekCachedData(`${API_URL}/vendors?includeArchived=false`, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
@@ -29,7 +29,9 @@ export default function Vendors() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [vendorToDelete, setVendorToDelete] = useState(null);
+  const [vendorToArchive, setVendorToArchive] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [vendorToPay, setVendorToPay] = useState(null);
 
@@ -49,7 +51,7 @@ export default function Vendors() {
     notes: ''
   });
 
-  const hasLoadedRef = useRef(Boolean(vendors && vendors.length > 0));
+  const hasLoadedRef = useRef(!loading);
 
   const fetchVendors = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) {
@@ -81,7 +83,7 @@ export default function Vendors() {
     fetchVendors();
   }, [fetchVendors]);
 
-  useLiveEvent(['PURCHASE_CREATED', 'EXPENSE_LOGGED', 'VENDOR_UPDATED'], fetchVendors);
+  useLiveEvent(['PURCHASE_CREATED', 'EXPENSE_LOGGED', 'VENDOR_UPDATED'], () => fetchVendors(true));
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
@@ -171,13 +173,18 @@ export default function Vendors() {
     }
   };
 
-  const handleToggleArchive = async (v) => {
-    const isArchived = !!v.archivedAt;
-    const action = isArchived ? 'restore' : 'archive';
-    if (!confirm(`Are you sure you want to ${action} ${v.name}?`)) return;
+  const handleToggleArchive = (v) => {
+    setVendorToArchive(v);
+  };
 
+  const handleConfirmToggleArchiveVendor = async () => {
+    if (!vendorToArchive) return;
+    const isArchived = !!vendorToArchive.archivedAt;
+    const action = isArchived ? 'restore' : 'archive';
+
+    setIsArchiving(true);
     try {
-      const res = await fetch(`${API_URL}/vendors/${v.id}/${action}`, {
+      const res = await fetch(`${API_URL}/vendors/${vendorToArchive.id}/${action}`, {
         method: 'PATCH',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
@@ -190,12 +197,15 @@ export default function Vendors() {
       }
       if (res.ok && json.success) {
         toast.success(`Vendor ${action}d successfully`);
+        setVendorToArchive(null);
         fetchVendors();
       } else {
         toast.error(json.message || `Failed to ${action} vendor`);
       }
     } catch (err) {
       toast.error(`Failed to ${action} vendor`);
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -335,6 +345,17 @@ export default function Vendors() {
         title="Delete Vendor"
         message={`Are you sure you want to permanently delete vendor "${vendorToDelete?.name}"? All associated purchases, ledger entries, and vendor payments will be permanently removed, and inventory increments will be reversed.`}
         confirmText="Delete Vendor"
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!vendorToArchive}
+        onClose={() => setVendorToArchive(null)}
+        onConfirm={handleConfirmToggleArchiveVendor}
+        loading={isArchiving}
+        title={`${vendorToArchive?.archivedAt ? 'Restore' : 'Archive'} Vendor`}
+        message={`Are you sure you want to ${vendorToArchive?.archivedAt ? 'restore' : 'archive'} vendor "${vendorToArchive?.name}"?`}
+        confirmText={vendorToArchive?.archivedAt ? 'Restore Vendor' : 'Archive Vendor'}
+        variant={vendorToArchive?.archivedAt ? 'primary' : 'danger'}
       />
     </div>
   );

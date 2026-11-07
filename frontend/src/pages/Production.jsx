@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   AlertTriangle, 
   Plus, 
@@ -34,8 +34,9 @@ export default function Production() {
   });
   const [loading, setLoading] = useState(() => {
     const cached = peekCachedData(`${API}/production`, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
+  const hasLoadedRef = useRef(!loading);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,7 +49,7 @@ export default function Production() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async (isBackground = false) => {
-    if (!isBackground && batches.length === 0) {
+    if (!isBackground && !hasLoadedRef.current) {
       setLoading(true);
     }
     try {
@@ -60,7 +61,10 @@ export default function Production() {
       const [itemsData, batchesData] = await Promise.all([itemsRes.json(), batchesRes.json()]);
 
       if (itemsData.success) setItems(itemsData.data || []);
-      if (batchesData.success) setBatches(batchesData.data || []);
+      if (batchesData.success) {
+        setBatches(batchesData.data || []);
+        hasLoadedRef.current = true;
+      }
     } catch (err) {
       console.error('Error fetching PM production data:', err);
     } finally {

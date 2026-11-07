@@ -122,9 +122,9 @@ export default function Orders() {
 
   const [isLoading, setIsLoading] = useState(() => {
     const cached = peekCachedData(`${API_URL}/orders`, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
-  const ordersLoadedRef = useRef(Boolean(orders && orders.length > 0));
+  const ordersLoadedRef = useRef(!isLoading);
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!isBackground && !ordersLoadedRef.current) {

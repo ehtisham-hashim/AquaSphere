@@ -25,7 +25,7 @@ export default function Expenses() {
   });
   const [loading, setLoading] = useState(() => {
     const cached = peekCachedData(EXPENSES_ENDPOINT, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -33,7 +33,7 @@ export default function Expenses() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const hasLoadedRef = useRef(Boolean(expenses && expenses.length > 0));
+  const hasLoadedRef = useRef(!loading);
 
   const canDeleteExpense = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT' || user?.role === 'TRANSPORT_MANAGER';
 

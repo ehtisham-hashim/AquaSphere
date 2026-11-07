@@ -22,13 +22,11 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
     try {
       const [sumRes, custRes] = await Promise.all([
         fetch(`${API_URL}/bottles/summary`, {
-          headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
-          cache: 'no-store',
+          headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
         fetch(`${API_URL}/customers`, {
-          headers: { 'x-tenant': tenant, 'x-no-cache': '1' },
-          cache: 'no-store',
+          headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null)
       ]);

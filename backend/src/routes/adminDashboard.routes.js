@@ -30,6 +30,6 @@ router.get('/customer-alerts', getCustomerAlerts);
 router.get('/notification-alerts', getNotificationAlerts);
 
 // Shrink Wrap Sync (Separates 0.5L and 1.5L shrink wrap in DB)
-router.all('/sync-shrink-wrap', syncShrinkWrap);
+router.post('/sync-shrink-wrap', syncShrinkWrap);
 
 export default router;

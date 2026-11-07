@@ -45,10 +45,13 @@ export default function Customers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [customerToRestore, setCustomerToRestore] = useState(null);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [isLoading, setIsLoading] = useState(() => {
     const cached = peekCachedData(`${API_URL}/customers?search=&status=active`, { headers: { 'x-tenant': tenant } });
-    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+    return !(cached?.success && Array.isArray(cached.data));
   });
+  const hasLoadedRef = useRef(!isLoading);
   const debounceTimerRef = useRef(null);
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function Customers() {
   }, [tenant]);
 
   const fetchCustomers = async (q = search, tab = activeTab, isBackground = false) => {
-    if (!isBackground && customers.length === 0) {
+    if (!isBackground && !hasLoadedRef.current) {
       setIsLoading(true);
     }
     try {
@@ -82,7 +85,10 @@ export default function Customers() {
         credentials: 'include'
       });
       const json = await res.json();
-      if (json.success) setCustomers(json.data);
+      if (json.success) {
+        setCustomers(json.data);
+        hasLoadedRef.current = true;
+      }
     } catch {
       // Error fetching customers
     } finally {
@@ -113,23 +119,31 @@ export default function Customers() {
     }, 300);
   };
 
-  const handleRestoreCustomer = async (c) => {
-    if (!window.confirm(`Are you sure you want to restore ${c.name}?`)) return;
+  const handleRestoreCustomer = (c) => {
+    setCustomerToRestore(c);
+  };
+
+  const handleConfirmRestoreCustomer = async () => {
+    if (!customerToRestore) return;
+    setIsRestoring(true);
     try {
-      const res = await fetch(`${API_URL}/customers/${c.id}/restore`, {
+      const res = await fetch(`${API_URL}/customers/${customerToRestore.id}/restore`, {
         method: 'PATCH',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(`Customer ${c.name} unarchived successfully!`);
+        toast.success(`Customer ${customerToRestore.name} unarchived successfully!`);
         fetchCustomers(search, activeTab);
+        setCustomerToRestore(null);
       } else {
         toast.error(json.message || 'Failed to restore customer');
       }
     } catch {
       toast.error('Error restoring customer');
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -496,6 +510,18 @@ export default function Customers() {
         confirmText="Delete Customer"
         onConfirm={handleConfirmDeleteCustomer}
         onClose={() => setCustomerToDelete(null)}
+      />
+
+      {/* Restore Confirmation Modal for Customer */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(customerToRestore)}
+        title={`Restore Customer: ${customerToRestore?.name || ''}`}
+        message={`Are you sure you want to unarchive customer "${customerToRestore?.name}"? They will reappear in active customer lists and dispatch forms.`}
+        confirmText="Restore Customer"
+        variant="primary"
+        loading={isRestoring}
+        onConfirm={handleConfirmRestoreCustomer}
+        onClose={() => setCustomerToRestore(null)}
       />
     </div>
   );

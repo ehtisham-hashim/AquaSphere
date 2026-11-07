@@ -6,6 +6,7 @@ import { isPageAllowedForRole } from '../../constants/roleAccess';
 import { toast } from 'sonner';
 import { getWhatsAppMode, setWhatsAppMode } from '../../utils/whatsapp';
 import { API_URL } from '../../utils/api';
+import { peekCachedData } from '../../utils/apiCache';
 import { 
   BarChart3, 
   Truck, 
@@ -54,7 +55,7 @@ const PREFETCH_MAP = {
 
 const prefetchedPaths = new Set();
 
-const safePrefetch = (path, currentTenant) => {
+const safePrefetch = (path, currentTenant, warmApi = true) => {
   try {
     const fn = PREFETCH_MAP[path];
     if (fn && !prefetchedPaths.has(path)) {
@@ -76,17 +77,18 @@ const safePrefetch = (path, currentTenant) => {
     // Ignore safe prefetch errors
   }
 
-  if (currentTenant) {
+  if (currentTenant && warmApi) {
     const API_WARM_MAP = {
       '/orders': `${API_URL}/orders`,
       '/customers': `${API_URL}/customers?search=&status=active`,
       '/production': `${API_URL}/production`,
       '/inventory': `${API_URL}/items?type=FINISHED_GOOD`,
       '/vendors': `${API_URL}/vendors?includeArchived=false`,
-      '/expenses': `${API_URL}/expenses?limit=500`
+      '/expenses': `${API_URL}/expenses?limit=500`,
+      '/purchases': `${API_URL}/purchases`
     };
     const warmUrl = API_WARM_MAP[path];
-    if (warmUrl) {
+    if (warmUrl && !peekCachedData(warmUrl, { headers: { 'x-tenant': currentTenant } })) {
       try {
         fetch(warmUrl, {
           headers: { 'x-tenant': currentTenant },
@@ -162,7 +164,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
     if (isOpen) {
       navItems
         .filter(item => isPageAllowedForRole(user?.role, item.path, tenant))
-        .forEach(item => safePrefetch(item.path, tenant));
+        .forEach(item => safePrefetch(item.path, tenant, false));
     }
   }, [isOpen, tenant, user?.role]);
 

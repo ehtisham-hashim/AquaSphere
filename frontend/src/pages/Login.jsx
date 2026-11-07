@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { SEOHead } from '../components/common/SEOHead';
 import { useAuth } from '../context/AuthContext';
-import { Droplet, Lock, Mail, ArrowRight, Loader2, Building2, ShieldCheck, CheckCircle2, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Droplet, Lock, Mail, ArrowRight, Loader2, Building2, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -24,7 +24,6 @@ export default function Login() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [isVerifiedEffect, setIsVerifiedEffect] = useState(false);
 
   const otpInputsRef = useRef([]);
   const { login, verifyOwnerOtp, resendOwnerOtp } = useAuth();
@@ -91,8 +90,6 @@ export default function Login() {
       sessionStorage.removeItem('owner_2fa_temp_token');
       sessionStorage.removeItem('owner_2fa_email_mask');
       sessionStorage.removeItem('owner_2fa_tenant');
-      // Trigger water bottle filling verification effect before app transition
-      setIsVerifiedEffect(true);
     } else {
       setError(result.message || 'Invalid verification code. Please check your email.');
       setIsVerifying(false);
@@ -479,71 +476,6 @@ export default function Login() {
           )}
         </div>
       </div>
-
-      {/* ELEGANT WATER BOTTLE FILL / DROP VERIFICATION EFFECT */}
-      {isVerifiedEffect && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-100 text-center space-y-5 animate-in zoom-in-95 duration-200">
-            
-            {/* Animated Water Droplet + Bottle Fill Graphic */}
-            <div className="relative w-28 h-36 mx-auto flex items-center justify-center">
-              
-              {/* Outer Bottle Container Outline */}
-              <svg viewBox="0 0 100 130" className="w-full h-full drop-shadow-md">
-                {/* Bottle Cap */}
-                <rect x="38" y="4" width="24" height="12" rx="3" fill={isWadaana ? '#0284c7' : '#059669'} />
-                {/* Bottle Neck */}
-                <path d="M42 16 L42 28 L30 38 L30 115 A12 12 0 0 0 42 126 L58 126 A12 12 0 0 0 70 115 L70 38 L58 28 L58 16 Z" fill="none" stroke="#cbd5e1" strokeWidth="3" />
-                
-                {/* Liquid Fill Clip Path */}
-                <defs>
-                  <clipPath id="bottleClip">
-                    <path d="M42 16 L42 28 L30 38 L30 115 A12 12 0 0 0 42 126 L58 126 A12 12 0 0 0 70 115 L70 38 L58 28 L58 16 Z" />
-                  </clipPath>
-                </defs>
-
-                {/* Animated Rising Water Level */}
-                <g clipPath="url(#bottleClip)">
-                  <rect 
-                    x="20" 
-                    y="30" 
-                    width="60" 
-                    height="100" 
-                    fill={isWadaana ? '#0ea5e9' : '#10b981'} 
-                    className="animate-in slide-in-from-bottom duration-700 fill-mode-forwards opacity-80"
-                  />
-                  {/* Water surface wave highlight */}
-                  <ellipse cx="50" cy="35" rx="20" ry="4" fill="white" opacity="0.4" />
-                </g>
-              </svg>
-
-              {/* Glowing Droplet Ripple on Bottle Center */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl animate-in zoom-in-50 duration-500 delay-300 ${isWadaana ? 'bg-sky-600' : 'bg-emerald-600'}`}>
-                  <CheckCircle2 size={32} className="animate-pulse" />
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 Text */}
-            <div className="space-y-1">
-              <span className={`text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${isWadaana ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                Step 3 • Verified
-              </span>
-              <h4 className="text-xl font-black text-slate-900 pt-1">
-                Owner Access Verified!
-              </h4>
-              <p className="text-xs text-slate-500 font-medium">
-                Identity confirmed. Loading your management dashboard...
-              </p>
-            </div>
-
-            <div className="flex justify-center pt-1">
-              <Loader2 className={`w-5 h-5 animate-spin ${isWadaana ? 'text-sky-600' : 'text-emerald-600'}`} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
