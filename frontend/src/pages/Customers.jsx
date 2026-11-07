@@ -6,6 +6,7 @@ import { TableSkeleton } from '../components/common/Skeleton';
 import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 import MultiSelectDropdown from '../components/common/MultiSelectDropdown';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -26,19 +27,28 @@ export default function Customers() {
   const { tenant, isWadaana } = useTenant();
   const isOwner = user?.role === 'OWNER';
   const canAddCustomer = ['OWNER', 'MARKETING_MANAGER', 'ADMIN'].includes(user?.role);
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/customers?search=&status=active`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState('Active'); // 'Active' | 'Archived'
   const [filterPreset, setFilterPreset] = useState('ALL'); // 'ALL' | 'IN_DEBT' | 'HOLDING_BOTTLES' | 'UNSECURED_BOTTLES' | 'INACTIVE'
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedMarketer, setSelectedMarketer] = useState('ALL');
-  const [marketerOptions, setMarketerOptions] = useState([]);
+  const [marketerOptions, setMarketerOptions] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/customers/marketers`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && cached.data?.marketers) ? cached.data.marketers : [];
+  });
   const [now] = useState(() => Date.now());
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/customers?search=&status=active`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+  });
   const debounceTimerRef = useRef(null);
 
   useEffect(() => {

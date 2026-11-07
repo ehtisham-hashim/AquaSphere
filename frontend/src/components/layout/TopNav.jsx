@@ -129,11 +129,11 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
   });
 
   return (
-    <header className="h-14 border-b border-slate-200/90 bg-white/95 backdrop-blur-xs flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-20 shadow-2xs">
-      <div className="flex items-center gap-2.5 sm:gap-3">
+    <header className="h-14 shrink-0 w-full min-w-0 border-b border-slate-200/90 bg-white/95 backdrop-blur-xs flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30 shadow-2xs">
+      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
         {/* Mobile menu drawer trigger */}
         <button 
-          className="md:hidden text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-lg transition" 
+          className="md:hidden shrink-0 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-lg transition" 
           onClick={onMobileMenuClick}
           aria-label="Open navigation drawer"
         >
@@ -142,7 +142,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
         {/* Desktop sidebar rail collapse trigger */}
         <button 
-          className="hidden md:flex text-slate-400 hover:text-slate-800 hover:bg-slate-100 p-1.5 rounded-lg transition" 
+          className="hidden md:flex shrink-0 text-slate-400 hover:text-slate-800 hover:bg-slate-100 p-1.5 rounded-lg transition" 
           onClick={onToggleCollapse}
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-label="Toggle sidebar"
@@ -150,18 +150,18 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
           <Menu size={18} />
         </button>
 
-        <div>
-          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight">{currentPage.title}</h1>
-          <p className="hidden sm:block text-xs text-slate-400 font-normal">{currentPage.subtitle}</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight truncate">{currentPage.title}</h1>
+          <p className="hidden sm:block text-xs text-slate-400 font-normal truncate">{currentPage.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3.5">
+      <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
         {/* Alerts Bell Icon */}
         <div className="relative">
           <button
             onClick={() => setShowAlertsMenu(!showAlertsMenu)}
-            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all"
+            className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 relative transition-all shrink-0"
             title="System Activity Alerts"
             aria-label="System Activity Alerts"
           >
@@ -175,7 +175,7 @@ export default function TopNav({ onMobileMenuClick, onToggleCollapse, isCollapse
 
           {/* Alerts Drawer */}
           {showAlertsMenu && (
-            <div className="absolute right-0 mt-2 w-72 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+            <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-auto sm:mt-2 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
               <div className="bg-slate-50 text-slate-800 p-3.5 flex justify-between items-center border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <Bell size={15} className="text-amber-500" />

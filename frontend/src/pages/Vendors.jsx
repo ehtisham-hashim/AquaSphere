@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useLiveEvent } from '../context/SSEContext';
@@ -14,8 +15,14 @@ import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 export default function Vendors() {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [vendors, setVendors] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/vendors?includeArchived=false`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/vendors?includeArchived=false`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -42,8 +49,12 @@ export default function Vendors() {
     notes: ''
   });
 
-  const fetchVendors = useCallback(async () => {
-    setLoading(true);
+  const hasLoadedRef = useRef(Boolean(vendors && vendors.length > 0));
+
+  const fetchVendors = useCallback(async (isBackground = false) => {
+    if (!isBackground && !hasLoadedRef.current) {
+      setLoading(true);
+    }
     try {
       const res = await fetch(`${API_URL}/vendors?includeArchived=${includeArchived}`, {
         headers: { 'x-tenant': tenant },
@@ -61,7 +72,8 @@ export default function Vendors() {
       console.error(err);
       toast.error('Failed to load vendors');
     } finally {
-      setLoading(false);
+      hasLoadedRef.current = true;
+      if (!isBackground) setLoading(false);
     }
   }, [includeArchived, tenant]);
 

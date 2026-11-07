@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { isPageAllowedForRole } from '../../constants/roleAccess';
 import { toast } from 'sonner';
 import { getWhatsAppMode, setWhatsAppMode } from '../../utils/whatsapp';
+import { API_URL } from '../../utils/api';
 import { 
   BarChart3, 
   Truck, 
@@ -51,11 +52,15 @@ const PREFETCH_MAP = {
   '/erp-reports': () => import('../../pages/Reports'),
 };
 
-const safePrefetch = (path) => {
+const prefetchedPaths = new Set();
+
+const safePrefetch = (path, currentTenant) => {
   try {
     const fn = PREFETCH_MAP[path];
-    if (fn) {
+    if (fn && !prefetchedPaths.has(path)) {
+      prefetchedPaths.add(path);
       fn().catch((err) => {
+        prefetchedPaths.delete(path);
         const msg = String(err?.message || '');
         if (
           msg.includes('dynamically imported module') ||
@@ -69,6 +74,28 @@ const safePrefetch = (path) => {
     }
   } catch (_e) {
     // Ignore safe prefetch errors
+  }
+
+  if (currentTenant) {
+    const API_WARM_MAP = {
+      '/orders': `${API_URL}/orders`,
+      '/customers': `${API_URL}/customers?search=&status=active`,
+      '/production': `${API_URL}/production`,
+      '/inventory': `${API_URL}/items?type=FINISHED_GOOD`,
+      '/vendors': `${API_URL}/vendors?includeArchived=false`,
+      '/expenses': `${API_URL}/expenses?limit=500`
+    };
+    const warmUrl = API_WARM_MAP[path];
+    if (warmUrl) {
+      try {
+        fetch(warmUrl, {
+          headers: { 'x-tenant': currentTenant },
+          credentials: 'include'
+        }).catch(() => {});
+      } catch {
+        // Ignore prefetch error
+      }
+    }
   }
 };
 
@@ -94,6 +121,50 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
   const { user, logout } = useAuth();
   const { tenant, isWadaana } = useTenant();
   const [waMode, setWaMode] = useState(() => getWhatsAppMode());
+
+  useEffect(() => {
+    if (!user?.role) return;
+    const allowedPaths = navItems
+      .filter(item => isPageAllowedForRole(user?.role, item.path, tenant))
+      .map(item => item.path);
+    let cancelled = false;
+
+    const preloadSequentially = async () => {
+      for (const path of allowedPaths) {
+        if (cancelled) break;
+        if (!prefetchedPaths.has(path) && PREFETCH_MAP[path]) {
+          prefetchedPaths.add(path);
+          try {
+            await PREFETCH_MAP[path]();
+          } catch {
+            prefetchedPaths.delete(path);
+          }
+          await new Promise(r => setTimeout(r, 120));
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => preloadSequentially(), { timeout: 2000 });
+      } else {
+        preloadSequentially();
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [user?.role, tenant]);
+
+  useEffect(() => {
+    if (isOpen) {
+      navItems
+        .filter(item => isPageAllowedForRole(user?.role, item.path, tenant))
+        .forEach(item => safePrefetch(item.path, tenant));
+    }
+  }, [isOpen, tenant, user?.role]);
 
   const handleToggleWaMode = () => {
     const nextMode = waMode === 'app' ? 'web' : waMode === 'web' ? 'auto' : 'app';
@@ -161,8 +232,10 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
                   key={item.path}
                   to={item.path}
                   onClick={() => { if (isOpen) onClose(); }}
-                  onMouseEnter={() => safePrefetch(item.path)}
-                  onFocus={() => safePrefetch(item.path)}
+                  onMouseEnter={() => safePrefetch(item.path, tenant)}
+                  onFocus={() => safePrefetch(item.path, tenant)}
+                  onTouchStart={() => safePrefetch(item.path, tenant)}
+                  onPointerDown={() => safePrefetch(item.path, tenant)}
                   title={isCollapsed ? item.label : undefined}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl text-sm transition-all duration-150 ${

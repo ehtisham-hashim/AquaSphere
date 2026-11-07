@@ -181,13 +181,14 @@ export default function Transport() {
 
   const filteredTransportExpenses = useMemo(() => {
     return transportExpenses.filter(ex => {
-      const matchesCategory = selectedCategory === 'ALL' || ex.category === selectedCategory;
+      const categoryStr = String(ex?.category || ex?.type || 'MISC');
+      const matchesCategory = selectedCategory === 'ALL' || categoryStr === selectedCategory;
       const q = expenseSearch.toLowerCase();
       const matchesSearch =
-        ex.category.toLowerCase().includes(q) ||
-        (ex.remarks && ex.remarks.toLowerCase().includes(q)) ||
-        (ex.vehicle?.name && ex.vehicle.name.toLowerCase().includes(q)) ||
-        (ex.vehicle?.plateNumber && ex.vehicle.plateNumber.toLowerCase().includes(q));
+        categoryStr.toLowerCase().includes(q) ||
+        (ex?.remarks && String(ex.remarks).toLowerCase().includes(q)) ||
+        (ex?.vehicle?.name && String(ex.vehicle.name).toLowerCase().includes(q)) ||
+        (ex?.vehicle?.plateNumber && String(ex.vehicle.plateNumber).toLowerCase().includes(q));
 
       const exDate = new Date(ex.createdAt);
       const now = new Date();
@@ -235,7 +236,7 @@ export default function Transport() {
   const canManageCars = user?.role === 'TRANSPORT_MANAGER' || user?.role === 'OWNER';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 max-w-full overflow-x-hidden">
       {/* Top Header & Tab Navigation */}
       <PageHeader
         title="Fleet & Transport"
@@ -338,14 +339,14 @@ export default function Transport() {
         <div className="space-y-4">
           {/* Sub Header for Expenses */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600">Time Horizon:</span>
-              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+            <div className="flex items-center gap-2 min-w-0 max-w-full">
+              <span className="text-xs font-bold text-slate-600 shrink-0">Time Horizon:</span>
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 overflow-x-auto max-w-full scrollbar-none shrink-0">
                 {['YESTERDAY', 'LAST3DAYS', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'LIFETIME'].map((r) => (
                   <button
                     key={r}
                     onClick={() => setTimeRange(r)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all shrink-0 ${
                       timeRange === r
                         ? 'bg-brand text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'

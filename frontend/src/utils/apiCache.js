@@ -6,7 +6,8 @@ import { getAuthToken, getCompanyFromCookie } from './companyCookie';
  */
 const cache = new Map();
 const inFlight = new Map();
-const DEFAULT_TTL = 30 * 1000; // 30 seconds default (reduced for live operational responsiveness)
+export const DEFAULT_TTL = 60 * 1000; // 60 seconds fresh window
+export const MAX_STALE_TTL = 10 * 60 * 1000; // 10 minutes stale-while-revalidate window
 const STORAGE_PREFIX = '__aquasphere_api_cache__';
 
 // Volatile operational endpoints whose data must never persist in sessionStorage across page reloads
@@ -39,6 +40,67 @@ function isVolatile(keyOrUrl) {
   return VOLATILE_ENDPOINTS.some((endpoint) => keyOrUrl.includes(endpoint));
 }
 
+function getHeader(headers, name) {
+  if (!headers) return null;
+  if (typeof headers.get === 'function') {
+    return headers.get(name);
+  }
+  if (Array.isArray(headers)) {
+    const entry = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
+    return entry ? entry[1] : null;
+  }
+  const lowerName = name.toLowerCase();
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === lowerName) {
+      return headers[k];
+    }
+  }
+  return null;
+}
+
+export function getCacheKey(url, options = {}) {
+  const requestHeaders = options.headers || (typeof url === 'object' ? url?.headers : null);
+  const rawUrl = typeof url === 'string' ? url : url?.url || '';
+  const tenant = 
+    getHeader(requestHeaders, 'x-tenant') ||
+    (typeof window !== 'undefined' ? (localStorage.getItem('tenant') || localStorage.getItem('company') || localStorage.getItem('aquasphere_tenant')) : '') ||
+    (typeof document !== 'undefined' ? document.cookie.match(/tenant=([^;]+)/)?.[1] : '') ||
+    'aquasphere';
+  return `${tenant.toLowerCase()}:${rawUrl}`;
+}
+
+export function peekCachedData(url, options = {}) {
+  const key = getCacheKey(url, options);
+  const now = Date.now();
+  let cached = cache.get(key);
+  if (!cached) {
+    cached = loadFromStorage(key);
+    if (cached) cache.set(key, cached);
+  }
+  if (!cached) return null;
+  if (now - cached.timestamp > MAX_STALE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+  if (cached.parsedData !== undefined && cached.parsedData !== null) {
+    return cached.parsedData;
+  }
+  try {
+    cached.parsedData = JSON.parse(cached.body);
+    return cached.parsedData;
+  } catch {
+    return null;
+  }
+}
+
+function createSyntheticResponse(entry) {
+  return new Response(entry.body, {
+    status: entry.status || 200,
+    statusText: entry.statusText || 'OK',
+    headers: new Headers(entry.headers || [])
+  });
+}
+
 // Helper to load cache entry from sessionStorage with TTL check
 function loadFromStorage(key) {
   if (typeof window === 'undefined' || !window.sessionStorage) return null;
@@ -46,7 +108,7 @@ function loadFromStorage(key) {
     const raw = window.sessionStorage.getItem(`${STORAGE_PREFIX}${key}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.timestamp || (Date.now() - parsed.timestamp > DEFAULT_TTL)) {
+    if (!parsed || !parsed.timestamp || (Date.now() - parsed.timestamp > MAX_STALE_TTL)) {
       window.sessionStorage.removeItem(`${STORAGE_PREFIX}${key}`);
       return null;
     }
@@ -123,22 +185,12 @@ export function clearCache(pattern = null) {
   }
 }
 
-function getHeader(headers, name) {
-  if (!headers) return null;
-  if (typeof headers.get === 'function') {
-    return headers.get(name);
+export async function cachedFetch(url, options = {}, ttl = DEFAULT_TTL) {
+  const method = (options.method || (typeof url === 'object' && url?.method) || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    return fetch(url, options);
   }
-  if (Array.isArray(headers)) {
-    const entry = headers.find(([k]) => k.toLowerCase() === name.toLowerCase());
-    return entry ? entry[1] : null;
-  }
-  const lowerName = name.toLowerCase();
-  for (const k of Object.keys(headers)) {
-    if (k.toLowerCase() === lowerName) {
-      return headers[k];
-    }
-  }
-  return null;
+  return fetch(url, { ...options, ttl });
 }
 
 export function setupApiCache() {
@@ -251,11 +303,7 @@ export function setupApiCache() {
       return originalFetch.call(this, resource, normalizedOptions);
     }
 
-    const tenantHeader = getHeader(requestHeaders, 'x-tenant') ||
-      (typeof window !== 'undefined' ? localStorage.getItem('tenant') || localStorage.getItem('company') : '') ||
-      (typeof document !== 'undefined' ? document.cookie.match(/tenant=([^;]+)/)?.[1] : '') ||
-      'aquasphere';
-    const cacheKey = `${url}|${tenantHeader.toLowerCase()}`;
+    const cacheKey = getCacheKey(url, normalizedOptions);
     const now = Date.now();
     const ttl = normalizedOptions.ttl || DEFAULT_TTL;
 
@@ -271,59 +319,107 @@ export function setupApiCache() {
         }
       }
 
-      if (cached && now - cached.timestamp < ttl) {
-        // Stale-While-Revalidate: If data is older than 3s, refresh in background without blocking UI
-        if (now - cached.timestamp > 3000 && !inFlight.has(cacheKey)) {
-          const bgPromise = (async () => {
-            try {
-              const response = await originalFetch.call(this, resource, normalizedOptions);
-
-              if (response.status === 401) {
-                const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
-                if (!isLoginOr2FA && typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+      if (cached) {
+        const age = now - cached.timestamp;
+        // Case A: Completely fresh
+        if (age < ttl) {
+          if (age > 3000 && !inFlight.has(cacheKey)) {
+            const bgPromise = (async () => {
+              try {
+                const response = await originalFetch.call(this, resource, normalizedOptions);
+                if (response.status === 401) {
+                  const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
+                  if (!isLoginOr2FA && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+                  }
                 }
+                if (response.ok) {
+                  const body = await response.text();
+                  let parsedData = null;
+                  try {
+                    parsedData = JSON.parse(body);
+                  } catch {
+                    parsedData = null;
+                  }
+                  const freshData = {
+                    body,
+                    parsedData,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Array.from(response.headers.entries()),
+                    timestamp: Date.now(),
+                  };
+                  cache.set(cacheKey, freshData);
+                  saveToStorage(cacheKey, freshData);
+                  return freshData;
+                }
+              } catch {
+                // Ignore background revalidation errors
+              } finally {
+                inFlight.delete(cacheKey);
               }
+              return cached;
+            })();
+            inFlight.set(cacheKey, bgPromise);
+          }
 
-              if (response.ok) {
-                const body = await response.text();
-                const freshData = {
-                  body,
-                  status: response.status,
-                  statusText: response.statusText,
-                  headers: Array.from(response.headers.entries()),
-                  timestamp: Date.now(),
-                };
-                cache.set(cacheKey, freshData);
-                saveToStorage(cacheKey, freshData);
-                return freshData;
-              }
-            } catch {
-              // Ignore background revalidation errors
-            } finally {
-              inFlight.delete(cacheKey);
-            }
-            return cached;
-          })();
-          inFlight.set(cacheKey, bgPromise);
+          return createSyntheticResponse(cached);
         }
 
-        return new Response(cached.body, {
-          status: cached.status,
-          statusText: cached.statusText,
-          headers: new Headers(cached.headers),
-        });
+        // Case B: Stale-While-Revalidate window (between ttl and MAX_STALE_TTL)
+        if (age < MAX_STALE_TTL) {
+          if (!inFlight.has(cacheKey)) {
+            const bgPromise = (async () => {
+              try {
+                const response = await originalFetch.call(this, resource, normalizedOptions);
+                if (response.status === 401) {
+                  const isLoginOr2FA = url.includes('/auth/login') || url.includes('/auth/verify-owner-otp');
+                  if (!isLoginOr2FA && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+                  }
+                }
+                if (response.ok) {
+                  const body = await response.text();
+                  let parsedData = null;
+                  try {
+                    parsedData = JSON.parse(body);
+                  } catch {
+                    parsedData = null;
+                  }
+                  const freshData = {
+                    body,
+                    parsedData,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Array.from(response.headers.entries()),
+                    timestamp: Date.now(),
+                  };
+                  cache.set(cacheKey, freshData);
+                  saveToStorage(cacheKey, freshData);
+                  return freshData;
+                }
+              } catch {
+                // Ignore background revalidation errors
+              } finally {
+                inFlight.delete(cacheKey);
+              }
+              return cached;
+            })();
+            inFlight.set(cacheKey, bgPromise);
+          }
+
+          return createSyntheticResponse(cached);
+        }
+
+        // Expired beyond MAX_STALE_TTL
+        cache.delete(cacheKey);
       }
 
       // 3. In-flight request deduplication
       if (inFlight.has(cacheKey)) {
         const data = await inFlight.get(cacheKey);
         if (data && data.body !== undefined) {
-          return new Response(data.body, {
-            status: data.status,
-            statusText: data.statusText,
-            headers: new Headers(data.headers),
-          });
+          return createSyntheticResponse(data);
         }
       }
     } else {
@@ -344,8 +440,16 @@ export function setupApiCache() {
         }
 
         const body = await response.text();
+        let parsedData = null;
+        try {
+          parsedData = JSON.parse(body);
+        } catch {
+          parsedData = null;
+        }
+
         const data = {
           body,
+          parsedData,
           status: response.status,
           statusText: response.statusText,
           headers: Array.from(response.headers.entries()),
@@ -364,10 +468,6 @@ export function setupApiCache() {
 
     inFlight.set(cacheKey, fetchPromise);
     const data = await fetchPromise;
-    return new Response(data.body, {
-      status: data.status,
-      statusText: data.statusText,
-      headers: new Headers(data.headers),
-    });
+    return createSyntheticResponse(data);
   };
 }

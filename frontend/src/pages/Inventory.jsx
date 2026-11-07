@@ -9,6 +9,7 @@ import {
 } from '../components/inventory';
 import { useTenant } from '../context/TenantContext';
 import { API_URL as API } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import { useLiveEvent } from '../context/SSEContext';
 import { DeleteConfirmationModal } from '../components/ui';
@@ -21,9 +22,18 @@ export default function Inventory() {
   const canTransferStock = isOwner || user?.role === 'PRODUCTION_MANAGER';
   const canAddFinishedGood = isOwner || user?.role === 'ADMIN' || user?.role === 'PRODUCTION_MANAGER';
 
-  const [items, setItems] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [items, setItems] = useState(() => {
+    const cached = peekCachedData(`${API}/items?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [transactions, setTransactions] = useState(() => {
+    const cached = peekCachedData(`${API}/items/transactions?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    const cached = peekCachedData(`${API}/items?type=FINISHED_GOOD`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+  });
   const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [selectedMovement, setSelectedMovement] = useState('ALL');
   const [selectedTimeframe, setSelectedTimeframe] = useState('ALL');
@@ -31,7 +41,7 @@ export default function Inventory() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(Boolean(items && items.length > 0));
 
   const fetchInventoryData = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) {

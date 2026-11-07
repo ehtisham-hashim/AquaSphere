@@ -4,6 +4,7 @@ import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, Rot
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { toast } from 'sonner';
@@ -82,10 +83,22 @@ const orderMatchesDate = (o, filter) => {
 export default function Orders() {
   const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
-  const [orders, setOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [items, setItems] = useState([]);
-  const [marketers, setMarketers] = useState([]);
+  const [orders, setOrders] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/orders`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [customers, setCustomers] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/customers`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [items, setItems] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/items`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [marketers, setMarketers] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/customers/marketers`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && cached.data?.marketers) ? cached.data.marketers : [];
+  });
 
   // UI State
   const [activeTab, setActiveTab] = useState('All Orders');
@@ -107,8 +120,11 @@ export default function Orders() {
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [invoiceOrder, setInvoiceOrder] = useState(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const ordersLoadedRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/orders`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data) && cached.data.length > 0);
+  });
+  const ordersLoadedRef = useRef(Boolean(orders && orders.length > 0));
 
   const fetchData = useCallback(async (isBackground = false) => {
     if (!isBackground && !ordersLoadedRef.current) {
@@ -340,60 +356,62 @@ export default function Orders() {
   }, [items]);
 
   // Month-End Statements aggregation
-  const monthOrders = orders.filter(o => {
-    const rawDate = o.expectedDelivery || o.createdAt;
-    if (!rawDate) return false;
-    const d = parseOrderDate(rawDate);
-    if (!d) return false;
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}` === statementMonth;
-  });
-
-  const customerStatementMap = new Map();
-  customers.forEach(c => {
-    customerStatementMap.set(c.id, {
-      customer: c,
-      orders: [],
-      delivered19L: 0,
-      delivered15L: 0,
-      delivered05L: 0,
-      totalBilled: 0
+  const statementList = useMemo(() => {
+    const monthOrders = orders.filter(o => {
+      const rawDate = o.expectedDelivery || o.createdAt;
+      if (!rawDate) return false;
+      const d = parseOrderDate(rawDate);
+      if (!d) return false;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return `${y}-${m}` === statementMonth;
     });
-  });
 
-  monthOrders.forEach(o => {
-    const custId = o.customerId;
-    if (!custId) return;
-    if (!customerStatementMap.has(custId)) {
-      customerStatementMap.set(custId, {
-        customer: o.customer || { id: custId, name: 'Unknown' },
+    const customerStatementMap = new Map();
+    customers.forEach(c => {
+      customerStatementMap.set(c.id, {
+        customer: c,
         orders: [],
         delivered19L: 0,
         delivered15L: 0,
         delivered05L: 0,
         totalBilled: 0
       });
-    }
-    const rec = customerStatementMap.get(custId);
-    rec.orders.push(o);
-    const isDelivered = o.deliveryStatus === 'DELIVERED';
-    o.items?.forEach(i => {
-      const q = Number(i.quantity || 0);
-      const name = (i.item?.name || '').toLowerCase();
-      if (isDelivered) {
-        rec.totalBilled += q * Number(i.price || 0);
-      }
-      if (name.includes('19l') || o.type === 'NINETEEN_L') rec.delivered19L += q;
-      else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
-      else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
     });
-  });
 
-  const statementList = Array.from(customerStatementMap.values()).filter(s => {
-    const bal = Number(s.customer?.currentBalance || 0);
-    return s.orders.length > 0 || bal > 0;
-  });
+    monthOrders.forEach(o => {
+      const custId = o.customerId;
+      if (!custId) return;
+      if (!customerStatementMap.has(custId)) {
+        customerStatementMap.set(custId, {
+          customer: o.customer || { id: custId, name: 'Unknown' },
+          orders: [],
+          delivered19L: 0,
+          delivered15L: 0,
+          delivered05L: 0,
+          totalBilled: 0
+        });
+      }
+      const rec = customerStatementMap.get(custId);
+      rec.orders.push(o);
+      const isDelivered = o.deliveryStatus === 'DELIVERED';
+      o.items?.forEach(i => {
+        const q = Number(i.quantity || 0);
+        const name = (i.item?.name || '').toLowerCase();
+        if (isDelivered) {
+          rec.totalBilled += q * Number(i.price || 0);
+        }
+        if (name.includes('19l') || o.type === 'NINETEEN_L') rec.delivered19L += q;
+        else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
+        else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
+      });
+    });
+
+    return Array.from(customerStatementMap.values()).filter(s => {
+      const bal = Number(s.customer?.currentBalance || 0);
+      return s.orders.length > 0 || bal > 0;
+    });
+  }, [orders, customers, statementMonth]);
 
 
 
