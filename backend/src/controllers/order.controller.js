@@ -323,10 +323,22 @@ export const updateOrder = asyncHandler(async (req, res) => {
       data: {
         expectedDelivery: expectedDelivery !== undefined ? (expectedDelivery ? new Date(expectedDelivery) : null) : order.expectedDelivery,
         remarks: remarks !== undefined ? remarks : order.remarks,
-        ...(type && { type }),
-        ...(newTotal !== undefined && { totalAmount: newTotal })
+        ...(type && { type })
       },
-      include: { items: { include: { item: true } } }
+      include: {
+        customer: true,
+        items: {
+          include: {
+            item: {
+              include: {
+                recipeFinishedGoods: { include: { rawMaterial: true } }
+              }
+            }
+          }
+        },
+        payments: true,
+        deliveries: true
+      }
     });
 
     await createAuditLog(prefix, {
@@ -340,8 +352,9 @@ export const updateOrder = asyncHandler(async (req, res) => {
     return resOrder;
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
-  return sendSuccess(res, updated);
+  return sendSuccess(res, attachOrderBalances(updated));
 });
 
 /** Fulfills and delivers an order, recording returns, cash, and inventory deduction */
