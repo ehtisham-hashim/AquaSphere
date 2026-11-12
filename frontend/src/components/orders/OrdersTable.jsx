@@ -4,6 +4,7 @@ import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
 import { shareOrSendOrderInvoiceWhatsApp } from '../../utils/receiptFormatter';
+import { formatItemUnitTag, formatOrderItemsSummary } from '../../utils/unitFormat';
 
 const deliveryBadge = (s) => {
   const map = {
@@ -92,8 +93,12 @@ export default function OrdersTable({
         <tbody className="divide-y divide-slate-100 bg-white">
           {pagination.paginatedItems.map(o => {
             const total = o.items?.reduce((s, i) => s + parseFloat(i.price) * i.quantity, 0) || 0;
-            const totalQty = o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0;
-            const isNineteen = o.type === 'NINETEEN_L' || o.type === 'PURE_BOTTLES' || o.type === 'MIX_BOTTLES';
+            const has19LItem = o.items?.some(i => i.item?.name?.toLowerCase().includes('19l'));
+            const hasNon19LItem = o.items?.some(i => !i.item?.name?.toLowerCase().includes('19l'));
+            const orderBadgeLabel = isWadaana
+              ? (o.type === 'MIX_BOTTLES' ? 'MIX' : 'PURE')
+              : (has19LItem && hasNon19LItem ? '19L + PET' : (has19LItem || o.type === 'NINETEEN_L') ? '19L' : 'PET');
+            const isBlueBadge = isWadaana || has19LItem || (!o.items?.length && o.type === 'NINETEEN_L');
 
             // Financial Calculations
             const alreadyPaid = o.payments?.reduce((s, p) => s + parseFloat(p.amount || 0), 0) || (o.paymentStatus === 'PAID' ? total : 0);
@@ -112,8 +117,8 @@ export default function OrdersTable({
                 {/* Order & Invoice column */}
                 <td className="table-td whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isNineteen ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-brand-muted text-brand-primary border-brand-primary/20'}`}>
-                      {isNineteen ? '19L' : 'PET'}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isBlueBadge ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-brand-muted text-brand-primary border-brand-primary/20'}`}>
+                      {orderBadgeLabel}
                     </span>
                     <span className="text-xs text-slate-500 font-mono font-bold">#{o.id.slice(0, 6).toUpperCase()}</span>
                   </div>
@@ -136,10 +141,12 @@ export default function OrdersTable({
                 <td className="table-td">
                   {o.items?.map((item, idx) => (
                     <div key={idx} className="text-slate-700 font-medium text-xs">
-                      <span className="font-semibold text-slate-900 tabular-nums">{item.quantity}×</span> <span className="text-slate-600">{item.item?.name?.replace(/aquasphere|wadaana/gi, '').trim()}</span>
+                      <span className="font-semibold text-slate-900 tabular-nums">{item.quantity}×</span>{' '}
+                      <span className="text-slate-600">{item.item?.name?.replace(/aquasphere|wadaana/gi, '').trim()}</span>{' '}
+                      <span className="text-[10px] text-slate-400 font-normal">({formatItemUnitTag(item.item, item.quantity)})</span>
                     </div>
                   ))}
-                  <div className="text-xs text-slate-400 font-medium mt-0.5">{totalQty} Pcs Total</div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">{formatOrderItemsSummary(o.items)}</div>
                 </td>
 
                 {/* Financials column */}

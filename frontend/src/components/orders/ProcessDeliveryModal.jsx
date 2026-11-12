@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { API_URL, clearCache } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
 import { useAuth } from '../../context/AuthContext';
+import { formatItemUnitTag, formatOrderItemsSummary } from '../../utils/unitFormat';
 
 export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcessed }) {
   const { user } = useAuth();
@@ -39,17 +40,15 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
   }, [company]);
 
   const isReturnableOrderItem = (i) => {
-    if (!i.item) return false;
+    if (!i?.item) return false;
     if (i.item.hasReturnableContainer) return true;
     if (i.item.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable)) return true;
-    return i.item.name?.toLowerCase().includes('19l') || order.type === 'NINETEEN_L';
+    return Boolean(i.item.name?.toLowerCase().includes('19l'));
   };
 
   const calculateDefaultQtyDelivered = () => {
     if (!order.items || order.items.length === 0) return 0;
-    const returnableOrdered = order.items.filter(isReturnableOrderItem).reduce((sum, i) => sum + i.quantity, 0);
-    if (returnableOrdered > 0) return returnableOrdered;
-    return order.items.reduce((sum, i) => sum + i.quantity, 0);
+    return order.items.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
   };
 
   const returnableRecipe = order.items?.flatMap(i => i.item?.recipeFinishedGoods || []).find(r => r.rawMaterial?.isReturnable);
@@ -59,11 +58,11 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
   const isPaymentSettlementOnly = order.deliveryStatus === 'DELIVERED' && order.paymentStatus !== 'PAID';
 
-  const qtyReturnableOrdered = order.items?.filter(isReturnableOrderItem).reduce((sum, i) => sum + i.quantity, 0) || 0;
+  const qtyReturnableOrdered = order.items?.filter(isReturnableOrderItem).reduce((sum, i) => sum + Number(i.quantity || 0), 0) || 0;
   const previouslyReturned = order.deliveries?.reduce((sum, d) => sum + (parseInt(d.bottlesReturnedGood || 0) + parseInt(d.bottlesReturnedBroken || 0) + parseInt(d.bottlesLost || 0)), 0) || 0;
 
   const customerHeldCustody = parseInt(order.customer?.cachedBottleBalance || 0);
-  const isReturnableOrder = isAquaSphere && (order.type === 'NINETEEN_L' || qtyReturnableOrdered > 0);
+  const isReturnableOrder = isAquaSphere && qtyReturnableOrdered > 0;
   const remainingOrderReturns = Math.max(0, qtyReturnableOrdered - previouslyReturned);
   // Cap allows returning remaining order returns + customer held custody on active delivery, or customer held custody on settlement run:
   const maxReturnedAllowed = isReturnableOrder 
@@ -236,23 +235,47 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
           )}
 
           {/* Compact Order Snapshot */}
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-4">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Ordered Qty</span>
-                <span className="font-bold text-slate-800 text-sm">{totalItems} Units • Rs. {orderTotal.toLocaleString()}</span>
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Ordered Items</span>
+                  <span className="font-bold text-slate-800 text-sm">{formatOrderItemsSummary(order.items)} • Rs. {orderTotal.toLocaleString()}</span>
+                </div>
+                <div className="border-l border-slate-200 pl-4">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Payment Status</span>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${order.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                    {order.paymentStatus}
+                  </span>
+                </div>
               </div>
-              <div className="border-l border-slate-200 pl-4">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Payment Status</span>
-                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${order.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                  {order.paymentStatus}
-                </span>
-              </div>
+              {parseFloat(order.customer?.deposit || 0) > 0 && (
+                <div className="text-right">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Security Deposit</span>
+                  <span className="font-bold text-emerald-700">Rs. {parseFloat(order.customer?.deposit || 0).toLocaleString()}</span>
+                </div>
+              )}
             </div>
-            {parseFloat(order.customer?.deposit || 0) > 0 && (
-              <div className="text-right">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">Security Deposit</span>
-                <span className="font-bold text-emerald-700">Rs. {parseFloat(order.customer?.deposit || 0).toLocaleString()}</span>
+            {(order.items || []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/70">
+                {order.items.map((it, idx) => {
+                  const isRet = isAquaSphere && isReturnableOrderItem(it);
+                  return (
+                    <span
+                      key={it.id || idx}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+                        isRet
+                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                          : 'bg-white text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      <strong className="font-mono">{it.quantity}×</strong>
+                      <span>{it.item?.name || 'Item'}</span>
+                      <span className="text-[10px] opacity-75">({formatItemUnitTag(it.item, it.quantity)})</span>
+                      {isRet && <span className="text-[9px] font-bold uppercase text-blue-700">• Returnable</span>}
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -266,9 +289,9 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
 
               {isReturnableOrder ? (
                 <div className="space-y-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center text-xs gap-2">
                     <span className="font-bold text-slate-700">{returnableItemName} Returned / Lost</span>
-                    <span className="text-slate-500 font-medium text-[11px]">Max: {maxReturnedAllowed} (Held: {customerHeldCustody})</span>
+                    <span className="text-slate-500 font-medium text-[11px]">Max: {maxReturnedAllowed} ({qtyReturnableOrdered} ordered + {customerHeldCustody} held)</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
@@ -317,7 +340,7 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
                 </div>
               ) : (
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 text-xs text-slate-600 font-medium">
-                  Dispatching {totalItems} units from Factory Floor stock.
+                  Dispatching {formatOrderItemsSummary(order.items)} ({totalItems} line qty) from Factory Floor stock.
                 </div>
               )}
 

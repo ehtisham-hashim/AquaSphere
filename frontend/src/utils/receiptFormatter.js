@@ -1,5 +1,6 @@
 import html2canvas from 'html2canvas';
 import { openWhatsAppWeb } from './whatsapp';
+import { formatItemUnitTag } from './unitFormat';
 
 /**
  * Reliably copies plain/rich text to the system clipboard across modern and legacy browsers.
@@ -679,7 +680,7 @@ export function formatOrderInvoiceWhatsApp(order, items, grandTotal, totalPaid, 
     const qty = Number(item.quantity || 0);
     const rate = Number(item.price || 0);
     const lineTotal = qty * rate;
-    msg += `${idx + 1}. *${item.item?.name || 'Item'}* × ${qty} @ Rs. ${rate.toLocaleString()} = *Rs. ${lineTotal.toLocaleString()}*\n`;
+    msg += `${idx + 1}. *${item.item?.name || 'Item'}* × ${qty} ${formatItemUnitTag(item.item, qty)} @ Rs. ${rate.toLocaleString()} = *Rs. ${lineTotal.toLocaleString()}*\n`;
   });
   msg += `----------------------------------------\n`;
   const previousBalance = Number(order.previousUnpaidBalance || 0);
@@ -1054,7 +1055,7 @@ export function formatMonthlyStatementWhatsApp({ customer, month, orders = [], i
       if (isDelivered) {
         totalBilled += q * price;
       }
-      if (name.includes('19l') || o.type === 'NINETEEN_L') qty19L += q;
+      if (name.includes('19l')) qty19L += q;
       else if (name.includes('1.5') || name.includes('1.5l')) qty15L += q;
       else if (name.includes('0.5') || name.includes('500ml')) qty05L += q;
     });

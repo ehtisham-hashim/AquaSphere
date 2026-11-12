@@ -11,6 +11,7 @@ import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { getOrderCleanName as formatItemName } from '../../constants/orders';
+import { formatItemUnitTag, formatOrderItemsSummary } from '../../utils/unitFormat';
 import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 // ponytail: tabbed detail view groups actions logically; generous spacing prevents visual fatigue
@@ -36,7 +37,6 @@ export default function OrderDetail({ order, onClose, onSettle }) {
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
   const canSettle = balanceDue > 0 && order.deliveryStatus !== 'CANCELLED' && user?.role !== 'TRANSPORT_MANAGER';
-  const totalQty = items.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
 
   const orderDate = order.createdAt 
     ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -90,7 +90,7 @@ export default function OrderDetail({ order, onClose, onSettle }) {
       const name = formatItemName(i.item?.name) || 'Item';
       const qty = i.quantity || 0;
       const rate = Number(i.price || 0);
-      return `  • ${name}: ${qty} ${i.item?.unit || 'Bottles'} @ Rs. ${rate.toLocaleString()}`;
+      return `  • ${name}: ${qty} ${formatItemUnitTag(i.item, qty)} @ Rs. ${rate.toLocaleString()}`;
     }).join('\n');
 
     const cleanMapLink = sanitizeMapLink(customer.mapLink) || (customer.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}` : null);
@@ -108,7 +108,7 @@ export default function OrderDetail({ order, onClose, onSettle }) {
       ``,
       `🛍️ *ITEMS TO DELIVER:*`,
       itemsList || '  • No items specified',
-      `Total Units: ${totalQty}`,
+      `Summary: ${formatOrderItemsSummary(items)}`,
       ``,
       `💰 *PAYMENT / BILL:*`,
       `Total Bill: Rs. ${grandTotal.toLocaleString()}`,
@@ -357,7 +357,7 @@ export default function OrderDetail({ order, onClose, onSettle }) {
                   <span className="text-2xl font-bold font-mono text-slate-900 block mt-1">
                     Rs. {grandTotal.toLocaleString()}
                   </span>
-                  <span className="text-xs text-slate-500 mt-1 block">{totalQty} total units ordered</span>
+                  <span className="text-xs text-slate-500 mt-1 block">{formatOrderItemsSummary(items)} ordered</span>
                 </div>
 
                 <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70">
@@ -404,9 +404,9 @@ export default function OrderDetail({ order, onClose, onSettle }) {
                           <tr key={i.id || idx} className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3.5 px-4 font-semibold text-slate-900">
                               {formatItemName(i.item?.name) || 'Product Item'}
-                              {i.item?.unit && (
-                                <span className="ml-2 text-xs text-slate-400 font-normal">({i.item.unit})</span>
-                              )}
+                              <span className="ml-2 text-xs text-slate-400 font-normal">
+                                ({formatItemUnitTag(i.item, i.quantity)})
+                              </span>
                             </td>
                             <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 tabular-nums">
                               {i.quantity}

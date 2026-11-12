@@ -1,6 +1,7 @@
 /**
  * Centralized WhatsApp automation and dispatch utilities for AquaSphere & Wadaana ERP.
  */
+import { formatItemUnitTag, formatOrderItemsSummary } from './unitFormat';
 
 /**
  * Normalizes phone numbers to standard international format without symbols or spaces (e.g. 923001234567).
@@ -267,10 +268,9 @@ export const WhatsAppTemplates = {
       const name = i.item?.name || i.name || 'Item';
       const qty = i.quantity || 0;
       const rate = Number(i.price || 0);
-      return `  • ${name}: ${qty} ${i.item?.unit || 'Units'} @ Rs. ${rate.toLocaleString()}`;
+      return `  • ${name}: ${qty} ${formatItemUnitTag(i.item, qty)} @ Rs. ${rate.toLocaleString()}`;
     }).join('\n');
 
-    const totalQty = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
     const grandTotal = Number(order.totalAmount || 0);
     const totalPaid = Number(order.paidAmount || 0);
     const balanceDue = grandTotal - totalPaid;
@@ -292,7 +292,7 @@ export const WhatsAppTemplates = {
       ``,
       `🛍️ *ITEMS TO DELIVER:*`,
       itemsList || '  • No items specified',
-      `Total Units: ${totalQty}`,
+      `Summary: ${formatOrderItemsSummary(items)}`,
       ``,
       `💰 *PAYMENT / BILL:*`,
       `Total Bill: Rs. ${grandTotal.toLocaleString()}`,

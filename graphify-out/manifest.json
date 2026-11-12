@@ -352,10 +352,10 @@
     "semantic_hash": "c78438d20fde6c977370fda1d85d29c6"
   },
   "backend/src/controllers/order.controller.js": {
-    "mtime": 1793547963.3289704,
-    "seen": 1794060648.4129207,
-    "ast_hash": "099f48445fc7982836f9f93677c69538",
-    "semantic_hash": "099f48445fc7982836f9f93677c69538"
+    "mtime": 1794490843.0638666,
+    "seen": 1794491134.5629644,
+    "ast_hash": "2279fe82986c23947650faaa44296806",
+    "semantic_hash": ""
   },
   "backend/src/controllers/production.controller.js": {
     "mtime": 1794488537.9331508,
@@ -1270,28 +1270,28 @@
     "semantic_hash": ""
   },
   "frontend/src/components/orders/AddOrderModal.jsx": {
-    "mtime": 1794064950.032202,
-    "seen": 1794065031.9294116,
-    "ast_hash": "b11239bead7375bfd8c94899fab71371",
+    "mtime": 1794490997.4109545,
+    "seen": 1794491134.5737298,
+    "ast_hash": "57a4432c7ed6a047a6d74eb09dddd934",
     "semantic_hash": ""
   },
   "frontend/src/components/orders/EditOrderModal.jsx": {
-    "mtime": 1793547963.3409705,
-    "seen": 1794060648.4238799,
-    "ast_hash": "94617cc638b9ec52207cb7228f4013a8",
-    "semantic_hash": "94617cc638b9ec52207cb7228f4013a8"
+    "mtime": 1794491001.8675852,
+    "seen": 1794491134.573732,
+    "ast_hash": "d31f5f3de17f99258bc210f15a688fdb",
+    "semantic_hash": ""
   },
   "frontend/src/components/orders/OrderDetail.jsx": {
-    "mtime": 1793547963.3409705,
-    "seen": 1794060648.423939,
-    "ast_hash": "9ca6a405c76128d43244c2a50af867c5",
-    "semantic_hash": "9ca6a405c76128d43244c2a50af867c5"
+    "mtime": 1794490992.331879,
+    "seen": 1794491134.5737336,
+    "ast_hash": "ee2fd1269411ebe46e907a2652cf1b65",
+    "semantic_hash": ""
   },
   "frontend/src/components/orders/OrderInvoiceModal.jsx": {
-    "mtime": 1793547963.3409705,
-    "seen": 1794060648.424022,
-    "ast_hash": "1a26d3f1e84c8cbe977b248e21713b28",
-    "semantic_hash": "1a26d3f1e84c8cbe977b248e21713b28"
+    "mtime": 1794491075.4111645,
+    "seen": 1794491134.5737352,
+    "ast_hash": "17fc1c9ea55e194867ee44208a967088",
+    "semantic_hash": ""
   },
   "frontend/src/components/orders/OrderSearch.jsx": {
     "mtime": 1790056385.7201035,
@@ -1300,16 +1300,16 @@
     "semantic_hash": "01951fc305e49edcfe1ec24a1e1dde46"
   },
   "frontend/src/components/orders/OrdersTable.jsx": {
-    "mtime": 1793427236.9216294,
-    "seen": 1794060648.4241786,
-    "ast_hash": "527e0ca360585428c91a243985a1f62c",
-    "semantic_hash": "527e0ca360585428c91a243985a1f62c"
+    "mtime": 1794490886.4524071,
+    "seen": 1794491134.5737977,
+    "ast_hash": "2d4230bc0c43a05e04a3327716e7e006",
+    "semantic_hash": ""
   },
   "frontend/src/components/orders/ProcessDeliveryModal.jsx": {
-    "mtime": 1793547963.3409705,
-    "seen": 1794060648.424236,
-    "ast_hash": "9698a0fe2f0135a5f89d088f2c0c9a31",
-    "semantic_hash": "9698a0fe2f0135a5f89d088f2c0c9a31"
+    "mtime": 1794490915.0117836,
+    "seen": 1794491134.5737998,
+    "ast_hash": "bc13cca0dd2c81c163b350a6d9c4b24f",
+    "semantic_hash": ""
   },
   "frontend/src/components/orders/RecordPaymentModal.jsx": {
     "mtime": 1793547963.3419704,
@@ -1696,9 +1696,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Orders.jsx": {
-    "mtime": 1794063642.524119,
-    "seen": 1794065031.9331062,
-    "ast_hash": "f33cbdd76158733e6e32357b61a3bef9",
+    "mtime": 1794491045.8886957,
+    "seen": 1794491134.5786169,
+    "ast_hash": "82d67ec81880d787cca4aeca1dfc6fe0",
     "semantic_hash": ""
   },
   "frontend/src/pages/ProductPricing.jsx": {
@@ -1810,16 +1810,16 @@
     "semantic_hash": "90f7cc6f2e39b85342a08cb472426d8c"
   },
   "frontend/src/utils/receiptFormatter.js": {
-    "mtime": 1793547963.3559706,
-    "seen": 1794060648.4299688,
-    "ast_hash": "7269f19bbdcf522b6369f883d7eeca8e",
-    "semantic_hash": "7269f19bbdcf522b6369f883d7eeca8e"
+    "mtime": 1794491006.725094,
+    "seen": 1794491134.579729,
+    "ast_hash": "abfe837938770f6aa946b7bf863ca88e",
+    "semantic_hash": ""
   },
   "frontend/src/utils/unitFormat.js": {
-    "mtime": 1793547963.3559706,
-    "seen": 1794060648.4301062,
-    "ast_hash": "aa9056ecb966a6bd18b21eb155c884c0",
-    "semantic_hash": "aa9056ecb966a6bd18b21eb155c884c0"
+    "mtime": 1794490838.0068061,
+    "seen": 1794491134.5797315,
+    "ast_hash": "ef6ff676271ac05bd3b5473128f34ae1",
+    "semantic_hash": ""
   },
   "frontend/src/utils/versionCheck.js": {
     "mtime": 1794480789.3353872,
@@ -1828,10 +1828,10 @@
     "semantic_hash": ""
   },
   "frontend/src/utils/whatsapp.js": {
-    "mtime": 1793619178.4480116,
-    "seen": 1794060648.430252,
-    "ast_hash": "44ad50fa6fa6e3b88780618890d72457",
-    "semantic_hash": "44ad50fa6fa6e3b88780618890d72457"
+    "mtime": 1794490925.1069207,
+    "seen": 1794491134.5797884,
+    "ast_hash": "73317ced77d4f77d4a1339c94a2bdb55",
+    "semantic_hash": ""
   },
   "frontend/vercel.json": {
     "mtime": 1794480813.2363882,
@@ -2293,12 +2293,6 @@
     "mtime": 1794488537.934151,
     "seen": 1794489972.0757673,
     "ast_hash": "910821f64d52f6a9305b0c112baaea6f",
-    "semantic_hash": ""
-  },
-  "efe09f1_changes.txt": {
-    "mtime": 1794489088.9032695,
-    "seen": 1794489972.0760057,
-    "ast_hash": "9948a722a7bba31fd9dcc5e58746e800",
     "semantic_hash": ""
   },
   "backend/pnpm-lock.yaml": {

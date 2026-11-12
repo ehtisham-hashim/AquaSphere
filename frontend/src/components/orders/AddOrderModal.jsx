@@ -3,6 +3,7 @@ import { X, Package, Calendar, AlertTriangle, Search, ChevronDown, CheckCircle2,
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { formatPackMeta, formatTradingUnit } from '../../utils/unitFormat';
 
 export default function AddOrderModal({ onClose, onOrderAdded, customers = [], items = [] }) {
   const activeTenant = getCompanyFromCookie() || localStorage.getItem('tenant') || 'aquasphere';
@@ -87,17 +88,19 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
     })
     .map(dbItem => {
       const nameLower = (dbItem.name || '').toLowerCase();
-      const isPack = Number(dbItem.packSize) > 1;
-      const unitLabel = isPack ? 'Pack' : (dbItem.unit || 'Bottle');
+      const packSize = Math.max(1, Number(dbItem.packSize) || 1);
+      const isPack = packSize > 1;
+      const unitLabel = isPack ? 'Pack' : 'Bottle';
       return {
         id: dbItem.id,
         name: dbItem.name,
         is19L: nameLower.includes('19l'),
         isMix: nameLower.includes('mix'),
-        unit: isPack ? 'packs' : (dbItem.unit || 'units'),
+        unit: formatTradingUnit(dbItem, 2),
         unitLabel,
+        packMeta: formatPackMeta(dbItem),
         defaultPrice: Number(dbItem.retailPrice || 0),
-        packSize: Number(dbItem.packSize) || 1
+        packSize
       };
     });
 
@@ -403,8 +406,13 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
                     {/* Product Info */}
                     <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
                       <div className="min-w-0">
-                        <div className="font-bold text-slate-800 text-sm truncate">
-                          {item.name}
+                        <div className="font-bold text-slate-800 text-sm truncate flex items-center gap-1.5">
+                          <span className="truncate">{item.name}</span>
+                          {item.packMeta && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                              {item.packMeta}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 font-mono">
                           Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>

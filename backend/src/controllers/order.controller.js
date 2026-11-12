@@ -72,8 +72,26 @@ export const attachOrderBalances = (orders) => {
       prevBalance = Math.max(0, custBalance - orderUnpaid);
     }
 
+    const normalizedItems = (order.items || []).map(it => {
+      if (!it?.item) return it;
+      const itemObj = { ...it.item };
+      if (itemObj.type === 'FINISHED_GOOD' || !itemObj.type) {
+        const nameLower = (itemObj.name || '').toLowerCase();
+        if (nameLower.includes('bulk') || (itemObj.unit && itemObj.unit.toLowerCase() === 'litres')) {
+          itemObj.unit = 'Litres';
+        } else {
+          itemObj.unit = Number(itemObj.packSize) > 1 ? 'packs' : 'bottles';
+        }
+        itemObj.hasReturnableContainer = Boolean(
+          itemObj.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable)
+        );
+      }
+      return { ...it, item: itemObj };
+    });
+
     return {
       ...order,
+      items: normalizedItems,
       orderSubtotal: sub,
       orderTotal: total,
       previousUnpaidBalance: prevBalance

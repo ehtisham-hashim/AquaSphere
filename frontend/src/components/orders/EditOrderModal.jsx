@@ -3,6 +3,7 @@ import { X, Package, Calendar, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '../../utils/api';
 import { getCompanyFromCookie } from '../../utils/companyCookie';
+import { formatPackMeta, formatTradingUnit } from '../../utils/unitFormat';
 
 export default function EditOrderModal({ order, onClose, onOrderEdited, items = [] }) {
   const activeTenant = getCompanyFromCookie() || localStorage.getItem('tenant') || 'aquasphere';
@@ -45,6 +46,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
       }
     }
 
+    const packSize = Math.max(1, Number(dbItem.packSize) || 1);
     return {
       id: dbItem.id,
       dbItemId: dbItem.id,
@@ -52,7 +54,10 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
       category,
       categoryLabel,
       defaultPrice: Number(dbItem.retailPrice || 0),
-      unit: dbItem.unit || 'units'
+      packSize,
+      unit: formatTradingUnit(dbItem, 2),
+      unitLabel: packSize > 1 ? 'Pack' : 'Bottle',
+      packMeta: formatPackMeta(dbItem)
     };
   });
 
@@ -298,8 +303,13 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                             {/* Product Info */}
                             <div className="flex items-center gap-3 flex-1 min-w-0 select-none">
                               <div className="min-w-0">
-                                <div className="font-bold text-slate-800 text-sm truncate">
-                                  {item.name}
+                                <div className="font-bold text-slate-800 text-sm truncate flex items-center gap-1.5">
+                                  <span className="truncate">{item.name}</span>
+                                  {item.packMeta && (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                                      {item.packMeta}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs text-slate-500 font-mono">
                                   Standard: Rs. {Math.round(item.defaultPrice).toLocaleString()} <span className="text-slate-400 font-sans">/ {item.unit}</span>
@@ -348,8 +358,9 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
                                     value={currentPrice}
                                     onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
                                     className="w-16 text-xs font-bold text-slate-800 outline-none text-right font-mono"
-                                    title="Custom Selling Rate (PKR)"
+                                    title={`Custom rate per ${item.unitLabel}`}
                                   />
+                                  <span className="text-[10px] text-slate-400 font-sans">/{item.unitLabel}</span>
                                 </div>
                               )}
 
