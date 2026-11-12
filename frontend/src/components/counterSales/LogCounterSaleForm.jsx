@@ -21,13 +21,7 @@ import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { PAYMENT_METHODS } from '../../constants/counterSale';
 
-const getPackSize = (item) => {
-  if (item.packSize && Number(item.packSize) > 1) return Number(item.packSize);
-  const name = (item.name || '').toLowerCase();
-  if (name.includes('0.5l') || name.includes('0.5 pet') || name.includes('500ml')) return 12;
-  if (name.includes('1.5l') || name.includes('1.5 pet') || name.includes('1500ml')) return 6;
-  return Number(item.packSize) || 1;
-};
+const getPackSize = (item) => Math.max(1, Number(item?.packSize) || 1);
 
 function LiveClock() {
   const [time, setTime] = useState(() => new Date());
@@ -60,6 +54,9 @@ export default function LogCounterSaleForm({
 
   // Map of cartKey -> overridden price: e.g. "itemId_PACK" -> 360
   const [customPrices, setCustomPrices] = useState({});
+
+  // Per-item UI mode toggle for packed goods: 'PACK' | 'UNIT'
+  const [itemModes, setItemModes] = useState({});
 
   // Dedicated 19L Water Refill (Customer Bottle - 0 bottle stock deducted)
   const [refillQty, setRefillQty] = useState(0);
@@ -143,12 +140,21 @@ export default function LogCounterSaleForm({
     setCustomerId(newCustId);
   };
 
+  const getDefaultRateForMode = (item, isPack) => {
+    const packPrice = Number(item?.retailPrice || 0);
+    const packSize = getPackSize(item);
+    if (!isPack && packSize > 1) {
+      return Math.round((packPrice / packSize) * 100) / 100;
+    }
+    return packPrice;
+  };
+
   const getItemPrice = (item, isPack) => {
     const key = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
     if (customPrices[key] !== undefined && customPrices[key] !== '') {
       return customPrices[key];
     }
-    return Number(item.retailPrice || 0);
+    return getDefaultRateForMode(item, isPack);
   };
 
   const handlePriceChange = (cartKey, val) => {
@@ -188,7 +194,7 @@ export default function LogCounterSaleForm({
         totalBaseUnits: 0,
         availableStock: 999999,
         isRefill: true,
-        litres: refillQty * 24
+        litres: refillQty * 19
       });
     }
 
@@ -278,22 +284,24 @@ export default function LogCounterSaleForm({
         return;
       }
 
-      // Finished goods: strictly PACK (for packSize > 1) or UNIT (for packSize <= 1)
+      // Finished goods: PACK (deducts packSize base units) or UNIT (loose bottle, deducts 1 base unit)
       const item = finishedGoods.find(i => i.id === itemId);
       if (!item) return;
 
       const packSize = getPackSize(item);
-      const isPack = packSize > 1;
+      const isPack = type === 'PACK' && packSize > 1;
       const saleType = isPack ? 'PACK' : 'UNIT';
 
-      const defaultRate = Number(item.retailPrice || 0);
+      const defaultRate = getDefaultRateForMode(item, isPack);
       const customRate = customPrices[cartKey];
       const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : defaultRate;
       const unitPrice = isNaN(parsedRate) ? defaultRate : parsedRate;
 
       const baseUnitsPerUnit = isPack ? packSize : 1;
       const totalBaseUnits = numQty * baseUnitsPerUnit;
-      const displayName = isPack ? `${item.name} (${packSize}/pk)` : item.name;
+      const displayName = isPack
+        ? `${item.name} (${packSize}/pk)`
+        : (packSize > 1 ? `${item.name} (Loose Btl)` : item.name);
 
       list.push({
         cartKey,
@@ -308,7 +316,8 @@ export default function LogCounterSaleForm({
         baseUnitsPerUnit,
         totalBaseUnits,
         availableStock: Number(item.cachedQty || 0),
-        isRefill: false
+        isRefill: false,
+        litres: 0
       });
     });
 
@@ -376,22 +385,27 @@ export default function LogCounterSaleForm({
     });
   };
 
-  // Stock check by base units
+  // Stock check by combined base units (PACK qty * packSize + UNIT qty)
+  const getRequestedBaseUnits = (item) => {
+    if (!item) return 0;
+    const packSize = getPackSize(item);
+    const packQty = packSize > 1 ? Number(cartMap[`${item.id}_PACK`] || 0) : 0;
+    const unitQty = Number(cartMap[`${item.id}_UNIT`] || 0);
+    return (packQty * packSize) + unitQty;
+  };
+
   const getStockWarning = (item) => {
     if (!item) return null;
     const packSize = getPackSize(item);
-    const isPack = packSize > 1;
-    const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-    const qty = Number(cartMap[cartKey] || 0);
-    const requestedBaseUnits = qty * (isPack ? packSize : 1);
+    const requestedBaseUnits = getRequestedBaseUnits(item);
     const available = Number(item.cachedQty || 0);
 
     if (requestedBaseUnits > available) {
-      if (isPack) {
+      if (packSize > 1) {
         const availPacks = Math.floor(available / packSize);
-        return `Requested ${qty} Packs • System records ${availPacks} Packs in stock`;
+        return `Requested ${requestedBaseUnits} bottles • System records ${available} btl (${availPacks} packs) in stock`;
       }
-      return `Requested ${qty} • System records ${available} in stock`;
+      return `Requested ${requestedBaseUnits} • System records ${available} in stock`;
     }
     return null;
   };
@@ -399,11 +413,9 @@ export default function LogCounterSaleForm({
   const hasStockDeficit = useMemo(() => {
     const hasFgDeficit = finishedGoods.some(item => {
       const packSize = getPackSize(item);
-      const isPack = packSize > 1;
-      const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-      const qty = Number(cartMap[cartKey] || 0);
-      const requested = qty * (isPack ? packSize : 1);
-      return requested > Number(item.cachedQty || 0);
+      const packQty = packSize > 1 ? Number(cartMap[`${item.id}_PACK`] || 0) : 0;
+      const unitQty = Number(cartMap[`${item.id}_UNIT`] || 0);
+      return ((packQty * packSize) + unitQty) > Number(item.cachedQty || 0);
     });
     const hasRawDeficit = counterRawMaterials.some(item => {
       const requested = Number(cartMap[`${item.id}_RAW`] || 0);
@@ -450,6 +462,7 @@ export default function LogCounterSaleForm({
     // Instant reset
     setCartMap({});
     setCustomPrices({});
+    setItemModes({});
     setExtraItems({});
     setRefillQty(0);
     setCustomWaterLitres(0);
@@ -522,14 +535,18 @@ export default function LogCounterSaleForm({
               <div className="space-y-2">
                 {finishedGoods.map(item => {
                   const packSize = getPackSize(item);
-                  const isPack = packSize > 1;
+                  const canToggleMode = packSize > 1;
+                  const activeMode = canToggleMode ? (itemModes[item.id] || 'PACK') : 'UNIT';
+                  const isPack = activeMode === 'PACK';
                   const totalStock = Number(item.cachedQty || 0);
-                  const packsStock = isPack ? Math.floor(totalStock / packSize) : totalStock;
+                  const packsStock = packSize > 1 ? Math.floor(totalStock / packSize) : totalStock;
 
                   const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
+                  const otherKey = `${item.id}_${isPack ? 'UNIT' : 'PACK'}`;
+                  const otherQty = canToggleMode ? Number(cartMap[otherKey] || 0) : 0;
                   const currentQty = Number(cartMap[cartKey] || 0);
                   const currentPrice = getItemPrice(item, isPack);
-                  const isInCart = currentQty > 0;
+                  const isInCart = getRequestedBaseUnits(item) > 0;
                   const warning = getStockWarning(item);
 
                   return (
@@ -541,18 +558,49 @@ export default function LogCounterSaleForm({
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        {/* Title & Stock */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                        {/* Title, Mode Toggle & Stock */}
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                          <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
                             <Package size={14} className="text-brand shrink-0" />
                             <span className="truncate">{item.name}</span>
+                            {canToggleMode && (
+                              <div className="inline-flex rounded-md p-0.5 bg-slate-100 border border-slate-200 text-[9px] ml-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setItemModes(prev => ({ ...prev, [item.id]: 'PACK' }))}
+                                  className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                    isPack ? 'bg-white text-brand shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                                  }`}
+                                >
+                                  Pack (x{packSize})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setItemModes(prev => ({ ...prev, [item.id]: 'UNIT' }))}
+                                  className={`px-1.5 py-0.5 rounded font-bold transition cursor-pointer ${
+                                    !isPack ? 'bg-white text-brand shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                                  }`}
+                                >
+                                  Loose Btl
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            Stock: <strong className={packsStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
-                              {packsStock} {isPack ? 'Packs' : (item.unit || 'units')}
-                            </strong>
-                            {isPack && <span className="ml-1 text-slate-400">({packSize}/pk)</span>}
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              Stock:{' '}
+                              <strong className={totalStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
+                                {isPack
+                                  ? `${packsStock} Packs (${totalStock} btl)`
+                                  : `${totalStock} ${canToggleMode ? 'Loose Btl' : (item.unit || 'units')}`}
+                              </strong>
+                            </span>
+                            {otherQty > 0 && (
+                              <span className="px-1.5 py-0.2 bg-sky-100 text-sky-700 rounded text-[9px] font-bold">
+                                +{otherQty} {isPack ? 'Loose Btl' : 'Packs'} in cart
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -566,8 +614,11 @@ export default function LogCounterSaleForm({
                             className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
                             value={currentPrice}
                             onChange={(e) => handlePriceChange(cartKey, e.target.value)}
-                            title="Rate"
+                            title={isPack ? 'Rate per Pack' : 'Rate per Bottle/Unit'}
                           />
+                          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                            /{isPack ? 'pk' : (canToggleMode ? 'btl' : (item.unit || 'u'))}
+                          </span>
                         </div>
 
                         {/* Stepper & Quick Add */}

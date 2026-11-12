@@ -23,7 +23,7 @@ export default function ProductionKPICards({
           {isWadaana ? (
             Number(todaysProduction?.totalProduced || 0).toLocaleString()
           ) : (
-            Number(todaysProduction?.total19L || (todaysProduction?.packs15L + todaysProduction?.packs05L) || 0).toLocaleString()
+            Number((todaysProduction?.total19L || 0) + (todaysProduction?.packs15L || 0) + (todaysProduction?.packs05L || 0) + (todaysProduction?.customUnits || 0)).toLocaleString()
           )}
           <span className="text-xs font-semibold text-slate-500 ml-1">
             {isWadaana ? 'Bottles' : '19L / Packs'}

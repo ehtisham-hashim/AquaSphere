@@ -37,7 +37,7 @@ export default function ProductionDashboardView() {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/analytics/production-dashboard?tenant=${tenant}&days=${selectedDays}`, {
+      const res = await fetch(`${API}/analytics/production-dashboard?tenant=${tenant}&days=${selectedDays}&timeframe=${timeframe}`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
@@ -53,7 +53,7 @@ export default function ProductionDashboardView() {
     } finally {
       setLoading(false);
     }
-  }, [tenant, selectedDays]);
+  }, [tenant, selectedDays, timeframe]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -103,6 +103,7 @@ export default function ProductionDashboardView() {
         '19L Bottles': Number(d.total19L || 0),
         '1.5L Packs': Number(d.packs15L || 0),
         '0.5L Packs': Number(d.packs05L || 0),
+        'Other Units': Number(d.customUnits || 0),
         'Broken / Waste': Number(d.totalWaste || 0)
       };
     });

@@ -34,6 +34,7 @@ export default function ProductionChart({
             <option value="7">Past 7 Days</option>
             <option value="14">Past 14 Days</option>
             <option value="30">Past 30 Days</option>
+            <option value="365">Past 12 Months</option>
           </select>
         </div>
       </div>
@@ -72,6 +73,7 @@ export default function ProductionChart({
                 <Bar dataKey="19L Bottles" stackId="a" fill="#2563eb" maxBarSize={28} />
                 <Bar dataKey="1.5L Packs" stackId="a" fill="#8b5cf6" maxBarSize={28} />
                 <Bar dataKey="0.5L Packs" stackId="a" fill="#10b981" maxBarSize={28} />
+                <Bar dataKey="Other Units" stackId="a" fill="#06b6d4" maxBarSize={28} />
                 <Bar dataKey="Broken / Waste" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} />
               </>
             )}

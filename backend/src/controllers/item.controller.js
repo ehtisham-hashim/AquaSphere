@@ -28,11 +28,11 @@ export const getItems = asyncHandler(async (req, res) => {
   const itemsData = items.map(item => {
     if (item.type === 'FINISHED_GOOD' || !item.type) {
       const nameLower = (item.name || '').toLowerCase();
-      if (nameLower.includes('water') || nameLower.includes('bulk') || (item.unit && item.unit.toLowerCase() === 'litres')) {
+      if (nameLower.includes('bulk') || (item.unit && item.unit.toLowerCase() === 'litres')) {
         item.unit = 'Litres';
       } else {
         // Base Unit Storage Law: finished goods are stored in base bottles
-        item.unit = 'bottle';
+        item.unit = Number(item.packSize) > 1 ? 'packs' : 'bottles';
       }
       item.hasReturnableContainer = Boolean(item.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable));
       item.returnableRawMaterials = item.recipeFinishedGoods?.filter(r => r.rawMaterial?.isReturnable).map(r => r.rawMaterial) || [];
@@ -202,9 +202,10 @@ export const createItem = asyncHandler(async (req, res) => {
 /** Updates an item's configuration and stock */
 export const updateItem = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, unit, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter, isReturnable } = req.body;
+  const { name, unit, packSize, reorderLevel, initialStock = 0, quantityToAdd = 0, currentStock, factoryStock, warehouseStock, recipe, retailPrice, sellableOnCounter, isReturnable } = req.body;
   const prefix = getTenantPrefix(req);
 
+  const parsedPackSize = packSize !== undefined ? Math.max(1, parseInt(packSize, 10) || 1) : undefined;
   const hasLocationStock = factoryStock !== undefined || warehouseStock !== undefined;
   const hasDirectStock = currentStock !== undefined && currentStock !== null && currentStock !== '';
   const addQty = parseFloat(initialStock || quantityToAdd || 0);
@@ -222,6 +223,7 @@ export const updateItem = asyncHandler(async (req, res) => {
     const updateData = {
       ...(name && name.trim() ? { name: name.trim() } : {}),
       ...(unit ? { unit } : {}),
+      ...(parsedPackSize !== undefined ? { packSize: parsedPackSize } : {}),
       ...(reorderLevel !== undefined ? { reorderLevel: parseFloat(reorderLevel) || 0 } : {}),
       ...(retailPrice !== undefined ? { retailPrice: Math.max(0, parseFloat(retailPrice) || 0) } : {}),
       ...(sellableOnCounter !== undefined ? { sellableOnCounter: Boolean(sellableOnCounter) } : {}),

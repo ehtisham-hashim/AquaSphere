@@ -44,7 +44,8 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     finishedGoods,
     cashCollected,
     todaysDailyClose,
-    spotSalesCash,
+    spotSalesAgg,
+    spotSalesRows,
     customerReceivablesAgg
   ] = await Promise.all([
     // Orders count + list in timeframe
@@ -74,11 +75,11 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     prisma[`${prefix}Delivery`].count({
       where: { deliveredAt: { gte: startDate, lte: endOfDay } }
     }),
-    // Production batches in timeframe
+    // Production batches in timeframe (filtered by batchDate for consistency)
     prisma[`${prefix}ProductionBatch`].findMany({
-      where: { createdAt: { gte: startDate, lte: endOfDay } },
+      where: { batchDate: { gte: startDate, lte: endOfDay } },
       include: { outputItem: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { batchDate: 'desc' }
     }),
     // All raw materials (inventory view)
     prisma[`${prefix}Item`].findMany({
@@ -92,19 +93,27 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       select: { id: true, name: true, unit: true, cachedQty: true, reorderLevel: true },
       orderBy: { name: 'asc' }
     }),
-    // Cash collected in timeframe (from payments only — NO profit calculation)
+    // Cash collected in timeframe
     prisma[`${prefix}Payment`].aggregate({
       _sum: { amount: true },
       where: { createdAt: { gte: startDate, lte: endOfDay } }
     }),
-    // Today's daily close status
+    // Daily close status
     prisma[`${prefix}DailyClose`].findFirst({
       where: { date: { gte: startDate, lte: endOfDay } }
     }),
-    // Spot sales cash & water litres in timeframe
+    // Spot sales aggregates in timeframe
     prisma[`${prefix}SpotSale`].aggregate({
-      _sum: { cashCollected: true, amountPaid: true, totalLitres: true, litresSold: true },
+      _sum: { cashCollected: true, amountPaid: true, totalAmount: true },
+      _count: { id: true },
       where: { createdAt: { gte: startDate, lte: endOfDay } }
+    }),
+    // Spot sales items for strict CUSTOM_WATER + WATER_REFILL (19L) litres calculation
+    prisma[`${prefix}SpotSale`].findMany({
+      where: { createdAt: { gte: startDate, lte: endOfDay } },
+      select: {
+        items: { select: { saleType: true, quantity: true } }
+      }
     }),
     // Total customer receivables
     prisma[`${prefix}Customer`].aggregate({
@@ -118,20 +127,44 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     item => parseFloat(item.cachedQty) < parseFloat(item.reorderLevel)
   );
 
-  // Production summary
+  // Production summary across AquaSphere, Wadaana, and custom remarks.producedItems
   let totalGoodYield = 0;
   let totalWaste = 0;
   let packs05LToday = 0;
   let packs15LToday = 0;
-  
+
+  const parseProducedRemarks = (raw) => {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed?.producedItems) ? parsed.producedItems : null;
+    } catch {
+      return null;
+    }
+  };
+
   todaysProductionBatches.forEach(b => {
-    totalGoodYield += b.quantity || 0;
-    totalWaste += b.wasteQuantity || 0;
-    packs05LToday += b.packs05L || 0;
-    packs15LToday += b.packs15L || 0;
+    const producedList = parseProducedRemarks(b.remarks);
+    if (producedList && producedList.length > 0) {
+      totalGoodYield += producedList.reduce((s, it) => s + Number(it.quantity || 0), 0);
+    } else if (prefix === 'wadaana') {
+      totalGoodYield += Number(b.qtyPure05L || 0) + Number(b.qtyPure15L || 0) + Number(b.qtyMix05L || 0) + Number(b.qtyMix15L || 0) + Number(b.quantity || 0);
+    } else {
+      // AquaSphere: avoid double-counting if legacy batch has both quantity and packs05L/15L
+      const packsSum = Number(b.packs05L || 0) + Number(b.packs15L || 0);
+      totalGoodYield += packsSum > 0 ? (packsSum + (b.outputItemId ? 0 : Number(b.quantity || 0))) : Number(b.quantity || 0);
+    }
+
+    if (prefix === 'wadaana') {
+      totalWaste += Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0);
+    } else {
+      totalWaste += Number(b.wasteQuantity || 0) || (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0));
+    }
+    packs05LToday += Number(b.packs05L || 0);
+    packs15LToday += Number(b.packs15L || 0);
   });
 
-  // Format orders for table (NO financial amounts — just operational status)
+  // Format orders for table
   const ordersTable = todaysOrders.map(o => ({
     id: o.id,
     customerName: o.customer?.name || 'Walk-in / Unknown',
@@ -155,37 +188,69 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
   }));
 
   // Format production table
-  const productionTable = todaysProductionBatches.map(b => ({
-    id: b.id,
-    outputItem: b.outputItem?.name || (prefix === 'wadaana' ? 'PET Bottles' : (b.quantity ? '19L Refill Bottle' : 'PET Production Run')),
-    quantity: b.quantity || 0,
-    wasteQuantity: b.wasteQuantity || 0,
-    packs05L: b.packs05L || 0,
-    packs15L: b.packs15L || 0,
-    broken05L: b.brokenBottles05L || 0,
-    broken15L: b.brokenBottles15L || 0,
-    status: b.status,
-    notes: b.notes || '—',
-    createdAt: b.createdAt
-  }));
+  const productionTable = todaysProductionBatches.map(b => {
+    const producedList = parseProducedRemarks(b.remarks);
+    const derivedName = producedList?.length > 0
+      ? producedList.map(it => `${it.quantity}x ${it.name}`).join(', ')
+      : (b.outputItem?.name || (prefix === 'wadaana' ? 'PET Bottles' : (b.quantity ? '19L Refill Bottle' : 'PET Production Run')));
+    const derivedQty = producedList?.length > 0
+      ? producedList.reduce((s, it) => s + Number(it.quantity || 0), 0)
+      : (prefix === 'wadaana'
+        ? (Number(b.qtyPure05L || 0) + Number(b.qtyPure15L || 0) + Number(b.qtyMix05L || 0) + Number(b.qtyMix15L || 0) + Number(b.quantity || 0))
+        : (Number(b.quantity || 0)));
+    return {
+      id: b.id,
+      outputItem: derivedName,
+      quantity: derivedQty,
+      wasteQuantity: prefix === 'wadaana'
+        ? (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0))
+        : (Number(b.wasteQuantity || 0) || (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0))),
+      packs05L: b.packs05L || 0,
+      packs15L: b.packs15L || 0,
+      broken05L: b.brokenBottles05L || 0,
+      broken15L: b.brokenBottles15L || 0,
+      status: b.status,
+      notes: b.notes || '—',
+      createdAt: b.batchDate || b.createdAt
+    };
+  });
 
   const orderPayments = Number(cashCollected._sum.amount || 0);
-  const spotCash = Math.max(Number(spotSalesCash._sum.amountPaid || 0), Number(spotSalesCash._sum.cashCollected || 0));
+  const spotCash = Math.max(Number(spotSalesAgg._sum.amountPaid || 0), Number(spotSalesAgg._sum.cashCollected || 0));
+  const spotSalesCount = Number(spotSalesAgg._count.id || 0);
+  const spotSalesRevenue = Number(spotSalesAgg._sum.totalAmount || 0);
+  const ordersRevenue = todaysOrders.reduce((s, o) => {
+    if (o.deliveryStatus === 'CANCELLED') return s;
+    const sub = o.items.reduce((acc, it) => acc + (Number(it.price || 0) * Number(it.quantity || 0)), 0);
+    return s + (o.withGst ? sub + Math.round(sub * 0.18) : sub);
+  }, 0);
+
+  let dispensedLitres = 0;
+  if (prefix !== 'wadaana') {
+    for (const s of spotSalesRows) {
+      for (const it of s.items || []) {
+        if (it.saleType === 'CUSTOM_WATER') dispensedLitres += Number(it.quantity || 0);
+        else if (it.saleType === 'WATER_REFILL') dispensedLitres += Number(it.quantity || 0) * 19;
+      }
+    }
+  }
 
   res.status(200).json(new ApiResponse(200, {
     kpis: {
       todaysOrdersCount: todaysOrders.length,
       pendingOrdersCount: pendingOrdersCount,
       todaysDeliveriesCount,
+      spotSalesCount,
+      spotSalesRevenue,
+      todaysRevenue: ordersRevenue + spotSalesRevenue,
       totalProductionYield: totalGoodYield,
       packs05LProduced: packs05LToday,
       packs15LProduced: packs15LToday,
       productionWaste: totalWaste,
-      // Operational cash collected ONLY (no profit, no expenses)
       totalCashCollected: orderPayments + spotCash,
       cashFromOrders: orderPayments,
       cashFromSpotSales: spotCash,
-      todaysWaterDispensedLitres: prefix === 'wadaana' ? 0 : Number(spotSalesCash._sum.totalLitres || spotSalesCash._sum.litresSold || 0),
+      todaysWaterDispensedLitres: dispensedLitres,
       totalOutstandingReceivables: Number(customerReceivablesAgg._sum.currentBalance || 0),
       dailyCloseStatus: {
         isClosed: Boolean(todaysDailyClose?.adminConfirmed),

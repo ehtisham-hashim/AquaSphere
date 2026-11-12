@@ -57,14 +57,24 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       const tf = data[tfKey];
       return {
         sales: Number(tf.sales ?? 0),
+        netSalesExGst: Number(tf.netSalesExGst ?? tf.sales ?? 0),
         deliveredSales: Number(tf.deliveredSales ?? 0),
         unprocessedSales: Number(tf.unprocessedSales ?? 0),
         unprocessedOrdersCount: Number(tf.unprocessedOrdersCount ?? 0),
         cash: Number(tf.cash ?? 0),
         expenses: Number(tf.expenses ?? 0),
-        netCash: Number(tf.netCash ?? ((Number(tf.cash ?? 0)) - (Number(tf.expenses ?? 0)))),
+        transportExpenses: Number(tf.transportExpenses ?? 0),
+        generalExpenses: Number(tf.generalExpenses ?? 0),
         purchases: Number(tf.purchases ?? 0),
         purchasesCount: Number(tf.purchasesCount ?? 0),
+        vendorPayments: Number(tf.vendorPayments ?? 0),
+        estimatedCogs: Number(tf.estimatedCogs ?? 0),
+        grossProfit: Number(tf.grossProfit ?? 0),
+        grossMarginPct: Number(tf.grossMarginPct ?? 0),
+        operatingProfit: Number(tf.operatingProfit ?? 0),
+        netCashFlow: Number(tf.netCashFlow ?? ((Number(tf.cash ?? 0)) - (Number(tf.expenses ?? 0) + Number(tf.vendorPayments ?? 0)))),
+        expectedDrawerCash: Number(tf.expectedDrawerCash ?? 0),
+        ordersCount: Number(tf.ordersCount ?? tf.bottlesSold ?? 0),
         bottlesSold: Number(tf.bottlesSold ?? 0),
         credit: Number(tf.credit ?? 0),
         creditBilled: Number(tf.creditBilled ?? 0),
@@ -77,113 +87,30 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       };
     }
 
-    const history = data.dailySalesHistory || [];
-    if (history.length > 0) {
-      const now = new Date();
-      const getDStr = (offset) => {
-        const d = new Date(now);
-        d.setDate(now.getDate() - offset);
-        return d.toISOString().split('T')[0];
-      };
-
-      if (timeframe === 'YESTERDAY') {
-        const yStr = getDStr(1);
-        const yItem = history.find(h => h.date === yStr);
-        if (yItem) {
-          return {
-            sales: Number(yItem.sales || 0),
-            deliveredSales: Number(yItem.deliveredSales || yItem.sales || 0),
-            unprocessedSales: 0,
-            unprocessedOrdersCount: 0,
-            cash: Number(yItem.cashCollected || yItem.cash || 0),
-            expenses: Number(yItem.expenses || 0),
-            netCash: Number(yItem.netCash ?? ((Number(yItem.cashCollected || 0)) - (Number(yItem.expenses || 0)))),
-            purchases: Number(yItem.purchases || 0),
-            purchasesCount: 0,
-            bottlesSold: Number(yItem.ordersCount || 0),
-            credit: Number(yItem.creditBilled || yItem.credit || 0),
-            creditBilled: Number(yItem.creditBilled || 0),
-            waterLitres: Number(yItem.waterLitres || 0),
-            customWaterLitres: 0,
-            refillWaterLitres: 0,
-            cashByMethod: data.yesterday?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.yesterday?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.yesterday?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      } else if (timeframe === 'LAST_3_DAYS') {
-        const d0 = getDStr(0), d1 = getDStr(1), d2 = getDStr(2);
-        const matched = history.filter(h => [d0, d1, d2].includes(h.date));
-        if (matched.length > 0) {
-          const s = matched.reduce((acc, h) => acc + Number(h.sales || 0), 0);
-          const c = matched.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0);
-          const e = matched.reduce((acc, h) => acc + Number(h.expenses || 0), 0);
-          const cr = matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0);
-          const ord = matched.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0);
-          return {
-            sales: s,
-            deliveredSales: s,
-            unprocessedSales: 0,
-            unprocessedOrdersCount: 0,
-            cash: c,
-            expenses: e,
-            netCash: c - e,
-            purchases: matched.reduce((acc, h) => acc + Number(h.purchases || 0), 0),
-            purchasesCount: 0,
-            bottlesSold: ord,
-            credit: cr,
-            creditBilled: cr,
-            waterLitres: matched.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
-            customWaterLitres: 0,
-            refillWaterLitres: 0,
-            cashByMethod: data.last3Days?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.last3Days?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.last3Days?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
-        const last7 = history.slice(-7);
-        if (last7.length > 0) {
-          const s = last7.reduce((acc, h) => acc + Number(h.sales || 0), 0);
-          const c = last7.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0);
-          const e = last7.reduce((acc, h) => acc + Number(h.expenses || 0), 0);
-          const cr = last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0);
-          const ord = last7.reduce((acc, h) => acc + Number(h.ordersCount || 0), 0);
-          return {
-            sales: s,
-            deliveredSales: s,
-            unprocessedSales: 0,
-            unprocessedOrdersCount: 0,
-            cash: c,
-            expenses: e,
-            netCash: c - e,
-            purchases: last7.reduce((acc, h) => acc + Number(h.purchases || 0), 0),
-            purchasesCount: 0,
-            bottlesSold: ord,
-            credit: cr,
-            creditBilled: cr,
-            waterLitres: last7.reduce((acc, h) => acc + Number(h.waterLitres || 0), 0),
-            customWaterLitres: 0,
-            refillWaterLitres: 0,
-            cashByMethod: data.week?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.week?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.week?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      }
-    }
-
     const tf = tfKey === 'monthly' ? (data.monthly || data) : (data.daily || data);
+    const cashVal = Number(tf.cash ?? data.cash ?? 0);
+    const expVal = Number(tf.expenses ?? data.expenses ?? 0);
+    const vpVal = Number(tf.vendorPayments ?? data.vendorPayments ?? 0);
     return {
       sales: Number(tf.sales ?? data.sales ?? 0),
+      netSalesExGst: Number(tf.netSalesExGst ?? tf.sales ?? data.sales ?? 0),
       deliveredSales: Number(tf.deliveredSales ?? data.deliveredSales ?? 0),
       unprocessedSales: Number(tf.unprocessedSales ?? data.unprocessedSales ?? 0),
       unprocessedOrdersCount: Number(tf.unprocessedOrdersCount ?? data.unprocessedOrdersCount ?? 0),
-      cash: Number(tf.cash ?? data.cash ?? 0),
-      expenses: Number(tf.expenses ?? data.expenses ?? 0),
-      netCash: Number(tf.netCash ?? (Number(tf.cash ?? data.cash ?? 0) - Number(tf.expenses ?? data.expenses ?? 0))),
-      purchases: Number(tf.purchases ?? data.purchases ?? data.monthlyPurchases ?? data.todaysPurchases ?? 0),
-      purchasesCount: Number(tf.purchasesCount ?? data.purchasesCount ?? data.todaysPurchasesCount ?? 0),
+      cash: cashVal,
+      expenses: expVal,
+      transportExpenses: Number(tf.transportExpenses ?? 0),
+      generalExpenses: Number(tf.generalExpenses ?? 0),
+      purchases: Number(tf.purchases ?? data.purchases ?? 0),
+      purchasesCount: Number(tf.purchasesCount ?? data.purchasesCount ?? 0),
+      vendorPayments: vpVal,
+      estimatedCogs: Number(tf.estimatedCogs ?? 0),
+      grossProfit: Number(tf.grossProfit ?? 0),
+      grossMarginPct: Number(tf.grossMarginPct ?? 0),
+      operatingProfit: Number(tf.operatingProfit ?? 0),
+      netCashFlow: Number(tf.netCashFlow ?? (cashVal - expVal - vpVal)),
+      expectedDrawerCash: Number(tf.expectedDrawerCash ?? 0),
+      ordersCount: Number(tf.ordersCount ?? tf.bottlesSold ?? data.bottlesSold ?? 0),
       bottlesSold: Number(tf.bottlesSold ?? data.bottlesSold ?? 0),
       credit: Number(tf.credit ?? data.credit ?? 0),
       creditBilled: Number(tf.creditBilled ?? data.creditBilled ?? 0),
@@ -197,93 +124,75 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   }, [data, timeframe]);
 
   const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
-  const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
+  const operatingProfit = Number(activeData.operatingProfit ?? 0);
 
-  const [transportData, setTransportData] = useState({ expenses: [], vehicleCount: 0, monthlySpend: 0, totalSpend: 0 });
-  const [transportLoaded, setTransportLoaded] = useState(false);
+  const [vehicleCount, setVehicleCount] = useState(0);
+  const [fleetLoaded, setFleetLoaded] = useState(false);
 
-  const fetchTransport = useCallback(async () => {
+  const fetchFleet = useCallback(async () => {
     try {
-      const [expRes, vehRes] = await Promise.all([
-        fetch(`${API_URL}/expenses?limit=200`, {
-          headers: { 'x-tenant': tenant },
-          credentials: 'include'
-        }),
-        fetch(`${API_URL}/vehicles`, {
-          headers: { 'x-tenant': tenant },
-          credentials: 'include'
-        })
-      ]);
-      const expJson = await expRes.json();
+      const vehRes = await fetch(`${API_URL}/vehicles`, {
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
       const vehJson = await vehRes.json();
-      if (expJson.success && vehJson.success) {
-        const rawExps = expJson.data?.expenses || expJson.data || [];
-        const exps = Array.isArray(rawExps) ? rawExps : [];
+      if (vehJson.success) {
         const vehs = vehJson.data || [];
-
-        const TRANSPORT_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
-        const transportExps = exps.filter(e =>
-          TRANSPORT_CATEGORIES.includes(e.category) || Boolean(e.vehicleId)
-        );
-
-        const now = new Date();
-        const curMonth = now.getMonth();
-        const curYear = now.getFullYear();
-        const monthlySpend = transportExps
-          .filter((e) => {
-            const d = new Date(e.date || e.createdAt);
-            return d.getMonth() === curMonth && d.getFullYear() === curYear;
-          })
-          .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-        const totalSpend = transportExps.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-
-        setTransportData({
-          expenses: transportExps,
-          vehicleCount: vehs.length,
-          monthlySpend,
-          totalSpend
-        });
-        setTransportLoaded(true);
+        setVehicleCount(vehs.length);
+        setFleetLoaded(true);
       }
     } catch (err) {
-      console.error('Error fetching dashboard transport data', err);
+      console.error('Error fetching dashboard fleet count', err);
     }
   }, [tenant]);
 
   useEffect(() => {
-    fetchTransport();
-  }, [fetchTransport]);
+    fetchFleet();
+  }, [fetchFleet]);
 
-  useLiveEvent(['EXPENSE_LOGGED', 'VEHICLE_UPDATED'], fetchTransport);
+  useLiveEvent(['VEHICLE_UPDATED'], fetchFleet);
 
   const [chartTimeframe, setChartTimeframe] = useState('7');
+  const [chartMode, setChartMode] = useState('profit'); // 'profit' | 'cash'
 
   const trendData = useMemo(() => {
     if (!data) return [];
     if (chartTimeframe === '12m') {
       const trend = data.monthlyTrend || [];
-      return trend.map(m => ({
+      return trend.map(m => chartMode === 'profit' ? ({
         label: m.month,
-        'Sales Revenue': Number(m.sales || 0),
+        'Net Sales (Ex-GST)': Number(m.netSalesExGst ?? m.sales ?? 0),
+        'Estimated COGS': Number(m.estimatedCogs || 0),
+        'Operating Expenses': Number(m.expenses || 0),
+        'Operating Profit': Number(m.operatingProfit || 0)
+      }) : ({
+        label: m.month,
         'Cash Inflow': Number(m.cash || 0),
-        Expenses: Number(m.expenses || 0),
-        'Net Profit': Number(m.netCash || 0)
+        'Expenses + Vendor Paid': Number(m.expenses || 0) + Number(m.vendorPayments || 0),
+        'Material Purchases': Number(m.purchases || 0),
+        'Net Cash Flow': Number(m.netCashFlow ?? m.netCash ?? 0)
       }));
     } else {
       const history = data.dailySalesHistory || [];
       const daysNum = parseInt(chartTimeframe, 10) || 7;
       const sliced = history.slice(-daysNum);
-      return sliced.map(d => ({
+      return sliced.map(d => chartMode === 'profit' ? ({
         label: daysNum > 14 ? d.date?.substring(5) : d.day,
         Date: d.date,
-        'Sales Revenue': Number(d.sales || 0),
+        'Net Sales (Ex-GST)': Number(d.netSalesExGst ?? d.sales ?? 0),
+        'Estimated COGS': Number(d.estimatedCogs || 0),
+        'Operating Expenses': Number(d.expenses || 0),
+        'Operating Profit': Number(d.operatingProfit || 0)
+      }) : ({
+        label: daysNum > 14 ? d.date?.substring(5) : d.day,
+        Date: d.date,
         'Cash Inflow': Number(d.cashCollected || 0),
-        Expenses: Number(d.expenses || 0),
-        'Net Profit': Number(d.netCash || 0)
+        'Expenses + Vendor Paid': Number(d.expenses || 0) + Number(d.vendorPayments || 0),
+        'Material Purchases': Number(d.purchases || 0),
+        'Net Cash Flow': Number(d.netCashFlow ?? d.netCash ?? 0)
       }));
     }
-  }, [data, chartTimeframe]);
+  }, [data, chartTimeframe, chartMode]);
 
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY' || timeframe === 'TODAY') return "Today's";
@@ -316,10 +225,10 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             <span className="text-[11px] text-slate-400 font-medium">Executive Overview</span>
           </div>
           <h1 className="text-lg sm:text-xl font-bold mt-1 tracking-tight text-slate-900">
-            Operations & Financials
+            Operations &amp; Financials
           </h1>
           <p className="text-xs text-slate-500 mt-0.5 font-normal">
-            Sales, cash collections, operating expenses, and market balances.
+            Sales, COGS profitability, cash drawer, operating expenses, and market balances.
           </p>
         </div>
 
@@ -338,8 +247,8 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             value={`Rs. ${Number(activeData?.sales || 0).toLocaleString()}`} 
             subtitle={
               activeData?.unprocessedOrdersCount > 0
-                ? `${activeData.unprocessedOrdersCount} pending (Rs. ${Number(activeData.unprocessedSales || 0).toLocaleString()})`
-                : `${activeData?.bottlesSold || 0} orders ${getPeriodText()}`
+                ? `Ex-GST: Rs. ${Number(activeData.netSalesExGst || 0).toLocaleString()} • ${activeData.unprocessedOrdersCount} pending`
+                : `Ex-GST: Rs. ${Number(activeData.netSalesExGst || 0).toLocaleString()} • ${activeData?.ordersCount || 0} orders`
             } 
             variant="sky"
             onClick={activeData?.unprocessedOrdersCount > 0 ? () => setShowUnprocessedModal(true) : undefined}
@@ -348,22 +257,23 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             icon={CreditCard} 
             title={`${getPeriodLabel()} Cash Inflow`} 
             value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`} 
-            subtitle={`Cash collected (${getPeriodText()})`} 
+            subtitle={`Expected Drawer (Cash): Rs. ${Number(activeData?.expectedDrawerCash || 0).toLocaleString()}`} 
             variant="emerald"
           />
           <ModernKpiCard 
             icon={Receipt} 
-            title={`${getPeriodLabel()} Expenses`} 
+            title={`${getPeriodLabel()} Operating Expenses`} 
             value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`} 
-            subtitle={`Logged operating cost (${getPeriodText()})`} 
+            subtitle={`Transport: Rs. ${Math.round(activeData?.transportExpenses || 0).toLocaleString()} • Purchases: Rs. ${Math.round(activeData?.purchases || 0).toLocaleString()} (Paid: Rs. ${Math.round(activeData?.vendorPayments || 0).toLocaleString()})`} 
             variant="rose"
+            onClick={() => navigate('/expenses')}
           />
           <ModernKpiCard 
             icon={Wallet} 
-            title={`${getPeriodLabel()} Net Cash`} 
-            value={`Rs. ${netCash.toLocaleString()}`} 
-            subtitle={`${getPeriodLabel()} (Cash Inflow - Expenses)`} 
-            variant={netCash >= 0 ? "emerald" : "rose"}
+            title={`${getPeriodLabel()} Operating Profit`} 
+            value={`Rs. ${operatingProfit.toLocaleString()}`} 
+            subtitle={`COGS: Rs. ${Number(activeData?.estimatedCogs || 0).toLocaleString()} (${activeData?.grossMarginPct || 0}% GM) • Net Cash: Rs. ${Number(activeData?.netCashFlow || 0).toLocaleString()}`} 
+            variant={operatingProfit >= 0 ? "emerald" : "rose"}
           />
         </div>
 
@@ -395,14 +305,34 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
         />
       </section>
 
-      {/* 2. Interactive Recharts Analytics (Full-width clean card) */}
+      {/* 2. Interactive Recharts Analytics (2-Mode Profitability vs Cash Flow) */}
       <div className="card-surface p-4 sm:p-5 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <BarChart3 size={17} className="text-slate-600" />
             <h3 className="font-bold text-slate-800 text-xs sm:text-sm uppercase tracking-wider">
-              Sales, Cash Inflow & Profit Trajectory
+              {chartMode === 'profit' ? 'Profitability & COGS Trajectory' : 'Cash Flow & Treasury Trajectory'}
             </h3>
+            <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 text-[11px] ml-1">
+              <button
+                type="button"
+                onClick={() => setChartMode('profit')}
+                className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                  chartMode === 'profit' ? 'bg-white text-brand shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Profitability &amp; COGS
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartMode('cash')}
+                className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
+                  chartMode === 'cash' ? 'bg-white text-brand shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Cash Flow &amp; Treasury
+              </button>
+            </div>
           </div>
           <select
             value={chartTimeframe}
@@ -424,10 +354,21 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
               <YAxis tickFormatter={formatCompactCurrency} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip formatter={formatCurrency} />} />
               <Legend wrapperStyle={{ paddingTop: '8px', fontSize: '11px', fontWeight: 600 }} iconType="circle" />
-              <Bar dataKey="Sales Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              <Bar dataKey="Cash Inflow" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              <Bar dataKey="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              <Line type="monotone" dataKey="Net Profit" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }} activeDot={{ r: 5 }} />
+              {chartMode === 'profit' ? (
+                <>
+                  <Bar dataKey="Net Sales (Ex-GST)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="Estimated COGS" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="Operating Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Line type="monotone" dataKey="Operating Profit" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981' }} activeDot={{ r: 5 }} />
+                </>
+              ) : (
+                <>
+                  <Bar dataKey="Cash Inflow" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="Expenses + Vendor Paid" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="Material Purchases" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                  <Line type="monotone" dataKey="Net Cash Flow" stroke="#0284c7" strokeWidth={2.5} dot={{ r: 3, fill: '#0284c7' }} activeDot={{ r: 5 }} />
+                </>
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -445,7 +386,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingCart size={16} className="text-slate-500" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Procurement & Payables</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Procurement &amp; Payables</h3>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500 font-medium">Pending Payables:</span>
@@ -457,13 +398,13 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
             <PurchasingSummaryTab summary={summary} loading={summaryLoading} />
           </div>
 
-          {/* Transport & Fleet Status */}
-          {transportLoaded && (
+          {/* Transport & Fleet Status (Driven by synced analytics expenses + vehicles count) */}
+          {fleetLoaded && (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Fuel size={16} className="text-brand" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Transport & Fleet Status</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Transport &amp; Fleet Status</h3>
                 </div>
                 <Link
                   to="/transport?tab=fleet"
@@ -477,65 +418,29 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
                 <ModernKpiCard
                   icon={Car}
                   title="Active Fleet Size"
-                  value={`${transportData.vehicleCount} Vehicles`}
+                  value={`${vehicleCount} Vehicles`}
                   subtitle="Operational delivery units"
                   variant="brand"
                   onClick={() => navigate('/transport?tab=fleet')}
                 />
                 <ModernKpiCard
                   icon={Fuel}
-                  title="Total Transport Spend"
-                  value={`Rs. ${Math.round(transportData.totalSpend).toLocaleString()}`}
-                  subtitle={`Rs. ${Math.round(transportData.monthlySpend).toLocaleString()} this month • Click to view`}
+                  title={`${getPeriodLabel()} Transport Spend`}
+                  value={`Rs. ${Math.round(activeData.transportExpenses || 0).toLocaleString()}`}
+                  subtitle={`General expenses (${getPeriodText()}): Rs. ${Math.round(activeData.generalExpenses || 0).toLocaleString()}`}
                   variant="brand"
                   onClick={() => navigate('/transport?tab=expenses')}
                 />
               </div>
 
-              {/* Single Recent Transport Expense & View All Button */}
-              {transportData.expenses.length > 0 && (
-                <div className="space-y-2">
-                  <div className="table-container overflow-x-auto">
-                    <table className="w-full text-left text-xs whitespace-nowrap">
-                      <thead>
-                        <tr>
-                          <th className="table-th">Date</th>
-                          <th className="table-th">Vehicle</th>
-                          <th className="table-th">Category</th>
-                          <th className="table-th">Amount</th>
-                          <th className="table-th">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transportData.expenses.slice(0, 1).map((ex) => (
-                          <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="table-td text-slate-500">{new Date(ex.date || ex.createdAt).toLocaleDateString('en-GB')}</td>
-                            <td className="table-td font-semibold text-slate-800">
-                              {ex.vehicle?.name || 'General Fleet'} {ex.vehicle?.plateNumber && <span className="text-slate-400 font-mono font-normal">({ex.vehicle.plateNumber})</span>}
-                            </td>
-                            <td className="table-td">
-                              <span className="badge-neutral">{ex.category}</span>
-                            </td>
-                            <td className="table-td font-bold font-mono text-slate-900">
-                              Rs. {Math.round(Number(ex.amount)).toLocaleString()}
-                            </td>
-                            <td className="table-td text-slate-500 max-w-[160px] truncate">{ex.remarks || ex.description || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate('/transport?tab=expenses')}
-                    className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-brand font-bold text-xs rounded-xl border border-slate-200/80 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <span>View All</span>
-                    <span>&rarr;</span>
-                  </button>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => navigate('/transport?tab=expenses')}
+                className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 text-brand font-bold text-xs rounded-xl border border-slate-200/80 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <span>Open Transport Expense Log</span>
+                <span>&rarr;</span>
+              </button>
             </div>
           )}
         </div>

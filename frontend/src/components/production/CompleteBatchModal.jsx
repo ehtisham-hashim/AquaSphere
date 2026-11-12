@@ -42,10 +42,8 @@ export default function CompleteBatchModal({
             let pieceLabel;
             let maxBreakage;
 
-            const detectedPackSize = Number(dbItem?.packSize || item.packSize) > 1 
-              ? Number(dbItem?.packSize || item.packSize) 
-              : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
-            const isPackItem = !isWadaana && (detectedPackSize > 1 || item.unit?.toLowerCase() === 'pets' || item.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
+            const detectedPackSize = Math.max(1, Number(dbItem?.packSize || item.packSize || 1));
+            const isPackItem = !isWadaana && (detectedPackSize > 1 || item.unit?.toLowerCase() === 'pets' || item.unit?.toLowerCase() === 'packs');
 
             if (!isWadaana && (nameLower.includes('0.5') || nameLower.includes('500')) && !nameLower.includes('pure') && !nameLower.includes('mix')) {
               key = 'brokenBottles05L';
@@ -110,9 +108,7 @@ export default function CompleteBatchModal({
     if (batchToComplete.outputItem || batchToComplete.outputItemId) {
       const fg = batchToComplete.outputItem || items.find(i => i.id === batchToComplete.outputItemId);
       const nameLower = (fg?.name || '').toLowerCase();
-      const detectedPackSize = Number(fg?.packSize) > 1 
-        ? Number(fg.packSize) 
-        : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+      const detectedPackSize = Math.max(1, Number(fg?.packSize) || 1);
       const isPack = !isWadaana && (detectedPackSize > 1 || fg?.unit?.toLowerCase() === 'pets' || fg?.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
       const maxBreakage = isPack ? (batchToComplete.quantity || 0) * detectedPackSize : (batchToComplete.quantity || 0);
 
@@ -214,32 +210,34 @@ export default function CompleteBatchModal({
     }
     if (batchToComplete.packs15L > 0) {
       const fg15L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('1.5') || i.name.toLowerCase().includes('1500')));
+      const ps15 = Math.max(1, Number(fg15L?.packSize) || 6);
       list.push({
         itemId: fg15L?.id,
         key: 'brokenBottles15L',
         name: fg15L?.name || '1.5L PET Pack',
         unit: fg15L?.unit || 'packs',
         qty: batchToComplete.packs15L,
-        bottlesTotal: batchToComplete.packs15L * 6,
-        maxBreakage: batchToComplete.packs15L * 6,
+        bottlesTotal: batchToComplete.packs15L * ps15,
+        maxBreakage: batchToComplete.packs15L * ps15,
         pieceLabel: 'broken bottles',
         isPacks: true,
-        perPack: 6
+        perPack: ps15
       });
     }
     if (batchToComplete.packs05L > 0) {
       const fg05L = items.find(i => i.type === 'FINISHED_GOOD' && (i.name.toLowerCase().includes('0.5') || i.name.toLowerCase().includes('500')));
+      const ps05 = Math.max(1, Number(fg05L?.packSize) || 12);
       list.push({
         itemId: fg05L?.id,
         key: 'brokenBottles05L',
         name: fg05L?.name || '0.5L PET Pack',
         unit: fg05L?.unit || 'packs',
         qty: batchToComplete.packs05L,
-        bottlesTotal: batchToComplete.packs05L * 12,
-        maxBreakage: batchToComplete.packs05L * 12,
+        bottlesTotal: batchToComplete.packs05L * ps05,
+        maxBreakage: batchToComplete.packs05L * ps05,
         pieceLabel: 'broken bottles',
         isPacks: true,
-        perPack: 12
+        perPack: ps05
       });
     }
     return list;
@@ -336,7 +334,13 @@ export default function CompleteBatchModal({
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
             <span>Products in this Run ({producedProducts.length})</span>
-            <span>Recorded Output & Waste Verification</span>
+            <span>Net Good Output &amp; Extra Line Breakage</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-[11px] text-sky-900">
+            <strong>Mode A (Net Good Output):</strong> Quantities below represent{' '}
+            <strong>net good stock</strong> added to Factory inventory. Any breakage entered on the right deducts{' '}
+            <strong>extra raw materials</strong> consumed during line spoilage without reducing finished stock.
           </div>
 
           {producedProducts.length === 0 ? (
@@ -358,13 +362,13 @@ export default function CompleteBatchModal({
                           <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
                         </div>
                         <p className="text-xs text-slate-500">
-                          Produced:{' '}
-                          <strong className="text-slate-800 font-mono">
+                          Net Good Output:{' '}
+                          <strong className="text-emerald-700 font-mono">
                             {prod.qty.toLocaleString()} {prod.isPacks ? 'PETs' : prod.unit}
                           </strong>
                           {prod.bottlesTotal && (
                             <span className="text-slate-400 font-normal ml-1">
-                              ({prod.bottlesTotal.toLocaleString()} total bottles)
+                              ({prod.bottlesTotal.toLocaleString()} good bottles)
                             </span>
                           )}
                         </p>
@@ -373,7 +377,7 @@ export default function CompleteBatchModal({
                       {/* Breakage Input */}
                       <div className="text-right shrink-0">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-600 mb-1">
-                          Scrap / Broken ({prod.pieceLabel})
+                          Extra Line Breakage ({prod.pieceLabel})
                         </label>
                         <div className="flex items-center gap-1.5 justify-end">
                           <input
@@ -386,7 +390,7 @@ export default function CompleteBatchModal({
                           />
                         </div>
                         <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Max: {prod.maxBreakage.toLocaleString()}
+                          Extra RM scrap (max {prod.maxBreakage.toLocaleString()})
                         </span>
                       </div>
                     </div>

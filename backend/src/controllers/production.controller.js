@@ -182,10 +182,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
 
     const producedItems = itemsToProduce.map(prod => {
       const fg = itemMap.get(prod.outputItemId);
-      const nameLower = (fg?.name || '').toLowerCase();
-      const packSize = Number(fg?.packSize) > 1 
-        ? Number(fg.packSize) 
-        : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+      const packSize = Math.max(1, Number(fg?.packSize) || 1);
       const isPack = !isWadaana && packSize > 1;
 
       return {
@@ -222,7 +219,9 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
 
       batchData = {
         outputItemId: itemsToProduce.length === 1 ? itemsToProduce[0].outputItemId : null,
-        quantity: itemsToProduce.length === 1 ? itemsToProduce[0].quantity : (total19L > 0 ? total19L : null),
+        quantity: total19L > 0
+          ? total19L
+          : (customItems.length === 1 && total05L === 0 && total15L === 0 ? customItems[0].quantity : null),
         packs05L: total05L,
         packs15L: total15L
       };
@@ -708,6 +707,21 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
         }
       }
       await tx[`${prefix}InventoryTransaction`].deleteMany({ where: { refType: 'BATCH', refId: id } });
+
+      if (prefix === 'aquasphere') {
+        const shortId = id.substring(0, 8).toUpperCase();
+        await tx.aquasphereBottleTransaction.deleteMany({
+          where: {
+            type: { in: ['MOVED_TO_FACTORY', 'RETURNED_BROKEN'] },
+            reason: {
+              in: [
+                `Production Batch #${shortId}`,
+                `Broken in Production Batch #${shortId}`
+              ]
+            }
+          }
+        });
+      }
     }
 
     await tx[`${prefix}ProductionBatchConsumption`].deleteMany({ where: { batchId: id } });

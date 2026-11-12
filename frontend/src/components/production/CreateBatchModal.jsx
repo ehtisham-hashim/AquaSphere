@@ -30,10 +30,13 @@ export default function CreateBatchModal({
     finishedGoods.forEach(fg => {
       const qty = parseInt(quantities[fg.id] || 0, 10);
       if (qty > 0) {
-        if (fg.recipe && Array.isArray(fg.recipe) && fg.recipe.length > 0) {
-          fg.recipe.forEach(ingredient => {
-            const rawName = ingredient.rawMaterialName || ingredient.rmName || ingredient.item?.name || 'Raw Material';
-            const qtyPerUnit = Number(ingredient.quantity || ingredient.qty || 0);
+        const recipeList = (Array.isArray(fg.recipeFinishedGoods) && fg.recipeFinishedGoods.length > 0)
+          ? fg.recipeFinishedGoods
+          : (Array.isArray(fg.recipe) ? fg.recipe : []);
+        if (recipeList.length > 0) {
+          recipeList.forEach(ingredient => {
+            const rawName = ingredient.rawMaterial?.name || ingredient.rawMaterialName || ingredient.rmName || ingredient.item?.name || 'Raw Material';
+            const qtyPerUnit = Number(ingredient.quantityPerUnit ?? ingredient.quantity ?? ingredient.qty ?? 0);
             const info = parsePreformInfo(rawName);
             
             // Convert KG to grams (multiply by 1000)
@@ -303,10 +306,7 @@ export default function CreateBatchModal({
                 {finishedGoods.map(fg => {
                   const qty = parseInt(quantities[fg.id] || 0, 10);
                   const isProduced = qty > 0;
-                  const nameLower = (fg.name || '').toLowerCase();
-                  const packSize = Number(fg.packSize) > 1 
-                    ? Number(fg.packSize) 
-                    : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+                  const packSize = Math.max(1, Number(fg.packSize) || 1);
                   const isPackItem = !isWadaana && packSize > 1;
                   const unitLabel = isPackItem ? 'PETs' : (fg.unit || 'bottle');
                   const totalProducedBottles = isPackItem ? qty * packSize : qty;

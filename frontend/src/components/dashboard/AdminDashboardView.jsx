@@ -117,17 +117,21 @@ export default function AdminDashboardView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         <ModernKpiCard
           icon={Truck}
-          title={`${getPeriodLabel()} Orders`}
-          value={kpis.todaysOrdersCount || 0}
-          subtitle={`${kpis.pendingOrdersCount || 0} Pending Delivery`}
+          title={`${getPeriodLabel()} Orders & Spot`}
+          value={`${kpis.todaysOrdersCount || 0} / ${kpis.spotSalesCount || 0}`}
+          subtitle={`${kpis.pendingOrdersCount || 0} Pending • Spot Rs. ${(kpis.spotSalesRevenue || 0).toLocaleString()}`}
           variant="sky"
         />
 
         <ModernKpiCard
           icon={Factory}
           title={isWadaana ? `Yield (${getPeriodLabel()})` : `Output (${getPeriodLabel()})`}
-          value={isWadaana ? `${kpis.totalProductionYield || 0} units` : `${kpis.packs05LProduced || 0} / ${kpis.packs15LProduced || 0}`}
-          subtitle={`${kpis.productionWaste || 0} units waste`}
+          value={isWadaana ? `${(kpis.totalProductionYield || 0).toLocaleString()} units` : `${kpis.packs05LProduced || 0} / ${kpis.packs15LProduced || 0} PET`}
+          subtitle={
+            isWadaana
+              ? `${kpis.productionWaste || 0} units waste`
+              : `${(kpis.totalProductionYield || 0).toLocaleString()} total units • ${kpis.productionWaste || 0} waste`
+          }
           variant="brand"
         />
 
@@ -143,7 +147,7 @@ export default function AdminDashboardView() {
           icon={Banknote}
           title={`${getPeriodLabel()} Cash`}
           value={`Rs. ${(kpis.totalCashCollected || 0).toLocaleString()}`}
-          subtitle={`${getPeriodLabel()} Orders + Spot`}
+          subtitle={`Billed Revenue: Rs. ${(kpis.todaysRevenue || 0).toLocaleString()}`}
           variant="brand"
         />
 
@@ -185,7 +189,7 @@ export default function AdminDashboardView() {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Package className="w-5 h-5 text-slate-600" />
-              Raw Materials & Stock Levels
+              Raw Materials &amp; Stock Levels
             </h3>
             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
               {data?.rawMaterials?.length === 0 ? (
@@ -216,15 +220,15 @@ export default function AdminDashboardView() {
             </div>
           </div>
 
-          {/* Today's Production Batches */}
+          {/* Period Production Batches */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Factory className="w-5 h-5 text-slate-600" />
-              Today&apos;s Production Batches
+              {getPeriodLabel()} Production Batches
             </h3>
             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
               {data?.productionTable?.length === 0 ? (
-                <p className="text-xs text-slate-400 py-4">No production logged today.</p>
+                <p className="text-xs text-slate-400 py-4">No production logged in this period.</p>
               ) : (
                 data?.productionTable?.map(b => (
                   <div key={b.id} className="py-3 flex items-center justify-between text-xs md:text-sm">
@@ -248,7 +252,7 @@ export default function AdminDashboardView() {
       {activeTab === 'orders' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 text-sm">Today&apos;s Orders Status</h3>
+            <h3 className="font-bold text-slate-800 text-sm">{getPeriodLabel()} Orders Status</h3>
             <span className="text-xs text-slate-500 font-medium">Read-Only Operational View</span>
           </div>
           <div className="overflow-x-auto">
@@ -265,7 +269,7 @@ export default function AdminDashboardView() {
               <tbody className="divide-y divide-slate-100 font-medium">
                 {data?.ordersTable?.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="p-6 text-center text-slate-400">No orders recorded today.</td>
+                    <td colSpan="5" className="p-6 text-center text-slate-400">No orders recorded in this period.</td>
                   </tr>
                 ) : (
                   data?.ordersTable?.map(o => (

@@ -84,9 +84,7 @@ function getBatchProducts(b, isWadaana) {
         const colors = ['emerald', 'purple', 'blue', 'cyan', 'sky', 'amber', 'orange'];
         return parsed.producedItems.map((p, idx) => {
           const nameLower = (p.name || '').toLowerCase();
-          const packSize = Number(p.packSize) > 1 
-            ? Number(p.packSize) 
-            : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+          const packSize = Math.max(1, Number(p.packSize) || 1);
           const isPet = !isWadaana && (packSize > 1 || p.unit?.toLowerCase() === 'pets' || p.unit?.toLowerCase() === 'packs' || nameLower.includes('pet'));
 
           let qtyLabel;
@@ -150,9 +148,7 @@ function getTotalOutputText(b, isWadaana) {
 
           for (const p of parsed.producedItems) {
             const nameLower = (p.name || '').toLowerCase();
-            const packSize = Number(p.packSize) > 1 
-              ? Number(p.packSize) 
-              : (nameLower.includes('0.5') ? 12 : (nameLower.includes('1.5') ? 6 : 1));
+            const packSize = Math.max(1, Number(p.packSize) || 1);
             const isPet = packSize > 1 || p.unit?.toLowerCase() === 'pets' || p.unit?.toLowerCase() === 'packs' || nameLower.includes('pet');
 
             if (isPet) {
