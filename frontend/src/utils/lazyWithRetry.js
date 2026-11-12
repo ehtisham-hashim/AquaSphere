@@ -14,34 +14,77 @@ import { lazy } from 'react';
  * 2. If it's a chunk/module load error, smoothly reloads the page once so the
  *    browser fetches the latest assets without interrupting the user.
  */
+const RELOAD_COOLDOWN_MS = 15000;
+const RELOAD_STORAGE_KEY = 'app_auto_reload_ts';
+
+/**
+ * Checks whether an error was caused by a failed JS or CSS chunk preload.
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isAssetOrChunkError(err) {
+  if (!err) return false;
+  const msg = String(err?.message || err || '').toLowerCase();
+  return (
+    msg.includes('unable to preload css') ||
+    msg.includes('loading css chunk') ||
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('loading chunk') ||
+    msg.includes('error loading dynamically imported module') ||
+    msg.includes('importing a module script failed') ||
+    msg.includes('network error') ||
+    msg.includes('failed to fetch') ||
+    err?.name === 'ChunkLoadError'
+  );
+}
+
+function isCssPreloadError(err) {
+  const msg = String(err?.message || err || '').toLowerCase();
+  return msg.includes('unable to preload css') || msg.includes('loading css chunk');
+}
+
+/**
+ * Reloads the page at most once per 15-second cooldown window to break reload loops.
+ * @returns {boolean} true if a reload was initiated
+ */
+export function tryThrottledReload() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const lastReload = Number(sessionStorage.getItem(RELOAD_STORAGE_KEY) || 0);
+    if (Date.now() - lastReload > RELOAD_COOLDOWN_MS) {
+      sessionStorage.setItem(RELOAD_STORAGE_KEY, String(Date.now()));
+      window.location.reload();
+      return true;
+    }
+    return false;
+  } catch {
+    window.location.reload();
+    return true;
+  }
+}
+
 export function lazyWithRetry(importFn) {
   return lazy(async () => {
     try {
       return await importFn();
     } catch (firstError) {
-      // 1. Retry after 400ms in case the tab is waking up or network is reconnecting
+      // CRITICAL VITE GUARD:
+      // Vite's __vitePreload marks `seen[dep] = true` BEFORE injecting `<link rel="stylesheet">`.
+      // Calling `importFn()` a second time after a CSS preload failure skips loading the CSS
+      // and renders an unstyled component. Reload immediately (throttled) instead of retrying.
+      if (isCssPreloadError(firstError)) {
+        if (tryThrottledReload()) {
+          return { default: () => null };
+        }
+        throw firstError;
+      }
+
+      // 1. Retry transient JS module/network blips once after 400ms
       try {
         await new Promise((resolve) => setTimeout(resolve, 400));
         return await importFn();
       } catch (retryError) {
-        const errorLower = String(retryError?.message || firstError?.message || '').toLowerCase();
-        const isChunkOrNetworkError =
-          errorLower.includes('failed to fetch dynamically imported module') ||
-          errorLower.includes('loading chunk') ||
-          errorLower.includes('error loading dynamically imported module') ||
-          errorLower.includes('importing a module script failed') ||
-          errorLower.includes('network error') ||
-          errorLower.includes('failed to fetch') ||
-          retryError?.name === 'ChunkLoadError';
-
-        // 2. Check if we haven't already reloaded within the last 15 seconds to prevent reload loops
-        const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
-        const canReload = Date.now() - lastReload > 15000;
-
-        if (isChunkOrNetworkError && canReload) {
-          sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
-          window.location.reload();
-          // Return an empty component while the page reloads
+        if ((isAssetOrChunkError(retryError) || isAssetOrChunkError(firstError)) && tryThrottledReload()) {
           return { default: () => null };
         }
 

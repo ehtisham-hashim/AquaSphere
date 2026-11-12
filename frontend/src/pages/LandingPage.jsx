@@ -30,8 +30,6 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
-import './landing.css';
-import './certificates-reports.css';
 import { CERTIFICATE_SECTIONS, ALL_CERTIFICATES } from '../data/certificatesData';
 import CertificateLightboxModal from '../components/common/CertificateLightboxModal';
 
@@ -1054,7 +1052,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="lp-map-box">
+            <div className="lp-map-box relative overflow-hidden">
               <a 
                 href={settings.map_link} 
                 target="_blank" 

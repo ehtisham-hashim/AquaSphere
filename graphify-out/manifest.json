@@ -778,10 +778,10 @@
     "semantic_hash": "777bc0eb6d3064f2c92c072b55e3e0d5"
   },
   "frontend/src/components/common/RouteErrorBoundary.jsx": {
-    "mtime": 1791220664.5009606,
-    "seen": 1794060648.4181867,
-    "ast_hash": "f55dab3e498e18553d3613007b29c6ca",
-    "semantic_hash": "f55dab3e498e18553d3613007b29c6ca"
+    "mtime": 1794480784.2893875,
+    "seen": 1794480863.7994635,
+    "ast_hash": "c3afbca6bfe5697dc0bece7b7884817d",
+    "semantic_hash": ""
   },
   "frontend/src/components/common/SEOHead.jsx": {
     "mtime": 1793556030.4252782,
@@ -1636,16 +1636,16 @@
     "semantic_hash": "e26d329e480049f07d0af4b3f90a35a2"
   },
   "frontend/src/main.jsx": {
-    "mtime": 1791220548.5518305,
-    "seen": 1794060648.4282918,
-    "ast_hash": "fb59b09c7aac07d846e7bb968364ab8a",
-    "semantic_hash": "fb59b09c7aac07d846e7bb968364ab8a"
+    "mtime": 1794480721.0034018,
+    "seen": 1794480863.8094244,
+    "ast_hash": "a7b19de984c552fc5e7b45355066215a",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Certificates.jsx": {
-    "mtime": 1793621054.165847,
-    "seen": 1794060648.428343,
-    "ast_hash": "241007d2f893e6be990e12d9296c03f3",
-    "semantic_hash": "241007d2f893e6be990e12d9296c03f3"
+    "mtime": 1794480738.0843954,
+    "seen": 1794480863.8094273,
+    "ast_hash": "bca4756413a7336e1ce779486d843fc6",
+    "semantic_hash": ""
   },
   "frontend/src/pages/CounterSales.jsx": {
     "mtime": 1794064550.1569421,
@@ -1684,10 +1684,10 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/LandingPage.jsx": {
-    "mtime": 1793630250.1785672,
-    "seen": 1794060648.42876,
-    "ast_hash": "d438d87fa1504d9f86edd0d7743205fa",
-    "semantic_hash": "d438d87fa1504d9f86edd0d7743205fa"
+    "mtime": 1794480749.0523925,
+    "seen": 1794480863.809763,
+    "ast_hash": "ba408036461ed898284f72b3087fae28",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Login.jsx": {
     "mtime": 1794064608.8979828,
@@ -1792,10 +1792,10 @@
     "semantic_hash": "98b1ba41afb3451e30fd6b7dd5d65e59"
   },
   "frontend/src/utils/lazyWithRetry.js": {
-    "mtime": 1791220638.8931816,
-    "seen": 1794060648.4298007,
-    "ast_hash": "165ea4b89e201a9cbe9a6f7c4e135107",
-    "semantic_hash": "165ea4b89e201a9cbe9a6f7c4e135107"
+    "mtime": 1794480779.2423878,
+    "seen": 1794480863.8108118,
+    "ast_hash": "2a0f0785e652b49474bdfa1f54b6c7bd",
+    "semantic_hash": ""
   },
   "frontend/src/utils/pdfViewerHelper.js": {
     "mtime": 1793803733.04688,
@@ -1822,10 +1822,10 @@
     "semantic_hash": "aa9056ecb966a6bd18b21eb155c884c0"
   },
   "frontend/src/utils/versionCheck.js": {
-    "mtime": 1791220729.6437464,
-    "seen": 1794060648.4301622,
-    "ast_hash": "0f749bd53bee25a03fefcd8cfc3acb74",
-    "semantic_hash": "0f749bd53bee25a03fefcd8cfc3acb74"
+    "mtime": 1794480789.3353872,
+    "seen": 1794480863.8110328,
+    "ast_hash": "b297c45178086686602f31829a77af7c",
+    "semantic_hash": ""
   },
   "frontend/src/utils/whatsapp.js": {
     "mtime": 1793619178.4480116,
@@ -1834,10 +1834,10 @@
     "semantic_hash": "44ad50fa6fa6e3b88780618890d72457"
   },
   "frontend/vercel.json": {
-    "mtime": 1793556030.4282782,
-    "seen": 1794060648.4303071,
-    "ast_hash": "0c221b97831ecd23ee36a95f3233246f",
-    "semantic_hash": "0c221b97831ecd23ee36a95f3233246f"
+    "mtime": 1794480813.2363882,
+    "seen": 1794480863.81109,
+    "ast_hash": "bd70b57b1928296fb75267df8bc56121",
+    "semantic_hash": ""
   },
   "frontend/vite.config.js": {
     "mtime": 1793625265.4579437,
@@ -1852,10 +1852,10 @@
     "semantic_hash": "b922834aa0314c4131ba7cadaa653c87"
   },
   "vercel.json": {
-    "mtime": 1793556030.4282782,
-    "seen": 1794060648.4304464,
-    "ast_hash": "0c221b97831ecd23ee36a95f3233246f",
-    "semantic_hash": "0c221b97831ecd23ee36a95f3233246f"
+    "mtime": 1794480808.190388,
+    "seen": 1794480863.811184,
+    "ast_hash": "bd70b57b1928296fb75267df8bc56121",
+    "semantic_hash": ""
   },
   ".agents/ORIGINAL_REQUEST.md": {
     "mtime": 1790056385.2921517,
@@ -2275,6 +2275,12 @@
     "mtime": 1794063205.1675253,
     "seen": 1794065031.936046,
     "ast_hash": "62e535bcb38438833afb10eb0cadd399",
+    "semantic_hash": ""
+  },
+  "context/antigravity_mobile_css_chunk_failure_fix.md": {
+    "mtime": 1794480458.0238523,
+    "seen": 1794480863.813275,
+    "ast_hash": "acbef6490870358813b3baf53164d595",
     "semantic_hash": ""
   },
   "backend/pnpm-lock.yaml": {

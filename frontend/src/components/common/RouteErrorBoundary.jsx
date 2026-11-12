@@ -1,24 +1,11 @@
 import { Component } from 'react';
 import { RotateCw, AlertTriangle } from 'lucide-react';
-
-function isChunkLoadingError(error) {
-  if (!error) return false;
-  const msg = String(error?.message || error || '').toLowerCase();
-  return (
-    msg.includes('failed to fetch dynamically imported module') ||
-    msg.includes('loading chunk') ||
-    msg.includes('error loading dynamically imported module') ||
-    msg.includes('importing a module script failed') ||
-    msg.includes('network error') ||
-    msg.includes('failed to fetch') ||
-    error?.name === 'ChunkLoadError'
-  );
-}
+import { isAssetOrChunkError, tryThrottledReload } from '../../utils/lazyWithRetry';
 
 export class RouteErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, isReloading: false };
   }
 
   static getDerivedStateFromError(error) {
@@ -28,26 +15,14 @@ export class RouteErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     console.error('Route error caught by ErrorBoundary:', error, errorInfo);
 
-    if (isChunkLoadingError(error)) {
-      const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
-      if (Date.now() - lastReload > 15000) {
-        sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
-        window.location.reload();
-      } else {
-        // Fallback retry after brief pause
-        setTimeout(() => {
-          sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
-          window.location.reload();
-        }, 2000);
-      }
+    if (isAssetOrChunkError(error) && tryThrottledReload()) {
+      this.setState({ isReloading: true });
     }
   }
 
   render() {
     if (this.state.hasError) {
-      const chunkError = isChunkLoadingError(this.state.error);
-
-      if (chunkError) {
+      if (this.state.isReloading) {
         return (
           <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
             <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin mb-3"></div>

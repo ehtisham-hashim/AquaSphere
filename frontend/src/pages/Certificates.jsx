@@ -16,7 +16,6 @@ import {
   Award,
   Eye
 } from 'lucide-react';
-import './certificates-reports.css';
 
 const LOGO_URL = "https://res.cloudinary.com/dcbdne09h/image/upload/v1791915156/Aqua_Sphere_Water_Leaf_Logo_am7t4i.png";
 
