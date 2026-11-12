@@ -82,17 +82,17 @@ export default function PublicNavbar({ settings = {} }) {
   return (
     <>
       {/* 1. TOP INFORMATION BAR */}
-      <div className="bg-[#030a16] text-slate-300 text-xs sm:text-sm font-medium py-2 px-4 sm:px-8 border-b border-white/10">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
-          <div className="flex items-center gap-2">
+      <div className="bg-[#030a16] text-slate-300 text-xs xl:text-sm font-medium py-2 px-4 sm:px-8 border-b border-white/10">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row md:flex-wrap items-center justify-center sm:justify-between md:justify-center lg:justify-between gap-x-6 gap-y-1.5 text-center lg:text-left">
+          <div className="flex items-center gap-2 shrink-0">
             <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span>Land Line: <strong className="text-white">{merged.phone}</strong></span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span>{merged.opening_hours}</span>
           </div>
-          <div className="flex items-center gap-2 truncate max-w-md">
+          <div className="hidden md:flex items-center gap-2 min-w-0">
             <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span>{merged.location}</span>
           </div>

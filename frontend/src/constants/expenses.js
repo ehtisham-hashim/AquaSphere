@@ -18,7 +18,8 @@ export const EXPENSE_CATEGORIES = [
 
 export const TRANSPORT_EXPENSE_CATEGORIES = [
   'Fuel / Transport',
-  'Vehicle Repairs'
+  'Vehicle Repairs',
+  'Maintenance'
 ];
 
 export const EXPENSE_CATEGORY_COLORS = {

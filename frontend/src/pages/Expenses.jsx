@@ -9,36 +9,43 @@ import { DeleteConfirmationModal } from '../components/ui';
 import { toast } from 'sonner';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import { useLiveEvent } from '../context/SSEContext';
 
-const API = API_URL;
+const EXPENSES_ENDPOINT = `${API_URL}/expenses?limit=500`;
 
 export default function Expenses() {
   const { user } = useAuth();
   const { tenant } = useTenant();
 
-  const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [expenses, setExpenses] = useState(() => {
+    const cached = peekCachedData(EXPENSES_ENDPOINT, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const cached = peekCachedData(EXPENSES_ENDPOINT, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data));
+  });
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(!loading);
 
   const canDeleteExpense = user?.role === 'OWNER' || user?.role === 'ACCOUNTANT' || user?.role === 'TRANSPORT_MANAGER';
 
   const fetchExpenses = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasLoadedRef.current) setLoading(true);
     try {
-      const res = await fetch(`${API}/expenses`, {
+      const res = await fetch(EXPENSES_ENDPOINT, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
       const json = await res.json();
-      if (json.success) setExpenses(json.data || []);
+      if (json.success && Array.isArray(json.data)) setExpenses(json.data);
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
     } finally {
@@ -56,9 +63,12 @@ export default function Expenses() {
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(ex => {
-      const matchesCategory = selectedCategory === 'ALL' || ex.category === selectedCategory;
-      const matchesSearch = ex.category.toLowerCase().includes(search.toLowerCase()) ||
-        (ex.remarks && ex.remarks.toLowerCase().includes(search.toLowerCase()));
+      const categoryStr = String(ex?.category || ex?.type || 'MISC');
+      const matchesCategory = selectedCategory === 'ALL' || categoryStr === selectedCategory;
+      const q = search.toLowerCase();
+      const matchesSearch = categoryStr.toLowerCase().includes(q) ||
+        (ex?.remarks && String(ex.remarks).toLowerCase().includes(q)) ||
+        (ex?.vendorName && String(ex.vendorName).toLowerCase().includes(q));
 
       const exDate = new Date(ex.createdAt);
       const now = new Date();
@@ -77,14 +87,17 @@ export default function Expenses() {
   const handleExportCSV = () => {
     if (filteredExpenses.length === 0) return;
     const headers = ['Date', 'Category', 'Amount (Rs)', 'Description', 'Receipt URL', 'Created By'];
-    const rows = filteredExpenses.map(ex => [
-      new Date(ex.createdAt).toLocaleDateString(),
-      `"${ex.category.replace(/"/g, '""')}"`,
-      Math.round(Number(ex.amount)),
-      `"${(ex.remarks || '').replace(/"/g, '""')}"`,
-      `"${ex.receiptUrl || ''}"`,
-      `"${(ex.createdBy?.name || user?.name || 'System').replace(/"/g, '""')}"`
-    ]);
+    const rows = filteredExpenses.map(ex => {
+      const categoryStr = String(ex?.category || ex?.type || 'MISC');
+      return [
+        new Date(ex.createdAt).toLocaleDateString(),
+        `"${categoryStr.replace(/"/g, '""')}"`,
+        Math.round(Number(ex.amount)),
+        `"${(ex.remarks || '').replace(/"/g, '""')}"`,
+        `"${ex.receiptUrl || ''}"`,
+        `"${(ex.createdBy?.name || user?.name || 'System').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -100,7 +113,7 @@ export default function Expenses() {
     if (!expenseToDelete) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`${API}/expenses/${expenseToDelete.id}`, {
+      const res = await fetch(`${API_URL}/expenses/${expenseToDelete.id}`, {
         method: 'DELETE',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
@@ -122,7 +135,7 @@ export default function Expenses() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 max-w-full overflow-x-hidden">
       <ExpensesHeader 
         timeRange={timeRange}
         setTimeRange={setTimeRange}

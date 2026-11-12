@@ -4,7 +4,7 @@ import {
   X, Phone, MapPin, Calendar, 
   FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2, DollarSign
 } from 'lucide-react';
-import { Badge } from '../ui';
+import { Badge, DeleteConfirmationModal } from '../ui';
 import ImagePreviewModal from '../ui/ImagePreviewModal';
 import EditCustomerModal from './EditCustomerModal';
 import CustomerHistory from './CustomerHistory';
@@ -25,6 +25,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBottleModalOpen, setIsBottleModalOpen] = useState(false);
   const [isPayDebtOpen, setIsPayDebtOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -78,8 +79,11 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
   if (!c) return null;
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${c.name}? This action cannot be undone.`)) return;
+  const handleDelete = () => {
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
     try {
       setIsLoading(true);
       const res = await fetch(`${API}/customers/${c.id}`, {
@@ -90,6 +94,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
       const json = await res.json();
       if (json.success) {
         toast.success('Customer deleted successfully');
+        setIsConfirmDeleteOpen(false);
         if (onCustomerDeleted) onCustomerDeleted(c.id);
         onClose();
       } else {
@@ -592,6 +597,17 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           }}
         />
       )}
+
+      <DeleteConfirmationModal
+        isOpen={isConfirmDeleteOpen}
+        title={`Delete Customer: ${c?.name || ''}`}
+        message={`Are you sure you want to delete ${c?.name}? This action cannot be undone.`}
+        confirmText="Delete Customer"
+        variant="danger"
+        loading={isLoading}
+        onConfirm={handleConfirmDelete}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+      />
     </div>
   );
 }

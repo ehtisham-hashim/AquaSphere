@@ -14,8 +14,11 @@
  * 3. Intercepts dynamic import / preload errors to seamlessly reload without error popups.
  */
 
+import { tryThrottledReload } from './lazyWithRetry';
+
 // Global constant injected by Vite define in vite.config.js
 const CURRENT_VERSION = typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : null;
+const PUBLIC_ROUTES = ['/', '/certificates', '/reports', '/login'];
 
 let lastInteractionTs = Date.now();
 let isChecking = false;
@@ -56,18 +59,14 @@ export async function checkForUpdate(forceReloadIfOutdated = false) {
         const isTabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
         const isUserIdle = Date.now() - lastInteractionTs > 45000; // idle for > 45s
 
-        // Safe reload throttle guard
-        const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
-        const canReload = Date.now() - lastReload > 15000;
-
-        if (canReload && (forceReloadIfOutdated || isTabHidden || isUserIdle)) {
-          sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
-          window.location.reload();
-          return;
+        if (forceReloadIfOutdated || isTabHidden || isUserIdle) {
+          if (tryThrottledReload()) {
+            return;
+          }
         }
       }
     }
-  } catch (_e) {
+  } catch {
     // Silent ignore on transient network drops
   } finally {
     isChecking = false;
@@ -75,38 +74,60 @@ export async function checkForUpdate(forceReloadIfOutdated = false) {
 }
 
 /**
- * Initializes automatic background version checking.
+ * Initializes automatic background version checking and runtime asset recovery.
  */
 export function initVersionCheck() {
   if (typeof window === 'undefined') return;
 
-  // 1. Check immediately when tab becomes visible or wakes up
+  // 1. Check immediately on initial boot so cached HTML recovers right away
+  checkForUpdate(false);
+
+  // 2. When a sleeping mobile Chrome tab wakes up, reload immediately on public pages or if an update is pending
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      checkForUpdate(updatePending);
+      const isPublicRoute = PUBLIC_ROUTES.includes(window.location.pathname);
+      checkForUpdate(isPublicRoute || updatePending);
     }
   });
 
-  window.addEventListener('focus', () => {
-    checkForUpdate(updatePending);
+  // 3. Always force-check when restoring from mobile browser bfcache
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      checkForUpdate(true);
+    }
   });
 
   window.addEventListener('online', () => {
     checkForUpdate(true);
   });
 
-  // 2. Poll every 60 seconds
+  // 4. Poll every 60 seconds
   setInterval(() => {
     checkForUpdate(false);
   }, 60000);
 
-  // 3. Native Vite preload error listener (fires when a chunk 404s)
+  // 5. Native Vite preload error listener (fires when a JS or CSS chunk 404s)
   window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
-    const lastReload = Number(sessionStorage.getItem('app_auto_reload_ts') || 0);
-    if (Date.now() - lastReload > 15000) {
-      sessionStorage.setItem('app_auto_reload_ts', String(Date.now()));
-      window.location.reload();
-    }
+    tryThrottledReload();
   });
+
+  // 6. Global capture listener for same-origin /assets/*.css stylesheet load failures
+  window.addEventListener(
+    'error',
+    (event) => {
+      const target = event?.target;
+      if (
+        target &&
+        target.tagName === 'LINK' &&
+        target.rel === 'stylesheet' &&
+        typeof target.href === 'string' &&
+        target.href.startsWith(window.location.origin) &&
+        target.href.includes('/assets/')
+      ) {
+        tryThrottledReload();
+      }
+    },
+    true
+  );
 }

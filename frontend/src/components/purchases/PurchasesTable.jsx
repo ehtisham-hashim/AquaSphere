@@ -4,6 +4,7 @@ import TablePagination from '../common/TablePagination';
 
 export default function PurchasesTable({
   purchases = [],
+  loading = false,
   onView,
   onPrint,
   onEdit,
@@ -19,6 +20,15 @@ export default function PurchasesTable({
 }) {
   const canAddPurchase = ['OWNER', 'ACCOUNTANT', 'ADMIN'].includes(user?.role);
   const pagination = usePagination(purchases || [], 50);
+
+  if (loading && (!purchases || purchases.length === 0)) {
+    return (
+      <div className="card-surface p-12 text-center flex flex-col items-center min-h-75 justify-center">
+        <div className="w-8 h-8 border-3 border-brand/20 border-t-brand rounded-full animate-spin mb-3" />
+        <p className="text-slate-500 text-xs font-medium">Loading purchase records...</p>
+      </div>
+    );
+  }
 
   if (!purchases || purchases.length === 0) {
     return (

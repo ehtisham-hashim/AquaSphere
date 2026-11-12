@@ -24,7 +24,9 @@ export default function RawMaterials() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [materialToDelete, setMaterialToDelete] = useState(null);
+  const [materialToArchive, setMaterialToArchive] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const fetchMaterials = useCallback(async (isBackground = false) => {
@@ -75,17 +77,22 @@ export default function RawMaterials() {
     setIsModalOpen(true);
   };
 
-  const handleToggleArchive = async (item) => {
+  const handleToggleArchive = (item) => {
     if (!canArchiveMaterial) {
       toast.error('Only the Owner has permission to archive or restore raw materials');
       return;
     }
-    const isArchived = !!item.archivedAt;
-    const action = isArchived ? 'restore' : 'archive';
-    if (!confirm(`Are you sure you want to ${action} "${item.name}"?`)) return;
+    setMaterialToArchive(item);
+  };
 
+  const handleConfirmToggleArchive = async () => {
+    if (!materialToArchive) return;
+    const isArchived = !!materialToArchive.archivedAt;
+    const action = isArchived ? 'restore' : 'archive';
+
+    setIsArchiving(true);
     try {
-      const res = await fetch(`${API}/items/${item.id}/${action}`, {
+      const res = await fetch(`${API}/items/${materialToArchive.id}/${action}`, {
         method: 'PATCH',
         headers: { 'x-tenant': tenant },
         credentials: 'include'
@@ -93,12 +100,15 @@ export default function RawMaterials() {
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(`Material ${action}d successfully`);
+        setMaterialToArchive(null);
         fetchMaterials();
       } else {
         toast.error(data.message || `Only the Owner can ${action} materials`);
       }
     } catch (err) {
       toast.error(`Failed to ${action} material`);
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -179,6 +189,17 @@ export default function RawMaterials() {
         title="Delete Raw Material"
         message={`Are you sure you want to permanently delete "${materialToDelete?.name}"? All associated inventory transactions and recipe references will be safely removed.`}
         confirmText="Delete Material"
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!materialToArchive}
+        onClose={() => setMaterialToArchive(null)}
+        onConfirm={handleConfirmToggleArchive}
+        loading={isArchiving}
+        title={`${materialToArchive?.archivedAt ? 'Restore' : 'Archive'} Raw Material`}
+        message={`Are you sure you want to ${materialToArchive?.archivedAt ? 'restore' : 'archive'} "${materialToArchive?.name}"?`}
+        confirmText={materialToArchive?.archivedAt ? 'Restore Material' : 'Archive Material'}
+        variant={materialToArchive?.archivedAt ? 'primary' : 'danger'}
       />
     </div>
   );

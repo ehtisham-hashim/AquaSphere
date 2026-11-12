@@ -1,5 +1,5 @@
 import { useState, Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopNav from './TopNav';
 import { RouteErrorBoundary } from '../common/RouteErrorBoundary';
@@ -14,6 +14,7 @@ function PageLoader() {
 
 export default function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('sidebar_collapsed') === 'true' : false;
   });
@@ -29,21 +30,21 @@ export default function MainLayout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 font-sans antialiased">
+    <div className="flex h-dvh min-h-dvh w-full max-w-full overflow-hidden bg-slate-50 text-slate-900 font-sans antialiased">
       <Sidebar 
         isOpen={isMobileMenuOpen} 
         onClose={() => setIsMobileMenuOpen(false)}
         isCollapsed={isCollapsed}
       />
-      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col h-dvh min-h-dvh overflow-hidden min-w-0 max-w-full">
         <TopNav 
           onMobileMenuClick={() => setIsMobileMenuOpen(true)}
           onToggleCollapse={toggleCollapse}
           isCollapsed={isCollapsed}
         />
-        <main className="flex-1 overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6">
-          <div className="max-w-7xl mx-auto w-full">
-            <RouteErrorBoundary>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 md:p-6 scroll-smooth min-w-0 max-w-full">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
+            <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<PageLoader />}>
                 <Outlet />
               </Suspense>

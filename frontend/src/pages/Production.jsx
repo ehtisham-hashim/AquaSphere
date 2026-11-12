@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   AlertTriangle, 
   Plus, 
@@ -7,6 +7,7 @@ import {
 import { toast } from 'sonner';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { useAuth } from '../context/AuthContext';
 import DeleteConfirmationModal from '../components/ui/DeleteConfirmationModal';
 import { PageHeader } from '../components/ui';
@@ -23,9 +24,19 @@ export default function Production() {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
 
-  const [batches, setBatches] = useState([]);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [batches, setBatches] = useState(() => {
+    const cached = peekCachedData(`${API}/production`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [items, setItems] = useState(() => {
+    const cached = peekCachedData(`${API}/items`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const cached = peekCachedData(`${API}/production`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data));
+  });
+  const hasLoadedRef = useRef(!loading);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +49,7 @@ export default function Production() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async (isBackground = false) => {
-    if (!isBackground && batches.length === 0) {
+    if (!isBackground && !hasLoadedRef.current) {
       setLoading(true);
     }
     try {
@@ -50,7 +61,10 @@ export default function Production() {
       const [itemsData, batchesData] = await Promise.all([itemsRes.json(), batchesRes.json()]);
 
       if (itemsData.success) setItems(itemsData.data || []);
-      if (batchesData.success) setBatches(batchesData.data || []);
+      if (batchesData.success) {
+        setBatches(batchesData.data || []);
+        hasLoadedRef.current = true;
+      }
     } catch (err) {
       console.error('Error fetching PM production data:', err);
     } finally {

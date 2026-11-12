@@ -138,6 +138,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
     const rawPurchases = await prisma[`${prefix}Purchase`].findMany({
       where: purchaseWhere,
       orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+      take: limit ? Math.min(parseInt(limit, 10), 1000) : 500,
       include: {
         vendor: { select: { id: true, name: true } }
       }
@@ -214,10 +215,12 @@ export const getExpenses = asyncHandler(async (req, res) => {
         }
       }
 
+      const defaultTake = limit ? Math.min(parseInt(limit, 10), 1000) : 500;
       const [rawExpenses, rawPurchases] = await Promise.all([
         prisma[`${prefix}Expense`].findMany({
           where,
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: defaultTake,
           include: {
             createdBy: { select: { id: true, name: true, role: true } },
             vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
@@ -226,6 +229,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
         prisma[`${prefix}Purchase`].findMany({
           where: purchaseWhere,
           orderBy: [{ purchaseDate: 'desc' }, { id: 'desc' }],
+          take: defaultTake,
           include: {
             vendor: { select: { id: true, name: true } }
           }
@@ -255,6 +259,7 @@ export const getExpenses = asyncHandler(async (req, res) => {
       expenses = await prisma[`${prefix}Expense`].findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit ? Math.min(parseInt(limit, 10), 1000) : 500,
         include: {
           createdBy: { select: { id: true, name: true, role: true } },
           vehicle: { select: { id: true, name: true, plateNumber: true, model: true } }
@@ -364,10 +369,10 @@ export const createExpense = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
   }
 
-  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'];
+  const TM_ALLOWED_CATEGORIES = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
   if (req.user?.role === 'TRANSPORT_MANAGER') {
     if (!TM_ALLOWED_CATEGORIES.includes(category)) {
-      throw new ApiError(403, 'Transport managers are only permitted to log vehicle expenses (Fuel, Vehicle Repairs).');
+      throw new ApiError(403, 'Transport managers are only permitted to log vehicle expenses (Fuel, Vehicle Repairs, Maintenance).');
     }
     if (!vehicleId) {
       throw new ApiError(400, 'Please select a car/vehicle for transport expenses');

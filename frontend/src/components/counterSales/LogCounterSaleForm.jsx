@@ -29,10 +29,22 @@ const getPackSize = (item) => {
   return Number(item.packSize) || 1;
 };
 
+function LiveClock() {
+  const [time, setTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="text-slate-400 font-mono text-[11px]">
+      {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    </div>
+  );
+}
+
 export default function LogCounterSaleForm({
   liveSaleNumber,
   user,
-  liveDateTime,
   finishedGoods = [],
   counterRawMaterials = [],
   customers = [],
@@ -476,9 +488,7 @@ export default function LogCounterSaleForm({
           <span className="text-slate-300">•</span>
           <span className="text-slate-500">Cashier: <strong className="text-slate-800">{user?.name || 'Staff'}</strong></span>
         </div>
-        <div className="text-slate-400 font-mono text-[11px]">
-          {liveDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        </div>
+        <LiveClock />
       </div>
 
       {/* 2-Grid System on Desktop, Simple Grid on Mobile */}

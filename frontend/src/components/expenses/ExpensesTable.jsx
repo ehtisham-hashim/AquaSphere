@@ -20,7 +20,7 @@ export default function ExpensesTable({
   const pagination = usePagination(filteredExpenses, 50, search);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-w-0 max-w-full">
       {/* Category Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
         <button
@@ -61,9 +61,9 @@ export default function ExpensesTable({
       </div>
 
       {/* ERP Expense Table */}
-      <div className="table-container">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
+      <div className="table-container w-full max-w-full min-w-0">
+        <div className="overflow-x-auto w-full max-w-full">
+          <table className="w-full text-left text-sm whitespace-nowrap min-w-[640px]">
             <thead>
               <tr>
                 <th className="table-th">Date</th>
@@ -83,7 +83,9 @@ export default function ExpensesTable({
                     Loading expenses...
                   </td>
                 </tr>
-              ) : pagination.paginatedItems.map(ex => (
+              ) : pagination.paginatedItems.map(ex => {
+                const categoryLabel = String(ex.category || ex.type || 'MISC');
+                return (
                 <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="table-td text-slate-600 text-xs font-medium">
                     <div className="flex items-center gap-1.5">
@@ -93,8 +95,8 @@ export default function ExpensesTable({
                   </td>
 
                   <td className="table-td">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getExpenseCategoryColor(ex.category)}`}>
-                      {ex.category}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getExpenseCategoryColor(categoryLabel)}`}>
+                      {categoryLabel}
                     </span>
                   </td>
 
@@ -149,7 +151,8 @@ export default function ExpensesTable({
                     </td>
                   )}
                 </tr>
-              ))}
+              );
+            })}
 
               {!loading && filteredExpenses.length === 0 && (
                 <tr>

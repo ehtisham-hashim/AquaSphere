@@ -8,6 +8,7 @@ import {
   Download
 } from 'lucide-react';
 import { API_URL } from '../utils/api';
+import { peekCachedData } from '../utils/apiCache';
 import { PageHeader, DeleteConfirmationModal } from '../components/ui';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,13 +42,19 @@ export default function Transport() {
   };
 
   /* ------------------- Tab 1: Fleet State ------------------- */
-  const [vehicles, setVehicles] = useState([]);
-  const [loadingVehicles, setLoadingVehicles] = useState(true);
+  const [vehicles, setVehicles] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/vehicles`, { headers: { 'x-tenant': tenant } });
+    return (cached?.success && Array.isArray(cached.data)) ? cached.data : [];
+  });
+  const [loadingVehicles, setLoadingVehicles] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/vehicles`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && Array.isArray(cached.data));
+  });
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isCarModalOpen, setIsCarModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
-  const hasVehiclesLoadedRef = useRef(false);
+  const hasVehiclesLoadedRef = useRef(!loadingVehicles);
 
   const fetchVehicles = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasVehiclesLoadedRef.current) setLoadingVehicles(true);
@@ -104,16 +111,22 @@ export default function Transport() {
     }
   };
 
-  /* ------------------- Tab 2: Expenses State ------------------- */
-  const [expenses, setExpenses] = useState([]);
-  const [loadingExpenses, setLoadingExpenses] = useState(true);
+  const [expenses, setExpenses] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/expenses?limit=500`, { headers: { 'x-tenant': tenant } });
+    const raw = cached?.data?.expenses || cached?.data || [];
+    return Array.isArray(raw) ? raw : [];
+  });
+  const [loadingExpenses, setLoadingExpenses] = useState(() => {
+    const cached = peekCachedData(`${API_URL}/expenses?limit=500`, { headers: { 'x-tenant': tenant } });
+    return !(cached?.success && (Array.isArray(cached.data) || Array.isArray(cached.data?.expenses)));
+  });
   const [expenseSearch, setExpenseSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [timeRange, setTimeRange] = useState('MONTHLY');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
   const [isDeletingExpense, setIsDeletingExpense] = useState(false);
-  const hasExpensesLoadedRef = useRef(false);
+  const hasExpensesLoadedRef = useRef(!loadingExpenses);
 
   const handleConfirmDeleteExpense = async () => {
     if (!expenseToDelete) return;
@@ -143,7 +156,7 @@ export default function Transport() {
   const fetchExpenses = useCallback(async (isBackground = false) => {
     if (!isBackground && !hasExpensesLoadedRef.current) setLoadingExpenses(true);
     try {
-      const res = await fetch(`${API_URL}/expenses`, {
+      const res = await fetch(`${API_URL}/expenses?limit=500`, {
         headers: { 'x-tenant': tenant },
         credentials: 'include'
       });
@@ -170,24 +183,24 @@ export default function Transport() {
     fetchExpenses(true);
   });
 
-  // Filter transport-related expenses (strictly fuel and vehicle repairs)
+  // Filter transport-related expenses (strictly fuel, maintenance, and vehicle repairs)
   const transportExpenses = useMemo(() => {
+    const TRANSPORT_CATS = ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair', 'Maintenance'];
     return expenses.filter(ex => {
-      return (
-        ['Fuel / Transport', 'Fuel', 'Vehicle Repairs', 'Vehicle Repair'].includes(ex.category)
-      );
+      return TRANSPORT_CATS.includes(ex.category) || Boolean(ex.vehicleId);
     });
   }, [expenses]);
 
   const filteredTransportExpenses = useMemo(() => {
     return transportExpenses.filter(ex => {
-      const matchesCategory = selectedCategory === 'ALL' || ex.category === selectedCategory;
+      const categoryStr = String(ex?.category || ex?.type || 'MISC');
+      const matchesCategory = selectedCategory === 'ALL' || categoryStr === selectedCategory;
       const q = expenseSearch.toLowerCase();
       const matchesSearch =
-        ex.category.toLowerCase().includes(q) ||
-        (ex.remarks && ex.remarks.toLowerCase().includes(q)) ||
-        (ex.vehicle?.name && ex.vehicle.name.toLowerCase().includes(q)) ||
-        (ex.vehicle?.plateNumber && ex.vehicle.plateNumber.toLowerCase().includes(q));
+        categoryStr.toLowerCase().includes(q) ||
+        (ex?.remarks && String(ex.remarks).toLowerCase().includes(q)) ||
+        (ex?.vehicle?.name && String(ex.vehicle.name).toLowerCase().includes(q)) ||
+        (ex?.vehicle?.plateNumber && String(ex.vehicle.plateNumber).toLowerCase().includes(q));
 
       const exDate = new Date(ex.createdAt);
       const now = new Date();
@@ -215,7 +228,7 @@ export default function Transport() {
       new Date(ex.createdAt).toLocaleDateString(),
       `"${(ex.vehicle?.name || 'General').replace(/"/g, '""')}"`,
       `"${(ex.vehicle?.plateNumber || '').replace(/"/g, '""')}"`,
-      `"${ex.category.replace(/"/g, '""')}"`,
+      `"${String(ex?.category || ex?.type || 'MISC').replace(/"/g, '""')}"`,
       Math.round(Number(ex.amount)),
       `"${(ex.remarks || '').replace(/"/g, '""')}"`,
       `"${ex.receiptUrl || ''}"`,
@@ -235,7 +248,7 @@ export default function Transport() {
   const canManageCars = user?.role === 'TRANSPORT_MANAGER' || user?.role === 'OWNER';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 max-w-full overflow-x-hidden">
       {/* Top Header & Tab Navigation */}
       <PageHeader
         title="Fleet & Transport"
@@ -338,14 +351,14 @@ export default function Transport() {
         <div className="space-y-4">
           {/* Sub Header for Expenses */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600">Time Horizon:</span>
-              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+            <div className="flex items-center gap-2 min-w-0 max-w-full">
+              <span className="text-xs font-bold text-slate-600 shrink-0">Time Horizon:</span>
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 overflow-x-auto max-w-full scrollbar-none shrink-0">
                 {['YESTERDAY', 'LAST3DAYS', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'LIFETIME'].map((r) => (
                   <button
                     key={r}
                     onClick={() => setTimeRange(r)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all shrink-0 ${
                       timeRange === r
                         ? 'bg-brand text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'

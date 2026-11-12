@@ -34,6 +34,11 @@ export default function Dashboard() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
+    const role = user?.role;
+    if (!['OWNER', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(role)) {
+      setDashboardLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/analytics/dashboard?tenant=${tenant}`, {
         headers: { 'x-tenant': tenant },
@@ -48,11 +53,11 @@ export default function Dashboard() {
     } finally {
       setDashboardLoading(false);
     }
-  }, [tenant]);
+  }, [tenant, user?.role]);
 
   const fetchSummary = useCallback(async () => {
     const role = user?.role;
-    if (role !== 'OWNER' && role !== 'ADMIN' && role !== 'ACCOUNTANT') {
+    if (role !== 'OWNER') {
       setSummaryLoading(false);
       return;
     }
