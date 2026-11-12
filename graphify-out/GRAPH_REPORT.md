@@ -1,7 +1,7 @@
 # Graph Report - AquaSphere  (2026-11-12)
 
 ## Corpus Check
-- 311 files · ~300,676 words
+- 311 files · ~577,518 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 17 file(s) not represented in the graph (top: (none) 8, .css 4, .toml 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bd149d92`
+- Built from commit: `efe09f1e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -157,10 +157,10 @@
 ## Surprising Connections (you probably didn't know these)
 - `Production()` --calls--> `CompleteBatchModal()`  [EXTRACTED]
   frontend/src/pages/Production.jsx → frontend/src/components/production/CompleteBatchModal.jsx
-- `FinishedGoodsSummaryCards()` --calls--> `useAuth()`  [EXTRACTED]
-  frontend/src/components/inventory/FinishedGoodsSummaryCards.jsx → frontend/src/context/AuthContext.jsx
 - `seedAdminUsers()` --calls--> `closeDatabaseConnections()`  [EXTRACTED]
   backend/seed_users.js → backend/src/config/db.js
+- `FinishedGoodsSummaryCards()` --calls--> `useAuth()`  [EXTRACTED]
+  frontend/src/components/inventory/FinishedGoodsSummaryCards.jsx → frontend/src/context/AuthContext.jsx
 - `eslint@^10.6.0` --declares--> `eslint`  [EXTRACTED]
   frontend/package.json → backend/package.json
 - `@eslint/js@^10.0.1` --declares--> `@eslint/js`  [EXTRACTED]
@@ -432,16 +432,16 @@ Nodes (8): SEOHead(), DEFAULT_SETTINGS, getProductSpecs(), LandingPage(), optImg
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `lucide-react` connect `lucide-react` to `lucide-react`, `TablePagination`, `react`, `OwnerClose.jsx`, `Orders.jsx`, `react`, `Reports.jsx`, `LandingPage.jsx`, `frontend/package.json`, `receiptFormatter.js`, `dependencies`, `RouteErrorBoundary`, `AuthContext.jsx`, `WebsiteAdmin.jsx`, `DateRangePicker.jsx`, `CertificateLightboxModal.jsx`, `Sidebar.jsx`, `LandingPage.jsx`, `ExpensesHeader.jsx`?**
-  _High betweenness centrality (0.132) - this node is a cross-community bridge._
+  _High betweenness centrality (0.163) - this node is a cross-community bridge._
 - **What connects `dua_fixes.md (context/dua_fixes.md)`, `transport_manager_prompt.md (context/transport_manager_prompt.md)`, `README.md (frontend/README.md)` to the rest of the system?**
   _109 weakly-connected nodes found - possible missing edges._
 - **Should `lucide-react` be split into smaller, more focused modules?**
   _Cohesion score 0.08853410740203194 - nodes in this community are weakly interconnected._
 - **Why does `react` connect `react` to `lucide-react`, `TablePagination`, `lucide-react`, `react`, `OwnerClose.jsx`, `Orders.jsx`, `App.jsx`, `Reports.jsx`, `LandingPage.jsx`, `frontend/package.json`, `receiptFormatter.js`, `dependencies`, `RouteErrorBoundary`, `AuthContext.jsx`, `WebsiteAdmin.jsx`, `DateRangePicker.jsx`, `LogoLoop.jsx`, `CertificateLightboxModal.jsx`, `Sidebar.jsx`, `MainLayout.jsx`, `main.jsx`, `LandingPage.jsx`?**
-  _High betweenness centrality (0.125) - this node is a cross-community bridge._
+  _High betweenness centrality (0.138) - this node is a cross-community bridge._
 - **Should `TablePagination` be split into smaller, more focused modules?**
   _Cohesion score 0.06237424547283702 - nodes in this community are weakly interconnected._
 - **Why does `useTenant()` connect `react` to `lucide-react`, `TablePagination`, `AuthContext.jsx`, `lucide-react`, `OwnerClose.jsx`, `Orders.jsx`, `react`, `App.jsx`, `Reports.jsx`, `Sidebar.jsx`, `MainLayout.jsx`, `receiptFormatter.js`, `ExpensesHeader.jsx`?**
-  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+  _High betweenness centrality (0.064) - this node is a cross-community bridge._
 - **Should `schema.prisma (backend/prisma/schema.prisma)` be split into smaller, more focused modules?**
   _Cohesion score 0.03773584905660377 - nodes in this community are weakly interconnected._

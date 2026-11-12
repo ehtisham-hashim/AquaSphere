@@ -24,8 +24,8 @@ description: Core architectural standards and anti-corruption rules for AquaSphe
   - $\text{Loose Bottles} = \text{cachedQty} \pmod{\text{packSize}}$
 
 ## 3. Trading Scope Rules
-- **Walk-in Counter Sales**: Dual controls enabled. Cashier can sell full packs (at pack rate) and single loose bottles (at bottle rate), with inline rate editing.
-- **Customer Delivery Orders**: Strictly full packs / PETs only. Loose single bottles are strictly prohibited from delivery orders. Line items support inline contract rate overrides.
+- **Walk-in Counter Sales (AquaSphere only — Wadaana has no Counter Sales)**: Strictly full packs (`PACK`) for packed SKUs (`packSize > 1`) at pack rate (with inline rate override); loose single bottles from packs are not sold. Single-bottle SKUs (`packSize = 1`, e.g., `19L`) sell per unit (`UNIT`) at unit rate; customer `19L` bottle refills use the separate `WATER_REFILL` line item.
+- **Customer Delivery Orders**: AquaSphere sells full packs / PETs (`packSize > 1`) and `19L` units (`packSize = 1`); Wadaana manufactures and sells loose preform/PET bottles (`packSize = 1`) via Delivery Orders. Line items support inline contract rate overrides.
 
 ## 4. Single-Location Raw Materials
 - Raw materials (bottles, caps, labels, shrink film, minerals) exist exclusively at the factory plant (`cachedQty`). Do not split into warehouse quantities.

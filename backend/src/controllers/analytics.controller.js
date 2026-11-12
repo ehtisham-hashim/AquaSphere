@@ -444,7 +444,7 @@ const computeDashboardAnalytics = async (prefix) => {
         spotCogs += 0;
       } else if (sType === 'RAW_MATERIAL') {
         spotCogs += qty * (rmUnitCostMap.get(it.itemId) || 0);
-      } else if (sType === 'BOTTLE') {
+      } else if (sType === 'BOTTLE' || (sType === 'UNIT' && Number(it.item?.packSize || 1) > 1)) {
         const pSize = Math.max(1, Number(it.item?.packSize || 1));
         const unitCogs = fgConsumableUnitCogsMap.get(it.itemId) || 0;
         spotCogs += qty * (unitCogs / pSize);
