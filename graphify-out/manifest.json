@@ -772,10 +772,10 @@
     "semantic_hash": "4953bb2179fbdc6a31d6f9e0ed4147c3"
   },
   "frontend/src/components/common/PublicNavbar.jsx": {
-    "mtime": 1793620643.668894,
-    "seen": 1794060648.4181244,
-    "ast_hash": "777bc0eb6d3064f2c92c072b55e3e0d5",
-    "semantic_hash": "777bc0eb6d3064f2c92c072b55e3e0d5"
+    "mtime": 1794481835.9565306,
+    "seen": 1794481871.3786042,
+    "ast_hash": "4b3970479559b41660b8e99abb292282",
+    "semantic_hash": ""
   },
   "frontend/src/components/common/RouteErrorBoundary.jsx": {
     "mtime": 1794480784.2893875,
@@ -2281,6 +2281,12 @@
     "mtime": 1794480458.0238523,
     "seen": 1794480863.813275,
     "ast_hash": "acbef6490870358813b3baf53164d595",
+    "semantic_hash": ""
+  },
+  "context/antigravity_recipe_countersale_dashboards_master_plan.md": {
+    "mtime": 1794480961.299446,
+    "seen": 1794481871.3920271,
+    "ast_hash": "e1e78c439c46e8bce10585147618213e",
     "semantic_hash": ""
   },
   "backend/pnpm-lock.yaml": {
