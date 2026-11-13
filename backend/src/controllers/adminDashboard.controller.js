@@ -156,7 +156,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
     }
 
     if (prefix === 'wadaana') {
-      totalWaste += Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0);
+      totalWaste += Number(b.wasteQuantity || 0) || (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0));
     } else {
       totalWaste += Number(b.wasteQuantity || 0) || (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0));
     }
@@ -203,7 +203,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
       outputItem: derivedName,
       quantity: derivedQty,
       wasteQuantity: prefix === 'wadaana'
-        ? (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0))
+        ? (Number(b.wasteQuantity || 0) || (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0)))
         : (Number(b.wasteQuantity || 0) || (Number(b.brokenBottles05L || 0) + Number(b.brokenBottles15L || 0))),
       packs05L: b.packs05L || 0,
       packs15L: b.packs15L || 0,
@@ -351,7 +351,19 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     }),
     prisma[`${prefix}SpotSale`].findMany({
       where: { createdAt: { gte: startOfDay, lte: endOfDay } },
-      select: { amountPaid: true, cashCollected: true, paymentMethod: true }
+      select: {
+        amountPaid: true,
+        cashCollected: true,
+        paymentMethod: true,
+        items: {
+          select: {
+            saleType: true,
+            quantity: true,
+            unitPrice: true,
+            item: { select: { name: true } }
+          }
+        }
+      }
     })
   ]);
 
@@ -369,6 +381,9 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     }
   });
 
+  const salesBySize = { '19L': 0, '1.5L': 0, '0.5L': 0 };
+  const cashBySize = { '19L': 0, '1.5L': 0, '0.5L': 0 };
+
   spotSalesList.forEach(s => {
     const method = (s.paymentMethod || 'CASH').toUpperCase();
     const amt = Number(s.amountPaid || s.cashCollected || 0);
@@ -377,10 +392,28 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
     } else {
       byMethod.CASH += amt;
     }
-  });
 
-  const salesBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
-  const cashBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+    const items = (s.items || []).map(it => {
+      const n = (it.item?.name || '').toLowerCase();
+      let sz = null;
+      if (it.saleType === 'WATER_REFILL' || n.includes('19l') || n.includes('19 l')) sz = '19L';
+      else if (n.includes('1.5') || n.includes('1500')) sz = '1.5L';
+      else if (n.includes('0.5') || n.includes('500')) sz = '0.5L';
+      const lineRev = (Number(it.unitPrice || 0) * (it.quantity || 0)) || 0;
+      return { sz, rev: lineRev };
+    }).filter(x => x.sz);
+
+    if (items.length > 0) {
+      const totalItemRev = items.reduce((sum, x) => sum + x.rev, 0) || 1;
+      items.forEach(({ sz, rev }) => {
+        salesBySize[sz] = (salesBySize[sz] || 0) + rev;
+        cashBySize[sz] = (cashBySize[sz] || 0) + Math.round(amt * (rev / totalItemRev));
+      });
+    } else {
+      salesBySize['19L'] = (salesBySize['19L'] || 0) + amt;
+      cashBySize['19L'] = (cashBySize['19L'] || 0) + amt;
+    }
+  });
 
   ordersList.forEach(o => {
     const orderPaid = o.payments?.reduce((s, p) => s + Number(p.amount || 0), 0) || 0;

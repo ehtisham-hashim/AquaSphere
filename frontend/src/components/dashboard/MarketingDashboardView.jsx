@@ -87,7 +87,7 @@ export default function MarketingDashboardView({ data }) {
   const deliveredCount = Number(activeData.deliveredOrdersCount || 0);
   const partialCount = Number(activeData.partialOrdersCount || 0);
   const pendingCount = Number(activeData.pendingOrdersCount || 0) + partialCount;
-  const liveQueueCount = Number(data?.unprocessedOrders?.length || pendingCount || 0);
+  const liveQueueCount = Number(data?.pendingDispatchCount ?? pendingCount);
   const fulfillmentRate = totalOrders > 0 ? Math.round((deliveredCount / totalOrders) * 100) : 0;
 
   const skuChartData = useMemo(() => {

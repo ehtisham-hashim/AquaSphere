@@ -66,6 +66,7 @@ export default function ProductionChart({
                 <Bar dataKey="Pure 1.5L" stackId="a" fill="#38bdf8" maxBarSize={28} />
                 <Bar dataKey="Mix 0.5L" stackId="a" fill="#8b5cf6" maxBarSize={28} />
                 <Bar dataKey="Mix 1.5L" stackId="a" fill="#a855f7" maxBarSize={28} />
+                <Bar dataKey="Other Units" stackId="a" fill="#06b6d4" maxBarSize={28} />
                 <Bar dataKey="Broken / Waste" stackId="a" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} />
               </>
             ) : (

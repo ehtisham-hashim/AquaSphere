@@ -138,7 +138,7 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
       const vehJson = await vehRes.json();
       if (vehJson.success) {
         const vehs = vehJson.data || [];
-        setVehicleCount(vehs.length);
+        setVehicleCount(vehs.filter(v => v.isActive !== false).length);
         setFleetLoaded(true);
       }
     } catch (err) {

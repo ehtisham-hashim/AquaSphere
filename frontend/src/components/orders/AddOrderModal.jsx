@@ -90,7 +90,8 @@ export default function AddOrderModal({ onClose, onOrderAdded, customers = [], i
       const nameLower = (dbItem.name || '').toLowerCase();
       const packSize = Math.max(1, Number(dbItem.packSize) || 1);
       const isPack = packSize > 1;
-      const unitLabel = isPack ? 'Pack' : 'Bottle';
+      const rawUnit = String(dbItem.unit || '').toLowerCase();
+      const unitLabel = isPack ? 'Pack' : (rawUnit.includes('litre') || rawUnit.includes('liter') || nameLower.includes('bulk') ? 'Litres' : 'Bottle');
       return {
         id: dbItem.id,
         name: dbItem.name,

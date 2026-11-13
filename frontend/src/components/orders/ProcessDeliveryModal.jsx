@@ -43,7 +43,8 @@ export default function ProcessDeliveryModal({ order, onClose, onDeliveryProcess
     if (!i?.item) return false;
     if (i.item.hasReturnableContainer) return true;
     if (i.item.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable)) return true;
-    return Boolean(i.item.name?.toLowerCase().includes('19l'));
+    const n = (i.item.name || '').toLowerCase();
+    return n.includes('19l') || n.includes('19 l');
   };
 
   const calculateDefaultQtyDelivered = () => {

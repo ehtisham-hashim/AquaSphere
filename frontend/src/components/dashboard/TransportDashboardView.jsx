@@ -28,6 +28,7 @@ export default function TransportDashboardView() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => Date.now());
 
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -43,7 +44,7 @@ export default function TransportDashboardView() {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
-        fetch(`${API_URL}/orders?limit=200`, {
+        fetch(`${API_URL}/orders?limit=all`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null)
@@ -74,6 +75,7 @@ export default function TransportDashboardView() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLastRefreshedAt(Date.now());
     }
   }, [tenant]);
 
@@ -111,7 +113,7 @@ export default function TransportDashboardView() {
       startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0, 0);
     }
     return { startDate, endOfDay };
-  }, [timeframe]);
+  }, [timeframe, lastRefreshedAt]);
 
   const timeframeVehicleExpenses = useMemo(() => {
     return expenses
@@ -139,7 +141,8 @@ export default function TransportDashboardView() {
   const timeframeDeliveredCount = useMemo(() => {
     return orders.filter(o => {
       if (o.deliveryStatus !== 'DELIVERED') return false;
-      const d = new Date(o.updatedAt || o.createdAt);
+      const latestDel = (o.deliveries && o.deliveries.length > 0) ? o.deliveries[o.deliveries.length - 1] : null;
+      const d = new Date(latestDel?.deliveredAt || o.updatedAt || o.createdAt);
       return d >= timeframeRange.startDate && d <= timeframeRange.endOfDay;
     }).length;
   }, [orders, timeframeRange]);

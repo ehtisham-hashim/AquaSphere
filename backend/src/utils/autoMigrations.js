@@ -331,9 +331,9 @@ export async function ensureShrinkWrapMaterials() {
     for (const fg of finishedGoods) {
       const fgNameLower = fg.name.toLowerCase();
 
-      // 0.5L PET Pack
-      if (fgNameLower.includes('0.5') || fgNameLower.includes('500')) {
-        if (Number(fg.packSize || 1) <= 1) {
+      // 0.5L PET Pack (only update packSize and pack recipes if item is a pack product)
+      if ((fgNameLower.includes('0.5') || fgNameLower.includes('500')) && !fgNameLower.includes('single') && !fgNameLower.includes('loose')) {
+        if ((fgNameLower.includes('pack') || fgNameLower.includes('pet')) && Number(fg.packSize || 1) <= 1) {
           await prisma.aquasphereItem.update({ where: { id: fg.id }, data: { packSize: 12 } });
         }
         // Clean up wrong shrink wrap references
@@ -358,8 +358,8 @@ export async function ensureShrinkWrapMaterials() {
         if (rmSodium) await ensureRecipeIfMissing(fg.id, rmSodium.id, 0.00029724);
       } 
       // 1.5L PET Pack
-      else if (fgNameLower.includes('1.5') || fgNameLower.includes('1500')) {
-        if (Number(fg.packSize || 1) <= 1) {
+      else if ((fgNameLower.includes('1.5') || fgNameLower.includes('1500')) && !fgNameLower.includes('single') && !fgNameLower.includes('loose')) {
+        if ((fgNameLower.includes('pack') || fgNameLower.includes('pet')) && Number(fg.packSize || 1) <= 1) {
           await prisma.aquasphereItem.update({ where: { id: fg.id }, data: { packSize: 6 } });
         }
         // Clean up wrong shrink wrap references

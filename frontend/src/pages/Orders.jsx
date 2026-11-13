@@ -322,6 +322,7 @@ export default function Orders() {
     let totalValue = 0;
     let totalPacks = 0;
     let totalBottles = 0;
+    let totalLitres = 0;
     let unpaidAmount = 0;
 
     for (const o of filteredOrders) {
@@ -332,12 +333,17 @@ export default function Orders() {
       unpaidAmount += Math.max(0, total - paid);
       for (const it of (o.items || [])) {
         const q = Number(it.quantity || 0);
-        if (Number(it.item?.packSize || 1) > 1) totalPacks += q;
+        const nameLower = (it.item?.name || '').toLowerCase();
+        const unitLower = (it.item?.unit || '').toLowerCase();
+        const isBulkOrLitre = nameLower.includes('bulk') || unitLower === 'litres' || unitLower === 'litre';
+
+        if (isBulkOrLitre) totalLitres += q;
+        else if (Number(it.item?.packSize || 1) > 1) totalPacks += q;
         else totalBottles += q;
       }
     }
 
-    return { totalValue, totalPacks, totalBottles, unpaidAmount };
+    return { totalValue, totalPacks, totalBottles, totalLitres, unpaidAmount };
   }, [filteredOrders]);
 
   const hasActiveOrderFilters = selectedSizes.length > 0 || selectedClientTypes.length > 0 || dateFilter !== 'ALL' || selectedMarketer !== 'ALL';
@@ -566,7 +572,8 @@ export default function Orders() {
               <strong className="text-slate-900 font-bold">
                 {[
                   ordersKpi.totalPacks > 0 ? `${ordersKpi.totalPacks.toLocaleString()} ${ordersKpi.totalPacks === 1 ? 'pack' : 'packs'}` : null,
-                  ordersKpi.totalBottles > 0 ? `${ordersKpi.totalBottles.toLocaleString()} ${ordersKpi.totalBottles === 1 ? 'bottle' : 'bottles'}` : null
+                  ordersKpi.totalBottles > 0 ? `${ordersKpi.totalBottles.toLocaleString()} ${ordersKpi.totalBottles === 1 ? 'bottle' : 'bottles'}` : null,
+                  ordersKpi.totalLitres > 0 ? `${ordersKpi.totalLitres.toLocaleString()} L` : null
                 ].filter(Boolean).join(' + ') || '0 items'}
               </strong>
             </div>

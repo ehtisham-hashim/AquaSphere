@@ -120,8 +120,9 @@ export default function AddEditFinishedGoodModal({
 
   const handlePackSizeChange = (newVal) => {
     setPackSize(newVal);
-    const nextPSize = Math.max(1, parseInt(newVal, 10) || 1);
-    if (nextPSize <= 1 && recipeInputBasis !== 'PACK') {
+    const rawInt = parseInt(newVal, 10);
+    const nextPSize = Math.max(1, rawInt || 1);
+    if (newVal !== '' && !isNaN(rawInt) && rawInt <= 1 && recipeInputBasis !== 'PACK') {
       // Switching packSize down to 1: convert any BOTTLE-mode inputs safely
       setRecipeInputBasis('PACK');
     }
@@ -202,6 +203,20 @@ export default function AddEditFinishedGoodModal({
       const effectiveFactoryStock = (parseFloat(factoryStock) || 0) * packMultiplier;
       const effectiveWarehouseStock = (parseFloat(warehouseStock) || 0) * packMultiplier;
 
+      const payload = {
+        name: name.trim(),
+        type: 'FINISHED_GOOD',
+        unit: unit.trim() || (parsedPackSize > 1 ? 'packs' : 'bottles'),
+        packSize: parsedPackSize,
+        reorderLevel: parseFloat(reorderLevel) || 0,
+        recipe: validRecipe
+      };
+
+      if (!itemToEdit || stockEdited) {
+        payload.factoryStock = effectiveFactoryStock;
+        payload.warehouseStock = effectiveWarehouseStock;
+      }
+
       const url = itemToEdit ? `${API}/items/${itemToEdit.id}` : `${API}/items`;
       const method = itemToEdit ? 'PUT' : 'POST';
 
@@ -212,16 +227,7 @@ export default function AddEditFinishedGoodModal({
           'x-tenant': tenant
         },
         credentials: 'include',
-        body: JSON.stringify({
-          name: name.trim(),
-          type: 'FINISHED_GOOD',
-          unit: unit.trim() || (parsedPackSize > 1 ? 'packs' : 'bottles'),
-          packSize: parsedPackSize,
-          reorderLevel: parseFloat(reorderLevel) || 0,
-          factoryStock: effectiveFactoryStock,
-          warehouseStock: effectiveWarehouseStock,
-          recipe: validRecipe
-        })
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();

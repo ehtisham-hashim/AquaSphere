@@ -286,9 +286,9 @@
     "semantic_hash": "686e297f56d7788c731b92682e241c10"
   },
   "backend/src/controllers/adminDashboard.controller.js": {
-    "mtime": 1794488537.9321508,
-    "seen": 1794489972.0581894,
-    "ast_hash": "6ce3b9add078c4b9c89cc641a78ae4e8",
+    "mtime": 1794553197.6719236,
+    "seen": 1794553767.5896108,
+    "ast_hash": "eb368ca5fc5b604583167b1e3310fb37",
     "semantic_hash": ""
   },
   "backend/src/controllers/alerts.controller.js": {
@@ -298,9 +298,9 @@
     "semantic_hash": "22a46bf9262e867bba291726c80b32f3"
   },
   "backend/src/controllers/analytics.controller.js": {
-    "mtime": 1794489851.6200333,
-    "seen": 1794489972.0582485,
-    "ast_hash": "840268c9490394a0ef8db3ede179bdc7",
+    "mtime": 1794553148.510025,
+    "seen": 1794553767.5896716,
+    "ast_hash": "7a25e2a443b79878fb117008583c3da3",
     "semantic_hash": ""
   },
   "backend/src/controllers/auditLog.controller.js": {
@@ -358,9 +358,9 @@
     "semantic_hash": ""
   },
   "backend/src/controllers/production.controller.js": {
-    "mtime": 1794488537.9331508,
-    "seen": 1794489972.0587559,
-    "ast_hash": "6337ebb6cd59200141eaff9c8d3a8e45",
+    "mtime": 1794553285.11774,
+    "seen": 1794553767.5901842,
+    "ast_hash": "800079e90a61f8d6eb27689a19e3d8a9",
     "semantic_hash": ""
   },
   "backend/src/controllers/purchase.controller.js": {
@@ -382,9 +382,9 @@
     "semantic_hash": "3ff0621420e03ebd026cc6262f5d316c"
   },
   "backend/src/controllers/spotSale.controller.js": {
-    "mtime": 1794488537.9331508,
-    "seen": 1794489972.0589194,
-    "ast_hash": "a1056bf0c6f875e712c064a8c1e8c6ab",
+    "mtime": 1794553302.444703,
+    "seen": 1794553767.5903938,
+    "ast_hash": "791308ab992df766f4eb8ba6745cd678",
     "semantic_hash": ""
   },
   "backend/src/controllers/transportExpense.controller.js": {
@@ -616,9 +616,9 @@
     "semantic_hash": "c980d6c02bb58efed785f3ec26664582"
   },
   "backend/src/utils/autoMigrations.js": {
-    "mtime": 1794488537.9331508,
-    "seen": 1794489972.0610764,
-    "ast_hash": "8c686c36af10f382d44b38f61faf49f5",
+    "mtime": 1794553335.0626333,
+    "seen": 1794553767.5926847,
+    "ast_hash": "7761f4a2bc03a28e0b9b693537d4fc1a",
     "semantic_hash": ""
   },
   "backend/src/utils/cloudinaryUpload.js": {
@@ -1000,9 +1000,9 @@
     "semantic_hash": "f5d739886c821444e896ef9afcce79b6"
   },
   "frontend/src/components/dashboard/AccountantDashboardView.jsx": {
-    "mtime": 1794488537.934151,
-    "seen": 1794489972.0649772,
-    "ast_hash": "0d249f39cdaaec5ff14afb2f7afdd95e",
+    "mtime": 1794553410.126471,
+    "seen": 1794553767.5966341,
+    "ast_hash": "e618b3badd07beeed4ca23e955eb4eec",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/AdminDashboardView.jsx": {
@@ -1078,9 +1078,9 @@
     "semantic_hash": "14da4acdfda312449a79caf4c953bf68"
   },
   "frontend/src/components/dashboard/MarketingDashboardView.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.065845,
-    "ast_hash": "491f8c5b159095c2efea569f33e366a1",
+    "mtime": 1794553426.418547,
+    "seen": 1794553767.5974128,
+    "ast_hash": "f406ebf90a1219587f8ab7c10419c45c",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/ModernKpiCard.jsx": {
@@ -1096,15 +1096,15 @@
     "semantic_hash": "160d6e0ee06eafeef5e1da2be3e1ff3b"
   },
   "frontend/src/components/dashboard/OwnerDashboardView.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.0659091,
-    "ast_hash": "2b3dc25dc4b9ffecebbc73bdf016da5a",
+    "mtime": 1794553443.7136734,
+    "seen": 1794553767.5975351,
+    "ast_hash": "857b4ee925cdeff2821b5e6e4e039ffb",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/ProductionDashboardView.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.065911,
-    "ast_hash": "bdc4d9e373afc803dfe4d0d1b2fb8a79",
+    "mtime": 1794553712.4210963,
+    "seen": 1794553767.597537,
+    "ast_hash": "4105205ca6fe4bc6bdca93bc396f9032",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/PurchasingPayables.jsx": {
@@ -1120,9 +1120,9 @@
     "semantic_hash": "5c8f65d1b8332b5b30c98931955eceba"
   },
   "frontend/src/components/dashboard/TransportDashboardView.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.0660324,
-    "ast_hash": "f6226bf8ea0d2154a910e5dc79c5c384",
+    "mtime": 1794553511.7271245,
+    "seen": 1794553767.5976608,
+    "ast_hash": "282c2ab858a5153b0cef96dc66a4a7c4",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/UnprocessedOrdersModal.jsx": {
@@ -1150,15 +1150,15 @@
     "semantic_hash": "31837c773fc7e45dd419449714da24bb"
   },
   "frontend/src/components/dashboard/production/ProductionChart.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.0664306,
-    "ast_hash": "72df66870f22eb7a2c006032f89eabea",
+    "mtime": 1794553731.6511662,
+    "seen": 1794553767.5979145,
+    "ast_hash": "b98900b4f4609540746d7c8137bce5b9",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/production/ProductionKPICards.jsx": {
-    "mtime": 1794488537.9351509,
-    "seen": 1794489972.0664327,
-    "ast_hash": "969274c484f5646dfaa7bbe2f74bb8ba",
+    "mtime": 1794553678.907966,
+    "seen": 1794553767.5979161,
+    "ast_hash": "80fb227f31bd05c3e4ac28cd06928985",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard/production/ProductionRecentRuns.jsx": {
@@ -1210,9 +1210,9 @@
     "semantic_hash": "e5798dcf40c5b24c43dd83d4279b155f"
   },
   "frontend/src/components/inventory/AddEditFinishedGoodModal.jsx": {
-    "mtime": 1794488537.9361508,
-    "seen": 1794489972.067057,
-    "ast_hash": "bedf3e7a03e3b30992911e2219a399a9",
+    "mtime": 1794553550.149349,
+    "seen": 1794553767.5984669,
+    "ast_hash": "6694913b9f28f4416071f33e4b0951af",
     "semantic_hash": ""
   },
   "frontend/src/components/inventory/FinishedGoodsSummaryCards.jsx": {
@@ -1270,15 +1270,15 @@
     "semantic_hash": ""
   },
   "frontend/src/components/orders/AddOrderModal.jsx": {
-    "mtime": 1794490997.4109545,
-    "seen": 1794491134.5737298,
-    "ast_hash": "57a4432c7ed6a047a6d74eb09dddd934",
+    "mtime": 1794553576.579492,
+    "seen": 1794553767.5990582,
+    "ast_hash": "f9afe47ea1fce60e216fce27c4fb02a0",
     "semantic_hash": ""
   },
   "frontend/src/components/orders/EditOrderModal.jsx": {
-    "mtime": 1794491001.8675852,
-    "seen": 1794491134.573732,
-    "ast_hash": "d31f5f3de17f99258bc210f15a688fdb",
+    "mtime": 1794553585.7275395,
+    "seen": 1794553767.5990603,
+    "ast_hash": "d5d18ead1c5e870c15bf4090c9f05736",
     "semantic_hash": ""
   },
   "frontend/src/components/orders/OrderDetail.jsx": {
@@ -1306,9 +1306,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/orders/ProcessDeliveryModal.jsx": {
-    "mtime": 1794490915.0117836,
-    "seen": 1794491134.5737998,
-    "ast_hash": "bc13cca0dd2c81c163b350a6d9c4b24f",
+    "mtime": 1794553601.74862,
+    "seen": 1794553767.5993087,
+    "ast_hash": "eaf0e13ba6435b928701426aa7a62881",
     "semantic_hash": ""
   },
   "frontend/src/components/orders/RecordPaymentModal.jsx": {
@@ -1696,9 +1696,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Orders.jsx": {
-    "mtime": 1794491045.8886957,
-    "seen": 1794491134.5786169,
-    "ast_hash": "82d67ec81880d787cca4aeca1dfc6fe0",
+    "mtime": 1794553642.5868113,
+    "seen": 1794553767.6033213,
+    "ast_hash": "b58d26d33433dd8c1d62faa38c38ccb2",
     "semantic_hash": ""
   },
   "frontend/src/pages/ProductPricing.jsx": {
@@ -2290,9 +2290,9 @@
     "semantic_hash": ""
   },
   "context/antigravity_recipe_countersale_dashboards_master_plan (1).md": {
-    "mtime": 1794488537.934151,
-    "seen": 1794489972.0757673,
-    "ast_hash": "910821f64d52f6a9305b0c112baaea6f",
+    "mtime": 1794553389.4465158,
+    "seen": 1794553767.607008,
+    "ast_hash": "9a4130615951492b869e43fec0775317",
     "semantic_hash": ""
   },
   "backend/pnpm-lock.yaml": {

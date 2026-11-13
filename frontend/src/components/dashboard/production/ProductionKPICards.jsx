@@ -7,14 +7,35 @@ export default function ProductionKPICards({
   dailyClose,
   pendingBatchesCount,
   isWadaana,
-  mineralMetrics = {}
+  mineralMetrics = {},
+  timeframe = 'TODAY'
 }) {
+  const getPeriodLabel = () => {
+    const tf = String(timeframe || 'TODAY').toUpperCase();
+    if (tf === 'YESTERDAY') return "Yesterday's";
+    if (tf === 'LAST_3_DAYS') return "Last 3 Days'";
+    if (tf === '1_WEEK' || tf === 'WEEKLY') return "This Week's";
+    if (tf === '1_MONTH' || tf === 'MONTHLY') return "This Month's";
+    if (tf === '1_YEAR' || tf === 'YEARLY') return "This Year's";
+    return "Today's";
+  };
+
+  const getBatchPeriodText = () => {
+    const tf = String(timeframe || 'TODAY').toUpperCase();
+    if (tf === 'YESTERDAY') return "yesterday";
+    if (tf === 'LAST_3_DAYS') return "in last 3 days";
+    if (tf === '1_WEEK' || tf === 'WEEKLY') return "this week";
+    if (tf === '1_MONTH' || tf === 'MONTHLY') return "this month";
+    if (tf === '1_YEAR' || tf === 'YEARLY') return "this year";
+    return "today";
+  };
+
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWadaana ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-4`}>
-      {/* Today's Output */}
+      {/* Period Output */}
       <div className="card-surface p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Today&apos;s Output</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{getPeriodLabel()} Output</span>
           <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
             <Factory size={16} />
           </div>
@@ -31,7 +52,7 @@ export default function ProductionKPICards({
         </div>
         <div className="text-[11px] font-medium text-slate-500 mt-1.5 flex items-center gap-1">
           <Clock size={12} className="text-slate-400" />
-          <span>{todaysProduction?.batchesCount || 0} batches completed today</span>
+          <span>{todaysProduction?.batchesCount || 0} batches completed {getBatchPeriodText()}</span>
         </div>
       </div>
 

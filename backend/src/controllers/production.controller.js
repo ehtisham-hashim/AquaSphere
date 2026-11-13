@@ -14,7 +14,7 @@ export const getProductionBatches = asyncHandler(async (req, res) => {
   const hasExplicitLimit = limit !== undefined && limit !== '' && limit !== 'all';
 
   const include = {
-    outputItem: { select: { id: true, name: true, unit: true } },
+    outputItem: { select: { id: true, name: true, unit: true, packSize: true } },
     inputItem: { select: { id: true, name: true, unit: true } },
     consumptions: { include: { item: true } }
   };
@@ -269,7 +269,7 @@ export const createProductionBatch = asyncHandler(async (req, res) => {
         status: 'PENDING'
       },
       include: {
-        outputItem: { select: { id: true, name: true, unit: true } },
+        outputItem: { select: { id: true, name: true, unit: true, packSize: true } },
         consumptions: { include: { item: true } }
       }
     });
@@ -576,7 +576,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        outputItem: { select: { id: true, name: true, unit: true } },
+        outputItem: { select: { id: true, name: true, unit: true, packSize: true } },
         consumptions: { include: { item: true } }
       }
     });
@@ -641,7 +641,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
                 data: {
                   type: 'MOVED_TO_FACTORY',
                   quantity: fg.netGoodPacks,
-                  reason: `Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
+                  reason: `Production Batch #${pb.id}`
                 }
               }));
             }
@@ -650,7 +650,7 @@ export const completeProductionBatch = asyncHandler(async (req, res) => {
                 data: {
                   type: 'RETURNED_BROKEN',
                   quantity: fg.wasteBottles,
-                  reason: `Broken in Production Batch #${pb.id.substring(0, 8).toUpperCase()}`
+                  reason: `Broken in Production Batch #${pb.id}`
                 }
               }));
             }
@@ -715,6 +715,8 @@ export const deleteProductionBatch = asyncHandler(async (req, res) => {
             type: { in: ['MOVED_TO_FACTORY', 'RETURNED_BROKEN'] },
             reason: {
               in: [
+                `Production Batch #${id}`,
+                `Broken in Production Batch #${id}`,
                 `Production Batch #${shortId}`,
                 `Broken in Production Batch #${shortId}`
               ]

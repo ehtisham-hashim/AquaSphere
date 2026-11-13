@@ -534,7 +534,7 @@ const computeDashboardAnalytics = async (prefix) => {
     const d = new Date(e.createdAt);
     const amt = parseFloat(e.amount || 0);
     const catLower = (e.category || '').toLowerCase();
-    const isTransport = Boolean(e.vehicleId) || ['fuel', 'maintenance', 'transport', 'vehicle', 'repairs'].includes(catLower);
+    const isTransport = Boolean(e.vehicleId) || ['fuel', 'maintenance', 'transport', 'vehicle', 'repairs'].some(k => catLower.includes(k));
     const day = ensureDay(getDKey(d));
     const month = ensureMonth(getMKey(d));
     day.expenses += amt;
@@ -682,8 +682,9 @@ const computeDashboardAnalytics = async (prefix) => {
   const pendingVendorPayables = Math.max(0, Number(purchaseTotal) - Number(paymentTotal));
   const lowStockMaterials = rawMaterials.filter(item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0));
 
-  const unprocessedOrders = orders
-    .filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL')
+  const allUnprocessed = orders.filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL');
+  const pendingDispatchCount = allUnprocessed.length;
+  const unprocessedOrders = allUnprocessed
     .slice(0, 20)
     .map(o => {
       const orderTotal = (o.items || []).reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 0)), 0);
@@ -751,6 +752,7 @@ const computeDashboardAnalytics = async (prefix) => {
     },
     bottleCustody,
     unprocessedOrders,
+    pendingDispatchCount,
     dailySalesHistory,
     monthlyTrend,
     pendingVendorPayables,
@@ -767,6 +769,31 @@ const computeDashboardAnalytics = async (prefix) => {
 
 const debounceTimers = { aquasphere: null, wadaana: null };
 
+/** Redacts confidential COGS and profit metrics for MARKETING_MANAGER callers without mutating shared cache */
+export const sanitizeMarketingDashboardData = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  const clone = JSON.parse(JSON.stringify(data));
+  const redactBucket = (b) => {
+    if (b && typeof b === 'object') {
+      delete b.estimatedCogs;
+      delete b.grossProfit;
+      delete b.grossMarginPct;
+      delete b.operatingProfit;
+    }
+  };
+  redactBucket(clone);
+  ['daily', 'today', 'yesterday', 'last3Days', 'last_3_days', 'week', '1_week', 'monthly', '1_month', 'yearly', '1_year'].forEach(k => {
+    redactBucket(clone[k]);
+  });
+  if (Array.isArray(clone.dailySalesHistory)) {
+    clone.dailySalesHistory.forEach(redactBucket);
+  }
+  if (Array.isArray(clone.monthlyTrend)) {
+    clone.monthlyTrend.forEach(redactBucket);
+  }
+  return clone;
+};
+
 /** Broadcasts SSE update with debouncing to prevent database pool exhaustion */
 export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
   if (debounceTimers[prefix]) {
@@ -776,8 +803,19 @@ export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
     debounceTimers[prefix] = null;
     try {
       cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-      const payload = `data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`;
-      sseClients[prefix].forEach(client => client.write(payload));
+      const rawData = cachedDashboardData[prefix];
+      const rawPayload = `data: ${JSON.stringify({ success: true, data: rawData })}\n\n`;
+      let marketingPayload = null;
+      sseClients[prefix].forEach(client => {
+        if (client.userRole === 'MARKETING_MANAGER') {
+          if (!marketingPayload) {
+            marketingPayload = `data: ${JSON.stringify({ success: true, data: sanitizeMarketingDashboardData(rawData) })}\n\n`;
+          }
+          client.write(marketingPayload);
+        } else {
+          client.write(rawPayload);
+        }
+      });
     } catch (error) {
       console.error(`Error broadcasting dashboard update for ${prefix}:`, error);
     }
@@ -788,7 +826,10 @@ export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
 export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-  return sendSuccess(res, cachedDashboardData[prefix]);
+  const data = req.user?.role === 'MARKETING_MANAGER'
+    ? sanitizeMarketingDashboardData(cachedDashboardData[prefix])
+    : cachedDashboardData[prefix];
+  return sendSuccess(res, data);
 });
 
 /** Monthly purchasing summary and vendor balances */
@@ -888,8 +929,13 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
 
+  res.userRole = req.user?.role;
+
   cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-  res.write(`data: ${JSON.stringify({ success: true, data: cachedDashboardData[prefix] })}\n\n`);
+  const initialData = req.user?.role === 'MARKETING_MANAGER'
+    ? sanitizeMarketingDashboardData(cachedDashboardData[prefix])
+    : cachedDashboardData[prefix];
+  res.write(`data: ${JSON.stringify({ success: true, data: initialData })}\n\n`);
 
   sseClients[prefix].push(res);
   const heartbeat = setInterval(() => res.write(':heartbeat\n\n'), 30000);
@@ -1044,11 +1090,15 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   }
 
   const daysNum = Math.min(Math.max(parseInt(req.query.days || '7', 10), 1), 365);
-  const startDate = new Date(now);
+  const isYesterday = timeframe === 'YESTERDAY';
+  const historyEnd = isYesterday
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999)
+    : new Date(endOfDay);
+  const startDate = new Date(historyEnd);
   if (daysNum > 60) {
-    startDate.setFullYear(now.getFullYear(), now.getMonth() - 11, 1);
+    startDate.setFullYear(historyEnd.getFullYear(), historyEnd.getMonth() - 11, 1);
   } else {
-    startDate.setDate(now.getDate() - (daysNum - 1));
+    startDate.setDate(historyEnd.getDate() - (daysNum - 1));
   }
   startDate.setHours(0, 0, 0, 0);
 
@@ -1073,7 +1123,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     itemModel.findMany({ where: { type: 'RAW_MATERIAL', archivedAt: null }, orderBy: { name: 'asc' } }),
     dailyCloseModel.findFirst({ where: { date: startOfDay } }),
     prodBatchModel.count({ where: { batchDate: { gte: kpiStart, lte: kpiEnd }, status: 'PENDING' } }),
-    prodBatchModel.findMany({ where: { batchDate: { gte: startDate } }, orderBy: { batchDate: 'asc' } })
+    prodBatchModel.findMany({ where: { batchDate: { gte: startDate, lte: historyEnd } }, orderBy: { batchDate: 'asc' } })
   ]);
 
   const toLocalDKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1118,7 +1168,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         custom += Number(b.quantity || 0);
       }
 
-      const waste = Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0) + Number(b.wasteQuantity || 0);
+      const waste = Number(b.wasteQuantity || 0) || (Number(b.brokenPure05L || 0) + Number(b.brokenPure15L || 0) + Number(b.brokenMix05L || 0) + Number(b.brokenMix15L || 0));
       return { pure05, pure15, mix05, mix15, custom, total: pure05 + pure15 + mix05 + mix15 + custom, waste };
     }
 
@@ -1148,7 +1198,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
   const dailyHistory = [];
   if (daysNum > 60) {
     for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0);
+      const d = new Date(historyEnd.getFullYear(), historyEnd.getMonth() - i, 1, 0, 0, 0);
       const mKey = toLocalMKey(d);
       const monthBatches = pastWeekBatches.filter(b => b.batchDate && toLocalMKey(new Date(b.batchDate)) === mKey);
       const parsedList = monthBatches.map(parseBatchOutput);
@@ -1177,8 +1227,8 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
     }
   } else {
     for (let i = daysNum - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+      const d = new Date(historyEnd);
+      d.setDate(historyEnd.getDate() - i);
       const dayStr = daysNum > 14 ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString('en-US', { weekday: 'short' });
       const dateKey = toLocalDKey(d);
       const dayBatches = pastWeekBatches.filter(b => b.batchDate && toLocalDKey(new Date(b.batchDate)) === dateKey);
@@ -1304,7 +1354,7 @@ export const getProductionDashboard = asyncHandler(async (req, res) => {
         qtyPure15L: b.qtyPure15L || 0,
         qtyMix05L: b.qtyMix05L || 0,
         qtyMix15L: b.qtyMix15L || 0,
-        wasteQuantity: (b.brokenPure05L || 0) + (b.brokenPure15L || 0) + (b.brokenMix05L || 0) + (b.brokenMix15L || 0)
+        wasteQuantity: Number(b.wasteQuantity || 0) || ((b.brokenPure05L || 0) + (b.brokenPure15L || 0) + (b.brokenMix05L || 0) + (b.brokenMix15L || 0))
       } : {
         quantity: b.quantity || 0,
         packs15L: b.packs15L || 0,

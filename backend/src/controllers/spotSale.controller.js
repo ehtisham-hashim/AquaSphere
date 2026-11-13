@@ -206,6 +206,15 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       throw new ApiError(400, `Invalid quantity for "${raw.name || dbItem?.name || 'item'}". Must be greater than 0.`);
     }
 
+    if (dbItem && dbItem.type === 'FINISHED_GOOD' && Number(dbItem.packSize || 1) > 1) {
+      if (saleType !== 'PACK') {
+        throw new ApiError(400, `Packed item "${dbItem.name}" can only be sold as full packs (PACK) on the counter.`);
+      }
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new ApiError(400, `Pack quantity for "${dbItem.name}" must be a whole positive integer.`);
+      }
+    }
+
     const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (dbItem?.retailPrice || 0));
     if (isNaN(unitPrice) || unitPrice < 0) {
       throw new ApiError(400, `Invalid unit price for "${raw.name || dbItem?.name || 'item'}".`);

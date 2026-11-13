@@ -109,6 +109,7 @@ export default function AccountantDashboardView({ data }) {
   }, [timeframe]);
 
   useEffect(() => {
+    let active = true;
     const fetchFinanceDetails = async () => {
       setLoadingExpenses(true);
       try {
@@ -120,16 +121,20 @@ export default function AccountantDashboardView({ data }) {
         const closeData = await closeRes.json();
         const expensesData = await expensesRes.json();
 
+        if (!active) return;
         setCloseStatus(closeData.data || { isClosed: false });
         setExpenses(Array.isArray(expensesData.data) ? expensesData.data : (expensesData.data?.expenses || []));
       } catch (err) {
-        console.error('Error fetching accountant finance details:', err);
+        if (active) console.error('Error fetching accountant finance details:', err);
       } finally {
-        setLoadingExpenses(false);
+        if (active) setLoadingExpenses(false);
       }
     };
 
     fetchFinanceDetails();
+    return () => {
+      active = false;
+    };
   }, [tenant, dateRange]);
 
   const getPeriodLabel = () => {

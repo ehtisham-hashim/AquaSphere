@@ -94,6 +94,7 @@ export default function ProductionDashboardView() {
           'Pure 1.5L': Number(d.qtyPure15L || 0),
           'Mix 0.5L': Number(d.qtyMix05L || 0),
           'Mix 1.5L': Number(d.qtyMix15L || 0),
+          'Other Units': Number(d.customUnits || 0),
           'Broken / Waste': Number(d.totalWaste || 0)
         };
       }
@@ -178,6 +179,7 @@ export default function ProductionDashboardView() {
         pendingBatchesCount={pendingBatchesCount}
         isWadaana={isWadaana}
         mineralMetrics={mineralMetrics}
+        timeframe={timeframe}
       />
 
       {/* 1. Upper Operations Workspace: Analytics & Plant Status */}

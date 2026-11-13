@@ -47,6 +47,9 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
     }
 
     const packSize = Math.max(1, Number(dbItem.packSize) || 1);
+    const rawUnit = String(dbItem.unit || '').toLowerCase();
+    const isPack = packSize > 1;
+    const unitLabel = isPack ? 'Pack' : (rawUnit.includes('litre') || rawUnit.includes('liter') || nameLower.includes('bulk') ? 'Litres' : 'Bottle');
     return {
       id: dbItem.id,
       dbItemId: dbItem.id,
@@ -56,7 +59,7 @@ export default function EditOrderModal({ order, onClose, onOrderEdited, items = 
       defaultPrice: Number(dbItem.retailPrice || 0),
       packSize,
       unit: formatTradingUnit(dbItem, 2),
-      unitLabel: packSize > 1 ? 'Pack' : 'Bottle',
+      unitLabel,
       packMeta: formatPackMeta(dbItem)
     };
   });
