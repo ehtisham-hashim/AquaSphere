@@ -7,6 +7,7 @@ import { API_URL } from '../utils/api';
 import { peekCachedData } from '../utils/apiCache';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
+import { formatItemUnitTag, formatOrderItemsSummary } from '../utils/unitFormat';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
 import { PageHeader, StatusBadge, TimeframeDropdown, DeleteConfirmationModal } from '../components/ui';
@@ -289,7 +290,7 @@ export default function Orders() {
         const name = (i.item?.name || '').toLowerCase();
         return selectedSizes.some(sz => {
           const target = sz.toLowerCase();
-          return name.includes(target) || (target.includes('19l') && o.type === 'NINETEEN_L');
+          return name.includes(target);
         });
       });
       if (!hasSize) return false;
@@ -319,7 +320,9 @@ export default function Orders() {
 
   const ordersKpi = useMemo(() => {
     let totalValue = 0;
-    let totalUnits = 0;
+    let totalPacks = 0;
+    let totalBottles = 0;
+    let totalLitres = 0;
     let unpaidAmount = 0;
 
     for (const o of filteredOrders) {
@@ -328,10 +331,19 @@ export default function Orders() {
       const paid = (o.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
       totalValue += total;
       unpaidAmount += Math.max(0, total - paid);
-      totalUnits += (o.items || []).reduce((s, it) => s + (it.quantity || 0), 0);
+      for (const it of (o.items || [])) {
+        const q = Number(it.quantity || 0);
+        const nameLower = (it.item?.name || '').toLowerCase();
+        const unitLower = (it.item?.unit || '').toLowerCase();
+        const isBulkOrLitre = nameLower.includes('bulk') || unitLower === 'litres' || unitLower === 'litre';
+
+        if (isBulkOrLitre) totalLitres += q;
+        else if (Number(it.item?.packSize || 1) > 1) totalPacks += q;
+        else totalBottles += q;
+      }
     }
 
-    return { totalValue, totalUnits, unpaidAmount };
+    return { totalValue, totalPacks, totalBottles, totalLitres, unpaidAmount };
   }, [filteredOrders]);
 
   const hasActiveOrderFilters = selectedSizes.length > 0 || selectedClientTypes.length > 0 || dateFilter !== 'ALL' || selectedMarketer !== 'ALL';
@@ -401,7 +413,7 @@ export default function Orders() {
         if (isDelivered) {
           rec.totalBilled += q * Number(i.price || 0);
         }
-        if (name.includes('19l') || o.type === 'NINETEEN_L') rec.delivered19L += q;
+        if (name.includes('19l')) rec.delivered19L += q;
         else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
         else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
       });
@@ -556,7 +568,14 @@ export default function Orders() {
               Total Value: <strong className="text-slate-900 font-bold">Rs. {ordersKpi.totalValue.toLocaleString()}</strong>
             </div>
             <div>
-              Total Units: <strong className="text-slate-900 font-bold">{ordersKpi.totalUnits.toLocaleString()}</strong>
+              Volume:{' '}
+              <strong className="text-slate-900 font-bold">
+                {[
+                  ordersKpi.totalPacks > 0 ? `${ordersKpi.totalPacks.toLocaleString()} ${ordersKpi.totalPacks === 1 ? 'pack' : 'packs'}` : null,
+                  ordersKpi.totalBottles > 0 ? `${ordersKpi.totalBottles.toLocaleString()} ${ordersKpi.totalBottles === 1 ? 'bottle' : 'bottles'}` : null,
+                  ordersKpi.totalLitres > 0 ? `${ordersKpi.totalLitres.toLocaleString()} L` : null
+                ].filter(Boolean).join(' + ') || '0 items'}
+              </strong>
             </div>
             <div>
               Unpaid Dues: <strong className={ordersKpi.unpaidAmount > 0 ? 'text-amber-600 font-bold' : 'text-emerald-600 font-bold'}>Rs. {ordersKpi.unpaidAmount.toLocaleString()}</strong>
@@ -627,17 +646,17 @@ export default function Orders() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {s.delivered19L > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold font-mono text-[11px]">
-                                {s.delivered19L} × 19L
+                                {s.delivered19L} btl × 19L
                               </span>
                             )}
                             {s.delivered15L > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold font-mono text-[11px]">
-                                {s.delivered15L} × 1.5L
+                                {s.delivered15L} {isWadaana ? 'btl' : 'pk'} × 1.5L
                               </span>
                             )}
                             {s.delivered05L > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-bold font-mono text-[11px]">
-                                {s.delivered05L} × 0.5L
+                                {s.delivered05L} {isWadaana ? 'btl' : 'pk'} × 0.5L
                               </span>
                             )}
                             {s.delivered19L === 0 && s.delivered15L === 0 && s.delivered05L === 0 && (
@@ -749,10 +768,17 @@ export default function Orders() {
                       <td className="table-td">
                         <div className="flex items-center gap-2.5">
                           <div className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 text-xs">
-                            {o.items?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0} <span className="text-[10px] font-medium text-slate-400">Qty</span>
+                            {formatOrderItemsSummary(o.items)}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-800 text-xs">{formatItemName(o.items[0]?.item?.name)}</span>
+                            <span className="font-semibold text-slate-800 text-xs">
+                              {formatItemName(o.items[0]?.item?.name)}{' '}
+                              {o.items[0]?.item && (
+                                <span className="text-[10px] font-normal text-slate-400">
+                                  ({formatItemUnitTag(o.items[0].item, o.items[0].quantity)})
+                                </span>
+                              )}
+                            </span>
                             {o.items?.length > 1 && (
                               <span className="text-[10px] font-bold text-brand bg-brand-light px-1.5 py-0.5 rounded w-max">
                                 +{o.items.length - 1} more item{o.items.length > 2 ? 's' : ''}

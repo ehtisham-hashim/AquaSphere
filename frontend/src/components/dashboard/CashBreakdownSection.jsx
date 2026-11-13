@@ -1,7 +1,9 @@
 import React from 'react';
 import { Banknote, Landmark, Smartphone, FileText, Package } from 'lucide-react';
+import { useTenant } from '../../context/TenantContext';
 
 export default function CashBreakdownSection({ cashByMethod = {}, salesBySize = {}, cashBySize = {} }) {
+  const { isWadaana } = useTenant();
   const channels = [
     { key: 'CASH', label: 'Cash (Physical)', icon: Banknote, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
     { key: 'BANK_TRANSFER', label: 'Bank Transfer', icon: Landmark, color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
@@ -10,11 +12,12 @@ export default function CashBreakdownSection({ cashByMethod = {}, salesBySize = 
     { key: 'CHEQUE', label: 'Cheque', icon: FileText, color: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-200' },
   ];
 
-  const sizes = [
+  const allSizes = [
     { key: '19L', label: '19L Bottle', badgeBg: 'bg-sky-100 text-sky-800' },
     { key: '1.5L', label: '1.5L PET', badgeBg: 'bg-indigo-100 text-indigo-800' },
     { key: '0.5L', label: '0.5L PET', badgeBg: 'bg-teal-100 text-teal-800' },
   ];
+  const sizes = isWadaana ? allSizes.filter(sz => sz.key !== '19L') : allSizes;
 
   const getChannelAmount = (key) => {
     if (!cashByMethod || typeof cashByMethod !== 'object') return 0;
@@ -63,7 +66,7 @@ export default function CashBreakdownSection({ cashByMethod = {}, salesBySize = 
           <Package size={14} className="text-slate-400" />
           Volume & Collections by Bottle Size
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className={`grid grid-cols-1 ${isWadaana ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-2.5`}>
           {sizes.map(sz => {
             const sales = Number(salesBySize?.[sz.key] || 0);
             const cash = Number(cashBySize?.[sz.key] || 0);

@@ -61,7 +61,7 @@ export default function ModernKpiCard({
             <span className="text-xs text-slate-400 truncate">{trendPeriod}</span>
           </div>
         ) : (
-          <span className="text-xs text-slate-400 truncate">{subtitle || 'Updated live'}</span>
+          <span className="text-xs text-slate-400 line-clamp-2">{subtitle || 'Updated live'}</span>
         )}
       </div>
     </div>

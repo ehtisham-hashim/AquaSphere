@@ -3,6 +3,7 @@ import { X, Printer, Copy, Check, Image as ImageIcon, Send, Loader2 } from 'luci
 import { toast } from 'sonner';
 import { useTenant } from '../../context/TenantContext';
 import { API_URL } from '../../utils/api';
+import { formatItemUnitTag } from '../../utils/unitFormat';
 import {
   copyTextToClipboard,
   formatOrderInvoiceWhatsApp,
@@ -90,8 +91,10 @@ export default function OrderInvoiceModal({ order, onClose }) {
     items: items.map(item => {
       const qty = Number(item.quantity || 0);
       const rate = Number(item.price || 0);
+      const baseName = item.item?.name || 'Item';
+      const unitTag = item.item ? formatItemUnitTag(item.item, qty) : '';
       return {
-        name: item.item?.name || 'Item',
+        name: unitTag ? `${baseName} (${unitTag})` : baseName,
         qty,
         unitPrice: rate,
         lineTotal: qty * rate
@@ -273,7 +276,14 @@ export default function OrderInvoiceModal({ order, onClose }) {
                     return (
                       <tr key={idx}>
                         <td className="py-1.5 text-slate-600 text-[11px] align-top">{idx + 1}</td>
-                        <td className="py-1.5 font-bold pr-1.5 leading-snug align-top">{item.item?.name || 'Item'}</td>
+                        <td className="py-1.5 font-bold pr-1.5 leading-snug align-top">
+                          {item.item?.name || 'Item'}
+                          {item.item && (
+                            <span className="ml-1 text-[10px] font-normal text-slate-600">
+                              ({formatItemUnitTag(item.item, item.quantity)})
+                            </span>
+                          )}
+                        </td>
                         <td className="py-1.5 text-center font-bold align-top">{item.quantity}</td>
                         <td className="py-1.5 text-right text-slate-800 align-top">
                           {Number(item.price || 0).toLocaleString()}

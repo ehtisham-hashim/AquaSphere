@@ -72,8 +72,26 @@ export const attachOrderBalances = (orders) => {
       prevBalance = Math.max(0, custBalance - orderUnpaid);
     }
 
+    const normalizedItems = (order.items || []).map(it => {
+      if (!it?.item) return it;
+      const itemObj = { ...it.item };
+      if (itemObj.type === 'FINISHED_GOOD' || !itemObj.type) {
+        const nameLower = (itemObj.name || '').toLowerCase();
+        if (nameLower.includes('bulk') || (itemObj.unit && itemObj.unit.toLowerCase() === 'litres')) {
+          itemObj.unit = 'Litres';
+        } else {
+          itemObj.unit = Number(itemObj.packSize) > 1 ? 'packs' : 'bottles';
+        }
+        itemObj.hasReturnableContainer = Boolean(
+          itemObj.recipeFinishedGoods?.some(r => r.rawMaterial?.isReturnable)
+        );
+      }
+      return { ...it, item: itemObj };
+    });
+
     return {
       ...order,
+      items: normalizedItems,
       orderSubtotal: sub,
       orderTotal: total,
       previousUnpaidBalance: prevBalance
@@ -305,10 +323,22 @@ export const updateOrder = asyncHandler(async (req, res) => {
       data: {
         expectedDelivery: expectedDelivery !== undefined ? (expectedDelivery ? new Date(expectedDelivery) : null) : order.expectedDelivery,
         remarks: remarks !== undefined ? remarks : order.remarks,
-        ...(type && { type }),
-        ...(newTotal !== undefined && { totalAmount: newTotal })
+        ...(type && { type })
       },
-      include: { items: { include: { item: true } } }
+      include: {
+        customer: true,
+        items: {
+          include: {
+            item: {
+              include: {
+                recipeFinishedGoods: { include: { rawMaterial: true } }
+              }
+            }
+          }
+        },
+        payments: true,
+        deliveries: true
+      }
     });
 
     await createAuditLog(prefix, {
@@ -322,8 +352,9 @@ export const updateOrder = asyncHandler(async (req, res) => {
     return resOrder;
   }, { maxWait: 10000, timeout: 30000 });
 
+  broadcastDashboardUpdate(prefix);
   broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: updated.id });
-  return sendSuccess(res, updated);
+  return sendSuccess(res, attachOrderBalances(updated));
 });
 
 /** Fulfills and delivers an order, recording returns, cash, and inventory deduction */

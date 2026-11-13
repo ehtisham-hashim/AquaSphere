@@ -206,6 +206,15 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       throw new ApiError(400, `Invalid quantity for "${raw.name || dbItem?.name || 'item'}". Must be greater than 0.`);
     }
 
+    if (dbItem && dbItem.type === 'FINISHED_GOOD' && Number(dbItem.packSize || 1) > 1) {
+      if (saleType !== 'PACK') {
+        throw new ApiError(400, `Packed item "${dbItem.name}" can only be sold as full packs (PACK) on the counter.`);
+      }
+      if (!Number.isInteger(qty) || qty <= 0) {
+        throw new ApiError(400, `Pack quantity for "${dbItem.name}" must be a whole positive integer.`);
+      }
+    }
+
     const unitPrice = parseFloat(raw.unitPrice !== undefined ? raw.unitPrice : (dbItem?.retailPrice || 0));
     if (isNaN(unitPrice) || unitPrice < 0) {
       throw new ApiError(400, `Invalid unit price for "${raw.name || dbItem?.name || 'item'}".`);
@@ -226,24 +235,18 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       totalCaps += Math.round(qty);
     }
 
-    // Litres calculation (tracks physical volume for dispensing & mineral dosing)
+    // Litres calculation:
+    // - Finished Goods contribute 0L to "Litres Sold" (only loose Custom Water & Counter 19L Refills count)
+    // - WATER_REFILL displays 19L/bottle in Litres Sold, while dosing minerals at 24L treated water/bottle
     if (isCustomWater) {
       const customLitres = raw.litres ? parseFloat(raw.litres) : qty;
       totalRefillLitres += customLitres;
       totalLitres += customLitres;
     } else if (isRefill) {
-      const refillLitres = (raw.litres ? parseFloat(raw.litres) : (qty * 24.0));
-      totalRefillLitres += refillLitres;
-      totalLitres += refillLitres;
-    } else if (!isExtra && !isRawMaterial && dbItem) {
-      const nameLower = (dbItem.name || '').toLowerCase();
-      let litresPerUnit;
-      if (nameLower.includes('0.5') || nameLower.includes('500')) litresPerUnit = isPack ? 9.0 : 0.75;
-      else if (nameLower.includes('1.5') || nameLower.includes('1500')) litresPerUnit = isPack ? 12.0 : 2.0;
-      else if (nameLower.includes('19')) litresPerUnit = 24.0;
-      else litresPerUnit = 1.0;
-
-      totalLitres += litresPerUnit * qty;
+      const refillDisplayLitres = qty * 19.0;
+      const refillMineralLitres = qty * 24.0;
+      totalRefillLitres += refillMineralLitres;
+      totalLitres += refillDisplayLitres;
     }
 
     processedItems.push({
@@ -257,7 +260,7 @@ export const createSpotSale = asyncHandler(async (req, res) => {
       baseUnitsDeduct,
       unitPrice,
       subtotal: Number(subtotal),
-      litres: isCustomWater ? (raw.litres ? parseFloat(raw.litres) : qty) : (isRefill ? (raw.litres ? parseFloat(raw.litres) : qty * 24.0) : 0)
+      litres: isCustomWater ? (raw.litres ? parseFloat(raw.litres) : qty) : (isRefill ? qty * 19.0 : 0)
     });
   }
 
@@ -689,18 +692,61 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
   if (userRole !== 'OWNER') throw new ApiError(403, 'Deleting counter sales is strictly restricted to Owner.');
 
   await prisma.$transaction(async (tx) => {
-    // 1. Restore finished goods stock and raw caps for each child line item
+    const saleRefs = [existing.saleNumber, existing.id].filter(Boolean);
+
+    // 1. Restore physical product stock using recorded FACTORY vs WAREHOUSE OUT transactions
+    const productOutTxs = saleRefs.length > 0
+      ? await tx[`${prefix}InventoryTransaction`].findMany({
+          where: {
+            refType: 'SPOT_SALE',
+            refId: { in: saleRefs },
+            direction: 'OUT',
+            reason: {
+              notIn: ['SPOT_SALE_MINERAL_DOSING', 'SPOT_SALE_EXTRA_CAP']
+            }
+          }
+        })
+      : [];
+
+    if (productOutTxs.length > 0) {
+      for (const outTx of productOutTxs) {
+        const q = Number(outTx.quantity || 0);
+        if (q <= 0 || !outTx.itemId) continue;
+        const isWarehouse = outTx.location === 'WAREHOUSE';
+        await tx[`${prefix}Item`].update({
+          where: { id: outTx.itemId },
+          data: {
+            cachedQty: { increment: q },
+            ...(isWarehouse ? { warehouseQty: { increment: q } } : { factoryQty: { increment: q } })
+          }
+        }).catch(() => null);
+
+        await tx[`${prefix}InventoryTransaction`].create({
+          data: {
+            itemId: outTx.itemId,
+            quantity: q,
+            direction: 'IN',
+            reason: 'SPOT_SALE_DELETED',
+            refType: 'SPOT_SALE',
+            refId: existing.saleNumber || existing.id,
+            location: isWarehouse ? 'WAREHOUSE' : 'FACTORY'
+          }
+        });
+      }
+    }
+
+    // Restore EXTRA_CAP lines and legacy sales that lack location-tagged OUT InventoryTransactions
     if (Array.isArray(existing.items) && existing.items.length > 0) {
       for (const line of existing.items) {
         const lineQty = Number(line.quantity || 0);
         if (lineQty <= 0) continue;
 
-        if (line.saleType === 'WATER_REFILL' || line.saleType === 'EXTRA_CHARGE') {
-          continue; // Refills and extra charges never deducted container stock
+        if (['WATER_REFILL', 'CUSTOM_WATER', 'EXTRA_CHARGE'].includes(line.saleType)) {
+          continue; // Never restore container stock for virtual water or extra charge lines
         }
 
         if (line.saleType === 'EXTRA_CAP') {
-          const capRaw = line.itemId 
+          const capRaw = line.itemId
             ? await tx[`${prefix}Item`].findUnique({ where: { id: line.itemId } })
             : await tx[`${prefix}Item`].findFirst({
                 where: { type: 'RAW_MATERIAL', name: { contains: 'cap', mode: 'insensitive' }, archivedAt: null }
@@ -725,31 +771,33 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
           continue;
         }
 
-        const returnBaseUnits = line.saleType === 'PACK' 
-          ? lineQty * Number(line.item?.packSize || 1) 
-          : lineQty;
+        // Legacy fallback only when no product OUT transactions were logged on sale creation
+        if (productOutTxs.length === 0) {
+          const returnBaseUnits = line.saleType === 'PACK'
+            ? lineQty * Number(line.item?.packSize || 1)
+            : lineQty;
 
-        if (returnBaseUnits > 0 && line.itemId) {
-          await tx[`${prefix}Item`].update({
-            where: { id: line.itemId },
-            data: {
-              cachedQty: { increment: returnBaseUnits },
-              factoryQty: { increment: returnBaseUnits }
-            }
-          });
+          if (returnBaseUnits > 0 && line.itemId) {
+            await tx[`${prefix}Item`].update({
+              where: { id: line.itemId },
+              data: {
+                cachedQty: { increment: returnBaseUnits },
+                factoryQty: { increment: returnBaseUnits }
+              }
+            });
 
-          await tx[`${prefix}InventoryTransaction`].create({
-            data: {
-              itemId: line.itemId,
-              quantity: returnBaseUnits,
-              direction: 'IN',
-              reason: 'SPOT_SALE_DELETED',
-              refType: 'SPOT_SALE',
-              refId: existing.saleNumber || existing.id,
-              location: 'FACTORY'
-            }
-          });
-
+            await tx[`${prefix}InventoryTransaction`].create({
+              data: {
+                itemId: line.itemId,
+                quantity: returnBaseUnits,
+                direction: 'IN',
+                reason: 'SPOT_SALE_DELETED',
+                refType: 'SPOT_SALE',
+                refId: existing.saleNumber || existing.id,
+                location: 'FACTORY'
+              }
+            });
+          }
         }
       }
     }
@@ -796,13 +844,16 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
     });
 
     // Revert mineral dosing transactions if any were deducted for this sale
-    const mineralTxs = await tx[`${prefix}InventoryTransaction`].findMany({
-      where: {
-        refType: 'SPOT_SALE',
-        refId: existing.saleNumber || existing.id,
-        reason: 'SPOT_SALE_MINERAL_DOSING'
-      }
-    });
+    const mineralTxs = saleRefs.length > 0
+      ? await tx[`${prefix}InventoryTransaction`].findMany({
+          where: {
+            refType: 'SPOT_SALE',
+            refId: { in: saleRefs },
+            direction: 'OUT',
+            reason: 'SPOT_SALE_MINERAL_DOSING'
+          }
+        })
+      : [];
     for (const mTx of mineralTxs) {
       const q = Number(mTx.quantity || 0);
       if (q > 0) {
@@ -827,13 +878,22 @@ export const deleteSpotSale = asyncHandler(async (req, res) => {
       }
     }
 
-    // 2. Revert customer debt if debt was accrued
+    // 2. Revert customer debt if debt was accrued (clamped at 0)
     const debtToRevert = Number(existing.debtAmount || existing.creditAmount || 0);
     if (existing.customerId && debtToRevert > 0) {
-      await tx[`${prefix}Customer`].update({
+      const cust = await tx[`${prefix}Customer`].findUnique({
         where: { id: existing.customerId },
-        data: { currentBalance: { decrement: debtToRevert } }
+        select: { currentBalance: true }
       });
+      if (cust) {
+        const clampedRevert = Math.min(Number(cust.currentBalance || 0), debtToRevert);
+        if (clampedRevert > 0) {
+          await tx[`${prefix}Customer`].update({
+            where: { id: existing.customerId },
+            data: { currentBalance: { decrement: clampedRevert } }
+          });
+        }
+      }
     }
 
     // 3. Delete the parent SpotSale record (cascade deletes SpotSaleItem)

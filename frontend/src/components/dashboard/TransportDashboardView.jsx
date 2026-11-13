@@ -28,6 +28,7 @@ export default function TransportDashboardView() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => Date.now());
 
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -43,7 +44,7 @@ export default function TransportDashboardView() {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
-        fetch(`${API_URL}/orders?limit=50`, {
+        fetch(`${API_URL}/orders?limit=all`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null)
@@ -74,6 +75,7 @@ export default function TransportDashboardView() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLastRefreshedAt(Date.now());
     }
   }, [tenant]);
 
@@ -90,58 +92,37 @@ export default function TransportDashboardView() {
   const totalVehicles = vehicles.length;
   const operationalRate = totalVehicles > 0 ? Math.round((activeVehicles.length / totalVehicles) * 100) : 0;
 
-  // Expense calculations
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
   const totalTransportSpend = useMemo(() => {
     return expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   }, [expenses]);
 
-  const _todayVehicleExpenses = useMemo(() => {
-    return expenses
-      .filter(e => {
-        const d = new Date(e.date || e.createdAt);
-        return d.toISOString().slice(0, 10) === todayStr;
-      })
-      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  }, [expenses, todayStr]);
-
-  const _monthVehicleExpenses = useMemo(() => {
-    return expenses
-      .filter(e => {
-        const d = new Date(e.date || e.createdAt);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      })
-      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  }, [expenses, currentMonth, currentYear]);
-
-  const timeframeVehicleExpenses = useMemo(() => {
+  const timeframeRange = useMemo(() => {
     const dNow = new Date();
-    let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0);
+    let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0, 0);
     let endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
     if (timeframe === 'YESTERDAY') {
-      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 0, 0, 0);
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 0, 0, 0, 0);
       endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 1, 23, 59, 59, 999);
     } else if (timeframe === 'LAST_3_DAYS') {
-      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 2, 0, 0, 0);
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 2, 0, 0, 0, 0);
     } else if (timeframe === '1_WEEK') {
-      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 6, 0, 0, 0);
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate() - 6, 0, 0, 0, 0);
     } else if (timeframe === '1_MONTH') {
-      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), 1, 0, 0, 0);
+      startDate = new Date(dNow.getFullYear(), dNow.getMonth(), 1, 0, 0, 0, 0);
     } else if (timeframe === '1_YEAR') {
-      startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0);
+      startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0, 0);
     }
+    return { startDate, endOfDay };
+  }, [timeframe, lastRefreshedAt]);
 
+  const timeframeVehicleExpenses = useMemo(() => {
     return expenses
       .filter(e => {
         const d = new Date(e.date || e.createdAt);
-        return d >= startDate && d <= endOfDay;
+        return d >= timeframeRange.startDate && d <= timeframeRange.endOfDay;
       })
       .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  }, [expenses, timeframe]);
+  }, [expenses, timeframeRange]);
 
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'Today';
@@ -157,26 +138,38 @@ export default function TransportDashboardView() {
     return orders.filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL');
   }, [orders]);
 
-  const _todayDeliveredCount = useMemo(() => {
+  const timeframeDeliveredCount = useMemo(() => {
     return orders.filter(o => {
       if (o.deliveryStatus !== 'DELIVERED') return false;
-      const d = new Date(o.updatedAt || o.createdAt);
-      return d.toISOString().slice(0, 10) === todayStr;
+      let maxDeliveredAt = null;
+      if (Array.isArray(o.deliveries) && o.deliveries.length > 0) {
+        for (const del of o.deliveries) {
+          if (del.deliveredAt) {
+            const time = new Date(del.deliveredAt).getTime();
+            if (!isNaN(time) && (maxDeliveredAt === null || time > maxDeliveredAt)) {
+              maxDeliveredAt = time;
+            }
+          }
+        }
+      }
+      const d = maxDeliveredAt !== null ? new Date(maxDeliveredAt) : new Date(o.updatedAt || o.createdAt);
+      return d >= timeframeRange.startDate && d <= timeframeRange.endOfDay;
     }).length;
-  }, [orders, todayStr]);
+  }, [orders, timeframeRange]);
 
-  const todayBottlesRecovered = useMemo(() => {
+  const timeframeBottlesRecovered = useMemo(() => {
+    if (isWadaana) return 0;
     let count = 0;
     orders.forEach(o => {
       (o.deliveries || []).forEach(d => {
         const delDate = new Date(d.deliveredAt || o.updatedAt);
-        if (delDate.toISOString().slice(0, 10) === todayStr) {
+        if (delDate >= timeframeRange.startDate && delDate <= timeframeRange.endOfDay) {
           count += Number(d.bottlesReturnedGood || 0) + Number(d.bottlesReturnedBroken || 0);
         }
       });
     });
     return count;
-  }, [orders, todayStr]);
+  }, [orders, timeframeRange, isWadaana]);
 
   // Filter expenses that have vehicle attached or fuel/repairs (up to 3)
   const recentVehicleExpenses = useMemo(() => {
@@ -241,8 +234,8 @@ export default function TransportDashboardView() {
         </div>
       </div>
 
-      {/* KPI Cards Grid (4 Clean Operational Metrics) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* KPI Cards Grid */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isWadaana ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3.5`}>
         {/* Fleet Readiness */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
           <div className="flex items-center justify-between">
@@ -274,26 +267,28 @@ export default function TransportDashboardView() {
           <div className="mt-2.5">
             <div className="text-2xl font-black text-amber-600 font-mono">{pendingDeliveries.length}</div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              Orders awaiting route delivery
+              Open queue • {timeframeDeliveredCount} delivered ({getPeriodLabel().toLowerCase()})
             </div>
           </div>
         </div>
 
-        {/* Today's Bottle Recoveries */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bottles Returned</span>
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-              <RotateCcw size={15} />
+        {/* Bottle Recoveries (AquaSphere 19L circulation only) */}
+        {!isWadaana && (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bottles Returned</span>
+              <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                <RotateCcw size={15} />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <div className="text-2xl font-black text-teal-600 font-mono">{timeframeBottlesRecovered}</div>
+              <div className="text-[11px] font-semibold text-slate-500 mt-1">
+                Recovered from routes ({getPeriodLabel().toLowerCase()})
+              </div>
             </div>
           </div>
-          <div className="mt-2.5">
-            <div className="text-2xl font-black text-teal-600 font-mono">{todayBottlesRecovered}</div>
-            <div className="text-[11px] font-semibold text-slate-500 mt-1">
-              Recovered from customer routes today
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Total Transport & Active Timeframe Spend */}
         <div 

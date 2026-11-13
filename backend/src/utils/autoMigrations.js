@@ -315,17 +315,13 @@ export async function ensureShrinkWrapMaterials() {
     const rmMagnesium = findRm(['magnesium']) || findRm(['mg']);
     const rmSodium = findRm(['sodium']) || findRm(['na']);
 
-    const upsertRecipe = async (fgId, rmId, qty) => {
+    const ensureRecipeIfMissing = async (fgId, rmId, qty) => {
       if (!fgId || !rmId) return;
       const existing = await prisma.aquasphereRecipeItem.findFirst({
         where: { finishedGoodId: fgId, rawMaterialId: rmId }
       });
-      if (existing) {
-        await prisma.aquasphereRecipeItem.update({
-          where: { id: existing.id },
-          data: { quantityPerUnit: qty }
-        });
-      } else {
+      // Insert only when missing — never overwrite user-edited recipe quantities on boot
+      if (!existing) {
         await prisma.aquasphereRecipeItem.create({
           data: { finishedGoodId: fgId, rawMaterialId: rmId, quantityPerUnit: qty }
         });
@@ -335,8 +331,11 @@ export async function ensureShrinkWrapMaterials() {
     for (const fg of finishedGoods) {
       const fgNameLower = fg.name.toLowerCase();
 
-      // 0.5L PET Pack
-      if (fgNameLower.includes('0.5') || fgNameLower.includes('500')) {
+      // 0.5L PET Pack (only update packSize and pack recipes if item is a pack product)
+      if ((fgNameLower.includes('0.5') || fgNameLower.includes('500')) && !fgNameLower.includes('single') && !fgNameLower.includes('loose')) {
+        if ((fgNameLower.includes('pack') || fgNameLower.includes('pet')) && Number(fg.packSize || 1) <= 1) {
+          await prisma.aquasphereItem.update({ where: { id: fg.id }, data: { packSize: 12 } });
+        }
         // Clean up wrong shrink wrap references
         if (genericShrink && genericShrink.id !== rm05Shrink?.id) {
           await prisma.aquasphereRecipeItem.deleteMany({
@@ -349,17 +348,20 @@ export async function ensureShrinkWrapMaterials() {
           });
         }
 
-        // Apply full 0.5L formula
-        if (rm05Shrink) await upsertRecipe(fg.id, rm05Shrink.id, 0.02273); // 44 packs / kg
-        if (rmSmallCaps) await upsertRecipe(fg.id, rmSmallCaps.id, 12);     // 12 caps / pack
-        if (rm05Bottle) await upsertRecipe(fg.id, rm05Bottle.id, 12);       // 12 bottles / pack
-        if (rm05Label) await upsertRecipe(fg.id, rm05Label.id, 0.00672);    // 6.72g / pack
-        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.00118884);
-        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.00059436);
-        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.00029724);
+        // Seed missing 0.5L formula rows without overwriting existing user edits
+        if (rm05Shrink) await ensureRecipeIfMissing(fg.id, rm05Shrink.id, 0.02273); // 44 packs / kg
+        if (rmSmallCaps) await ensureRecipeIfMissing(fg.id, rmSmallCaps.id, 12);     // 12 caps / pack
+        if (rm05Bottle) await ensureRecipeIfMissing(fg.id, rm05Bottle.id, 12);       // 12 bottles / pack
+        if (rm05Label) await ensureRecipeIfMissing(fg.id, rm05Label.id, 0.00672);    // 6.72g / pack
+        if (rmCalcium) await ensureRecipeIfMissing(fg.id, rmCalcium.id, 0.00118884);
+        if (rmMagnesium) await ensureRecipeIfMissing(fg.id, rmMagnesium.id, 0.00059436);
+        if (rmSodium) await ensureRecipeIfMissing(fg.id, rmSodium.id, 0.00029724);
       } 
       // 1.5L PET Pack
-      else if (fgNameLower.includes('1.5') || fgNameLower.includes('1500')) {
+      else if ((fgNameLower.includes('1.5') || fgNameLower.includes('1500')) && !fgNameLower.includes('single') && !fgNameLower.includes('loose')) {
+        if ((fgNameLower.includes('pack') || fgNameLower.includes('pet')) && Number(fg.packSize || 1) <= 1) {
+          await prisma.aquasphereItem.update({ where: { id: fg.id }, data: { packSize: 6 } });
+        }
         // Clean up wrong shrink wrap references
         if (genericShrink && genericShrink.id !== rm15Shrink?.id) {
           await prisma.aquasphereRecipeItem.deleteMany({
@@ -372,26 +374,26 @@ export async function ensureShrinkWrapMaterials() {
           });
         }
 
-        // Apply full 1.5L formula
-        if (rm15Shrink) await upsertRecipe(fg.id, rm15Shrink.id, 0.02500); // 40 packs / kg
-        if (rmSmallCaps) await upsertRecipe(fg.id, rmSmallCaps.id, 6);      // 6 caps / pack
-        if (rm15Bottle) await upsertRecipe(fg.id, rm15Bottle.id, 6);        // 6 bottles / pack
-        if (rm15Label) await upsertRecipe(fg.id, rm15Label.id, 0.00780);    // 7.80g / pack
-        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.001585);
-        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.000793);
-        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.000396);
+        // Seed missing 1.5L formula rows without overwriting existing user edits
+        if (rm15Shrink) await ensureRecipeIfMissing(fg.id, rm15Shrink.id, 0.02500); // 40 packs / kg
+        if (rmSmallCaps) await ensureRecipeIfMissing(fg.id, rmSmallCaps.id, 6);      // 6 caps / pack
+        if (rm15Bottle) await ensureRecipeIfMissing(fg.id, rm15Bottle.id, 6);        // 6 bottles / pack
+        if (rm15Label) await ensureRecipeIfMissing(fg.id, rm15Label.id, 0.00780);    // 7.80g / pack
+        if (rmCalcium) await ensureRecipeIfMissing(fg.id, rmCalcium.id, 0.001585);
+        if (rmMagnesium) await ensureRecipeIfMissing(fg.id, rmMagnesium.id, 0.000793);
+        if (rmSodium) await ensureRecipeIfMissing(fg.id, rmSodium.id, 0.000396);
       }
       // 19L Refill Bottle
       else if (fgNameLower.includes('19')) {
-        if (rm19Bottle) await upsertRecipe(fg.id, rm19Bottle.id, 1);
-        if (rmBigCaps) await upsertRecipe(fg.id, rmBigCaps.id, 1);
-        if (rmCalcium) await upsertRecipe(fg.id, rmCalcium.id, 0.003170);
-        if (rmMagnesium) await upsertRecipe(fg.id, rmMagnesium.id, 0.001585);
-        if (rmSodium) await upsertRecipe(fg.id, rmSodium.id, 0.000793);
+        if (rm19Bottle) await ensureRecipeIfMissing(fg.id, rm19Bottle.id, 1);
+        if (rmBigCaps) await ensureRecipeIfMissing(fg.id, rmBigCaps.id, 1);
+        if (rmCalcium) await ensureRecipeIfMissing(fg.id, rmCalcium.id, 0.003170);
+        if (rmMagnesium) await ensureRecipeIfMissing(fg.id, rmMagnesium.id, 0.001585);
+        if (rmSodium) await ensureRecipeIfMissing(fg.id, rmSodium.id, 0.000793);
       }
     }
 
-    // Verify Wadaana Preform Recipes
+    // Verify Wadaana Preform Recipes (insert-if-missing only)
     try {
       const wadaanaRMs = await prisma.wadaanaItem.findMany({
         where: { type: 'RAW_MATERIAL', archivedAt: null }
@@ -423,12 +425,7 @@ export async function ensureShrinkWrapMaterials() {
           const existing = await prisma.wadaanaRecipeItem.findFirst({
             where: { finishedGoodId: fg.id, rawMaterialId: rm.id }
           });
-          if (existing) {
-            await prisma.wadaanaRecipeItem.update({
-              where: { id: existing.id },
-              data: { quantityPerUnit: mapping.qty }
-            });
-          } else {
+          if (!existing) {
             await prisma.wadaanaRecipeItem.create({
               data: { finishedGoodId: fg.id, rawMaterialId: rm.id, quantityPerUnit: mapping.qty }
             });

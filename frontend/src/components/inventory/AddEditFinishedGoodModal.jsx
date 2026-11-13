@@ -22,6 +22,8 @@ export default function AddEditFinishedGoodModal({
   const [stockInputMode, setStockInputMode] = useState('packs');
   const [factoryStock, setFactoryStock] = useState('0');
   const [warehouseStock, setWarehouseStock] = useState('0');
+  const [stockEdited, setStockEdited] = useState(false);
+  const [recipeInputBasis, setRecipeInputBasis] = useState('PACK'); // 'PACK' | 'BOTTLE'
 
   // Raw materials list: array of DB items
   const [rawMaterials, setRawMaterials] = useState([]);
@@ -31,12 +33,19 @@ export default function AddEditFinishedGoodModal({
   const [materialQuantities, setMaterialQuantities] = useState({});
   const [saving, setSaving] = useState(false);
 
+  const isShrinkMaterial = (mat) => {
+    const n = (mat?.name || '').toLowerCase();
+    return n.includes('shrink') || n.includes('wrap') || n.includes('film');
+  };
+
   // Fetch available raw materials and populate itemToEdit when modal opens
   useEffect(() => {
     if (!isOpen) return;
 
     const fetchRawMaterialsAndPopulate = async () => {
       setLoadingMaterials(true);
+      setStockEdited(false);
+      setRecipeInputBasis('PACK');
       try {
         const res = await fetch(`${API}/items?type=RAW_MATERIAL`, {
           headers: { 'x-tenant': tenant },
@@ -48,8 +57,14 @@ export default function AddEditFinishedGoodModal({
 
         if (itemToEdit) {
           setName(itemToEdit.name || '');
-          setUnit(itemToEdit.unit || 'packs');
-          const pSize = Number(itemToEdit.packSize || 1);
+          const pSize = Math.max(1, Number(itemToEdit.packSize || 1));
+          const rawUnit = String(itemToEdit.unit || '').toLowerCase();
+          const normalizedUnit = rawUnit === 'litres'
+            ? 'litres'
+            : rawUnit === 'pcs'
+              ? 'pcs'
+              : (pSize > 1 ? 'packs' : 'bottles');
+          setUnit(normalizedUnit);
           setPackSize(String(pSize));
           setReorderLevel(Number(itemToEdit.reorderLevel || 0));
 
@@ -83,6 +98,7 @@ export default function AddEditFinishedGoodModal({
           setUnit('packs');
           setPackSize('1');
           setReorderLevel(20);
+          setStockInputMode('packs');
           setFactoryStock('0');
           setWarehouseStock('0');
           setMaterialQuantities({});
@@ -100,6 +116,60 @@ export default function AddEditFinishedGoodModal({
 
   if (!isOpen) return null;
 
+  const parsedPackSize = Math.max(1, parseInt(packSize, 10) || 1);
+
+  const handlePackSizeChange = (newVal) => {
+    setPackSize(newVal);
+    const rawInt = parseInt(newVal, 10);
+    const nextPSize = Math.max(1, rawInt || 1);
+    if (newVal !== '' && !isNaN(rawInt) && rawInt <= 1 && recipeInputBasis !== 'PACK') {
+      // Switching packSize down to 1: convert any BOTTLE-mode inputs safely
+      setRecipeInputBasis('PACK');
+    }
+    if (itemToEdit && !stockEdited && stockInputMode === 'packs') {
+      const fac = Number(itemToEdit.factoryQty || 0);
+      const wh = Number(itemToEdit.warehouseQty || 0);
+      const cached = Number(itemToEdit.cachedQty || 0);
+      const effectiveFac = (fac === 0 && wh === 0 && cached > 0) ? cached : fac;
+      const effectiveWh = (fac === 0 && wh === 0 && cached > 0) ? 0 : wh;
+      setFactoryStock(String(Number((effectiveFac / nextPSize).toFixed(4))));
+      setWarehouseStock(String(Number((effectiveWh / nextPSize).toFixed(4))));
+    }
+  };
+
+  const handleStockModeSwitch = (newMode) => {
+    if (newMode === stockInputMode) return;
+    const curFac = parseFloat(factoryStock) || 0;
+    const curWh = parseFloat(warehouseStock) || 0;
+    if (newMode === 'bottles' && stockInputMode === 'packs') {
+      setFactoryStock(String(Math.round(curFac * parsedPackSize)));
+      setWarehouseStock(String(Math.round(curWh * parsedPackSize)));
+    } else if (newMode === 'packs' && stockInputMode === 'bottles') {
+      setFactoryStock(String(Number((curFac / parsedPackSize).toFixed(4))));
+      setWarehouseStock(String(Number((curWh / parsedPackSize).toFixed(4))));
+    }
+    setStockInputMode(newMode);
+  };
+
+  const handleRecipeBasisSwitch = (nextBasis) => {
+    if (nextBasis === recipeInputBasis || parsedPackSize <= 1) return;
+    setMaterialQuantities(prev => {
+      const next = { ...prev };
+      for (const mat of rawMaterials) {
+        if (isShrinkMaterial(mat)) continue;
+        const val = parseFloat(prev[mat.id]);
+        if (!isNaN(val) && val > 0) {
+          const converted = nextBasis === 'BOTTLE'
+            ? val / parsedPackSize
+            : val * parsedPackSize;
+          next[mat.id] = String(Number(converted.toFixed(6)));
+        }
+      }
+      return next;
+    });
+    setRecipeInputBasis(nextBasis);
+  };
+
   const handleQtyChange = (rmId, value) => {
     setMaterialQuantities(prev => ({
       ...prev,
@@ -111,24 +181,41 @@ export default function AddEditFinishedGoodModal({
     e.preventDefault();
     if (!name.trim()) return toast.error('Product name is required');
 
-    // Build recipe payload: any raw material with qty > 0 is included
+    // Build canonical per-selling-unit recipe payload (1 Pack when packSize > 1, 1 Bottle when packSize === 1)
+    const rmById = new Map(rawMaterials.map(m => [m.id, m]));
     const validRecipe = [];
     for (const [rmId, qtyStr] of Object.entries(materialQuantities)) {
       const q = parseFloat(qtyStr);
       if (!isNaN(q) && q > 0) {
+        const mat = rmById.get(rmId);
+        const shouldScaleFromBottle = recipeInputBasis === 'BOTTLE' && parsedPackSize > 1 && !isShrinkMaterial(mat);
+        const canonicalQty = shouldScaleFromBottle ? Number((q * parsedPackSize).toFixed(8)) : q;
         validRecipe.push({
           rawMaterialId: rmId,
-          quantityPerUnit: q
+          quantityPerUnit: canonicalQty
         });
       }
     }
 
     setSaving(true);
     try {
-      const parsedPackSize = Math.max(1, parseInt(packSize, 10) || 1);
       const packMultiplier = (stockInputMode === 'packs' && parsedPackSize > 1) ? parsedPackSize : 1;
       const effectiveFactoryStock = (parseFloat(factoryStock) || 0) * packMultiplier;
       const effectiveWarehouseStock = (parseFloat(warehouseStock) || 0) * packMultiplier;
+
+      const payload = {
+        name: name.trim(),
+        type: 'FINISHED_GOOD',
+        unit: unit.trim() || (parsedPackSize > 1 ? 'packs' : 'bottles'),
+        packSize: parsedPackSize,
+        reorderLevel: parseFloat(reorderLevel) || 0,
+        recipe: validRecipe
+      };
+
+      if (!itemToEdit || stockEdited) {
+        payload.factoryStock = effectiveFactoryStock;
+        payload.warehouseStock = effectiveWarehouseStock;
+      }
 
       const url = itemToEdit ? `${API}/items/${itemToEdit.id}` : `${API}/items`;
       const method = itemToEdit ? 'PUT' : 'POST';
@@ -140,16 +227,7 @@ export default function AddEditFinishedGoodModal({
           'x-tenant': tenant
         },
         credentials: 'include',
-        body: JSON.stringify({
-          name: name.trim(),
-          type: 'FINISHED_GOOD',
-          unit: unit.trim() || 'packs',
-          packSize: parsedPackSize,
-          reorderLevel: parseFloat(reorderLevel) || 0,
-          factoryStock: effectiveFactoryStock,
-          warehouseStock: effectiveWarehouseStock,
-          recipe: validRecipe
-        })
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();
@@ -236,7 +314,7 @@ export default function AddEditFinishedGoodModal({
                   step="1"
                   placeholder="1 (Single bottle) or 12"
                   value={packSize}
-                  onChange={(e) => setPackSize(e.target.value)}
+                  onChange={(e) => handlePackSizeChange(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
@@ -262,22 +340,22 @@ export default function AddEditFinishedGoodModal({
                     <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                       {itemToEdit ? 'Adjust Stock by Location' : 'Initial Stock by Location'}
                     </h5>
-                    {parseInt(packSize, 10) > 1 && (
+                    {parsedPackSize > 1 && (
                       <div className="inline-flex rounded-lg p-0.5 bg-slate-200/80 border border-slate-300 text-[10px]">
                         <button
                           type="button"
-                          onClick={() => setStockInputMode('packs')}
+                          onClick={() => handleStockModeSwitch('packs')}
                           className={`px-2 py-0.5 rounded-md font-bold transition ${
                             stockInputMode === 'packs'
                               ? 'bg-white text-brand shadow-xs'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          Packs (x{packSize})
+                          Packs (x{parsedPackSize})
                         </button>
                         <button
                           type="button"
-                          onClick={() => setStockInputMode('bottles')}
+                          onClick={() => handleStockModeSwitch('bottles')}
                           className={`px-2 py-0.5 rounded-md font-bold transition ${
                             stockInputMode === 'bottles'
                               ? 'bg-white text-brand shadow-xs'
@@ -291,7 +369,7 @@ export default function AddEditFinishedGoodModal({
                   </div>
                   <p className="text-[11px] text-slate-500">
                     {itemToEdit 
-                      ? 'Update factory and warehouse balances directly. Both increases and decreases are recorded.' 
+                      ? 'Update factory and warehouse balances directly. Leave untouched if only editing recipe.' 
                       : 'Assign opening stock to factory and warehouse locations.'}
                   </p>
                 </div>
@@ -301,7 +379,7 @@ export default function AddEditFinishedGoodModal({
                     <span className="text-sm font-mono font-black text-brand">
                       {totalCalculatedStock.toLocaleString()}{' '}
                       <span className="text-[11px] font-normal text-slate-500">
-                        {parseInt(packSize, 10) > 1 && stockInputMode === 'packs' ? 'Packs' : unit}
+                        {parsedPackSize > 1 && stockInputMode === 'packs' ? 'Packs' : unit}
                       </span>
                     </span>
                   </div>
@@ -311,10 +389,13 @@ export default function AddEditFinishedGoodModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>🏭 Factory Stock ({unit})</span>
+                    <span>🏭 Factory Stock ({parsedPackSize > 1 && stockInputMode === 'packs' ? 'Packs' : unit})</span>
                     {itemToEdit && (
                       <span className="text-[10px] text-slate-400 font-normal">
-                        Prev: {Number(itemToEdit.factoryQty || 0).toLocaleString()}
+                        Prev:{' '}
+                        {parsedPackSize > 1 && stockInputMode === 'packs'
+                          ? `${(Number(itemToEdit.factoryQty || 0) / parsedPackSize).toFixed(1).replace(/\.0$/, '')} pk`
+                          : Number(itemToEdit.factoryQty || 0).toLocaleString()}
                       </span>
                     )}
                   </label>
@@ -324,17 +405,23 @@ export default function AddEditFinishedGoodModal({
                     step="any"
                     placeholder="0"
                     value={factoryStock}
-                    onChange={(e) => setFactoryStock(e.target.value)}
+                    onChange={(e) => {
+                      setFactoryStock(e.target.value);
+                      setStockEdited(true);
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>🏢 Warehouse Stock ({unit})</span>
+                    <span>🏢 Warehouse Stock ({parsedPackSize > 1 && stockInputMode === 'packs' ? 'Packs' : unit})</span>
                     {itemToEdit && (
                       <span className="text-[10px] text-slate-400 font-normal">
-                        Prev: {Number(itemToEdit.warehouseQty || 0).toLocaleString()}
+                        Prev:{' '}
+                        {parsedPackSize > 1 && stockInputMode === 'packs'
+                          ? `${(Number(itemToEdit.warehouseQty || 0) / parsedPackSize).toFixed(1).replace(/\.0$/, '')} pk`
+                          : Number(itemToEdit.warehouseQty || 0).toLocaleString()}
                       </span>
                     )}
                   </label>
@@ -344,7 +431,10 @@ export default function AddEditFinishedGoodModal({
                     step="any"
                     placeholder="0"
                     value={warehouseStock}
-                    onChange={(e) => setWarehouseStock(e.target.value)}
+                    onChange={(e) => {
+                      setWarehouseStock(e.target.value);
+                      setStockEdited(true);
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
@@ -354,16 +444,44 @@ export default function AddEditFinishedGoodModal({
 
           {/* Bill of Materials (Pre-populated list of all raw materials) */}
           <div className="space-y-3 pt-4 border-t border-slate-100">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Recipe Consumption (Per 1 {unit || 'unit'})
+                  Recipe Consumption ({parsedPackSize > 1 && recipeInputBasis === 'BOTTLE' ? 'Per 1 Bottle' : `Per 1 ${unit || 'unit'}`})
                 </h4>
                 <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                  <Info size={12} className="text-sky-500" />
-                  Enter raw materials needed to produce exactly 1 {unit || 'unit'} (e.g. bottles, caps, shrink wrap, labels).
+                  <Info size={12} className="text-sky-500 shrink-0" />
+                  {parsedPackSize > 1 && recipeInputBasis === 'BOTTLE'
+                    ? `Enter per-bottle raw materials (auto-scaled ×${parsedPackSize} to pack recipe on save; Shrink Wrap stays Per 1 Pack).`
+                    : `Enter raw materials needed to produce 1 ${unit || 'unit'} (e.g. bottles, caps, shrink wrap, labels).`}
                 </p>
               </div>
+              {parsedPackSize > 1 && (
+                <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 text-[10px] shrink-0 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => handleRecipeBasisSwitch('PACK')}
+                    className={`px-2 py-1 rounded-md font-bold transition cursor-pointer ${
+                      recipeInputBasis === 'PACK'
+                        ? 'bg-white text-brand shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Per 1 Pack (x{parsedPackSize})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRecipeBasisSwitch('BOTTLE')}
+                    className={`px-2 py-1 rounded-md font-bold transition cursor-pointer ${
+                      recipeInputBasis === 'BOTTLE'
+                        ? 'bg-white text-brand shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Per 1 Bottle
+                  </button>
+                </div>
+              )}
             </div>
 
             {loadingMaterials ? (
@@ -380,13 +498,17 @@ export default function AddEditFinishedGoodModal({
                 <div className="grid grid-cols-12 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <div className="col-span-7">Raw Material</div>
                   <div className="col-span-2 text-right">In Stock</div>
-                  <div className="col-span-3 text-right">Quantity Required</div>
+                  <div className="col-span-3 text-right">
+                    {parsedPackSize > 1 && recipeInputBasis === 'BOTTLE' ? 'Per 1 Btl' : `Per ${unit || 'Unit'}`}
+                  </div>
                 </div>
 
                 <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   {rawMaterials.map((mat) => {
                     const currentVal = materialQuantities[mat.id] || '';
                     const isIncluded = parseFloat(currentVal) > 0;
+                    const isShrink = isShrinkMaterial(mat);
+                    const showPackHint = isIncluded && parsedPackSize > 1 && recipeInputBasis === 'BOTTLE' && !isShrink;
 
                     return (
                       <div
@@ -404,6 +526,16 @@ export default function AddEditFinishedGoodModal({
                           <span className={`font-medium truncate ${isIncluded ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
                             {mat.name}
                           </span>
+                          {parsedPackSize > 1 && isShrink && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
+                              Per 1 Pack
+                            </span>
+                          )}
+                          {showPackHint && (
+                            <span className="text-[10px] font-mono text-sky-700 shrink-0">
+                              = {Number((parseFloat(currentVal) * parsedPackSize).toFixed(4))}/pk
+                            </span>
+                          )}
                         </div>
 
                         <div className="col-span-2 text-right font-mono text-slate-500 text-[11px]">

@@ -42,6 +42,10 @@ export default function AccountantDashboardView({ data }) {
         sales: Number(tf.sales ?? 0),
         cash: Number(tf.cash ?? 0),
         expenses: Number(tf.expenses ?? 0),
+        vendorPayments: Number(tf.vendorPayments ?? 0),
+        purchases: Number(tf.purchases ?? 0),
+        netCashFlow: Number(tf.netCashFlow ?? ((Number(tf.cash ?? 0)) - (Number(tf.expenses ?? 0) + Number(tf.vendorPayments ?? 0)))),
+        expectedDrawerCash: Number(tf.expectedDrawerCash ?? 0),
         credit: Number(tf.credit ?? 0),
         cashByMethod: tf.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
         salesBySize: tf.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
@@ -49,64 +53,18 @@ export default function AccountantDashboardView({ data }) {
       };
     }
 
-    const history = data.dailySalesHistory || [];
-    if (history.length > 0) {
-      const now = new Date();
-      const getDStr = (offset) => {
-        const d = new Date(now);
-        d.setDate(now.getDate() - offset);
-        return d.toISOString().split('T')[0];
-      };
-
-      if (timeframe === 'YESTERDAY') {
-        const yStr = getDStr(1);
-        const yItem = history.find(h => h.date === yStr);
-        if (yItem) {
-          return {
-            sales: Number(yItem.sales || 0),
-            cash: Number(yItem.cashCollected || yItem.cash || 0),
-            expenses: Number(yItem.expenses || 0),
-            credit: Number(yItem.creditBilled || yItem.credit || 0),
-            cashByMethod: data.yesterday?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.yesterday?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.yesterday?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      } else if (timeframe === 'LAST_3_DAYS') {
-        const d0 = getDStr(0), d1 = getDStr(1), d2 = getDStr(2);
-        const matched = history.filter(h => [d0, d1, d2].includes(h.date));
-        if (matched.length > 0) {
-          return {
-            sales: matched.reduce((acc, h) => acc + Number(h.sales || 0), 0),
-            cash: matched.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
-            expenses: matched.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
-            credit: matched.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0),
-            cashByMethod: data.last3Days?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.last3Days?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.last3Days?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
-        const last7 = history.slice(-7);
-        if (last7.length > 0) {
-          return {
-            sales: last7.reduce((acc, h) => acc + Number(h.sales || 0), 0),
-            cash: last7.reduce((acc, h) => acc + Number(h.cashCollected || h.cash || 0), 0),
-            expenses: last7.reduce((acc, h) => acc + Number(h.expenses || 0), 0),
-            credit: last7.reduce((acc, h) => acc + Number(h.creditBilled || h.credit || 0), 0),
-            cashByMethod: data.week?.cashByMethod || data.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
-            salesBySize: data.week?.salesBySize || data.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
-            cashBySize: data.week?.cashBySize || data.cashBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 }
-          };
-        }
-      }
-    }
-
     const tf = tfKey === 'monthly' ? (data.monthly || data) : (data.daily || data);
+    const cashVal = Number(tf?.cash ?? data.cash ?? 0);
+    const expVal = Number(tf?.expenses ?? data.expenses ?? 0);
+    const vpVal = Number(tf?.vendorPayments ?? data.vendorPayments ?? 0);
     return {
       sales: Number(tf?.sales ?? data.sales ?? 0),
-      cash: Number(tf?.cash ?? data.cash ?? 0),
-      expenses: Number(tf?.expenses ?? data.expenses ?? 0),
+      cash: cashVal,
+      expenses: expVal,
+      vendorPayments: vpVal,
+      purchases: Number(tf?.purchases ?? data.purchases ?? 0),
+      netCashFlow: Number(tf?.netCashFlow ?? (cashVal - expVal - vpVal)),
+      expectedDrawerCash: Number(tf?.expectedDrawerCash ?? 0),
       credit: Number(tf?.credit ?? data.credit ?? 0),
       cashByMethod: tf?.cashByMethod || data?.cashByMethod || { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 },
       salesBySize: tf?.salesBySize || data?.salesBySize || { '19L': 0, '1.5L': 0, '0.5L': 0 },
@@ -114,33 +72,70 @@ export default function AccountantDashboardView({ data }) {
     };
   }, [data, timeframe]);
 
-  const netCash = Number(activeData.cash || 0) - Number(activeData.expenses || 0);
+  const netCashFlow = Number(activeData.netCashFlow ?? 0);
+  const expectedDrawerCash = Number(activeData.expectedDrawerCash ?? 0);
   const totalReceivables = Number(data?.totalOutstandingReceivables ?? data?.totalReceivables ?? 0);
-  const today = new Date().toISOString().split('T')[0];
+
+  const dateRange = useMemo(() => {
+    const toLocalStr = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const now = new Date();
+    const todayStr = toLocalStr(now);
+    let startStr = todayStr;
+    let endStr = todayStr;
+    if (timeframe === 'YESTERDAY') {
+      const d = new Date(now);
+      d.setDate(now.getDate() - 1);
+      startStr = toLocalStr(d);
+      endStr = startStr;
+    } else if (timeframe === 'LAST_3_DAYS') {
+      const d = new Date(now);
+      d.setDate(now.getDate() - 2);
+      startStr = toLocalStr(d);
+    } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+      const d = new Date(now);
+      d.setDate(now.getDate() - 6);
+      startStr = toLocalStr(d);
+    } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+      startStr = toLocalStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+      startStr = toLocalStr(new Date(now.getFullYear(), 0, 1));
+    }
+    return { todayStr, startStr, endStr };
+  }, [timeframe]);
 
   useEffect(() => {
+    let active = true;
     const fetchFinanceDetails = async () => {
       setLoadingExpenses(true);
       try {
         const [closeRes, expensesRes] = await Promise.all([
-          fetch(`${API_URL}/daily-close/status?date=${today}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
-          fetch(`${API_URL}/expenses?startDate=${today}&endDate=${today}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
+          fetch(`${API_URL}/daily-close/status?date=${dateRange.todayStr}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' }),
+          fetch(`${API_URL}/expenses?startDate=${dateRange.startStr}&endDate=${dateRange.endStr}&tenant=${tenant}`, { headers: { 'x-tenant': tenant }, credentials: 'include' })
         ]);
 
         const closeData = await closeRes.json();
         const expensesData = await expensesRes.json();
 
+        if (!active) return;
         setCloseStatus(closeData.data || { isClosed: false });
-        setExpenses(expensesData.data || []);
+        setExpenses(Array.isArray(expensesData.data) ? expensesData.data : (expensesData.data?.expenses || []));
       } catch (err) {
-        console.error('Error fetching accountant finance details:', err);
+        if (active) console.error('Error fetching accountant finance details:', err);
       } finally {
-        setLoadingExpenses(false);
+        if (active) setLoadingExpenses(false);
       }
     };
 
     fetchFinanceDetails();
-  }, [tenant, today]);
+    return () => {
+      active = false;
+    };
+  }, [tenant, dateRange]);
 
   const getPeriodLabel = () => {
     if (timeframe === 'DAILY' || timeframe === 'TODAY') return 'Today';
@@ -162,7 +157,7 @@ export default function AccountantDashboardView({ data }) {
             </span>
             <span className="text-[11px] text-slate-400 font-medium">Daily Finance Ledger</span>
           </div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-1">Finance & Cash Ledger</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-1">Finance &amp; Cash Ledger</h1>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
@@ -192,7 +187,7 @@ export default function AccountantDashboardView({ data }) {
             icon={CreditCard}
             title={`${getPeriodLabel()} Cash Inflow`}
             value={`Rs. ${Number(activeData?.cash || 0).toLocaleString()}`}
-            subtitle={`Cash collected (${getPeriodLabel().toLowerCase()})`}
+            subtitle={`Drawer (Physical): Rs. ${expectedDrawerCash.toLocaleString()}`}
             variant="emerald"
           />
           <ModernKpiCard
@@ -204,17 +199,17 @@ export default function AccountantDashboardView({ data }) {
           />
           <ModernKpiCard
             icon={Receipt}
-            title={`${getPeriodLabel()} Expenses`}
-            value={`Rs. ${Number(activeData?.expenses || 0).toLocaleString()}`}
-            subtitle={`Operating cost (${getPeriodLabel().toLowerCase()})`}
+            title={`${getPeriodLabel()} Outflows`}
+            value={`Rs. ${Number((activeData?.expenses || 0) + (activeData?.vendorPayments || 0)).toLocaleString()}`}
+            subtitle={`Expenses: Rs. ${Number(activeData?.expenses || 0).toLocaleString()} • Vendors: Rs. ${Number(activeData?.vendorPayments || 0).toLocaleString()}`}
             variant="rose"
           />
           <ModernKpiCard
             icon={Wallet}
-            title={`${getPeriodLabel()} Net Cash`}
-            value={`Rs. ${netCash.toLocaleString()}`}
-            subtitle={`${getPeriodLabel()} (Cash - Expenses)`}
-            variant={netCash >= 0 ? 'emerald' : 'rose'}
+            title={`${getPeriodLabel()} Net Cash Flow`}
+            value={`Rs. ${netCashFlow.toLocaleString()}`}
+            subtitle="Cash Inflow - Expenses - Vendor Paid"
+            variant={netCashFlow >= 0 ? 'emerald' : 'rose'}
           />
         </div>
 
@@ -228,21 +223,21 @@ export default function AccountantDashboardView({ data }) {
 
       {/* 2. Main Ledger & Accounts Workspace (2-Column Split for Zero-Scroll Efficiency) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-        {/* Left Column (7 cols): Today's Operating Expenses Detail Table */}
+        {/* Left Column (7 cols): Timeframe Operating Expenses Detail Table */}
         <div className="lg:col-span-7 space-y-2.5">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <Receipt size={15} className="text-slate-500" />
-              Today&apos;s Expense Log
+              {getPeriodLabel()} Expense Log
             </h2>
-            <span className="text-xs text-slate-400 font-semibold">{expenses.length} records today</span>
+            <span className="text-xs text-slate-400 font-semibold">{expenses.length} records</span>
           </div>
 
           <div className="table-container max-h-[380px] overflow-y-auto">
             {loadingExpenses ? (
-              <div className="p-8 text-center text-xs text-slate-400 font-medium">Loading today&apos;s ledger...</div>
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">Loading ledger...</div>
             ) : expenses.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400 font-medium">No operating expenses recorded for today.</div>
+              <div className="p-8 text-center text-xs text-slate-400 font-medium">No operating expenses recorded for {getPeriodLabel().toLowerCase()}.</div>
             ) : (
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs z-10">
@@ -278,7 +273,7 @@ export default function AccountantDashboardView({ data }) {
         <div className="lg:col-span-5 space-y-2.5">
           <div className="flex items-center gap-1.5">
             <CreditCard size={15} className="text-slate-500" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Accounts & Payables Ledger</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Accounts &amp; Payables Ledger</h2>
           </div>
 
           <div className="space-y-3">
@@ -300,9 +295,9 @@ export default function AccountantDashboardView({ data }) {
             />
             <ModernKpiCard
               icon={Receipt}
-              title="Monthly Material Purchases"
-              value={`Rs. ${Number(data?.monthlyPurchases || 0).toLocaleString()}`}
-              subtitle="Raw material spend this month"
+              title={`${getPeriodLabel()} Material Purchases`}
+              value={`Rs. ${Number(activeData?.purchases || 0).toLocaleString()}`}
+              subtitle={`Raw material invoices (${getPeriodLabel().toLowerCase()})`}
               variant="neutral"
               onClick={() => navigate('/purchases')}
             />

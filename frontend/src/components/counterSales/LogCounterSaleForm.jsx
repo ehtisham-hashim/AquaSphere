@@ -21,13 +21,7 @@ import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { PAYMENT_METHODS } from '../../constants/counterSale';
 
-const getPackSize = (item) => {
-  if (item.packSize && Number(item.packSize) > 1) return Number(item.packSize);
-  const name = (item.name || '').toLowerCase();
-  if (name.includes('0.5l') || name.includes('0.5 pet') || name.includes('500ml')) return 12;
-  if (name.includes('1.5l') || name.includes('1.5 pet') || name.includes('1500ml')) return 6;
-  return Number(item.packSize) || 1;
-};
+const getPackSize = (item) => Math.max(1, Number(item?.packSize) || 1);
 
 function LiveClock() {
   const [time, setTime] = useState(() => new Date());
@@ -55,7 +49,7 @@ export default function LogCounterSaleForm({
   loading = false,
   onManageSupplies = null
 }) {
-  // Map of cartKey -> quantity: e.g. "itemId_PACK" -> 2, "itemId_UNIT" -> 5, "itemId_RAW" -> 10
+  // Map of cartKey -> quantity: e.g. "itemId_PACK" -> 2, "itemId_UNIT" -> 5 (packSize=1 e.g. 19L), "itemId_RAW" -> 10
   const [cartMap, setCartMap] = useState({});
 
   // Map of cartKey -> overridden price: e.g. "itemId_PACK" -> 360
@@ -143,12 +137,12 @@ export default function LogCounterSaleForm({
     setCustomerId(newCustId);
   };
 
-  const getItemPrice = (item, isPack) => {
-    const key = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
+  const getItemPrice = (item, saleType) => {
+    const key = `${item.id}_${saleType}`;
     if (customPrices[key] !== undefined && customPrices[key] !== '') {
       return customPrices[key];
     }
-    return Number(item.retailPrice || 0);
+    return Number(item?.retailPrice || 0);
   };
 
   const handlePriceChange = (cartKey, val) => {
@@ -188,7 +182,7 @@ export default function LogCounterSaleForm({
         totalBaseUnits: 0,
         availableStock: 999999,
         isRefill: true,
-        litres: refillQty * 24
+        litres: refillQty * 19
       });
     }
 
@@ -278,7 +272,7 @@ export default function LogCounterSaleForm({
         return;
       }
 
-      // Finished goods: strictly PACK (for packSize > 1) or UNIT (for packSize <= 1)
+      // Finished goods: PACK (deducts packSize base units) for packed SKUs (packSize > 1), UNIT for single-bottle SKUs (packSize = 1)
       const item = finishedGoods.find(i => i.id === itemId);
       if (!item) return;
 
@@ -286,7 +280,7 @@ export default function LogCounterSaleForm({
       const isPack = packSize > 1;
       const saleType = isPack ? 'PACK' : 'UNIT';
 
-      const defaultRate = Number(item.retailPrice || 0);
+      const defaultRate = Number(item?.retailPrice || 0);
       const customRate = customPrices[cartKey];
       const parsedRate = customRate !== undefined && customRate !== '' ? parseFloat(customRate) : defaultRate;
       const unitPrice = isNaN(parsedRate) ? defaultRate : parsedRate;
@@ -308,7 +302,8 @@ export default function LogCounterSaleForm({
         baseUnitsPerUnit,
         totalBaseUnits,
         availableStock: Number(item.cachedQty || 0),
-        isRefill: false
+        isRefill: false,
+        litres: 0
       });
     });
 
@@ -376,22 +371,27 @@ export default function LogCounterSaleForm({
     });
   };
 
-  // Stock check by base units
+  // Stock check by base units (PACK qty * packSize for packed SKUs, UNIT qty for single-bottle SKUs)
+  const getRequestedBaseUnits = (item) => {
+    if (!item) return 0;
+    const packSize = getPackSize(item);
+    const saleType = packSize > 1 ? 'PACK' : 'UNIT';
+    const qty = Number(cartMap[`${item.id}_${saleType}`] || 0);
+    return qty * (packSize > 1 ? packSize : 1);
+  };
+
   const getStockWarning = (item) => {
     if (!item) return null;
     const packSize = getPackSize(item);
-    const isPack = packSize > 1;
-    const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-    const qty = Number(cartMap[cartKey] || 0);
-    const requestedBaseUnits = qty * (isPack ? packSize : 1);
+    const requestedBaseUnits = getRequestedBaseUnits(item);
     const available = Number(item.cachedQty || 0);
 
     if (requestedBaseUnits > available) {
-      if (isPack) {
+      if (packSize > 1) {
         const availPacks = Math.floor(available / packSize);
-        return `Requested ${qty} Packs • System records ${availPacks} Packs in stock`;
+        return `Requested ${requestedBaseUnits} bottles • System records ${available} btl (${availPacks} packs) in stock`;
       }
-      return `Requested ${qty} • System records ${available} in stock`;
+      return `Requested ${requestedBaseUnits} • System records ${available} in stock`;
     }
     return null;
   };
@@ -399,11 +399,9 @@ export default function LogCounterSaleForm({
   const hasStockDeficit = useMemo(() => {
     const hasFgDeficit = finishedGoods.some(item => {
       const packSize = getPackSize(item);
-      const isPack = packSize > 1;
-      const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
-      const qty = Number(cartMap[cartKey] || 0);
-      const requested = qty * (isPack ? packSize : 1);
-      return requested > Number(item.cachedQty || 0);
+      const saleType = packSize > 1 ? 'PACK' : 'UNIT';
+      const qty = Number(cartMap[`${item.id}_${saleType}`] || 0);
+      return (qty * (packSize > 1 ? packSize : 1)) > Number(item.cachedQty || 0);
     });
     const hasRawDeficit = counterRawMaterials.some(item => {
       const requested = Number(cartMap[`${item.id}_RAW`] || 0);
@@ -523,12 +521,13 @@ export default function LogCounterSaleForm({
                 {finishedGoods.map(item => {
                   const packSize = getPackSize(item);
                   const isPack = packSize > 1;
+                  const saleType = isPack ? 'PACK' : 'UNIT';
                   const totalStock = Number(item.cachedQty || 0);
                   const packsStock = isPack ? Math.floor(totalStock / packSize) : totalStock;
 
-                  const cartKey = `${item.id}_${isPack ? 'PACK' : 'UNIT'}`;
+                  const cartKey = `${item.id}_${saleType}`;
                   const currentQty = Number(cartMap[cartKey] || 0);
-                  const currentPrice = getItemPrice(item, isPack);
+                  const currentPrice = getItemPrice(item, saleType);
                   const isInCart = currentQty > 0;
                   const warning = getStockWarning(item);
 
@@ -541,18 +540,27 @@ export default function LogCounterSaleForm({
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
                         {/* Title & Stock */}
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                          <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
                             <Package size={14} className="text-brand shrink-0" />
                             <span className="truncate">{item.name}</span>
+                            {isPack && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                                {packSize}/pk
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            Stock: <strong className={packsStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
-                              {packsStock} {isPack ? 'Packs' : (item.unit || 'units')}
-                            </strong>
-                            {isPack && <span className="ml-1 text-slate-400">({packSize}/pk)</span>}
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              Stock:{' '}
+                              <strong className={totalStock <= 0 ? 'text-rose-600' : 'text-slate-700'}>
+                                {isPack
+                                  ? `${packsStock} Packs (${totalStock} btl)`
+                                  : `${totalStock} ${item.unit || 'units'}`}
+                              </strong>
+                            </span>
                           </div>
                         </div>
 
@@ -566,8 +574,11 @@ export default function LogCounterSaleForm({
                             className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
                             value={currentPrice}
                             onChange={(e) => handlePriceChange(cartKey, e.target.value)}
-                            title="Rate"
+                            title={isPack ? 'Rate per Pack' : 'Rate per Bottle/Unit'}
                           />
+                          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                            /{isPack ? 'pk' : (item.unit || 'u')}
+                          </span>
                         </div>
 
                         {/* Stepper & Quick Add */}
