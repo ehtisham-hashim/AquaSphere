@@ -245,7 +245,7 @@ export default function Transport() {
     document.body.removeChild(link);
   };
 
-  const canManageCars = user?.role === 'TRANSPORT_MANAGER' || user?.role === 'OWNER';
+  const canManageCars = ['OWNER', 'ADMIN', 'TRANSPORT_MANAGER'].includes((user?.role || '').toUpperCase());
 
   return (
     <div className="space-y-4 min-w-0 max-w-full overflow-x-hidden">

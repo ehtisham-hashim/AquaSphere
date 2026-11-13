@@ -14,7 +14,7 @@ export default function RawMaterials() {
   const { user } = useAuth();
   const { tenant } = useTenant();
   const isOwner = user?.role === 'OWNER';
-  const canEditMaterial = isOwner;
+  const canEditMaterial = ['OWNER', 'ADMIN', 'PRODUCTION_MANAGER'].includes((user?.role || '').toUpperCase());
   const canArchiveMaterial = isOwner;
   const isReadOnly = !canEditMaterial;
   const [materials, setMaterials] = useState([]);

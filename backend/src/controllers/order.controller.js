@@ -931,11 +931,8 @@ export const toggleOrderGst = asyncHandler(async (req, res) => {
 export const deleteOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;
-  const isOwner = req.user?.role === 'OWNER';
-  const isMarketingManager = req.user?.role === 'MARKETING_MANAGER';
-
-  if (!isOwner && !isMarketingManager) {
-    throw new ApiError(403, 'Only Owner or Marketing Manager can delete or cancel orders');
+  if (req.user?.role !== 'OWNER') {
+    throw new ApiError(403, 'Only Owner can permanently delete orders');
   }
 
   const order = await prisma[`${prefix}Order`].findUnique({
@@ -948,30 +945,6 @@ export const deleteOrder = asyncHandler(async (req, res) => {
     }
   });
   if (!order) throw new ApiError(404, 'Order not found');
-
-  // Non-owner (Marketing Manager) can only soft-cancel undelivered orders
-  if (!isOwner) {
-    if (order.deliveryStatus === 'DELIVERED') {
-      throw new ApiError(400, 'Cannot cancel an order that has already been delivered.');
-    }
-
-    await prisma[`${prefix}Order`].update({
-      where: { id },
-      data: { deliveryStatus: 'CANCELLED', paymentStatus: 'UNPAID' }
-    });
-
-    await createAuditLog(prefix, {
-      action: 'ORDER_CANCELLED',
-      entityType: 'Order',
-      entityId: id,
-      performedBy: req.user?.name || req.user?.id || 'Marketing Manager',
-      details: `Order #${id.slice(0, 6).toUpperCase()} soft-cancelled by Marketing Manager`
-    });
-
-    broadcastDashboardUpdate(prefix);
-    broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: id });
-    return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
-  }
 
   // Strictly OWNER: Permanent deletion with comprehensive symmetrical rollback
   await prisma.$transaction(async (tx) => {

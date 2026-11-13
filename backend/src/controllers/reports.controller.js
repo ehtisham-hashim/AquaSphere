@@ -204,6 +204,32 @@ export const getReportData = asyncHandler(async (req, res) => {
         totalBalanceDue += balance;
 
         s.items.forEach(it => {
+          const st = String(it.saleType || 'UNIT').toUpperCase();
+          if (st === 'EXTRA_CHARGE') return;
+
+          if (st === 'CUSTOM_WATER' || st === 'WATER_REFILL') {
+            const waterKey = `__COUNTER_${st}__`;
+            if (!productMap.has(waterKey)) {
+              productMap.set(waterKey, {
+                itemId: waterKey,
+                name: st === 'WATER_REFILL' ? '19L Water Refill (Counter)' : 'Custom Loose Water (Litres)',
+                packSize: 1,
+                unit: st === 'WATER_REFILL' ? 'refill' : 'Litre',
+                qtySold: 0,
+                billedRevenue: 0,
+                cashCollected: 0
+              });
+            }
+            const p = productMap.get(waterKey);
+            const lineBilled = Number(it.quantity || 0) * Number(it.unitPrice || 0);
+            p.qtySold += Number(it.quantity || 0);
+            p.billedRevenue += lineBilled;
+            if (billed > 0) {
+              p.cashCollected += Math.round((lineBilled / billed) * collected);
+            }
+            return;
+          }
+
           const itemId = it.itemId || it.item?.id;
           if (itemId) {
             if (!productMap.has(itemId)) {

@@ -9,8 +9,10 @@ export default function ManageCounterSuppliesModal({
   isOpen,
   onClose,
   tenant,
+  userRole,
   onSuppliesChanged
 }) {
+  const canCreateItem = ['OWNER', 'ADMIN', 'PRODUCTION_MANAGER'].includes((userRole || '').toUpperCase());
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -186,17 +188,19 @@ export default function ManageCounterSuppliesModal({
           <span className="text-xs font-semibold text-slate-600">
             {materials.filter(m => m.sellableOnCounter).length} items active on counter
           </span>
-          <button
-            type="button"
-            onClick={() => setShowAddForm(prev => !prev)}
-            className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1 font-semibold"
-          >
-            <Plus size={12} /> {showAddForm ? 'Cancel New' : 'Add New Raw Material'}
-          </button>
+          {canCreateItem && (
+            <button
+              type="button"
+              onClick={() => setShowAddForm(prev => !prev)}
+              className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1 font-semibold"
+            >
+              <Plus size={12} /> {showAddForm ? 'Cancel New' : 'Add New Raw Material'}
+            </button>
+          )}
         </div>
 
         {/* Quick Add Form Section */}
-        {showAddForm && (
+        {canCreateItem && showAddForm && (
           <form onSubmit={handleCreateNew} className="p-3 bg-emerald-50/70 border-b border-emerald-200/80 space-y-2.5 shrink-0 animate-in fade-in duration-100">
             <div className="flex items-center gap-1 text-xs font-bold text-emerald-900">
               <Sparkles size={13} className="text-emerald-600" />

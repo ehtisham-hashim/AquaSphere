@@ -144,7 +144,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
       [SIDEBAR_ROUTES.PRICING]: false,
-      [SIDEBAR_ROUTES.REPORTS]: true,
+      [SIDEBAR_ROUTES.REPORTS]: false,
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -254,7 +254,7 @@ export const ROLE_ACCESS = {
       [SIDEBAR_ROUTES.TRANSPORT_EXPENSES]: false,
       [SIDEBAR_ROUTES.TRANSPORT]: false,
       [SIDEBAR_ROUTES.PRICING]: false,
-      [SIDEBAR_ROUTES.REPORTS]: true,
+      [SIDEBAR_ROUTES.REPORTS]: false,
     },
     [ROLES.TRANSPORT_MANAGER]: {
       [SIDEBAR_ROUTES.DASHBOARD]: true,
@@ -280,6 +280,7 @@ export const ROLE_ACCESS = {
 export const isPageAllowedForRole = (role, path, tenant = 'aquasphere') => {
   if (!role || !path) return false;
   if (path === '/dashboard') path = SIDEBAR_ROUTES.DASHBOARD;
+  if (path === '/analytics' || path === '/reports') path = SIDEBAR_ROUTES.REPORTS;
   const tenantKey = String(tenant).toLowerCase() === 'wadaana' ? 'wadaana' : 'aquasphere';
   const tenantAccess = ROLE_ACCESS[tenantKey] || ROLE_ACCESS.aquasphere;
   const roleRules = tenantAccess[role];

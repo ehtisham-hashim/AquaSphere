@@ -36,7 +36,8 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   // Other sides (PM, MM, ADMIN, ACCOUNTANT, etc.): Edit and Close/Cancel, but strictly NO Delete
   const userRole = (user?.role || '').toUpperCase();
   const isOwner = userRole === 'OWNER';
-  const canEdit = isOwner || ['MARKETING_MANAGER', 'ADMIN', 'ACCOUNTANT', 'TRANSPORT_MANAGER', 'MM'].includes(userRole);
+  const canEdit = ['OWNER', 'ADMIN', 'MARKETING_MANAGER'].includes(userRole);
+  const canSettleDebt = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(userRole);
   const canDelete = isOwner;
 
   // Fetch full customer details with history
@@ -355,7 +356,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                 <span className={`text-lg font-bold font-mono block mt-1 ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                   Rs. {currentBalance.toLocaleString()}
                 </span>
-                {currentBalance > 0 && (
+                {canSettleDebt && currentBalance > 0 && (
                   <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
                     <button
                       type="button"

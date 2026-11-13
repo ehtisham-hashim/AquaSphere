@@ -38,7 +38,7 @@ router.patch('/:id', requireRoles('OWNER', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKE
 // Stock transfers & manual adjustments
 router.post('/transfer-stock', requireRoles('OWNER', 'PRODUCTION_MANAGER'), transferStock);
 router.post('/:id/adjust', requireRoles('OWNER'), adjustInventory);
-router.post('/:id/reconcile', requireRoles('OWNER'), reconcileInventory);
+router.post('/:id/reconcile', requireRoles('OWNER', 'ADMIN'), reconcileInventory);
 
 // Archiving & restoring items remain restricted to OWNER only
 router.patch('/:id/archive', requireRoles('OWNER'), archiveItem);

@@ -10,7 +10,9 @@ import SettleCustomerDebtModal from './SettleCustomerDebtModal';
 
 export default function CustomersTable({ customers = [], isLoading = false, onRowClick, onDeleteCustomer, onCustomerUpdated, resetTrigger }) {
   const { user } = useAuth();
-  const isOwner = user?.role === 'OWNER';
+  const userRole = (user?.role || '').toUpperCase();
+  const isOwner = userRole === 'OWNER';
+  const canSettleDebt = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(userRole);
   const { tenant } = useTenant();
   const isWadaana = tenant === 'wadaana';
   const [settleDebtCustomer, setSettleDebtCustomer] = useState(null);
@@ -186,7 +188,7 @@ export default function CustomersTable({ customers = [], isLoading = false, onRo
                     )}
                     <td className="table-td text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
-                        {parseFloat(c.currentBalance || 0) > 0 && (
+                        {canSettleDebt && parseFloat(c.currentBalance || 0) > 0 && (
                           <button
                             type="button"
                             onClick={(e) => {

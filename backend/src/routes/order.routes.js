@@ -17,6 +17,6 @@ router.put('/:id', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAG
 router.post('/:id/deliver', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), checkDailyCloseLock, deliverOrder);
 router.post('/:id/payment', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'), checkDailyCloseLock, recordOrderPayment);
 router.patch('/:id/gst', requireRoles('OWNER', 'ADMIN', 'ACCOUNTANT'), toggleOrderGst);
-router.delete('/:id', requireRoles('OWNER', 'MARKETING_MANAGER'), checkDailyCloseLock, deleteOrder);
+router.delete('/:id', requireRoles('OWNER'), checkDailyCloseLock, deleteOrder);
 
 export default router;

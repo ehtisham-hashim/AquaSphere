@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(verifyJWT);
 router.use((req, res, next) => {
-  const allowed = ['OWNER', 'ACCOUNTANT', 'ADMIN', 'MARKETING_MANAGER'];
+  const allowed = ['OWNER', 'ACCOUNTANT', 'ADMIN'];
   if (!allowed.includes(req.user.role)) {
     throw new ApiError(403, 'Unauthorized to view reports');
   }

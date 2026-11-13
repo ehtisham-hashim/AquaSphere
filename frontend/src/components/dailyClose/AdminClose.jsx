@@ -30,10 +30,11 @@ export default function AdminClose() {
         const d = cJson.data;
         setDailyData(d);
         setCashSummary({
-          orderCash: d.totalDeliveryAmount || 0,
-          counterSales: d.totalSpotSales || 0,
+          orderCash: d.ordersCashOnly ?? d.totalDeliveryAmount ?? 0,
+          counterSales: d.spotSalesCashOnly ?? d.totalSpotSales ?? 0,
           totalExpenses: d.totalExpenses || 0,
-          netCash: (d.totalDeliveryAmount || 0) + (d.totalSpotSales || 0) - (d.totalExpenses || 0)
+          vendorCash: d.totalVendorCash || 0,
+          netCash: d.expectedDrawerCash ?? ((d.totalDeliveryAmount || 0) + (d.totalSpotSales || 0) - (d.totalExpenses || 0))
         });
       }
     }).catch(() => {});

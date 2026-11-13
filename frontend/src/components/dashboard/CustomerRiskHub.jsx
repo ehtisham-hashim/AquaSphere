@@ -13,13 +13,16 @@ import {
 } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../../utils/whatsapp';
 import BottleCustodyWidget from './BottleCustodyWidget';
 import SettleCustomerDebtModal from '../customer/SettleCustomerDebtModal';
 
 export default function CustomerRiskHub({ className = '' }) {
+  const { user } = useAuth();
   const { tenant, isWadaana } = useTenant();
+  const canSettleDebt = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes((user?.role || '').toUpperCase());
   const [mmAlerts, setMmAlerts] = useState(null);
   const [custAlerts, setCustAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -306,15 +309,17 @@ export default function CustomerRiskHub({ className = '' }) {
                             </td>
                             <td className="p-2.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setSettleCustomer(c)}
-                                  className="btn-secondary py-1 px-2 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200 inline-flex items-center gap-1 font-bold"
-                                  title="Settle Outstanding Debt with FIFO Allocation"
-                                >
-                                  <DollarSign size={12} className="text-indigo-600" />
-                                  <span>Pay</span>
-                                </button>
+                                {canSettleDebt && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSettleCustomer(c)}
+                                    className="btn-secondary py-1 px-2 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200 inline-flex items-center gap-1 font-bold"
+                                    title="Settle Outstanding Debt with FIFO Allocation"
+                                  >
+                                    <DollarSign size={12} className="text-indigo-600" />
+                                    <span>Pay</span>
+                                  </button>
+                                )}
                                 {c.phone ? (
                                   <button
                                     type="button"

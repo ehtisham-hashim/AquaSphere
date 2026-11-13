@@ -180,7 +180,6 @@ export default function Orders() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const [orderToCancel, setOrderToCancel] = useState(null);
   const [orderToDelete, setOrderToDelete] = useState(null);
 
   const openDeliverModal = (order) => {
@@ -191,28 +190,6 @@ export default function Orders() {
   const openEditModal = (order) => {
     setSelectedOrder(order);
     setIsEditModalOpen(true);
-  };
-
-  const confirmCancelOrder = async (id) => {
-    try {
-      const tenant = getCompanyFromCookie();
-      const res = await fetch(`${API_URL}/orders/${id}`, { 
-        method: 'DELETE', 
-        headers: { 'x-tenant': tenant },
-        credentials: 'include' 
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success('Order cancelled successfully');
-        fetchData();
-      } else {
-        toast.error(json.message || 'Failed to cancel order');
-      }
-    } catch (_err) {
-      toast.error('Error cancelling order');
-    } finally {
-      setOrderToCancel(null);
-    }
   };
 
   const confirmDeleteOrder = async (id) => {
@@ -245,6 +222,7 @@ export default function Orders() {
   const canAddCustomer = !isTransportManager && (isOwner || isAdmin || isMarketingManager);
   const canCreateOrder = !isTransportManager && (isOwner || isAdmin || isAccountant || isMarketingManager);
   const canDeleteOrder = isOwner;
+  const canSettleDebt = isOwner || isAdmin || isAccountant || isMarketingManager;
 
   // Unpaid/Partial order count for quick alerts
   const unpaidOrdersCount = orders.filter(o => o.paymentStatus !== 'PAID' && o.deliveryStatus !== 'CANCELLED').length;
@@ -680,7 +658,7 @@ export default function Orders() {
                         </td>
                         <td className="table-td text-right">
                           <div className="flex justify-end items-center gap-1.5">
-                            {balance > 0 && (
+                            {canSettleDebt && balance > 0 && (
                               <button
                                 type="button"
                                 onClick={() => setSettleCustomer(cust)}
@@ -846,7 +824,7 @@ export default function Orders() {
                             <Printer size={13} /> Invoice
                           </button>
 
-                          {(isOwner || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
+                          {(isOwner || isAdmin || isAccountant || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
                             <button onClick={() => openEditModal(o)} className="btn-secondary py-1 px-2.5 text-xs">
                               Edit
                             </button>
@@ -861,11 +839,6 @@ export default function Orders() {
                               }`}
                             >
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
-                            </button>
-                          )}
-                          {!isOwner && isMarketingManager && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                            <button onClick={() => setOrderToCancel(o)} className="btn-danger py-1 px-2 text-xs">
-                              Cancel
                             </button>
                           )}
                           {canDeleteOrder && (
@@ -947,39 +920,6 @@ export default function Orders() {
         />
       )}
 
-      {/* Cancel Order Confirmation Pop-Up Modal */}
-      {orderToCancel && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-100">
-                <Printer className="w-5 h-5 text-rose-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Cancel Order #{orderToCancel.id?.substring(0, 8).toUpperCase()}?</h3>
-                <p className="text-xs text-slate-500 font-medium">{orderToCancel.customer?.name || 'Customer'}</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
-              Are you sure you want to cancel this order? It will be moved to <strong className="text-rose-700">Cancelled Orders</strong>.
-            </p>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setOrderToCancel(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-              >
-                Keep Order
-              </button>
-              <button
-                onClick={() => confirmCancelOrder(orderToCancel.id)}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition shadow-2xs"
-              >
-                Yes, Cancel Order
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Permanent Delete Order Modal (Owner Only) */}
       <DeleteConfirmationModal

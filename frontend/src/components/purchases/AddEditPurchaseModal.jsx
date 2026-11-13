@@ -167,6 +167,14 @@ export default function AddEditPurchaseModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      setUploadError('Invalid file type. Only JPEG, JPG, PNG, and WEBP images are accepted.');
+      toast.error('Invalid file type. Only JPEG, PNG, and WEBP images are accepted.');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setUploadError('');
     setUploading(true);
 
@@ -384,7 +392,7 @@ export default function AddEditPurchaseModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
                 className="hidden"
                 onChange={handleFileSelect}
               />

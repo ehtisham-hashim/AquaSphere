@@ -859,8 +859,38 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
     // 3. Clean up payments for this customer
     await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
 
-    // 4. Clean up spot sales for this customer
+    // 4. Clean up spot sales for this customer with symmetrical stock restoration
     for (const ss of customer.spotSales) {
+      const saleRefs = [ss.saleNumber, ss.id].filter(Boolean);
+      const productOutTxs = saleRefs.length > 0
+        ? await tx[`${prefix}InventoryTransaction`].findMany({
+            where: {
+              refType: 'SPOT_SALE',
+              refId: { in: saleRefs },
+              direction: 'OUT'
+            }
+          })
+        : [];
+
+      for (const outTx of productOutTxs) {
+        const q = Number(outTx.quantity || 0);
+        if (q <= 0 || !outTx.itemId) continue;
+        const isWarehouse = outTx.location === 'WAREHOUSE';
+        await tx[`${prefix}Item`].update({
+          where: { id: outTx.itemId },
+          data: {
+            cachedQty: { increment: q },
+            ...(isWarehouse ? { warehouseQty: { increment: q } } : { factoryQty: { increment: q } })
+          }
+        }).catch(() => null);
+      }
+
+      if (saleRefs.length > 0) {
+        await tx[`${prefix}InventoryTransaction`].deleteMany({
+          where: { refType: 'SPOT_SALE', refId: { in: saleRefs } }
+        });
+      }
+
       await tx[`${prefix}SpotSaleItem`].deleteMany({ where: { spotSaleId: ss.id } });
       await tx[`${prefix}SpotSale`].delete({ where: { id: ss.id } });
     }
