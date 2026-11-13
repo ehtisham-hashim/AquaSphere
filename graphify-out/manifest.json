@@ -298,9 +298,9 @@
     "semantic_hash": "22a46bf9262e867bba291726c80b32f3"
   },
   "backend/src/controllers/analytics.controller.js": {
-    "mtime": 1794572122.192301,
-    "seen": 1794572627.4651225,
-    "ast_hash": "353aa063c9c087d2928cc36c836acc92",
+    "mtime": 1794578376.3406062,
+    "seen": 1794578476.400003,
+    "ast_hash": "6fc7c9a29b5eceab79c4fa54e610af94",
     "semantic_hash": ""
   },
   "backend/src/controllers/auditLog.controller.js": {
@@ -328,10 +328,10 @@
     "semantic_hash": ""
   },
   "backend/src/controllers/dailyClose.controller.js": {
-    "mtime": 1791250585.959225,
-    "seen": 1794060648.4127088,
-    "ast_hash": "020c83c142cf2356cf1a877acbb73830",
-    "semantic_hash": "020c83c142cf2356cf1a877acbb73830"
+    "mtime": 1794578361.1576622,
+    "seen": 1794578476.400295,
+    "ast_hash": "0dab7d008648ef9761dcd8bdd00c3978",
+    "semantic_hash": ""
   },
   "backend/src/controllers/expense.controller.js": {
     "mtime": 1794063590.6281435,
@@ -928,9 +928,9 @@
     "semantic_hash": "9b9da614958d717a560d1e07a337f8bd"
   },
   "frontend/src/components/dailyClose/AccountantClose.jsx": {
-    "mtime": 1794572221.438198,
-    "seen": 1794572627.4713016,
-    "ast_hash": "6c5cf1a66a8d15dd2e693825d096e396",
+    "mtime": 1794578391.092555,
+    "seen": 1794578476.4067926,
+    "ast_hash": "e3376d927192a7e13a7c9d75ad373749",
     "semantic_hash": ""
   },
   "frontend/src/components/dailyClose/AdminClose.jsx": {
@@ -1240,9 +1240,9 @@
     "semantic_hash": "c408111195fd3dafd11e782047467ad7"
   },
   "frontend/src/components/inventory/StockTransferModal.jsx": {
-    "mtime": 1794572303.4541185,
-    "seen": 1794572627.4743457,
-    "ast_hash": "c48a8741225c0b4e5a6334b9f0c73bd0",
+    "mtime": 1794578409.1574967,
+    "seen": 1794578476.4107194,
+    "ast_hash": "7541baeeec734fcb8dbe1a2f0533323a",
     "semantic_hash": ""
   },
   "frontend/src/components/inventory/index.js": {

@@ -190,7 +190,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Quantity to Transfer ({isPackItem && transferMode === 'PACK' ? 'Packs' : selectedItem?.unit || 'Bottles'})
+                Quantity to Transfer ({isPackItem && transferMode === 'PACK' ? 'Packs' : (selectedItem?.unit && !/^packs?$/i.test(selectedItem.unit) ? selectedItem.unit : 'Bottles')})
               </label>
               <input
                 type="number"

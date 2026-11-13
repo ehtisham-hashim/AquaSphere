@@ -17,6 +17,8 @@ export default function AccountantClose() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    setActualCash('');
+    setNotes('');
     fetchDailySummary(date, tenant).then(json => {
       if (json.success) {
         const d = json.data;

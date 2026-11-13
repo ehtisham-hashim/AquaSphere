@@ -973,7 +973,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     }),
     prisma[`${prefix}VendorPayment`].aggregate({
       _sum: { amount: true },
-      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: 'CASH' }
+      where: { createdAt: { gte: targetDate, lt: nextDate }, paymentMethod: { equals: 'CASH', mode: 'insensitive' } }
     }),
     prisma[`${prefix}SpotSale`].aggregate({
       _sum: { totalLitres: true, litresSold: true, totalBottles: true, totalCaps: true },
