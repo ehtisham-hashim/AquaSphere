@@ -19,7 +19,7 @@ const computeDashboardAnalytics = async (prefix) => {
   const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0);
   const minDate = twelveMonthsAgo < startOfYear ? twelveMonthsAgo : startOfYear;
 
-  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles, customerReceivablesAgg, vendorPayments, purchaseItems, recipeItems] = await Promise.all([
+  const [orders, payments, expenses, purchases, spotSales, pendingPayables, rawMaterials, customersWithBottles, customerReceivablesAgg, vendorPayments, purchaseItems, recipeItems, pendingDispatchCount] = await Promise.all([
     prisma[`${prefix}Order`].findMany({
       where: { 
         createdAt: { gte: minDate, lte: endOfDay },
@@ -117,6 +117,9 @@ const computeDashboardAnalytics = async (prefix) => {
     }),
     prisma[`${prefix}RecipeItem`].findMany({
       include: { rawMaterial: { select: { id: true, name: true, unit: true, isReturnable: true } } }
+    }),
+    prisma[`${prefix}Order`].count({
+      where: { deliveryStatus: { in: ['PENDING', 'PARTIAL'] } }
     })
   ]);
 
@@ -683,7 +686,6 @@ const computeDashboardAnalytics = async (prefix) => {
   const lowStockMaterials = rawMaterials.filter(item => parseFloat(item.cachedQty || 0) < parseFloat(item.reorderLevel || 0));
 
   const allUnprocessed = orders.filter(o => o.deliveryStatus === 'PENDING' || o.deliveryStatus === 'PARTIAL');
-  const pendingDispatchCount = allUnprocessed.length;
   const unprocessedOrders = allUnprocessed
     .slice(0, 20)
     .map(o => {

@@ -393,7 +393,7 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
       byMethod.CASH += amt;
     }
 
-    const items = (s.items || []).map(it => {
+    const allLines = (s.items || []).map(it => {
       const n = (it.item?.name || '').toLowerCase();
       let sz = null;
       if (it.saleType === 'WATER_REFILL' || n.includes('19l') || n.includes('19 l')) sz = '19L';
@@ -401,17 +401,30 @@ export const getAdminCashSummary = asyncHandler(async (req, res) => {
       else if (n.includes('0.5') || n.includes('500')) sz = '0.5L';
       const lineRev = (Number(it.unitPrice || 0) * (it.quantity || 0)) || 0;
       return { sz, rev: lineRev };
-    }).filter(x => x.sz);
+    });
 
-    if (items.length > 0) {
-      const totalItemRev = items.reduce((sum, x) => sum + x.rev, 0) || 1;
-      items.forEach(({ sz, rev }) => {
-        salesBySize[sz] = (salesBySize[sz] || 0) + rev;
-        cashBySize[sz] = (cashBySize[sz] || 0) + Math.round(amt * (rev / totalItemRev));
+    const totalSaleRev = allLines.reduce((sum, x) => sum + x.rev, 0);
+    const recognizedLines = allLines.filter(x => x.sz);
+
+    if (recognizedLines.length > 0) {
+      const recognizedRev = recognizedLines.reduce((sum, x) => sum + x.rev, 0);
+      const denominator = totalSaleRev > 0 ? totalSaleRev : (amt || 1);
+      const totalRecognizedCash = totalSaleRev > 0
+        ? Math.round(amt * (recognizedRev / totalSaleRev))
+        : amt;
+
+      let allocatedCashSoFar = 0;
+      recognizedLines.forEach((item, idx) => {
+        salesBySize[item.sz] = (salesBySize[item.sz] || 0) + item.rev;
+        let lineCash;
+        if (idx === recognizedLines.length - 1) {
+          lineCash = totalRecognizedCash - allocatedCashSoFar;
+        } else {
+          lineCash = Math.round(amt * (item.rev / denominator));
+          allocatedCashSoFar += lineCash;
+        }
+        cashBySize[item.sz] = (cashBySize[item.sz] || 0) + lineCash;
       });
-    } else {
-      salesBySize['19L'] = (salesBySize['19L'] || 0) + amt;
-      cashBySize['19L'] = (cashBySize['19L'] || 0) + amt;
     }
   });
 

@@ -141,8 +141,18 @@ export default function TransportDashboardView() {
   const timeframeDeliveredCount = useMemo(() => {
     return orders.filter(o => {
       if (o.deliveryStatus !== 'DELIVERED') return false;
-      const latestDel = (o.deliveries && o.deliveries.length > 0) ? o.deliveries[o.deliveries.length - 1] : null;
-      const d = new Date(latestDel?.deliveredAt || o.updatedAt || o.createdAt);
+      let maxDeliveredAt = null;
+      if (Array.isArray(o.deliveries) && o.deliveries.length > 0) {
+        for (const del of o.deliveries) {
+          if (del.deliveredAt) {
+            const time = new Date(del.deliveredAt).getTime();
+            if (!isNaN(time) && (maxDeliveredAt === null || time > maxDeliveredAt)) {
+              maxDeliveredAt = time;
+            }
+          }
+        }
+      }
+      const d = maxDeliveredAt !== null ? new Date(maxDeliveredAt) : new Date(o.updatedAt || o.createdAt);
       return d >= timeframeRange.startDate && d <= timeframeRange.endOfDay;
     }).length;
   }, [orders, timeframeRange]);

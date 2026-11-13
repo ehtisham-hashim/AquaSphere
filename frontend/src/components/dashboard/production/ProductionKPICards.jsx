@@ -14,7 +14,7 @@ export default function ProductionKPICards({
     const tf = String(timeframe || 'TODAY').toUpperCase();
     if (tf === 'YESTERDAY') return "Yesterday's";
     if (tf === 'LAST_3_DAYS') return "Last 3 Days'";
-    if (tf === '1_WEEK' || tf === 'WEEKLY') return "This Week's";
+    if (tf === '1_WEEK' || tf === 'WEEKLY') return "Last 7 Days'";
     if (tf === '1_MONTH' || tf === 'MONTHLY') return "This Month's";
     if (tf === '1_YEAR' || tf === 'YEARLY') return "This Year's";
     return "Today's";
@@ -24,7 +24,7 @@ export default function ProductionKPICards({
     const tf = String(timeframe || 'TODAY').toUpperCase();
     if (tf === 'YESTERDAY') return "yesterday";
     if (tf === 'LAST_3_DAYS') return "in last 3 days";
-    if (tf === '1_WEEK' || tf === 'WEEKLY') return "this week";
+    if (tf === '1_WEEK' || tf === 'WEEKLY') return "in last 7 days";
     if (tf === '1_MONTH' || tf === 'MONTHLY') return "this month";
     if (tf === '1_YEAR' || tf === 'YEARLY') return "this year";
     return "today";
