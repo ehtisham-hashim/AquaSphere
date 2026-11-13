@@ -1,32 +1,56 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, RefreshCw } from 'lucide-react';
+import { DollarSign, RefreshCw, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
-import { fetchDailySummary } from '../../services/dailyCloseService';
+import { fetchDailySummary, finalizeDay } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
 import StatusCard from './StatusCard';
 import DrawerReconciliationCard from './DrawerReconciliationCard';
+import CounterAuditLedgerCard from './CounterAuditLedgerCard';
 
-// ponytail: read-only dashboard, no confirm — schema has no accountantConfirmed field
 export default function AccountantClose() {
-  const { date, setDate, status, loading, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
+  const { date, setDate, status, loading, refreshStatus, isClosed, pmConfirmed, mmConfirmed, tmConfirmed, tenant } = useDailyClose();
   const [cash, setCash] = useState(null);
   const [actualCash, setActualCash] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchDailySummary(date, tenant).then(json => {
       if (json.success) {
         const d = json.data;
         setCash({
-          orderCash: d.totalDeliveryAmount || 0,
-          counterSales: d.totalSpotSales || 0,
+          orderCash: d.ordersCashOnly ?? d.totalDeliveryAmount ?? 0,
+          counterSales: d.spotSalesCashOnly ?? d.totalSpotSales ?? 0,
           totalExpenses: d.totalExpenses || 0,
-          netCash: (d.totalDeliveryAmount || 0) + (d.totalSpotSales || 0) - (d.totalExpenses || 0)
+          vendorCash: d.totalVendorCash || 0,
+          netCash: d.expectedDrawerCash ?? ((d.totalDeliveryAmount || 0) + (d.totalSpotSales || 0) - (d.totalExpenses || 0))
         });
       }
-    }).catch(() => setCash({ orderCash: 0, counterSales: 0, totalExpenses: 0, netCash: 0 }));
+    }).catch(() => setCash({ orderCash: 0, counterSales: 0, totalExpenses: 0, vendorCash: 0, netCash: 0 }));
   }, [date, tenant]);
+
+  const handleFinalize = async () => {
+    setSubmitting(true);
+    try {
+      const payload = {
+        actualCash: actualCash !== '' ? Number(actualCash) : undefined,
+        notes: notes.trim() || undefined
+      };
+      const json = await finalizeDay(date, tenant, payload);
+      if (json.success) {
+        toast.success('Day finalized and locked successfully.');
+        refreshStatus(false);
+      } else {
+        toast.error(json.message || 'Failed to lock day');
+      }
+    } catch {
+      toast.error('Error locking day');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -43,7 +67,7 @@ export default function AccountantClose() {
         labelColor="emerald"
         icon={DollarSign}
         title="Accountant Daily Close"
-        description="Review cash collections, expenses, and daily financial records."
+        description="Review cash collections, expenses, physical count, and lock daily financial records."
         date={date}
         onDateChange={setDate}
       />
@@ -86,8 +110,36 @@ export default function AccountantClose() {
             onActualCashChange={setActualCash}
             notes={notes}
             onNotesChange={setNotes}
-            disabled={isClosed}
+            disabled={isClosed || submitting}
           />
+
+          {/* Counter Audit Ledger Pre-Close Verification */}
+          <CounterAuditLedgerCard
+            date={date}
+            tenant={tenant}
+            isClosed={isClosed}
+            onLedgerSaved={() => refreshStatus(false)}
+          />
+
+          {/* Finalize & Lock Action */}
+          <div className="card-surface p-5 border-2 border-emerald-100 bg-emerald-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-emerald-950 font-black text-base">
+                <ShieldCheck size={20} className="text-emerald-600" />
+                <span>Accountant Verification & Lock</span>
+              </div>
+              <p className="text-xs text-emerald-800 font-medium">
+                Finalizing locks the day's financial ledger, cash drawer count, and prevents subsequent mutations.
+              </p>
+            </div>
+            <button
+              onClick={handleFinalize}
+              disabled={submitting}
+              className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 shrink-0"
+            >
+              {submitting ? 'Finalizing...' : 'Finalize & Lock Day'}
+            </button>
+          </div>
 
           {/* Close Status */}
           <div className="card-surface p-5 space-y-2.5">

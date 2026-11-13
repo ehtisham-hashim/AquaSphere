@@ -307,7 +307,7 @@ export default function ProductPricing() {
                 className="btn-primary"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>{savingAll ? 'Saving...' : `Save Rates (${Object.keys(editedPrices).length})`}</span>
+                <span>{savingAll ? 'Saving...' : `Save Rates (${dirtyItems.length})`}</span>
               </button>
             </div>
           ) : (

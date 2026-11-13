@@ -1007,6 +1007,15 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const totalCaps = parseInt(spotSalesTotalAgg._sum.totalCaps || 0, 10);
   const netCash = Math.max(0, totalDeliveryAmount + totalSpotSales - totalExpenses - totalVendorCash);
 
+  // Physical CASH-only drawer calculations matching dailyClose.controller.js closeDay
+  const ordersCashOnly = paymentsByMethodList
+    .filter(p => (p.type || 'CASH').toUpperCase() === 'CASH')
+    .reduce((sum, p) => sum + parseFloat(p._sum.amount || 0), 0);
+  const spotSalesCashOnly = spotSalesList
+    .filter(s => (s.paymentMethod || 'CASH').toUpperCase() === 'CASH')
+    .reduce((sum, s) => sum + parseFloat(s.cashCollected !== undefined && s.cashCollected !== null ? s.cashCollected : (s.amountPaid || 0)), 0);
+  const expectedDrawerCash = Math.max(0, ordersCashOnly + spotSalesCashOnly - totalExpenses - totalVendorCash);
+
   const cashByMethod = { CASH: 0, BANK_TRANSFER: 0, EASYPAISA: 0, JAZZCASH: 0, CHEQUE: 0 };
   paymentsByMethodList.forEach(p => {
     const m = (p.type || 'CASH').toUpperCase();
@@ -1053,6 +1062,9 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     totalCreditSales,
     totalExpenses,
     totalVendorCash,
+    ordersCashOnly,
+    spotSalesCashOnly,
+    expectedDrawerCash,
     totalLitres,
     counterSales: {
       totalLitres,

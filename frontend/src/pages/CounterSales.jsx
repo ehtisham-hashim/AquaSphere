@@ -369,6 +369,7 @@ export default function CounterSales() {
           isOpen={showSuppliesModal}
           onClose={() => setShowSuppliesModal(false)}
           tenant={tenant}
+          userRole={user?.role}
           onSuppliesChanged={() => fetchData(true)}
         />
       )}

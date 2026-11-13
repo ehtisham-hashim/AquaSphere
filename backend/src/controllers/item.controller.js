@@ -478,7 +478,7 @@ export const transferStock = asyncHandler(async (req, res) => {
 /** Reconciles an item's cached stock balance from transactions */
 export const reconcileInventory = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  const { itemId } = req.params;
+  const itemId = req.params.id || req.params.itemId;
 
   if (!['OWNER', 'ADMIN'].includes(req.user?.role)) {
     throw new ApiError(403, 'Only Owner or Admin can perform inventory reconciliation');

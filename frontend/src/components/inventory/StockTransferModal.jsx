@@ -8,6 +8,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
   const [fromLocation, setFromLocation] = useState('FACTORY');
   const [toLocation, setToLocation] = useState('WAREHOUSE');
   const [quantity, setQuantity] = useState('');
+  const [transferMode, setTransferMode] = useState('PACK');
   const [batchNo, setBatchNo] = useState('');
   const [reason, setReason] = useState('Daily warehouse transfer');
   const [notes, setNotes] = useState('');
@@ -16,6 +17,10 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
   if (!isOpen) return null;
 
   const selectedItem = items.find(i => i.id === itemId);
+  const packSize = Math.max(1, Number(selectedItem?.packSize || 1));
+  const isPackItem = packSize > 1;
+  const effectiveMultiplier = (isPackItem && transferMode === 'PACK') ? packSize : 1;
+
   const totalQty = Number(selectedItem?.cachedQty || 0);
   const facQty = Number(selectedItem?.factoryQty || 0);
   const whQty = Number(selectedItem?.warehouseQty || 0);
@@ -27,14 +32,21 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
     ? Number(fromLocation === 'FACTORY' ? effectiveFactory : effectiveWarehouse)
     : 0;
 
+  const maxAvailableInUnit = (isPackItem && transferMode === 'PACK')
+    ? Math.floor(availableAtSource / packSize)
+    : availableAtSource;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const numQty = parseFloat(quantity) || 0;
     if (!itemId) return toast.error('Please select an item');
-    if (!quantity || parseFloat(quantity) <= 0) return toast.error('Please enter a valid quantity');
+    if (!quantity || numQty <= 0) return toast.error('Please enter a valid quantity');
     if (fromLocation === toLocation) return toast.error('From and To locations must be different');
-    if (parseFloat(quantity) > availableAtSource) {
-      return toast.error(`Cannot transfer ${quantity}. Only ${availableAtSource} available at ${fromLocation}.`);
+    if (numQty > maxAvailableInUnit) {
+      return toast.error(`Cannot transfer ${quantity} ${isPackItem && transferMode === 'PACK' ? 'packs' : 'bottles'}. Only ${maxAvailableInUnit} available at ${fromLocation}.`);
     }
+
+    const baseQuantityToTransfer = numQty * effectiveMultiplier;
 
     setSubmitting(true);
     try {
@@ -49,7 +61,7 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
           itemId,
           fromLocation,
           toLocation,
-          quantity: parseFloat(quantity),
+          quantity: baseQuantityToTransfer,
           batchNo: batchNo.trim() || undefined,
           reason: reason || 'Daily warehouse transfer',
           notes: notes.trim() || undefined
@@ -138,20 +150,54 @@ export default function StockTransferModal({ isOpen, onClose, items = [], tenant
             <div className="bg-brand/10 border border-brand/20 rounded-xl p-2.5 flex justify-between items-center text-xs font-semibold text-brand">
               <span>Available Stock at {fromLocation}:</span>
               <span className="text-xs font-mono font-bold">
-                {availableAtSource.toLocaleString()} {selectedItem.unit || (tenant === 'wadaana' ? 'bottles' : 'packs')}
+                {isPackItem
+                  ? `${Math.floor(availableAtSource / packSize).toLocaleString()} Packs (${availableAtSource.toLocaleString()} Bottles)`
+                  : `${availableAtSource.toLocaleString()} ${selectedItem.unit || (tenant === 'wadaana' ? 'bottles' : 'units')}`}
               </span>
+            </div>
+          )}
+
+          {isPackItem && (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Transfer Unit</span>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setTransferMode('PACK')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    transferMode === 'PACK'
+                      ? 'bg-brand text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Packs ({packSize} btl/pk)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransferMode('BOTTLE')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    transferMode === 'BOTTLE'
+                      ? 'bg-brand text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Loose Bottles
+                </button>
+              </div>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">Quantity to Transfer</label>
+              <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Quantity to Transfer ({isPackItem && transferMode === 'PACK' ? 'Packs' : selectedItem?.unit || 'Bottles'})
+              </label>
               <input
                 type="number"
                 min="1"
                 step="any"
                 required
-                placeholder="e.g. 40"
+                placeholder={isPackItem && transferMode === 'PACK' ? 'e.g. 10 packs' : 'e.g. 120 bottles'}
                 value={quantity}
                 onChange={e => setQuantity(e.target.value)}
                 className="input-base text-xs font-mono font-bold"
