@@ -4,7 +4,7 @@ import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, Rot
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
-import { peekCachedData } from '../utils/apiCache';
+import { peekCachedData, clearCache } from '../utils/apiCache';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { formatItemUnitTag, formatOrderItemsSummary } from '../utils/unitFormat';
@@ -228,7 +228,11 @@ export default function Orders() {
       const json = await res.json();
       if (json.success) {
         toast.success('Order cancelled successfully');
+        clearCache('orders');
         fetchData();
+        if (selectedOrderDetails && selectedOrderDetails.id === id) {
+          setSelectedOrderDetails(prev => prev ? { ...prev, deliveryStatus: 'CANCELLED' } : null);
+        }
       } else {
         toast.error(json.message || 'Failed to cancel order');
       }
@@ -439,6 +443,7 @@ export default function Orders() {
           order={selectedOrderDetails}
           onClose={() => setSelectedOrderDetails(null)}
           onSettle={(order) => openDeliverModal(order)}
+          onCancelOrder={(order) => setOrderToCancel(order)}
         />
       ) : (
         <>

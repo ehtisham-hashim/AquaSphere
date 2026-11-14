@@ -38,7 +38,7 @@ export default function UnprocessedOrdersModal({
         </div>
 
         {/* Financial Breakdown Pill Strip */}
-        <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3.5 grid grid-cols-3 gap-2.5 text-center shrink-0">
+        <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3.5 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center shrink-0">
           <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Booked</span>
             <span className="text-xs sm:text-sm font-bold font-mono text-slate-800">

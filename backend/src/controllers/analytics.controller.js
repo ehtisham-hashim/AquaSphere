@@ -1062,6 +1062,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     totalCreditSales,
     totalExpenses,
     totalVendorCash,
+    vendorCash: totalVendorCash,
     ordersCashOnly,
     spotSalesCashOnly,
     expectedDrawerCash,

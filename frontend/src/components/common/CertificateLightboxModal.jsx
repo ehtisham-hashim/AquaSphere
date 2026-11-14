@@ -463,9 +463,10 @@ export default function CertificateLightboxModal({
             alt={currentCert.title}
             style={{
               imageRendering: '-webkit-optimize-contrast',
+              ...(!isVectorPdfLoaded ? getImageStyle() : {})
             }}
-            className={`w-full h-full object-contain select-none pointer-events-none block transition-opacity duration-200 ${
-              isVectorPdfLoaded ? 'opacity-0 absolute inset-0' : 'opacity-100'
+            className={`object-contain select-none pointer-events-none transition-opacity duration-200 ${
+              isVectorPdfLoaded ? 'hidden' : 'block opacity-100'
             }`}
             loading="eager"
             draggable={false}
@@ -477,9 +478,10 @@ export default function CertificateLightboxModal({
               ref={canvasRef}
               style={{
                 imageRendering: '-webkit-optimize-contrast',
+                ...(isVectorPdfLoaded ? getImageStyle() : {})
               }}
-              className={`w-full h-full object-contain select-none pointer-events-none block transition-opacity duration-200 ${
-                isVectorPdfLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
+              className={`object-contain select-none pointer-events-none transition-opacity duration-200 ${
+                isVectorPdfLoaded ? 'block opacity-100' : 'hidden'
               }`}
             />
           )}
@@ -495,9 +497,9 @@ export default function CertificateLightboxModal({
           )}
         </div>
 
-        {/* Floating Non-Intrusive Pan & Scroll Navigation Guide */}
+        {/* Floating Non-Intrusive Pan & Scroll Navigation Guide (Hidden on mobile) */}
         {isOverflowing && (
-          <div className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none bg-slate-950/80 backdrop-blur-md border border-slate-700 text-slate-300 text-[11px] font-medium px-3 py-1.5 shadow-xl flex items-center gap-2">
+          <div className="fixed bottom-24 sm:bottom-28 left-1/2 -translate-x-1/2 z-30 pointer-events-none bg-slate-950/80 backdrop-blur-md border border-slate-700 text-slate-300 text-[11px] font-medium px-3 py-1.5 shadow-xl hidden sm:flex items-center gap-2">
             <Move className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
             <span>Drag to pan · Scroll horizontally & vertically · Double-click to toggle fit</span>
           </div>
