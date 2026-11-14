@@ -496,9 +496,9 @@ export default function AddEditFinishedGoodModal({
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
                 <div className="grid grid-cols-12 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <div className="col-span-7">Raw Material</div>
-                  <div className="col-span-2 text-right">In Stock</div>
-                  <div className="col-span-3 text-right">
+                  <div className="col-span-7 sm:col-span-7">Raw Material</div>
+                  <div className="hidden sm:block sm:col-span-2 text-right">In Stock</div>
+                  <div className="col-span-5 sm:col-span-3 text-right">
                     {parsedPackSize > 1 && recipeInputBasis === 'BOTTLE' ? 'Per 1 Btl' : `Per ${unit || 'Unit'}`}
                   </div>
                 </div>
@@ -517,32 +517,37 @@ export default function AddEditFinishedGoodModal({
                           isIncluded ? 'bg-sky-50/50' : 'hover:bg-slate-50/60'
                         }`}
                       >
-                        <div className="col-span-7 flex items-center gap-2 min-w-0 pr-2">
-                          <span
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              isIncluded ? 'bg-sky-500 ring-2 ring-sky-200' : 'bg-slate-200'
-                            }`}
-                          />
-                          <span className={`font-medium truncate ${isIncluded ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
-                            {mat.name}
-                          </span>
-                          {parsedPackSize > 1 && isShrink && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
-                              Per 1 Pack
+                        <div className="col-span-7 sm:col-span-7 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0 pr-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                isIncluded ? 'bg-sky-500 ring-2 ring-sky-200' : 'bg-slate-200'
+                              }`}
+                            />
+                            <span className={`font-medium truncate ${isIncluded ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
+                              {mat.name}
                             </span>
-                          )}
+                            {parsedPackSize > 1 && isShrink && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Per 1 Pack
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono sm:hidden ml-4">
+                            Stock: {formatRawMaterialQty(mat.cachedQty, mat.unit)}
+                          </span>
                           {showPackHint && (
-                            <span className="text-[10px] font-mono text-sky-700 shrink-0">
+                            <span className="text-[10px] font-mono text-sky-700 shrink-0 ml-4 sm:ml-0">
                               = {Number((parseFloat(currentVal) * parsedPackSize).toFixed(4))}/pk
                             </span>
                           )}
                         </div>
 
-                        <div className="col-span-2 text-right font-mono text-slate-500 text-[11px]">
+                        <div className="hidden sm:block sm:col-span-2 text-right font-mono text-slate-500 text-[11px]">
                           {formatRawMaterialQty(mat.cachedQty, mat.unit)}
                         </div>
 
-                        <div className="col-span-3 flex items-center justify-end gap-1.5 pl-2">
+                        <div className="col-span-5 sm:col-span-3 flex items-center justify-end gap-1.5 pl-2">
                           <input
                             type="number"
                             step="any"

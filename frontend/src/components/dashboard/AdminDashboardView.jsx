@@ -106,9 +106,21 @@ export default function AdminDashboardView() {
 
           <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
 
-          <Link to="/daily-close" className="btn-secondary text-xs">
-            <Lock size={14} className="text-emerald-600" />
-            <span>Daily Close &rarr;</span>
+          <Link 
+            to="/daily-close" 
+            className={`btn-secondary text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
+              kpis.dailyCloseStatus?.isClosed 
+                ? 'border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100' 
+                : 'border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100'
+            }`}
+            title="Daily Close Status"
+          >
+            <Lock size={14} className={kpis.dailyCloseStatus?.isClosed ? "text-emerald-600" : "text-amber-600"} />
+            <span>
+              {kpis.dailyCloseStatus?.isClosed 
+                ? 'Daily Close: Finalized' 
+                : `Daily Close: [PM ${kpis.dailyCloseStatus?.pmConfirmed ? '✓' : '⏳'} MM ${kpis.dailyCloseStatus?.mmConfirmed ? '✓' : '⏳'} TM ${kpis.dailyCloseStatus?.tmConfirmed ? '✓' : '⏳'}]`}
+            </span>
           </Link>
         </div>
       </div>

@@ -38,6 +38,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const isOwner = userRole === 'OWNER';
   const canEdit = ['OWNER', 'ADMIN', 'MARKETING_MANAGER'].includes(userRole);
   const canSettleDebt = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(userRole);
+  const canAdjustBottles = ['OWNER', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'].includes(userRole);
   const canDelete = isOwner;
 
   // Fetch full customer details with history
@@ -432,12 +433,14 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
                         ))}
                       </div>
                     )}
-                    <button
-                      onClick={() => setIsBottleModalOpen(true)}
-                      className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto cursor-pointer"
-                    >
-                      Retrieve / Adjust
-                    </button>
+                    {canAdjustBottles && (
+                      <button
+                        onClick={() => setIsBottleModalOpen(true)}
+                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto cursor-pointer"
+                      >
+                        Retrieve / Adjust
+                      </button>
+                    )}
                   </>
                 ) : (
                   <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -517,7 +520,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
         <CustomerAlerts
           customer={c}
           isWadaana={isWadaana}
-          onOpenBottleModal={() => setIsBottleModalOpen(true)}
+          onOpenBottleModal={canAdjustBottles ? () => setIsBottleModalOpen(true) : null}
         />
       </div>
 

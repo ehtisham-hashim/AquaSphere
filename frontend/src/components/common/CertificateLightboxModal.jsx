@@ -81,16 +81,18 @@ export default function CertificateLightboxModal({
 
         const winWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
         const winHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
-        // On Windows and standard monitors, force at least 2.0 DPR for vector crispness
-        const dpr = Math.max(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2.0);
+        // Cap DPR to 2.0 on mobile to protect mobile GPU buffer; on desktop use at least 2.0
+        const dpr = winWidth < 640 
+          ? Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2.0)
+          : Math.max(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2.0);
 
         let targetWidth = null;
         let targetHeight = null;
 
         if (fitMode === 'width') {
-          targetWidth = Math.min(winWidth - 48, 980) * zoom;
+          targetWidth = Math.min(winWidth - (winWidth < 640 ? 16 : 48), 980) * zoom;
         } else {
-          targetHeight = Math.max(winHeight - 210, 400) * zoom;
+          targetHeight = Math.max(winHeight - (winWidth < 640 ? 160 : 210), 320) * zoom;
         }
 
         const task = await renderPdfToCanvas({
@@ -281,14 +283,14 @@ export default function CertificateLightboxModal({
     if (fitMode === 'page') {
       if (zoom === 1) {
         return {
-          maxHeight: 'calc(100vh - 210px)',
+          maxHeight: 'calc(100dvh - 210px)',
           maxWidth: '100%',
           width: 'auto',
           height: 'auto'
         };
       }
       return {
-        maxHeight: `calc((100vh - 210px) * ${zoom})`,
+        maxHeight: `calc((100dvh - 210px) * ${zoom})`,
         maxWidth: 'none',
         width: 'auto',
         height: 'auto'
@@ -298,13 +300,13 @@ export default function CertificateLightboxModal({
     // fitMode === 'width': expands to full crisp reading width
     if (zoom === 1) {
       return {
-        width: 'min(calc(100vw - 48px), 980px)',
+        width: 'min(calc(100vw - 24px), 980px)',
         maxWidth: 'none',
         height: 'auto'
       };
     }
     return {
-      width: `calc(min(calc(100vw - 48px), 980px) * ${zoom})`,
+      width: `calc(min(calc(100vw - 24px), 980px) * ${zoom})`,
       maxWidth: 'none',
       height: 'auto'
     };
@@ -443,12 +445,13 @@ export default function CertificateLightboxModal({
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
-        className={`relative z-10 flex-1 w-full overflow-auto p-4 sm:p-8 flex ${
+        className={`relative z-10 flex-1 w-full overflow-auto p-4 sm:p-8 flex touch-pan-x touch-pan-y ${
           isOverflowing ? 'items-start justify-center' : 'items-center justify-center'
         } ${isDragging ? 'cursor-grabbing select-none' : isOverflowing ? 'cursor-grab' : 'cursor-zoom-in'} 
         scrollbar-thin [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5 
         [&::-webkit-scrollbar-thumb]:bg-slate-700/90 [&::-webkit-scrollbar-thumb]:hover:bg-cyan-600 
         [&::-webkit-scrollbar-track]:bg-slate-950/60`}
+        style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
       >
         <div 
           className="relative bg-white shadow-2xl border border-slate-700 shrink-0 transition-size duration-150 ease-out select-none flex items-center justify-center overflow-hidden"
@@ -459,10 +462,9 @@ export default function CertificateLightboxModal({
             src={currentCert.image}
             alt={currentCert.title}
             style={{
-              ...getImageStyle(),
               imageRendering: '-webkit-optimize-contrast',
             }}
-            className={`select-none pointer-events-none block object-contain transition-opacity duration-200 ${
+            className={`w-full h-full object-contain select-none pointer-events-none block transition-opacity duration-200 ${
               isVectorPdfLoaded ? 'opacity-0 absolute inset-0' : 'opacity-100'
             }`}
             loading="eager"
@@ -474,10 +476,9 @@ export default function CertificateLightboxModal({
             <canvas
               ref={canvasRef}
               style={{
-                ...getImageStyle(),
                 imageRendering: '-webkit-optimize-contrast',
               }}
-              className={`select-none pointer-events-none block transition-opacity duration-200 ${
+              className={`w-full h-full object-contain select-none pointer-events-none block transition-opacity duration-200 ${
                 isVectorPdfLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
               }`}
             />

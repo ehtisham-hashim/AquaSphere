@@ -927,7 +927,47 @@ export const toggleOrderGst = asyncHandler(async (req, res) => {
   return sendSuccess(res, attachOrderBalances(updatedOrder));
 });
 
-/** Deletes sales order permanently (Owner) or soft cancels undelivered orders (Marketing Manager) */
+/** Cancels an undelivered order (Owner, Admin, Accountant, Marketing Manager) */
+export const cancelOrder = asyncHandler(async (req, res) => {
+  const prefix = getTenantPrefix(req);
+  const { id } = req.params;
+
+  const order = await prisma[`${prefix}Order`].findUnique({
+    where: { id },
+    include: { payments: true, deliveries: true }
+  });
+  if (!order) throw new ApiError(404, 'Order not found');
+  if (order.deliveryStatus === 'DELIVERED' || order.deliveryStatus === 'PARTIAL') {
+    throw new ApiError(400, 'Cannot cancel an order that has already been delivered or partially dispatched.');
+  }
+  if (order.deliveryStatus === 'CANCELLED') {
+    throw new ApiError(400, 'Order is already cancelled.');
+  }
+  if (order.payments?.length > 0) {
+    throw new ApiError(400, 'Cannot cancel order with recorded payments. Please remove or refund payments before cancelling.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx[`${prefix}Order`].update({
+      where: { id },
+      data: { deliveryStatus: 'CANCELLED' }
+    });
+
+    await createAuditLog(prefix, {
+      action: 'ORDER_CANCELLED',
+      entityType: 'Order',
+      entityId: id,
+      performedBy: req.user?.name || req.user?.id || 'Staff',
+      details: `Order #${id.slice(0, 6).toUpperCase()} cancelled by ${req.user?.role || 'Staff'}`
+    }, tx);
+  });
+
+  broadcastDashboardUpdate(prefix);
+  broadcastEvent(prefix, 'ORDER_UPDATED', { orderId: id });
+  return sendSuccess(res, null, 200, { message: 'Order marked as cancelled' });
+});
+
+/** Deletes sales order permanently (Owner only) */
 export const deleteOrder = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
   const { id } = req.params;

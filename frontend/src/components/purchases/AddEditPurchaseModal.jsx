@@ -452,7 +452,7 @@ export default function AddEditPurchaseModal({
                     </select>
                   </div>
 
-                  <div className="col-span-4 sm:col-span-2">
+                  <div className="col-span-6 sm:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">
                       Qty {selectedMat ? `(${selectedMat.unit || 'units'})` : ''} *
                     </label>
@@ -468,7 +468,7 @@ export default function AddEditPurchaseModal({
                     />
                   </div>
 
-                  <div className="col-span-4 sm:col-span-2">
+                  <div className="col-span-6 sm:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1" title="Unit rate (auto-syncs with Total Price)">
                       Unit Rate (PKR)
                     </label>
@@ -483,7 +483,7 @@ export default function AddEditPurchaseModal({
                     />
                   </div>
 
-                  <div className="col-span-3 sm:col-span-3">
+                  <div className="col-span-10 sm:col-span-3">
                     <label className="block text-[11px] font-bold text-slate-600 mb-1" title="Bulk / overall price (auto-calculates Unit Rate)">
                       Total Price (PKR)
                     </label>
@@ -498,12 +498,12 @@ export default function AddEditPurchaseModal({
                     />
                   </div>
 
-                  <div className="col-span-1 text-right flex justify-end">
+                  <div className="col-span-2 sm:col-span-1 text-right flex justify-end items-end pb-1">
                     {items.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveItemRow(idx)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                         title="Remove row"
                       >
                         <Trash2 size={16} />

@@ -46,17 +46,17 @@ export default function ProductionRecentRuns({ recentBatches, isWadaana }) {
                         if (b.qtyMix15L > 0) parts.push(`Mix 1.5L (${b.qtyMix15L})`);
 
                         if (parts.length === 0) return <span className="text-slate-400 font-normal">0 bottles</span>;
-                        if (parts.length === 1) return parts[0];
 
                         return (
-                          <div className="flex items-center gap-1.5">
-                            <span>{parts[0]}</span>
-                            <span 
-                              title={parts.slice(1).join(', ')} 
-                              className="px-1.5 py-0.2 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
-                            >
-                              +{parts.length - 1}
-                            </span>
+                          <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                            {parts.map((p, pIdx) => (
+                              <span 
+                                key={pIdx}
+                                className="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200 whitespace-nowrap"
+                              >
+                                {p}
+                              </span>
+                            ))}
                           </div>
                         );
                       })()
@@ -68,17 +68,17 @@ export default function ProductionRecentRuns({ recentBatches, isWadaana }) {
                         if (b.packs05L > 0) parts.push(`${b.packs05L} pk (0.5L)`);
 
                         if (parts.length === 0) return <span className="text-slate-400 font-normal">0 units</span>;
-                        if (parts.length === 1) return parts[0];
 
                         return (
-                          <div className="flex items-center gap-1.5">
-                            <span>{parts[0]}</span>
-                            <span 
-                              title={parts.slice(1).join(', ')} 
-                              className="px-1.5 py-0.2 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-700 border border-slate-200 cursor-help"
-                            >
-                              +{parts.length - 1}
-                            </span>
+                          <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                            {parts.map((p, pIdx) => (
+                              <span 
+                                key={pIdx}
+                                className="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200 whitespace-nowrap"
+                              >
+                                {p}
+                              </span>
+                            ))}
                           </div>
                         );
                       })()

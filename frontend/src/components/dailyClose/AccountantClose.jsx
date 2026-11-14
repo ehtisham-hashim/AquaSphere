@@ -108,6 +108,7 @@ export default function AccountantClose() {
           {/* Drawer Reconciliation */}
           <DrawerReconciliationCard
             expectedCash={cash?.netCash || 0}
+            vendorCash={cash?.vendorCash || 0}
             actualCash={actualCash}
             onActualCashChange={setActualCash}
             notes={notes}
@@ -124,24 +125,43 @@ export default function AccountantClose() {
           />
 
           {/* Finalize & Lock Action */}
-          <div className="card-surface p-5 border-2 border-emerald-100 bg-emerald-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-1 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 text-emerald-950 font-black text-base">
-                <ShieldCheck size={20} className="text-emerald-600" />
-                <span>Accountant Verification & Lock</span>
+          {(() => {
+            const allDepartmentsConfirmed = Boolean(pmConfirmed && mmConfirmed && tmConfirmed);
+            const isCounterAuditReady = tenant === 'wadaana' || Boolean(status?.auditLedger);
+            const canFinalize = allDepartmentsConfirmed && isCounterAuditReady;
+            const pending = [];
+            if (!pmConfirmed) pending.push('Production (PM)');
+            if (!mmConfirmed) pending.push('Marketing (MM)');
+            if (!tmConfirmed) pending.push('Transport (TM)');
+            if (!isCounterAuditReady) pending.push('Counter Audit Ledger');
+
+            return (
+              <div className="card-surface p-5 border-2 border-emerald-100 bg-emerald-50/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-emerald-950 font-black text-base">
+                    <ShieldCheck size={20} className="text-emerald-600" />
+                    <span>Accountant Verification & Lock</span>
+                  </div>
+                  <p className="text-xs text-emerald-800 font-medium">
+                    Finalizing locks the day's financial ledger, cash drawer count, and prevents subsequent mutations.
+                  </p>
+                  {!canFinalize && (
+                    <p className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 inline-block mt-1">
+                      ⚠️ Awaiting prerequisites: {pending.join(', ')}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleFinalize}
+                  disabled={submitting || !canFinalize}
+                  title={!canFinalize ? `Awaiting: ${pending.join(', ')}` : ''}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {submitting ? 'Finalizing...' : 'Finalize & Lock Day'}
+                </button>
               </div>
-              <p className="text-xs text-emerald-800 font-medium">
-                Finalizing locks the day's financial ledger, cash drawer count, and prevents subsequent mutations.
-              </p>
-            </div>
-            <button
-              onClick={handleFinalize}
-              disabled={submitting}
-              className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 shrink-0"
-            >
-              {submitting ? 'Finalizing...' : 'Finalize & Lock Day'}
-            </button>
-          </div>
+            );
+          })()}
 
           {/* Close Status */}
           <div className="card-surface p-5 space-y-2.5">

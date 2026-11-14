@@ -6,7 +6,8 @@ export default function DrawerReconciliationCard({
   onActualCashChange,
   notes,
   onNotesChange,
-  disabled = false
+  disabled = false,
+  vendorCash = 0
 }) {
   const numActual = actualCash !== '' && actualCash !== null && actualCash !== undefined ? parseFloat(actualCash) : null;
   const numExpected = Number(expectedCash || 0);
@@ -70,7 +71,9 @@ export default function DrawerReconciliationCard({
           <span className="text-lg font-mono font-black text-slate-800">
             Rs. {numExpected.toLocaleString()}
           </span>
-          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Deliveries + Spot - Expenses</span>
+          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+            Inflow - Expenses{Number(vendorCash) > 0 ? ` - Vendor Paid (Rs. ${Number(vendorCash).toLocaleString()})` : ''}
+          </span>
         </div>
 
         {/* 2. Physical Cash in Drawer Input */}

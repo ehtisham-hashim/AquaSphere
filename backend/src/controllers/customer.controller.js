@@ -886,8 +886,33 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       }
 
       if (saleRefs.length > 0) {
+        // Revert returnable empty bottles from factory stock
+        const existingBottleTxs = await tx[`${prefix}BottleTransaction`].findMany({
+          where: {
+            OR: saleRefs.map(ref => ({ reason: { contains: ref } }))
+          }
+        });
+
+        for (const bTx of existingBottleTxs) {
+          const q = Number(bTx.quantity || 0);
+          if (bTx.type === 'RETURNED_GOOD' && q > 0) {
+            await debitEmptyBottlesFromFactory(tx, prefix, {
+              quantity: q,
+              rawMaterialId: bTx.itemId,
+              customerId: id,
+              reason: `CUSTOMER_DELETED_SPOT_SALE_BOTTLE_REVERSAL (${ss.saleNumber || ss.id})`,
+              skipTransactionLog: true
+            });
+          }
+        }
+
         await tx[`${prefix}InventoryTransaction`].deleteMany({
           where: { refType: 'SPOT_SALE', refId: { in: saleRefs } }
+        });
+        await tx[`${prefix}BottleTransaction`].deleteMany({
+          where: {
+            OR: saleRefs.map(ref => ({ reason: { contains: ref } }))
+          }
         });
       }
 

@@ -256,6 +256,7 @@ export const getAdminDashboard = asyncHandler(async (req, res) => {
         isClosed: Boolean(todaysDailyClose?.adminConfirmed),
         pmConfirmed: Boolean(todaysDailyClose?.pmConfirmed),
         mmConfirmed: Boolean(todaysDailyClose?.mmConfirmed),
+        tmConfirmed: Boolean(todaysDailyClose?.tmConfirmed),
         adminConfirmed: Boolean(todaysDailyClose?.adminConfirmed),
         closedAt: todaysDailyClose?.closedAt || null
       }
