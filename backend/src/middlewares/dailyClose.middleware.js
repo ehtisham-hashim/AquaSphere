@@ -41,17 +41,24 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
 
   const prefix = getTenantPrefix(req);
   const body = req.body || {};
+  const url = req.baseUrl || req.originalUrl || '';
+  const isPaymentRoute = url.includes('/payment') || url.includes('/payments');
   const datesToCheck = [];
 
-  // If targeting an existing record by ID, always validate its stored date independently of body date
-  if (req.params.id) {
-    const url = req.baseUrl || req.originalUrl || '';
+  // For payment routes, payments are discrete cash transactions posted on paymentDate or today.
+  // Validate the payment posting date rather than locking historical parent orders/purchases.
+  if (isPaymentRoute) {
+    const paymentDate = body.paymentDate || body.date || new Date();
+    datesToCheck.push(paymentDate);
+  } else if (req.params.id) {
+    // For structural mutations (edits, cancellations, deletions, approvals) targeting an existing record:
     let modelName = null;
     let selectFields = { createdAt: true };
 
     if (url.includes('/orders')) {
       modelName = `${prefix}Order`;
-      selectFields = { createdAt: true, expectedDelivery: true };
+      // Item edits and cancellations affect sales attributed to the order's createdAt date
+      selectFields = { createdAt: true };
     } else if (url.includes('/purchases')) {
       modelName = `${prefix}Purchase`;
       selectFields = { createdAt: true, purchaseDate: true };
@@ -74,7 +81,7 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
       if (!existingRecord) {
         throw new ApiError(404, 'Record not found for daily close lock verification');
       }
-      const storedDate = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.expectedDelivery || existingRecord.createdAt;
+      const storedDate = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.createdAt;
       if (storedDate) {
         datesToCheck.push(storedDate);
       }
@@ -82,9 +89,11 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
   }
 
   // Also validate incoming body date for creations or when moving a record to a new date
-  const bodyDate = body.date || body.batchDate || body.purchaseDate || body.expenseDate || body.paymentDate || body.expectedDelivery;
-  if (bodyDate) {
-    datesToCheck.push(bodyDate);
+  if (!isPaymentRoute) {
+    const bodyDate = body.date || body.batchDate || body.purchaseDate || body.expenseDate || body.expectedDelivery;
+    if (bodyDate) {
+      datesToCheck.push(bodyDate);
+    }
   }
 
   // If neither existing record nor body date provided, fallback to current timestamp

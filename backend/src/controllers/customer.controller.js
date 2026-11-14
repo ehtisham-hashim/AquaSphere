@@ -912,7 +912,8 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
               rawMaterialId: bTx.itemId,
               customerId: id,
               reason: `CUSTOMER_DELETED_SPOT_SALE_BOTTLE_REVERSAL (${ss.saleNumber || ss.id})`,
-              skipTransactionLog: true
+              skipTransactionLog: true,
+              allowArchived: true
             });
           }
         }

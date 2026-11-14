@@ -423,10 +423,10 @@ export default function Orders() {
         const name = (i.item?.name || '').toLowerCase();
         if (isDelivered) {
           rec.totalBilled += q * Number(i.price || 0);
+          if (name.includes('19l')) rec.delivered19L += q;
+          else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
+          else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
         }
-        if (name.includes('19l')) rec.delivered19L += q;
-        else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
-        else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
       });
     });
 

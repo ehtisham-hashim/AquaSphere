@@ -43,19 +43,19 @@ export default function UnprocessedOrdersModal({
           <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
             <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-2xs">
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">Total Booked</span>
-              <span className="text-xs sm:text-sm font-bold font-mono text-slate-800 block truncate">
+              <span className="text-xs sm:text-sm font-bold font-mono text-slate-800 block break-words whitespace-normal leading-tight">
                 Rs. {Number(totalSales || 0).toLocaleString()}
               </span>
             </div>
             <div className="bg-white p-2 rounded-lg border border-emerald-200/70 shadow-2xs">
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600 block truncate">Delivered</span>
-              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-700 block truncate">
+              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-700 block break-words whitespace-normal leading-tight">
                 Rs. {Number(deliveredSales || 0).toLocaleString()}
               </span>
             </div>
             <div className="bg-white p-2 rounded-lg border border-amber-200/70 shadow-2xs">
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-600 block truncate">Pending</span>
-              <span className="text-xs sm:text-sm font-bold font-mono text-amber-700 block truncate">
+              <span className="text-xs sm:text-sm font-bold font-mono text-amber-700 block break-words whitespace-normal leading-tight">
                 Rs. {Number(unprocessedSales || 0).toLocaleString()}
               </span>
             </div>

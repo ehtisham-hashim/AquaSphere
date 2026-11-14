@@ -1,7 +1,7 @@
 # Graph Report - AquaSphere  (2026-11-14)
 
 ## Corpus Check
-- 311 files · ~314,196 words
+- 311 files · ~314,364 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 17 file(s) not represented in the graph (top: (none) 8, .css 4, .toml 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ac5b5e17`
+- Built from commit: `74db3818`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -441,16 +441,16 @@ Nodes (3): server, ensureNativeSchemaColumns(), ensureShrinkWrapMaterials()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `lucide-react` connect `lucide-react` to `lucide-react`, `usePagination`, `LandingPage.jsx`, `useLiveEvent`, `react`, `OwnerClose.jsx`, `Orders.jsx`, `CertificateLightboxModal.jsx`, `DateRangePicker.jsx`, `useTenant`, `RouteErrorBoundary`, `api.js`, `Sidebar.jsx`, `Certificates.jsx`, `frontend/package.json`, `Users.jsx`, `receiptFormatter.js`, `dependencies`?**
-  _High betweenness centrality (0.133) - this node is a cross-community bridge._
+  _High betweenness centrality (0.143) - this node is a cross-community bridge._
 - **What connects `dua_fixes.md (context/dua_fixes.md)`, `transport_manager_prompt.md (context/transport_manager_prompt.md)`, `README.md (frontend/README.md)` to the rest of the system?**
   _109 weakly-connected nodes found - possible missing edges._
 - **Should `lucide-react` be split into smaller, more focused modules?**
   _Cohesion score 0.1 - nodes in this community are weakly interconnected._
 - **Why does `react` connect `react` to `lucide-react`, `usePagination`, `useLiveEvent`, `OwnerClose.jsx`, `Orders.jsx`, `useTenant`, `App.jsx`, `RouteErrorBoundary`, `api.js`, `Users.jsx`, `Certificates.jsx`, `frontend/package.json`, `receiptFormatter.js`, `dependencies`, `LandingPage.jsx`, `lucide-react`, `main.jsx`, `CertificateLightboxModal.jsx`, `DateRangePicker.jsx`, `LogoLoop.jsx`, `Sidebar.jsx`, `CounterSales.jsx`, `AuthContext.jsx`?**
-  _High betweenness centrality (0.124) - this node is a cross-community bridge._
+  _High betweenness centrality (0.128) - this node is a cross-community bridge._
 - **Should `usePagination` be split into smaller, more focused modules?**
   _Cohesion score 0.07957393483709273 - nodes in this community are weakly interconnected._
 - **Why does `useTenant()` connect `useTenant` to `lucide-react`, `usePagination`, `lucide-react`, `useLiveEvent`, `react`, `OwnerClose.jsx`, `Orders.jsx`, `App.jsx`, `api.js`, `Sidebar.jsx`, `Users.jsx`, `receiptFormatter.js`, `CounterSales.jsx`, `AuthContext.jsx`?**
-  _High betweenness centrality (0.081) - this node is a cross-community bridge._
+  _High betweenness centrality (0.092) - this node is a cross-community bridge._
 - **Should `schema.prisma (backend/prisma/schema.prisma)` be split into smaller, more focused modules?**
   _Cohesion score 0.03773584905660377 - nodes in this community are weakly interconnected._

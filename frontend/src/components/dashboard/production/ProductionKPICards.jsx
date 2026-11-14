@@ -65,15 +65,47 @@ export default function ProductionKPICards({
             <Building size={16} />
           </div>
         </div>
-        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
-          {(finishedGoods || []).reduce((sum, item) => sum + Number(item.factoryQty || 0), 0).toLocaleString()}
-          <span className="text-xs font-semibold text-slate-500 ml-1">
-            {isWadaana ? 'Bottles' : 'Units'}
-          </span>
-        </div>
-        <div className="text-[11px] font-medium text-slate-500 mt-1.5">
-          Available at factory floor
-        </div>
+        {(() => {
+          let bottles19L = 0;
+          let petPacks = 0;
+          (finishedGoods || []).forEach(item => {
+            const qty = Number(item.factoryQty || 0);
+            const is19L = item.name?.toLowerCase().includes('19l') || Number(item.packSize || 1) === 1;
+            if (is19L) bottles19L += qty;
+            else petPacks += qty;
+          });
+
+          if (isWadaana || petPacks === 0) {
+            return (
+              <>
+                <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
+                  {bottles19L.toLocaleString()}
+                  <span className="text-xs font-semibold text-slate-500 ml-1">
+                    {isWadaana ? 'Bottles' : '19L Bottles'}
+                  </span>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+                  Available at factory floor
+                </div>
+              </>
+            );
+          }
+
+          return (
+            <>
+              <div className="text-lg sm:text-xl font-mono font-black text-slate-900 flex items-baseline gap-1.5 flex-wrap">
+                <span>{bottles19L.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-slate-500">btl</span>
+                <span className="text-slate-300 font-normal">•</span>
+                <span>{petPacks.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-slate-500">packs</span>
+              </div>
+              <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+                {bottles19L.toLocaleString()} 19L bottles & {petPacks.toLocaleString()} PET packs
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Raw Material Health */}
