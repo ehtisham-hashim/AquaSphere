@@ -87,7 +87,7 @@ export const closeDay = asyncHandler(async (req, res) => {
   const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
   const vendorCashPaid = parseFloat(vendorCashPayments._sum.amount || 0);
 
-  const expectedCash = Math.max(0, cashDeliveries + cashSpotSales - totalExpenses - vendorCashPaid);
+  const expectedCash = cashDeliveries + cashSpotSales - totalExpenses - vendorCashPaid;
   const parsedActualCash = actualCash !== undefined && actualCash !== null && actualCash !== '' ? parseFloat(actualCash) : null;
   const cashDifference = parsedActualCash !== null ? parsedActualCash - expectedCash : null;
 

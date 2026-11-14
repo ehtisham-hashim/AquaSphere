@@ -853,13 +853,7 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       await tx[`${prefix}Order`].delete({ where: { id: ord.id } });
     }
 
-    // 2. Clean up bottle transactions for this customer
-    await tx[`${prefix}BottleTransaction`].deleteMany({ where: { customerId: id } });
-
-    // 3. Clean up payments for this customer
-    await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
-
-    // 4. Clean up spot sales for this customer with symmetrical stock restoration
+    // 2. Clean up spot sales for this customer with symmetrical stock restoration
     for (const ss of customer.spotSales) {
       const saleRefs = [ss.saleNumber, ss.id].filter(Boolean);
       const productOutTxs = saleRefs.length > 0
@@ -886,11 +880,28 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       }
 
       if (saleRefs.length > 0) {
+        const exactReasons = [];
+        if (ss.saleNumber) {
+          exactReasons.push(`Counter Sale (${ss.saleNumber})`);
+          exactReasons.push(`Counter Sale Empty Return (${ss.saleNumber})`);
+        }
+        if (ss.id) {
+          exactReasons.push(`Counter Sale (${ss.id})`);
+          exactReasons.push(`Counter Sale Empty Return (${ss.id})`);
+        }
+
+        const bottlePredicate = {
+          customerId: id,
+          OR: [
+            { reason: { in: exactReasons } },
+            ...saleRefs.map(ref => ({ reason: { startsWith: `Counter Sale Empty Return (${ref})` } })),
+            ...saleRefs.map(ref => ({ reason: { startsWith: `Counter Sale (${ref})` } }))
+          ]
+        };
+
         // Revert returnable empty bottles from factory stock
         const existingBottleTxs = await tx[`${prefix}BottleTransaction`].findMany({
-          where: {
-            OR: saleRefs.map(ref => ({ reason: { contains: ref } }))
-          }
+          where: bottlePredicate
         });
 
         for (const bTx of existingBottleTxs) {
@@ -910,15 +921,19 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
           where: { refType: 'SPOT_SALE', refId: { in: saleRefs } }
         });
         await tx[`${prefix}BottleTransaction`].deleteMany({
-          where: {
-            OR: saleRefs.map(ref => ({ reason: { contains: ref } }))
-          }
+          where: bottlePredicate
         });
       }
 
       await tx[`${prefix}SpotSaleItem`].deleteMany({ where: { spotSaleId: ss.id } });
       await tx[`${prefix}SpotSale`].delete({ where: { id: ss.id } });
     }
+
+    // 3. Clean up any remaining bottle transactions for this customer
+    await tx[`${prefix}BottleTransaction`].deleteMany({ where: { customerId: id } });
+
+    // 4. Clean up payments for this customer
+    await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
 
     // 5. Delete Customer record
     await tx[`${prefix}Customer`].delete({ where: { id } });

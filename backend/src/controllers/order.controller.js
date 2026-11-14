@@ -395,6 +395,9 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       } 
     });
     if (!o) throw new ApiError(404, 'Order not found');
+    if (o.deliveryStatus === 'CANCELLED') {
+      throw new ApiError(400, 'Cannot deliver an order that has been cancelled.');
+    }
 
     const qty = parseInt(qtyDelivered, 10) || 0;
     const retGood = parseInt(bottlesReturnedGood, 10) || 0;
@@ -514,9 +517,16 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       const newTotalPaid = alreadyPaid + depositToApply + cash;
       const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
-      const updated = await tx[`${prefix}Order`].update({
+      const orderUpdateResult = await tx[`${prefix}Order`].updateMany({
+        where: { id, deliveryStatus: { not: 'CANCELLED' } },
+        data: { paymentStatus: newPaymentStatus }
+      });
+      if (orderUpdateResult.count === 0) {
+        throw new ApiError(400, 'Order delivery status changed or order was cancelled.');
+      }
+
+      const updated = await tx[`${prefix}Order`].findUnique({
         where: { id },
-        data: { paymentStatus: newPaymentStatus },
         include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
       });
 
@@ -526,7 +536,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
         entityId: updated.id,
         performedBy: req.user?.id || 'Unknown',
         details: JSON.stringify({ cashReceived: cash, depositApplied: depositToApply, newTotalPaid, newPaymentStatus, debtReduction, bottlesReturnedGood: retGood, bottlesReturnedBroken: retBroken })
-      });
+      }, tx);
 
       return updated;
     }
@@ -706,13 +716,21 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       ? 'PAID'
       : (totalPaidForOrder > 0 ? 'PARTIAL' : 'UNPAID');
 
-    const [_, updated] = await Promise.all([
+    const [_, orderUpdateResult] = await Promise.all([
       tx[`${prefix}Customer`].update({ where: { id: o.customerId }, data: customerUpdateData }),
-      tx[`${prefix}Order`].update({
-        where: { id },
+      tx[`${prefix}Order`].updateMany({
+        where: { id, deliveryStatus: { notIn: ['CANCELLED', 'DELIVERED'] } },
         data: { deliveryStatus: 'DELIVERED', paymentStatus: finalPaymentStatus }
       })
     ]);
+    if (orderUpdateResult.count === 0) {
+      throw new ApiError(400, 'Order delivery status changed or order was cancelled.');
+    }
+
+    const updated = await tx[`${prefix}Order`].findUnique({
+      where: { id },
+      include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
+    });
 
     await createAuditLog(prefix, {
       action: 'ORDER_DELIVERED',
@@ -720,7 +738,7 @@ export const deliverOrder = asyncHandler(async (req, res) => {
       entityId: updated.id,
       performedBy: req.user?.name || req.user?.id?.substring(0, 6) || 'Admin',
       details: `Order #${updated.id.slice(0, 6).toUpperCase()} delivered to ${o.customer?.name || 'Customer'} • Cash Received: Rs. ${cash.toLocaleString()}${retGood > 0 ? ` (${retGood} bottles returned)` : ''}`
-    });
+    }, tx);
 
     return updated;
   }, { maxWait: 10000, timeout: 30000 });
@@ -743,6 +761,9 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
     include: { payments: true, customer: true, items: { include: { item: true } } }
   });
   if (!o) throw new ApiError(404, 'Order not found');
+  if (o.deliveryStatus === 'CANCELLED') {
+    throw new ApiError(400, 'Cannot record payment for a cancelled order.');
+  }
 
   const alreadyPaid = o.payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   const orderSubtotal = o.items.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
@@ -811,9 +832,16 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
     const newTotalPaid = alreadyPaid + depositToApply + cash;
     const newPaymentStatus = newTotalPaid >= orderTotal ? 'PAID' : (newTotalPaid > 0 ? 'PARTIAL' : 'UNPAID');
 
-    const orderUpdated = await tx[`${prefix}Order`].update({
+    const orderUpdateResult = await tx[`${prefix}Order`].updateMany({
+      where: { id, deliveryStatus: { not: 'CANCELLED' } },
+      data: { paymentStatus: newPaymentStatus }
+    });
+    if (orderUpdateResult.count === 0) {
+      throw new ApiError(400, 'Order delivery status changed or order was cancelled.');
+    }
+
+    const orderUpdated = await tx[`${prefix}Order`].findUnique({
       where: { id },
-      data: { paymentStatus: newPaymentStatus },
       include: { items: { include: { item: true } }, customer: true, payments: true, deliveries: true }
     });
 
@@ -823,7 +851,7 @@ export const recordOrderPayment = asyncHandler(async (req, res) => {
       entityId: orderUpdated.id,
       performedBy: req.user?.id || 'Unknown',
       details: JSON.stringify({ cashReceived: cash, depositApplied: depositToApply, newTotalPaid, newPaymentStatus, debtReduction: totalDebtReduction, remarks })
-    });
+    }, tx);
 
     return orderUpdated;
   });
@@ -948,10 +976,17 @@ export const cancelOrder = asyncHandler(async (req, res) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx[`${prefix}Order`].update({
-      where: { id },
+    const updateResult = await tx[`${prefix}Order`].updateMany({
+      where: {
+        id,
+        deliveryStatus: { notIn: ['CANCELLED', 'DELIVERED', 'PARTIAL'] }
+      },
       data: { deliveryStatus: 'CANCELLED' }
     });
+
+    if (updateResult.count === 0) {
+      throw new ApiError(400, 'Order is not eligible for cancellation or has already been updated.');
+    }
 
     await createAuditLog(prefix, {
       action: 'ORDER_CANCELLED',

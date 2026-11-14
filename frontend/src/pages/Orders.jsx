@@ -262,7 +262,7 @@ export default function Orders() {
   const filteredOrders = orders.filter(o => {
     // Tab filtering
     if (activeTab === 'Pending Orders' && o.deliveryStatus !== 'PENDING') return false;
-    if (activeTab === 'Unpaid Orders' && o.paymentStatus === 'PAID') return false;
+    if (activeTab === 'Unpaid Orders' && (o.paymentStatus === 'PAID' || o.deliveryStatus === 'CANCELLED')) return false;
     if (activeTab === 'Completed Orders' && (o.deliveryStatus !== 'DELIVERED' || o.paymentStatus !== 'PAID')) return false;
     if (activeTab === 'Cancelled Orders' && o.deliveryStatus !== 'CANCELLED') return false;
     
@@ -339,7 +339,9 @@ export default function Orders() {
       const total = o.withGst ? sub + Math.round(sub * 0.18) : sub;
       const paid = (o.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
       totalValue += total;
-      unpaidAmount += Math.max(0, total - paid);
+      if (o.deliveryStatus !== 'CANCELLED') {
+        unpaidAmount += Math.max(0, total - paid);
+      }
       for (const it of (o.items || [])) {
         const q = Number(it.quantity || 0);
         const nameLower = (it.item?.name || '').toLowerCase();

@@ -69,7 +69,7 @@ export default function DrawerReconciliationCard({
             System Expected Net Cash
           </span>
           <span className="text-lg font-mono font-black text-slate-800">
-            Rs. {numExpected.toLocaleString()}
+            {numExpected < 0 ? `-Rs. ${Math.abs(numExpected).toLocaleString()}` : `Rs. ${numExpected.toLocaleString()}`}
           </span>
           <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
             Inflow - Expenses{Number(vendorCash) > 0 ? ` - Vendor Paid (Rs. ${Number(vendorCash).toLocaleString()})` : ''}

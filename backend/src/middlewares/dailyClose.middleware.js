@@ -41,19 +41,17 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
 
   const prefix = getTenantPrefix(req);
   const body = req.body || {};
-  
-  // Extract transaction date from various possible body fields
-  let transactionDateRaw = body.date || body.batchDate || body.purchaseDate || body.expenseDate || body.paymentDate || body.deliveredAt || body.expectedDelivery;
-  
-  // If editing an existing record by ID and no date is passed in body
-  if (!transactionDateRaw && req.params.id) {
+  const datesToCheck = [];
+
+  // If targeting an existing record by ID, always validate its stored date independently of body date
+  if (req.params.id) {
     const url = req.baseUrl || req.originalUrl || '';
     let modelName = null;
     let selectFields = { createdAt: true };
-    
+
     if (url.includes('/orders')) {
       modelName = `${prefix}Order`;
-      selectFields = { createdAt: true, deliveredAt: true };
+      selectFields = { createdAt: true, expectedDelivery: true };
     } else if (url.includes('/purchases')) {
       modelName = `${prefix}Purchase`;
       selectFields = { createdAt: true, purchaseDate: true };
@@ -69,48 +67,57 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     }
 
     if (modelName && prisma[modelName]) {
-      try {
-        const existingRecord = await prisma[modelName].findUnique({
-          where: { id: req.params.id },
-          select: selectFields
-        });
-        if (existingRecord) {
-          transactionDateRaw = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.deliveredAt || existingRecord.date || existingRecord.createdAt;
-        }
-      } catch (_err) {
-        // Silently fallback if record not found
+      const existingRecord = await prisma[modelName].findUnique({
+        where: { id: req.params.id },
+        select: selectFields
+      });
+      if (!existingRecord) {
+        throw new ApiError(404, 'Record not found for daily close lock verification');
+      }
+      const storedDate = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.expectedDelivery || existingRecord.createdAt;
+      if (storedDate) {
+        datesToCheck.push(storedDate);
       }
     }
   }
 
-  let transactionDate;
-  if (transactionDateRaw) {
-    const parsed = new Date(transactionDateRaw);
-    transactionDate = isNaN(parsed.getTime()) ? new Date() : parsed;
-  } else {
-    transactionDate = new Date();
-  }
-  transactionDate.setUTCHours(0, 0, 0, 0);
-  const dateStr = transactionDate.toISOString().split('T')[0];
-  const cacheKey = `${prefix}:${dateStr}`;
-
-  let isLocked = lockCache.get(cacheKey);
-  if (isLocked === undefined || Date.now() - isLocked.ts >= LOCK_CACHE_TTL) {
-    const dailyCloseModel = prisma[`${prefix}DailyClose`];
-    const closedRecord = await dailyCloseModel.findFirst({
-      where: {
-        date: transactionDate,
-        adminConfirmed: true
-      },
-      select: { id: true }
-    });
-    const lockedBool = !!closedRecord;
-    lockCache.set(cacheKey, { value: lockedBool, ts: Date.now() });
-    isLocked = { value: lockedBool };
+  // Also validate incoming body date for creations or when moving a record to a new date
+  const bodyDate = body.date || body.batchDate || body.purchaseDate || body.expenseDate || body.paymentDate || body.expectedDelivery;
+  if (bodyDate) {
+    datesToCheck.push(bodyDate);
   }
 
-  if (isLocked.value && req.user?.role !== 'OWNER') {
-    throw new ApiError(403, 'Date is closed for editing. Contact Owner for adjustments.');
+  // If neither existing record nor body date provided, fallback to current timestamp
+  if (datesToCheck.length === 0) {
+    datesToCheck.push(new Date());
+  }
+
+  // Check each relevant date against the daily close lock
+  for (const dateVal of datesToCheck) {
+    const parsed = new Date(dateVal);
+    const transactionDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+    transactionDate.setUTCHours(0, 0, 0, 0);
+    const dateStr = transactionDate.toISOString().split('T')[0];
+    const cacheKey = `${prefix}:${dateStr}`;
+
+    let isLocked = lockCache.get(cacheKey);
+    if (isLocked === undefined || Date.now() - isLocked.ts >= LOCK_CACHE_TTL) {
+      const dailyCloseModel = prisma[`${prefix}DailyClose`];
+      const closedRecord = await dailyCloseModel.findFirst({
+        where: {
+          date: transactionDate,
+          adminConfirmed: true
+        },
+        select: { id: true }
+      });
+      const lockedBool = !!closedRecord;
+      lockCache.set(cacheKey, { value: lockedBool, ts: Date.now() });
+      isLocked = { value: lockedBool };
+    }
+
+    if (isLocked.value && req.user?.role !== 'OWNER') {
+      throw new ApiError(403, 'Date is closed for editing. Contact Owner for adjustments.');
+    }
   }
 
   next();

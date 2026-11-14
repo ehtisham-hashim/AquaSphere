@@ -23,12 +23,24 @@ export default function TransportDashboardView() {
   const navigate = useNavigate();
   const { tenant, isWadaana } = useTenant();
   const [timeframe, setTimeframe] = useState('1_MONTH');
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [vehicles, setVehicles] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleTimeframeChange = useCallback((newTf) => {
+    setTimeframe(newTf);
+    setCurrentDate(new Date());
+  }, []);
 
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -40,7 +52,7 @@ export default function TransportDashboardView() {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }),
-        fetch(`${API_URL}/expenses?limit=200`, {
+        fetch(`${API_URL}/expenses?limit=500`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
@@ -75,7 +87,7 @@ export default function TransportDashboardView() {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setLastRefreshedAt(Date.now());
+      setCurrentDate(new Date());
     }
   }, [tenant]);
 
@@ -97,7 +109,7 @@ export default function TransportDashboardView() {
   }, [expenses]);
 
   const timeframeRange = useMemo(() => {
-    const dNow = new Date(lastRefreshedAt);
+    const dNow = currentDate;
     let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0, 0);
     let endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
     if (timeframe === 'YESTERDAY') {
@@ -113,7 +125,7 @@ export default function TransportDashboardView() {
       startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0, 0);
     }
     return { startDate, endOfDay };
-  }, [timeframe, lastRefreshedAt]);
+  }, [timeframe, currentDate]);
 
   const timeframeVehicleExpenses = useMemo(() => {
     return expenses
@@ -211,7 +223,7 @@ export default function TransportDashboardView() {
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
-            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+            <TimeframeDropdown value={timeframe} onChange={handleTimeframeChange} />
           </div>
 
           <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
