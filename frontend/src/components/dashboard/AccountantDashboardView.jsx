@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CreditCard, Wallet, Receipt, Clock, Lock, ShoppingCart, Users } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { CreditCard, Wallet, Receipt, Lock, ShoppingCart, Users } from 'lucide-react';
 import ModernKpiCard from './ModernKpiCard';
 import CashBreakdownSection from './CashBreakdownSection';
 import { useTenant } from '../../context/TenantContext';
@@ -168,15 +168,22 @@ export default function AccountantDashboardView({ data }) {
 
           <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
 
-          {closeStatus?.isClosed ? (
-            <div className="badge-success px-2.5 py-1 text-xs font-bold">
-              <Lock size={13} /> Day Closed
-            </div>
-          ) : (
-            <div className="badge-brand px-2.5 py-1 text-xs font-bold">
-              <Clock size={13} /> Day Open
-            </div>
-          )}
+          <Link
+            to="/daily-close"
+            className={`btn-secondary text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-xl border ${
+              closeStatus?.isClosed 
+                ? 'border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100' 
+                : 'border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100'
+            }`}
+            title="Open Daily Close"
+          >
+            <Lock size={14} className={closeStatus?.isClosed ? "text-emerald-600" : "text-amber-600"} />
+            <span>
+              {closeStatus?.isClosed 
+                ? 'Day Closed ✓' 
+                : `Daily Close: [PM ${closeStatus?.pmConfirmed ? '✓' : '⏳'} MM ${closeStatus?.mmConfirmed ? '✓' : '⏳'} TM ${closeStatus?.tmConfirmed ? '✓' : '⏳'}]`}
+            </span>
+          </Link>
         </div>
       </div>
 

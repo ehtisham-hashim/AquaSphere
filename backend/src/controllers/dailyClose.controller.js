@@ -43,12 +43,14 @@ export const closeDay = asyncHandler(async (req, res) => {
   const existing = await dailyCloseModel.findFirst({ where: { date: targetDate } });
   if (existing?.adminConfirmed) throw new ApiError(400, 'Day is already finalized by Admin');
 
-  // Verify Counter Audit Ledger has been submitted
-  const auditLedger = await prisma[`${prefix}CounterAuditLedger`].findUnique({
-    where: { date: targetDate }
-  });
-  if (!auditLedger) {
-    throw new ApiError(400, 'Counter Audit Ledger must be submitted and verified before daily close can be locked');
+  // Verify Counter Audit Ledger has been submitted (AquaSphere only; Wadaana has no counter sales)
+  if (prefix !== 'wadaana') {
+    const auditLedger = await prisma[`${prefix}CounterAuditLedger`].findUnique({
+      where: { date: targetDate }
+    });
+    if (!auditLedger) {
+      throw new ApiError(400, 'Counter Audit Ledger must be submitted and verified before daily close can be locked');
+    }
   }
 
   // Multi-department verification check: PM, MM, TM must all confirm their checklists first
@@ -85,7 +87,7 @@ export const closeDay = asyncHandler(async (req, res) => {
   const totalExpenses = parseFloat(expensesAgg._sum.amount || 0);
   const vendorCashPaid = parseFloat(vendorCashPayments._sum.amount || 0);
 
-  const expectedCash = Math.max(0, cashDeliveries + cashSpotSales - totalExpenses - vendorCashPaid);
+  const expectedCash = cashDeliveries + cashSpotSales - totalExpenses - vendorCashPaid;
   const parsedActualCash = actualCash !== undefined && actualCash !== null && actualCash !== '' ? parseFloat(actualCash) : null;
   const cashDifference = parsedActualCash !== null ? parsedActualCash - expectedCash : null;
 

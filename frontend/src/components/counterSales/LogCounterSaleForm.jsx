@@ -540,7 +540,7 @@ export default function LogCounterSaleForm({
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         {/* Title & Stock */}
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5 flex-wrap">
@@ -564,65 +564,68 @@ export default function LogCounterSaleForm({
                           </div>
                         </div>
 
-                        {/* Price Input */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[11px] font-mono text-slate-400">Rs</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
-                            value={currentPrice}
-                            onChange={(e) => handlePriceChange(cartKey, e.target.value)}
-                            title={isPack ? 'Rate per Pack' : 'Rate per Bottle/Unit'}
-                          />
-                          <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
-                            /{isPack ? 'pk' : (item.unit || 'u')}
-                          </span>
-                        </div>
-
-                        {/* Stepper & Quick Add */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => updateItemQty(cartKey, -1)}
-                              disabled={currentQty <= 0}
-                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
-                            >
-                              <Minus size={11} />
-                            </button>
+                        {/* Price & Stepper Row */}
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                          {/* Price Input */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-[11px] font-mono text-slate-400">Rs</span>
                             <input
                               type="number"
                               min="0"
-                              step="1"
-                              placeholder="0"
-                              className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
-                                currentQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
-                              }`}
-                              value={currentQty > 0 ? currentQty : ''}
-                              onChange={(e) => setItemQtyDirect(cartKey, e.target.value)}
+                              step="any"
+                              className="w-16 px-1.5 py-1 sm:py-0.5 text-xs font-mono font-bold border border-slate-200 rounded bg-slate-50 text-slate-800 text-center focus:bg-white focus:border-brand"
+                              value={currentPrice}
+                              onChange={(e) => handlePriceChange(cartKey, e.target.value)}
+                              title={isPack ? 'Rate per Pack' : 'Rate per Bottle/Unit'}
                             />
-                            <button
-                              type="button"
-                              onClick={() => updateItemQty(cartKey, 1)}
-                              className="w-6 h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
-                            >
-                              <Plus size={11} />
-                            </button>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              /{isPack ? 'pk' : (item.unit || 'u')}
+                            </span>
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-1">
-                            {[1, 5, 10].map(q => (
+                          {/* Stepper & Quick Add */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-0.5">
                               <button
                                 type="button"
-                                key={q}
-                                onClick={() => updateItemQty(cartKey, q)}
-                                className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
+                                onClick={() => updateItemQty(cartKey, -1)}
+                                disabled={currentQty <= 0}
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                               >
-                                +{q}
+                                <Minus size={13} />
                               </button>
-                            ))}
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                className={`w-12 h-8 sm:h-auto text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                                  currentQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
+                                }`}
+                                value={currentQty > 0 ? currentQty : ''}
+                                onChange={(e) => setItemQtyDirect(cartKey, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateItemQty(cartKey, 1)}
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </div>
+
+                            <div className="hidden sm:flex items-center gap-1">
+                              {[1, 5, 10].map(q => (
+                                <button
+                                  type="button"
+                                  key={q}
+                                  onClick={() => updateItemQty(cartKey, q)}
+                                  className="px-1.5 py-0.5 text-[10px] font-mono font-bold rounded border bg-white hover:bg-slate-100 text-slate-700 border-slate-200 transition"
+                                >
+                                  +{q}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -684,16 +687,16 @@ export default function LogCounterSaleForm({
                       type="button"
                       onClick={() => setRefillQty(prev => Math.max(0, prev - 1))}
                       disabled={refillQty <= 0}
-                      className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                      className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                     >
-                      <Minus size={11} />
+                      <Minus size={13} />
                     </button>
                     <input
                       type="number"
                       min="0"
                       step="1"
                       placeholder="0"
-                      className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                      className={`w-12 h-8 sm:h-auto text-center font-mono font-bold text-xs border rounded p-0.5 ${
                         refillQty > 0 ? 'border-blue-600 bg-white text-blue-700 font-extrabold' : 'border-slate-200 bg-white text-slate-700'
                       }`}
                       value={refillQty > 0 ? refillQty : ''}
@@ -702,9 +705,9 @@ export default function LogCounterSaleForm({
                     <button
                       type="button"
                       onClick={() => setRefillQty(prev => prev + 1)}
-                      className="w-6 h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                      className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
                     >
-                      <Plus size={11} />
+                      <Plus size={13} />
                     </button>
                   </div>
 
@@ -766,16 +769,16 @@ export default function LogCounterSaleForm({
                       type="button"
                       onClick={() => setCustomWaterLitres(prev => Math.max(0, Math.round((prev - 1) * 10) / 10))}
                       disabled={customWaterLitres <= 0}
-                      className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                      className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                     >
-                      <Minus size={11} />
+                      <Minus size={13} />
                     </button>
                     <input
                       type="number"
                       min="0"
                       step="any"
                       placeholder="0"
-                      className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                      className={`w-12 h-8 sm:h-auto text-center font-mono font-bold text-xs border rounded p-0.5 ${
                         customWaterLitres > 0 ? 'border-teal-600 bg-white text-teal-800 font-extrabold' : 'border-slate-200 bg-white text-slate-700'
                       }`}
                       value={customWaterLitres > 0 ? customWaterLitres : ''}
@@ -784,9 +787,9 @@ export default function LogCounterSaleForm({
                     <button
                       type="button"
                       onClick={() => setCustomWaterLitres(prev => Math.round((prev + 1) * 10) / 10)}
-                      className="w-6 h-6 rounded bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                      className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
                     >
-                      <Plus size={11} />
+                      <Plus size={13} />
                     </button>
                   </div>
 
@@ -879,16 +882,16 @@ export default function LogCounterSaleForm({
                                 type="button"
                                 onClick={() => updateItemQty(rawKey, -1)}
                                 disabled={currentQty <= 0}
-                                className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 flex items-center justify-center font-bold text-xs"
                               >
-                                <Minus size={11} />
+                                <Minus size={13} />
                               </button>
                               <input
                                 type="number"
                                 min="0"
                                 step="1"
                                 placeholder="0"
-                                className={`w-11 text-center font-mono font-bold text-xs border rounded p-0.5 ${
+                                className={`w-12 h-8 sm:h-auto text-center font-mono font-bold text-xs border rounded p-0.5 ${
                                   currentQty > 0 ? 'border-brand bg-white text-brand' : 'border-slate-200 bg-white text-slate-700'
                                 }`}
                                 value={currentQty > 0 ? currentQty : ''}
@@ -897,9 +900,9 @@ export default function LogCounterSaleForm({
                               <button
                                 type="button"
                                 onClick={() => updateItemQty(rawKey, 1)}
-                                className="w-6 h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded bg-brand hover:opacity-90 text-white flex items-center justify-center font-bold text-xs shadow-2xs"
                               >
-                                <Plus size={11} />
+                                <Plus size={13} />
                               </button>
                             </div>
 
@@ -1273,6 +1276,28 @@ export default function LogCounterSaleForm({
           </div>
 
         </div>
+
+        {/* Sticky Mobile Checkout Bar when cart has items */}
+        {cartItems.length > 0 && (
+          <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-between sm:hidden z-40 shadow-xl">
+            <div className="min-w-0 pr-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block truncate">
+                {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} in cart
+              </span>
+              <span className="text-sm font-black font-mono text-slate-900 truncate block">
+                Rs. {cartTotal.toLocaleString()}
+              </span>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting || isWalkInDebtBlocked || (hasStockDeficit && !allowStockOverride)}
+              className="px-4 py-2 bg-brand hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+            >
+              {submitting ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} className="fill-white" />}
+              <span>Record Sale</span>
+            </button>
+          </div>
+        )}
 
       </form>
     </div>

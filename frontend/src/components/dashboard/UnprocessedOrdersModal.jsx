@@ -37,30 +37,29 @@ export default function UnprocessedOrdersModal({
           </button>
         </div>
 
-        {/* Financial Breakdown Pill Strip */}
-        <div className="bg-slate-50 border-b border-slate-200/80 px-6 py-3.5 grid grid-cols-3 gap-2.5 text-center shrink-0">
-          <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Booked</span>
-            <span className="text-xs sm:text-sm font-bold font-mono text-slate-800">
-              Rs. {Number(totalSales || 0).toLocaleString()}
-            </span>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-emerald-200/70 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block">Delivered Sales</span>
-            <span className="text-xs sm:text-sm font-bold font-mono text-emerald-700">
-              Rs. {Number(deliveredSales || 0).toLocaleString()}
-            </span>
-          </div>
-          <div className="bg-white p-2.5 rounded-xl border border-amber-200/70 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 block">Pending / Unpaid</span>
-            <span className="text-xs sm:text-sm font-bold font-mono text-amber-700">
-              Rs. {Number(unprocessedSales || 0).toLocaleString()}
-            </span>
-          </div>
-        </div>
-
         {/* Body / List */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-3">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+          {/* Financial Breakdown Strip */}
+          <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+            <div className="bg-white p-2 rounded-lg border border-slate-200/70 shadow-2xs">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">Total Booked</span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-slate-800 block break-words whitespace-normal leading-tight">
+                Rs. {Number(totalSales || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-emerald-200/70 shadow-2xs">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600 block truncate">Delivered</span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-emerald-700 block break-words whitespace-normal leading-tight">
+                Rs. {Number(deliveredSales || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="bg-white p-2 rounded-lg border border-amber-200/70 shadow-2xs">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-600 block truncate">Pending</span>
+              <span className="text-xs sm:text-sm font-bold font-mono text-amber-700 block break-words whitespace-normal leading-tight">
+                Rs. {Number(unprocessedSales || 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
           {unprocessedOrders.length === 0 ? (
             <div className="text-center py-12 text-slate-400 space-y-2">
               <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">

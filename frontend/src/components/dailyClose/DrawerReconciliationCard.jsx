@@ -6,7 +6,8 @@ export default function DrawerReconciliationCard({
   onActualCashChange,
   notes,
   onNotesChange,
-  disabled = false
+  disabled = false,
+  vendorCash = 0
 }) {
   const numActual = actualCash !== '' && actualCash !== null && actualCash !== undefined ? parseFloat(actualCash) : null;
   const numExpected = Number(expectedCash || 0);
@@ -61,19 +62,36 @@ export default function DrawerReconciliationCard({
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+      <div className={`grid grid-cols-1 ${Number(vendorCash) > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4 items-center`}>
         {/* 1. System Expected Cash */}
         <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
             System Expected Net Cash
           </span>
           <span className="text-lg font-mono font-black text-slate-800">
-            Rs. {numExpected.toLocaleString()}
+            {numExpected < 0 ? `-Rs. ${Math.abs(numExpected).toLocaleString()}` : `Rs. ${numExpected.toLocaleString()}`}
           </span>
-          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">Deliveries + Spot - Expenses</span>
+          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+            Inflow - Expenses{Number(vendorCash) > 0 ? ` - Vendor Paid (Rs. ${Number(vendorCash).toLocaleString()})` : ''}
+          </span>
         </div>
 
-        {/* 2. Physical Cash in Drawer Input */}
+        {/* 2. Vendor Cash Paid (Displayed when vendor cash disbursements exist) */}
+        {Number(vendorCash) > 0 && (
+          <div className="bg-rose-50/80 p-3.5 rounded-xl border border-rose-200">
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block mb-1">
+              Vendor Cash Paid
+            </span>
+            <span className="text-lg font-mono font-black text-rose-700">
+              - Rs. {Number(vendorCash).toLocaleString()}
+            </span>
+            <span className="text-[10px] text-rose-500 block mt-0.5 font-medium">
+              Disbursed from drawer
+            </span>
+          </div>
+        )}
+
+        {/* 3. Physical Cash in Drawer Input */}
         <div className="sm:col-span-2 space-y-1.5">
           <label className="block text-xs font-bold text-slate-800">
             Physical Cash in Drawer: <span className="font-mono text-indigo-600">Rs.</span>

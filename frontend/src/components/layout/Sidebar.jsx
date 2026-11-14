@@ -193,7 +193,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = false }) {
       )}
 
       <aside 
-        className={`fixed md:relative top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-50 transition-all duration-200 flex-shrink-0 select-none ${
+        className={`fixed md:relative top-0 left-0 h-dvh bg-white border-r border-slate-200 flex flex-col z-50 transition-all duration-200 flex-shrink-0 select-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } ${isCollapsed ? 'md:w-20' : 'md:w-72'} w-72`}
       >

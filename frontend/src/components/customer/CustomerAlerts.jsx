@@ -177,7 +177,7 @@ export default function CustomerAlerts({ customer, _isWadaana, onOpenBottleModal
                   <p className="text-slate-700 text-xs mt-0.5">{alert.message}</p>
                 </div>
               </div>
-              {alert.action === 'RETRIEVE_BOTTLES' && onOpenBottleModal && (
+              {alert.action === 'RETRIEVE_BOTTLES' && typeof onOpenBottleModal === 'function' && (
                 <button
                   onClick={onOpenBottleModal}
                   className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap shadow-xs"

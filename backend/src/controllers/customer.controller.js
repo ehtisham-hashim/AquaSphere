@@ -853,13 +853,7 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       await tx[`${prefix}Order`].delete({ where: { id: ord.id } });
     }
 
-    // 2. Clean up bottle transactions for this customer
-    await tx[`${prefix}BottleTransaction`].deleteMany({ where: { customerId: id } });
-
-    // 3. Clean up payments for this customer
-    await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
-
-    // 4. Clean up spot sales for this customer with symmetrical stock restoration
+    // 2. Clean up spot sales for this customer with symmetrical stock restoration
     for (const ss of customer.spotSales) {
       const saleRefs = [ss.saleNumber, ss.id].filter(Boolean);
       const productOutTxs = saleRefs.length > 0
@@ -886,14 +880,61 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
       }
 
       if (saleRefs.length > 0) {
+        const exactReasons = [];
+        if (ss.saleNumber) {
+          exactReasons.push(`Counter Sale (${ss.saleNumber})`);
+          exactReasons.push(`Counter Sale Empty Return (${ss.saleNumber})`);
+        }
+        if (ss.id) {
+          exactReasons.push(`Counter Sale (${ss.id})`);
+          exactReasons.push(`Counter Sale Empty Return (${ss.id})`);
+        }
+
+        const bottlePredicate = {
+          customerId: id,
+          OR: [
+            { reason: { in: exactReasons } },
+            ...saleRefs.map(ref => ({ reason: { startsWith: `Counter Sale Empty Return (${ref})` } })),
+            ...saleRefs.map(ref => ({ reason: { startsWith: `Counter Sale (${ref})` } }))
+          ]
+        };
+
+        // Revert returnable empty bottles from factory stock
+        const existingBottleTxs = await tx[`${prefix}BottleTransaction`].findMany({
+          where: bottlePredicate
+        });
+
+        for (const bTx of existingBottleTxs) {
+          const q = Number(bTx.quantity || 0);
+          if (bTx.type === 'RETURNED_GOOD' && q > 0) {
+            await debitEmptyBottlesFromFactory(tx, prefix, {
+              quantity: q,
+              rawMaterialId: bTx.itemId,
+              customerId: id,
+              reason: `CUSTOMER_DELETED_SPOT_SALE_BOTTLE_REVERSAL (${ss.saleNumber || ss.id})`,
+              skipTransactionLog: true,
+              allowArchived: true
+            });
+          }
+        }
+
         await tx[`${prefix}InventoryTransaction`].deleteMany({
           where: { refType: 'SPOT_SALE', refId: { in: saleRefs } }
+        });
+        await tx[`${prefix}BottleTransaction`].deleteMany({
+          where: bottlePredicate
         });
       }
 
       await tx[`${prefix}SpotSaleItem`].deleteMany({ where: { spotSaleId: ss.id } });
       await tx[`${prefix}SpotSale`].delete({ where: { id: ss.id } });
     }
+
+    // 3. Clean up any remaining bottle transactions for this customer
+    await tx[`${prefix}BottleTransaction`].deleteMany({ where: { customerId: id } });
+
+    // 4. Clean up payments for this customer
+    await tx[`${prefix}Payment`].deleteMany({ where: { customerId: id } });
 
     // 5. Delete Customer record
     await tx[`${prefix}Customer`].delete({ where: { id } });

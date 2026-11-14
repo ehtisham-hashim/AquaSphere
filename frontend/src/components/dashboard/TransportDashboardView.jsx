@@ -23,12 +23,24 @@ export default function TransportDashboardView() {
   const navigate = useNavigate();
   const { tenant, isWadaana } = useTenant();
   const [timeframe, setTimeframe] = useState('1_MONTH');
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [vehicles, setVehicles] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleTimeframeChange = useCallback((newTf) => {
+    setTimeframe(newTf);
+    setCurrentDate(new Date());
+  }, []);
 
   const fetchData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -40,7 +52,7 @@ export default function TransportDashboardView() {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }),
-        fetch(`${API_URL}/expenses?limit=200`, {
+        fetch(`${API_URL}/expenses?limit=500`, {
           headers: { 'x-tenant': tenant },
           credentials: 'include'
         }).catch(() => null),
@@ -75,7 +87,7 @@ export default function TransportDashboardView() {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setLastRefreshedAt(Date.now());
+      setCurrentDate(new Date());
     }
   }, [tenant]);
 
@@ -97,7 +109,7 @@ export default function TransportDashboardView() {
   }, [expenses]);
 
   const timeframeRange = useMemo(() => {
-    const dNow = new Date();
+    const dNow = currentDate;
     let startDate = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 0, 0, 0, 0);
     let endOfDay = new Date(dNow.getFullYear(), dNow.getMonth(), dNow.getDate(), 23, 59, 59, 999);
     if (timeframe === 'YESTERDAY') {
@@ -113,7 +125,7 @@ export default function TransportDashboardView() {
       startDate = new Date(dNow.getFullYear(), 0, 1, 0, 0, 0, 0);
     }
     return { startDate, endOfDay };
-  }, [timeframe, lastRefreshedAt]);
+  }, [timeframe, currentDate]);
 
   const timeframeVehicleExpenses = useMemo(() => {
     return expenses
@@ -211,7 +223,7 @@ export default function TransportDashboardView() {
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
-            <TimeframeDropdown value={timeframe} onChange={setTimeframe} />
+            <TimeframeDropdown value={timeframe} onChange={handleTimeframeChange} />
           </div>
 
           <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
@@ -225,6 +237,14 @@ export default function TransportDashboardView() {
             <RefreshCw size={13} className={refreshing ? 'animate-spin text-brand-primary' : ''} />
             Refresh
           </button>
+          <Link
+            to="/daily-close"
+            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 text-slate-700 hover:text-slate-900 border-slate-200"
+            title="TM Daily Close Verification"
+          >
+            <Clock size={13} className="text-amber-600" />
+            <span>Daily Close</span>
+          </Link>
           <Link
             to="/transport"
             className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
@@ -290,25 +310,23 @@ export default function TransportDashboardView() {
           </div>
         )}
 
-        {/* Total Transport & Active Timeframe Spend */}
+        {/* Active Timeframe & Total Fleet Spend */}
         <div 
           onClick={() => navigate('/transport?tab=expenses')}
           className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-brand-primary/30 transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Transport Spend</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{getPeriodLabel()} Fleet Spend</span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <Fuel size={15} />
             </div>
           </div>
           <div className="mt-2.5">
             <div className="text-2xl font-black text-slate-800 font-mono">
-              Rs. {Math.round(totalTransportSpend).toLocaleString()}
+              Rs. {Math.round(timeframeVehicleExpenses).toLocaleString()}
             </div>
             <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-              <span className="text-purple-600 font-bold">Rs. {Math.round(timeframeVehicleExpenses).toLocaleString()}</span>
-              <span>•</span>
-              <span className="text-slate-400">{getPeriodLabel()} Spend</span>
+              <span className="text-slate-400">Total recorded: Rs. {Math.round(totalTransportSpend).toLocaleString()}</span>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Package, MessageCircle, CheckCircle2, Search, RotateCcw } from 'lucide-react';
 import { API_URL, clearCache } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLiveEvent } from '../../context/SSEContext';
 import BottleAdjustmentModal from '../customer/BottleAdjustmentModal';
 import { toast } from 'sonner';
@@ -9,12 +10,14 @@ import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 export default function BottleCustodyWidget({ className = '', embedded = false, onCustodyUpdated }) {
   const { tenant, isWadaana } = useTenant();
+  const { user } = useAuth();
   const [summary, setSummary] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [retrievalCustomer, setRetrievalCustomer] = useState(null);
 
+  const canAdjustBottles = ['OWNER', 'ADMIN', 'PRODUCTION_MANAGER', 'MARKETING_MANAGER'].includes((user?.role || '').toUpperCase());
   const companyName = isWadaana ? 'Wadaana Industries' : 'AquaSphere';
 
   const loadData = useCallback(async () => {
@@ -244,15 +247,17 @@ export default function BottleCustodyWidget({ className = '', embedded = false, 
                       </td>
                       <td className="p-2.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setRetrievalCustomer(c)}
-                            className="btn-primary py-1 px-2.5 text-xs inline-flex items-center gap-1 shadow-2xs font-semibold"
-                            title="Directly retrieve empty bottles into plant stock"
-                          >
-                            <RotateCcw size={12} />
-                            <span>Retrieve</span>
-                          </button>
+                          {canAdjustBottles && (
+                            <button
+                              type="button"
+                              onClick={() => setRetrievalCustomer(c)}
+                              className="btn-primary py-1 px-2.5 text-xs inline-flex items-center gap-1 shadow-2xs font-semibold"
+                              title="Directly retrieve empty bottles into plant stock"
+                            >
+                              <RotateCcw size={12} />
+                              <span>Retrieve</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleWhatsAppReminder(c)}
