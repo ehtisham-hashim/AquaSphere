@@ -231,3 +231,9 @@ test('Regression #9 (P1 Reports Fleet Labels): reports.controller.js clearly lab
   assert.ok(reportsFile.includes("'Total 19L Bottle Fleet Size'"), "Table metric must specify 'Total 19L Bottle Fleet Size'");
 });
 
+test('Regression #10 (P0 Security Logging): logger.middleware.js redacts tokens and credentials from URLs', () => {
+  const loggerFile = fs.readFileSync(path.join(rootDir, 'backend/src/middlewares/logger.middleware.js'), 'utf8');
+  assert.ok(loggerFile.includes("[REDACTED]"), "Logger must redact sensitive credentials with [REDACTED]");
+  assert.ok(loggerFile.includes("token|tempToken|password|secret|otp"), "Logger must target tokens and credentials");
+});
+

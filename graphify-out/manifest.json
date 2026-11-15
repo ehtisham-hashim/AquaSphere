@@ -436,10 +436,10 @@
     "semantic_hash": "124bba62b5eaaac5f9f7992ea08b2cf2"
   },
   "backend/src/middlewares/logger.middleware.js": {
-    "mtime": 1790056385.5210085,
-    "seen": 1794060648.41389,
-    "ast_hash": "23858fc9bbb4e88985b67d3181440990",
-    "semantic_hash": "23858fc9bbb4e88985b67d3181440990"
+    "mtime": 1794734138.628976,
+    "seen": 1794734165.6618617,
+    "ast_hash": "0595086de2d5fcec0a385683722d069d",
+    "semantic_hash": ""
   },
   "backend/src/middlewares/role.middleware.js": {
     "mtime": 1793427236.9190292,
@@ -706,9 +706,9 @@
     "semantic_hash": "676494c8860097a304ef6e38ed884814"
   },
   "backend/tests/erp-audit.test.mjs": {
-    "mtime": 1794731468.241064,
-    "seen": 1794731493.6427743,
-    "ast_hash": "e94ba6453c11028adfe87d0b31ae7684",
+    "mtime": 1794734153.55793,
+    "seen": 1794734165.6649053,
+    "ast_hash": "56de143cb934493fad0bdfd6329c403a",
     "semantic_hash": ""
   },
   "dev.js": {
@@ -2305,12 +2305,6 @@
     "mtime": 1794654260.0261939,
     "seen": 1794654359.1143053,
     "ast_hash": "1927b99c607d4c7482c8e375500b5920",
-    "semantic_hash": ""
-  },
-  "backend/tests/order-lifecycle-integration.test.mjs": {
-    "mtime": 1794731399.436913,
-    "seen": 1794731493.6427777,
-    "ast_hash": "afe33381b6b5e45fd54247591850d129",
     "semantic_hash": ""
   },
   "backend/tests/integration/01-procurement-vendor-ap.test.mjs": {

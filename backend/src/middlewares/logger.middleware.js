@@ -8,6 +8,11 @@ morgan.token('user', (req) => {
   return req.user ? `${req.user.role}:${req.user.name || req.user.id?.substring(0, 6)}` : 'anon';
 });
 
+morgan.token('url', (req) => {
+  const url = req.originalUrl || req.url || '';
+  return url.replace(/([?&](?:token|tempToken|password|secret|otp)=)[^&]+/gi, '$1[REDACTED]');
+});
+
 /**
  * Development request logger middleware formatting human-readable CLI outputs with tenant tags.
  *
