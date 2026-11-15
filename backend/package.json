@@ -17,7 +17,16 @@
     "seed:bom": "node scripts/seed-production-bom.js",
     "seed": "node seed_users.js && node scripts/seed-production-bom.js",
     "migrate:shrink-wrap": "node scripts/migrate-shrink-wrap.js",
-    "test": "node --test tests/erp-audit.test.mjs"
+    "test": "node --test tests/erp-audit.test.mjs",
+    "test:integration": "node tests/integration/run-all.mjs",
+    "test:integration:procurement": "node tests/integration/01-procurement-vendor-ap.test.mjs",
+    "test:integration:production": "node tests/integration/02-production-bom-yield-scrap.test.mjs",
+    "test:integration:counter": "node tests/integration/03-counter-sales-cash-drawer.test.mjs",
+    "test:integration:delivery": "node tests/integration/04-delivery-order-custody-debt.test.mjs",
+    "test:integration:transport": "node tests/integration/05-transport-fleet-daily-close-lock.test.mjs",
+    "test:integration:ripple": "node tests/integration/06-cross-page-ripple-invariants.test.mjs",
+    "test:integration:wadaana": "node tests/integration/07-wadaana-tenant-isolation.test.mjs",
+    "test:all": "node --test tests/erp-audit.test.mjs && node tests/integration/run-all.mjs"
   },
   "keywords": [],
   "author": "",

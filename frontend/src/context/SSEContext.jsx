@@ -18,7 +18,7 @@ const EVENT_CACHE_MAP = {
   EXPENSE_LOGGED: ['expenses', 'analytics', 'daily-close'],
   DAILY_CLOSE_CHANGED: ['daily-close', 'spot-sales', 'analytics'],
   VEHICLE_UPDATED: ['vehicles', 'expenses'],
-  VENDOR_UPDATED: ['vendors', 'purchases', 'analytics', 'reports'],
+  VENDOR_UPDATED: ['vendors', 'purchases', 'analytics', 'reports', 'daily-close'],
   BOTTLE_UPDATED: ['bottles', 'customers', 'inventory', 'items', 'analytics'],
   USER_UPDATED: ['users'],
   LANDING_PAGE_UPDATED: ['landing-page', 'settings']

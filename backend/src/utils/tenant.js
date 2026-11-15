@@ -8,6 +8,7 @@ export function getTenantPrefix(req) {
   const raw = (
     req.tenant ||
     req.headers?.['x-tenant'] ||
+    req.headers?.['x-tenant-id'] ||
     req.headers?.['x-company-context'] ||
     req.cookies?.tenant ||
     req.cookies?.company ||

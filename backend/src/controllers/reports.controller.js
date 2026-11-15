@@ -681,9 +681,9 @@ export const getReportData = asyncHandler(async (req, res) => {
       const transportExpenses = Number(transportSum._sum.amount || 0);
       const totalExpenses = operatingExpenses + transportExpenses;
 
-      // Weighted Average COGS dynamically from PurchaseItem records
+      // Weighted Average COGS dynamically from PurchaseItem records (excluding cancelled purchases)
       const purchaseItems = await prisma[`${prefix}PurchaseItem`].findMany({
-        where: { purchase: { purchaseDate: { lte: end } } },
+        where: { purchase: { purchaseDate: { lte: end }, status: { not: 'CANCELLED' } } },
         select: { itemId: true, quantity: true, unitPrice: true, total: true }
       });
 
@@ -707,10 +707,17 @@ export const getReportData = asyncHandler(async (req, res) => {
 
       const consumptions = await prisma[`${prefix}ProductionBatchConsumption`].findMany({
         where: { createdAt: { gte: start, lte: end } },
-        select: { itemId: true, quantityUsed: true }
+        select: {
+          itemId: true,
+          quantityUsed: true,
+          item: { select: { isReturnable: true, name: true } }
+        }
       });
 
       const cogs = consumptions.reduce((sum, c) => {
+        const itemName = (c.item?.name || '').toLowerCase();
+        const isReturnable = Boolean(c.item?.isReturnable) || (itemName.includes('19') && itemName.includes('bottle'));
+        if (isReturnable) return sum;
         const unitCost = itemCostMap[c.itemId] || 0;
         return sum + (Number(c.quantityUsed) * unitCost);
       }, 0);
@@ -992,7 +999,7 @@ export const getReportData = asyncHandler(async (req, res) => {
       const lost = stats.lost;
 
       kpis = [
-        { label: 'Total Fleet Owned', value: totalOwned.toString() },
+        { label: 'Total 19L Bottles in Fleet', value: totalOwned.toString() },
         { label: 'At Factory', value: atFactory.toString() },
         { label: 'With Customers', value: withCustomers.toString() },
         { label: 'At Warehouse', value: atWarehouse.toString() },
@@ -1013,7 +1020,7 @@ export const getReportData = asyncHandler(async (req, res) => {
         { '19L Asset Location / State': 'Bottles at Warehouse', 'Quantity': atWarehouse },
         { '19L Asset Location / State': 'Bottles Broken (Scrapped)', 'Quantity': broken },
         { '19L Asset Location / State': 'Bottles Lost (Unrecoverable)', 'Quantity': lost },
-        { '19L Asset Location / State': 'Total Fleet Size', 'Quantity': totalOwned }
+        { '19L Asset Location / State': 'Total 19L Bottle Fleet Size', 'Quantity': totalOwned }
       ];
       break;
     }

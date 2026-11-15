@@ -564,27 +564,28 @@ export const createSpotSale = asyncHandler(async (req, res) => {
     });
 
     // 4. Create child SpotSaleItem records (all items persisted)
-    let genericFallbackItem = null;
-    for (const p of processedItems) {
-      let targetItemId = p.itemId || p.fgItem?.id;
-      if (!targetItemId) {
-        if (!genericFallbackItem) {
-          genericFallbackItem = await tx[`${prefix}Item`].findFirst({ where: { archivedAt: null } });
-        }
-        targetItemId = genericFallbackItem?.id;
-      }
-      if (targetItemId) {
-        await tx[`${prefix}SpotSaleItem`].create({
-          data: {
-            spotSaleId: sale.id,
-            itemId: targetItemId,
-            saleType: p.saleType,
-            quantity: p.quantity,
-            unitPrice: p.unitPrice,
-            subtotal: p.subtotal
-          }
-        });
-      }
+    const needsFallback = processedItems.some(p => !(p.itemId || p.fgItem?.id));
+    const genericFallbackItem = needsFallback
+      ? await tx[`${prefix}Item`].findFirst({ where: { archivedAt: null } })
+      : null;
+
+    const spotSaleItemsData = processedItems
+      .map(p => {
+        const targetItemId = p.itemId || p.fgItem?.id || genericFallbackItem?.id;
+        if (!targetItemId) return null;
+        return {
+          spotSaleId: sale.id,
+          itemId: targetItemId,
+          saleType: p.saleType,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice,
+          subtotal: p.subtotal
+        };
+      })
+      .filter(Boolean);
+
+    if (spotSaleItemsData.length > 0) {
+      await tx[`${prefix}SpotSaleItem`].createMany({ data: spotSaleItemsData });
     }
 
     // 5. Update customer balance if debt occurred

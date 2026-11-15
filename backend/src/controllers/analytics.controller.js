@@ -3,7 +3,11 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { getTenantPrefix } from '../utils/tenant.js';
 import { sendSuccess } from '../utils/response.js';
 
-const cachedDashboardData = { aquasphere: null, wadaana: null };
+const DASHBOARD_CACHE_TTL_MS = 30000;
+const cachedDashboardData = {
+  aquasphere: { data: null, expiresAt: 0, inFlight: null },
+  wadaana: { data: null, expiresAt: 0, inFlight: null }
+};
 const sseClients = { aquasphere: [], wadaana: [] };
 
 const computeDashboardAnalytics = async (prefix) => {
@@ -333,13 +337,14 @@ const computeDashboardAnalytics = async (prefix) => {
       month.unprocessedOrdersCount += 1;
     }
 
+    const orderBottlesCount = (o.items || []).reduce((s, it) => s + (Number(it.quantity) || 0), 0);
     const activeBuckets = getBucketsForDate(d);
     for (const b of activeBuckets) {
       b.sales += total;
       b.netSalesExGst += sub;
       b.orderRevenue += total;
       b.estimatedCogs += orderCogs;
-      b.bottlesSold += 1;
+      b.bottlesSold += orderBottlesCount;
       b.ordersCount += 1;
       if (isDelivered) {
         b.deliveredSales += total;
@@ -394,28 +399,33 @@ const computeDashboardAnalytics = async (prefix) => {
     }
   }
 
-  // Allocate order payments to cashBySize
-  for (const o of orders) {
-    const oPayments = payments.filter(p => p.orderId === o.id && p.type !== 'SECURITY_DEPOSIT');
-    const oPaid = oPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-    if (oPaid > 0) {
-      const d = new Date(o.createdAt);
-      const activeBuckets = getBucketsForDate(d);
-      const itemsWithSize = (o.items || []).map(it => {
-        const sz = getBottleSize(it.item?.name);
-        return { sz, rev: parseFloat(it.price || 0) * (it.quantity || 0) };
-      }).filter(x => x.sz);
+  // Pre-index orders to eliminate O(O x P) filter loop and bucket cashBySize by payment posting date (p.createdAt)
+  const orderMap = new Map(orders.map(o => [o.id, o]));
+  for (const p of payments) {
+    if (p.type === 'SECURITY_DEPOSIT' || !p.orderId) continue;
+    const o = orderMap.get(p.orderId);
+    if (!o) continue;
 
-      const totalSizeRev = itemsWithSize.reduce((s, x) => s + x.rev, 0) || 1;
-      itemsWithSize.forEach(({ sz, rev }) => {
-        const allocatedCash = Math.round(oPaid * (rev / totalSizeRev));
-        for (const b of activeBuckets) {
-          if (b.cashBySize) {
-            b.cashBySize[sz] = (b.cashBySize[sz] || 0) + allocatedCash;
-          }
+    const pAmt = parseFloat(p.amount || 0);
+    if (pAmt <= 0) continue;
+
+    const d = new Date(p.createdAt);
+    const activeBuckets = getBucketsForDate(d);
+
+    const itemsWithSize = (o.items || []).map(it => {
+      const sz = getBottleSize(it.item?.name);
+      return { sz, rev: parseFloat(it.price || 0) * (it.quantity || 0) };
+    }).filter(x => x.sz);
+
+    const totalSizeRev = itemsWithSize.reduce((s, x) => s + x.rev, 0) || 1;
+    itemsWithSize.forEach(({ sz, rev }) => {
+      const allocatedCash = Math.round(pAmt * (rev / totalSizeRev));
+      for (const b of activeBuckets) {
+        if (b.cashBySize) {
+          b.cashBySize[sz] = (b.cashBySize[sz] || 0) + allocatedCash;
         }
-      });
-    }
+      }
+    });
   }
 
   for (const st of spotSales) {
@@ -518,17 +528,25 @@ const computeDashboardAnalytics = async (prefix) => {
         b.skuVolumes[skuName] = (b.skuVolumes[skuName] || 0) + skuQty;
       }
 
-      let matchedSize = null;
-      for (const it of st.items || []) {
-        const sz = getBottleSize(it.item?.name);
-        if (sz) { matchedSize = sz; break; }
-      }
-      const targetSize = matchedSize || '19L';
-      if (b.cashBySize) {
-        b.cashBySize[targetSize] = (b.cashBySize[targetSize] || 0) + cashAmt;
-      }
-      if (b.salesBySize) {
-        b.salesBySize[targetSize] = (b.salesBySize[targetSize] || 0) + saleAmt;
+      const spotItemsWithSize = (st.items || []).map(it => {
+        const sz = getBottleSize(it.item?.name) || '19L';
+        const sub = parseFloat(it.subtotal || 0) || (parseFloat(it.unitPrice || 0) * (it.quantity || 0));
+        return { sz, sub };
+      });
+      const totalSpotItemSub = spotItemsWithSize.reduce((s, x) => s + x.sub, 0) || saleAmt || 1;
+
+      if (spotItemsWithSize.length > 0) {
+        spotItemsWithSize.forEach(({ sz, sub }) => {
+          const ratio = sub / totalSpotItemSub;
+          const allocatedSale = Math.round(saleAmt * ratio);
+          const allocatedCash = Math.round(cashAmt * ratio);
+          if (b.salesBySize) b.salesBySize[sz] = (b.salesBySize[sz] || 0) + allocatedSale;
+          if (b.cashBySize) b.cashBySize[sz] = (b.cashBySize[sz] || 0) + allocatedCash;
+        });
+      } else {
+        const targetSize = '19L';
+        if (b.salesBySize) b.salesBySize[targetSize] = (b.salesBySize[targetSize] || 0) + saleAmt;
+        if (b.cashBySize) b.cashBySize[targetSize] = (b.cashBySize[targetSize] || 0) + cashAmt;
       }
     }
   }
@@ -796,16 +814,47 @@ export const sanitizeMarketingDashboardData = (data) => {
   return clone;
 };
 
+const getOrComputeDashboardAnalytics = async (prefix, forceRefresh = false) => {
+  const now = Date.now();
+  if (!cachedDashboardData[prefix]) {
+    cachedDashboardData[prefix] = { data: null, expiresAt: 0, inFlight: null };
+  }
+  const cacheEntry = cachedDashboardData[prefix];
+
+  if (!forceRefresh && cacheEntry.data && cacheEntry.expiresAt > now) {
+    return cacheEntry.data;
+  }
+
+  if (cacheEntry.inFlight) {
+    return cacheEntry.inFlight;
+  }
+
+  cacheEntry.inFlight = (async () => {
+    try {
+      const data = await computeDashboardAnalytics(prefix);
+      cacheEntry.data = data;
+      cacheEntry.expiresAt = Date.now() + DASHBOARD_CACHE_TTL_MS;
+      return data;
+    } finally {
+      cacheEntry.inFlight = null;
+    }
+  })();
+
+  return cacheEntry.inFlight;
+};
+
 /** Broadcasts SSE update with debouncing to prevent database pool exhaustion */
 export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
   if (debounceTimers[prefix]) {
     clearTimeout(debounceTimers[prefix]);
   }
+  if (cachedDashboardData[prefix]) {
+    cachedDashboardData[prefix].expiresAt = 0;
+  }
   debounceTimers[prefix] = setTimeout(async () => {
     debounceTimers[prefix] = null;
     try {
-      cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-      const rawData = cachedDashboardData[prefix];
+      const rawData = await getOrComputeDashboardAnalytics(prefix, true);
       const rawPayload = `data: ${JSON.stringify({ success: true, data: rawData })}\n\n`;
       let marketingPayload = null;
       sseClients[prefix].forEach(client => {
@@ -827,11 +876,11 @@ export const broadcastDashboardUpdate = (prefix = 'aquasphere') => {
 /** High-level dashboard analytics */
 export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   const prefix = getTenantPrefix(req);
-  cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-  const data = req.user?.role === 'MARKETING_MANAGER'
-    ? sanitizeMarketingDashboardData(cachedDashboardData[prefix])
-    : cachedDashboardData[prefix];
-  return sendSuccess(res, data);
+  const data = await getOrComputeDashboardAnalytics(prefix);
+  const responseData = req.user?.role === 'MARKETING_MANAGER'
+    ? sanitizeMarketingDashboardData(data)
+    : data;
+  return sendSuccess(res, responseData);
 });
 
 /** Monthly purchasing summary and vendor balances */
@@ -933,11 +982,11 @@ export const streamDashboardAnalytics = asyncHandler(async (req, res) => {
 
   res.userRole = req.user?.role;
 
-  cachedDashboardData[prefix] = await computeDashboardAnalytics(prefix);
-  const initialData = req.user?.role === 'MARKETING_MANAGER'
-    ? sanitizeMarketingDashboardData(cachedDashboardData[prefix])
-    : cachedDashboardData[prefix];
-  res.write(`data: ${JSON.stringify({ success: true, data: initialData })}\n\n`);
+  const initialData = await getOrComputeDashboardAnalytics(prefix);
+  const dataToSend = req.user?.role === 'MARKETING_MANAGER'
+    ? sanitizeMarketingDashboardData(initialData)
+    : initialData;
+  res.write(`data: ${JSON.stringify({ success: true, data: dataToSend })}\n\n`);
 
   sseClients[prefix].push(res);
   const heartbeat = setInterval(() => res.write(':heartbeat\n\n'), 30000);
@@ -993,7 +1042,22 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     }),
     prisma[`${prefix}SpotSale`].findMany({
       where: { createdAt: { gte: targetDate, lt: nextDate } },
-      select: { amountPaid: true, cashCollected: true, paymentMethod: true }
+      select: {
+        amountPaid: true,
+        cashCollected: true,
+        paymentMethod: true,
+        totalAmount: true,
+        creditAmount: true,
+        debtAmount: true,
+        items: {
+          select: {
+            quantity: true,
+            unitPrice: true,
+            subtotal: true,
+            item: { select: { name: true } }
+          }
+        }
+      }
     })
   ]);
 
@@ -1036,8 +1100,36 @@ export const getDailySummary = asyncHandler(async (req, res) => {
     }
   });
 
-  const salesBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
-  const cashBySize = { '19L': totalSpotSales, '1.5L': 0, '0.5L': 0 };
+  const salesBySize = { '19L': 0, '1.5L': 0, '0.5L': 0 };
+  const cashBySize = { '19L': 0, '1.5L': 0, '0.5L': 0 };
+
+  spotSalesList.forEach(s => {
+    const sCash = parseFloat(s.amountPaid || s.cashCollected || 0);
+    const sCredit = parseFloat(s.creditAmount || s.debtAmount || 0);
+    const sTotal = parseFloat(s.totalAmount || (sCash + sCredit) || 0);
+
+    const items = (s.items || []).map(it => {
+      const n = (it.item?.name || '').toLowerCase();
+      let sz = null;
+      if (n.includes('19l') || n.includes('19 l')) sz = '19L';
+      else if (n.includes('1.5') || n.includes('1500')) sz = '1.5L';
+      else if (n.includes('0.5') || n.includes('500')) sz = '0.5L';
+      const sub = parseFloat(it.subtotal || 0) || (parseFloat(it.unitPrice || 0) * (it.quantity || 0));
+      return { sz: sz || '19L', sub };
+    });
+
+    const totalItemsRev = items.reduce((sum, x) => sum + x.sub, 0) || sTotal || 1;
+    if (items.length > 0) {
+      items.forEach(({ sz, sub }) => {
+        const ratio = sub / totalItemsRev;
+        salesBySize[sz] = (salesBySize[sz] || 0) + Math.round(sTotal * ratio);
+        cashBySize[sz] = (cashBySize[sz] || 0) + Math.round(sCash * ratio);
+      });
+    } else {
+      salesBySize['19L'] = (salesBySize['19L'] || 0) + Math.round(sTotal);
+      cashBySize['19L'] = (cashBySize['19L'] || 0) + Math.round(sCash);
+    }
+  });
 
   todaysOrders.forEach(o => {
     const orderPaid = o.payments?.reduce((s, p) => s + parseFloat(p.amount || 0), 0) || 0;

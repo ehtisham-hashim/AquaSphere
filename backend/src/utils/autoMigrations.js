@@ -44,7 +44,13 @@ export async function ensureNativeSchemaColumns() {
     `CREATE INDEX IF NOT EXISTS "items_is_returnable_idx" ON "aquasphere"."items"("is_returnable");`,
     `CREATE INDEX IF NOT EXISTS "wadaana_items_is_returnable_idx" ON "wadaana"."items"("is_returnable");`,
     `CREATE INDEX IF NOT EXISTS "bottle_tx_customer_item_idx" ON "aquasphere"."bottle_transactions"("customer_id", "item_id");`,
-    `CREATE INDEX IF NOT EXISTS "wadaana_bottle_tx_customer_item_idx" ON "wadaana"."bottle_transactions"("customer_id", "item_id");`
+    `CREATE INDEX IF NOT EXISTS "wadaana_bottle_tx_customer_item_idx" ON "wadaana"."bottle_transactions"("customer_id", "item_id");`,
+    `CREATE INDEX IF NOT EXISTS "inv_tx_ref_type_ref_id_idx" ON "aquasphere"."inventory_transactions"("ref_type", "ref_id");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_inv_tx_ref_type_ref_id_idx" ON "wadaana"."inventory_transactions"("ref_type", "ref_id");`,
+    `CREATE INDEX IF NOT EXISTS "payments_created_at_type_idx" ON "aquasphere"."payments"("created_at", "type");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_payments_created_at_type_idx" ON "wadaana"."payments"("created_at", "type");`,
+    `CREATE INDEX IF NOT EXISTS "vendor_payments_created_at_method_idx" ON "aquasphere"."vendor_payments"("created_at", "payment_method");`,
+    `CREATE INDEX IF NOT EXISTS "wadaana_vendor_payments_created_at_method_idx" ON "wadaana"."vendor_payments"("created_at", "payment_method");`
   ];
 
   for (const sql of ddlStatements) {

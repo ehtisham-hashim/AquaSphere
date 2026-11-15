@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DollarSign, RefreshCw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDailyClose } from '../../hooks/useDailyClose';
+import { useLiveEvent } from '../../context/SSEContext';
 import { fetchDailySummary, finalizeDay } from '../../services/dailyCloseService';
 import DailyCloseHeader from './DailyCloseHeader';
 import ClosedDayBanner from './ClosedDayBanner';
@@ -16,9 +17,7 @@ export default function AccountantClose() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setActualCash('');
-    setNotes('');
+  const loadSummary = useCallback(() => {
     fetchDailySummary(date, tenant).then(json => {
       if (json.success) {
         const d = json.data;
@@ -32,6 +31,17 @@ export default function AccountantClose() {
       }
     }).catch(() => setCash({ orderCash: 0, counterSales: 0, totalExpenses: 0, vendorCash: 0, netCash: 0 }));
   }, [date, tenant]);
+
+  useEffect(() => {
+    setActualCash('');
+    setNotes('');
+    loadSummary();
+  }, [loadSummary]);
+
+  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED', 'COUNTER_SALE_CREATED', 'EXPENSE_LOGGED', 'VENDOR_UPDATED'], () => {
+    refreshStatus(false);
+    loadSummary();
+  });
 
   const handleFinalize = async () => {
     setSubmitting(true);

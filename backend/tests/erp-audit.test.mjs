@@ -224,3 +224,10 @@ test('Integration [CSV Bulk Transaction Simulation]: Creates Customer and logs o
   assert.equal(mockBottleTxs[0].type, 'DELIVERED_TO_CUSTOMER');
 });
 
+test('Regression #9 (P1 Reports Fleet Labels): reports.controller.js clearly labels 19L bottle fleet vs vehicle delivery fleet', () => {
+  const reportsFile = fs.readFileSync(path.join(rootDir, 'backend/src/controllers/reports.controller.js'), 'utf8');
+  assert.ok(reportsFile.includes("label: 'Total 19L Bottles in Fleet'"), "KPI must state 'Total 19L Bottles in Fleet'");
+  assert.ok(!reportsFile.includes("label: 'Total Fleet Owned'"), "Old ambiguous label 'Total Fleet Owned' must not exist");
+  assert.ok(reportsFile.includes("'Total 19L Bottle Fleet Size'"), "Table metric must specify 'Total 19L Bottle Fleet Size'");
+});
+

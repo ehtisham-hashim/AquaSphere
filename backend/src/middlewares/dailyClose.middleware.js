@@ -65,23 +65,34 @@ export const checkDailyCloseLock = asyncHandler(async (req, res, next) => {
     } else if (url.includes('/production')) {
       modelName = `${prefix}ProductionBatch`;
       selectFields = { createdAt: true, batchDate: true };
+    } else if (url.includes('/transport-expenses')) {
+      modelName = `${prefix}TransportExpense`;
+      selectFields = { date: true, createdAt: true };
     } else if (url.includes('/expenses')) {
-      modelName = `${prefix}Expense`;
-      selectFields = { createdAt: true };
+      if (req.params.id?.startsWith('pur_')) {
+        modelName = `${prefix}Purchase`;
+        selectFields = { createdAt: true, purchaseDate: true };
+      } else {
+        modelName = `${prefix}Expense`;
+        selectFields = { createdAt: true };
+      }
     } else if (url.includes('/spot-sales')) {
       modelName = `${prefix}SpotSale`;
       selectFields = { createdAt: true };
     }
 
     if (modelName && prisma[modelName]) {
+      const recordId = (modelName.endsWith('Purchase') && req.params.id?.startsWith('pur_'))
+        ? req.params.id.replace(/^pur_/, '')
+        : req.params.id;
       const existingRecord = await prisma[modelName].findUnique({
-        where: { id: req.params.id },
+        where: { id: recordId },
         select: selectFields
       });
       if (!existingRecord) {
         throw new ApiError(404, 'Record not found for daily close lock verification');
       }
-      const storedDate = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.createdAt;
+      const storedDate = existingRecord.purchaseDate || existingRecord.batchDate || existingRecord.date || existingRecord.createdAt;
       if (storedDate) {
         datesToCheck.push(storedDate);
       }

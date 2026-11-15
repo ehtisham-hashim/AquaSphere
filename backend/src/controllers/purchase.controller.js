@@ -379,36 +379,48 @@ export const updatePurchase = asyncHandler(async (req, res) => {
         await tx[`${prefix}Item`].update({ where: { id: oldItem.itemId }, data: revertData });
       }
 
+      if (existing.items && existing.items.length > 0) {
+        const reversalTxs = existing.items.map(oldItem => ({
+          itemId: oldItem.itemId,
+          quantity: oldItem.quantity,
+          direction: 'OUT',
+          reason: 'PURCHASE_UPDATED_REVERSAL',
+          refType: 'PURCHASE',
+          refId: id
+        }));
+        await tx[`${prefix}InventoryTransaction`].createMany({ data: reversalTxs });
+      }
+
       await tx[`${prefix}PurchaseItem`].deleteMany({ where: { purchaseId: id } });
 
-      for (const newItem of validatedItems) {
-        await tx[`${prefix}PurchaseItem`].create({
-          data: {
-            purchaseId: id,
-            itemId: newItem.itemId,
-            quantity: newItem.quantity,
-            unitPrice: newItem.unitPrice,
-            total: newItem.total
-          }
-        });
+      await tx[`${prefix}PurchaseItem`].createMany({
+        data: validatedItems.map(newItem => ({
+          purchaseId: id,
+          itemId: newItem.itemId,
+          quantity: newItem.quantity,
+          unitPrice: newItem.unitPrice,
+          total: newItem.total
+        }))
+      });
 
+      await Promise.all(validatedItems.map(newItem => {
         const addData = { 
           cachedQty: { increment: newItem.quantity },
           factoryQty: { increment: newItem.quantity }
         };
-        await tx[`${prefix}Item`].update({ where: { id: newItem.itemId }, data: addData });
+        return tx[`${prefix}Item`].update({ where: { id: newItem.itemId }, data: addData });
+      }));
 
-        await tx[`${prefix}InventoryTransaction`].create({
-          data: {
-            itemId: newItem.itemId,
-            quantity: newItem.quantity,
-            direction: 'IN',
-            reason: 'PURCHASE_UPDATED',
-            refType: 'PURCHASE',
-            refId: id
-          }
-        });
-      }
+      await tx[`${prefix}InventoryTransaction`].createMany({
+        data: validatedItems.map(newItem => ({
+          itemId: newItem.itemId,
+          quantity: newItem.quantity,
+          direction: 'IN',
+          reason: 'PURCHASE_UPDATED',
+          refType: 'PURCHASE',
+          refId: id
+        }))
+      });
     } else if (newDestination !== oldDestination) {
       // If only destination changed, move stock between locations
       for (const it of existing.items) {

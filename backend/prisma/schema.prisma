@@ -117,6 +117,7 @@ model AquasphereInventoryTransaction {
 
   @@index([itemId, createdAt])
   @@index([createdAt(sort: Desc)])
+  @@index([refType, refId])
   @@map("inventory_transactions")
   @@schema("aquasphere")
 }
@@ -231,6 +232,7 @@ model AquaspherePayment {
   createdAt  DateTime              @default(now()) @map("created_at")
 
   @@index([customerId, createdAt(sort: Desc)])
+  @@index([createdAt, type])
   @@map("payments")
   @@schema("aquasphere")
 }
@@ -392,6 +394,7 @@ model AquasphereVendorPayment {
   createdAt     DateTime         @default(now()) @map("created_at")
 
   @@index([vendorId, createdAt])
+  @@index([createdAt, paymentMethod])
   @@map("vendor_payments")
   @@schema("aquasphere")
 }
@@ -786,6 +789,7 @@ model WadaanaInventoryTransaction {
 
   @@index([itemId, createdAt])
   @@index([createdAt(sort: Desc)])
+  @@index([refType, refId])
   @@map("inventory_transactions")
   @@schema("wadaana")
 }
@@ -900,6 +904,7 @@ model WadaanaPayment {
   createdAt  DateTime           @default(now()) @map("created_at")
 
   @@index([customerId, createdAt(sort: Desc)])
+  @@index([createdAt, type])
   @@map("payments")
   @@schema("wadaana")
 }
@@ -1069,6 +1074,7 @@ model WadaanaVendorPayment {
   createdAt     DateTime      @default(now()) @map("created_at")
 
   @@index([vendorId, createdAt])
+  @@index([createdAt, paymentMethod])
   @@map("vendor_payments")
   @@schema("wadaana")
 }

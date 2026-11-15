@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { fetchCounterAuditLedger, submitCounterAuditLedger } from '../../services/dailyCloseService';
 
 export default function CounterAuditLedgerCard({ date, tenant, isClosed, onLedgerSaved }) {
+  if (tenant === 'wadaana') return null;
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ledger, setLedger] = useState(null);

@@ -32,6 +32,9 @@ importers:
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
+      pdfjs-dist:
+        specifier: ^6.4.299
+        version: 6.4.299
       react:
         specifier: ^19.2.7
         version: 19.3.0
@@ -75,9 +78,6 @@ importers:
       globals:
         specifier: ^17.7.0
         version: 17.12.0
-      pdfjs-dist:
-        specifier: ^6.4.299
-        version: 6.4.299
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3

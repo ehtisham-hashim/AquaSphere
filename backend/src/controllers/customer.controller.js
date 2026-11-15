@@ -257,11 +257,38 @@ export const getMarketers = asyncHandler(async (req, res) => {
     }
   });
 
+  const customerBucketMap = new Map();
+  const directCustomers = [];
+
+  for (const c of customers) {
+    const { marketerId, marketerName } = formatCustomerMarketer(c, registry.marketers);
+    if (marketerId === 'DIRECT') {
+      directCustomers.push(c);
+      continue;
+    }
+    if (marketerId) {
+      if (!customerBucketMap.has(marketerId)) customerBucketMap.set(marketerId, []);
+      customerBucketMap.get(marketerId).push(c);
+    }
+    if (marketerName) {
+      const nameKey = marketerName.toLowerCase();
+      if (!customerBucketMap.has(nameKey)) customerBucketMap.set(nameKey, []);
+      customerBucketMap.get(nameKey).push(c);
+    }
+  }
+
   const marketersWithStats = registry.marketers.map(m => {
-    const assignedCustomers = customers.filter(c => {
-      const { marketerId, marketerName } = formatCustomerMarketer(c, registry.marketers);
-      return marketerId === m.id || (m.name && marketerName.toLowerCase() === m.name.toLowerCase());
-    });
+    const idMatches = m.id ? (customerBucketMap.get(m.id) || []) : [];
+    const nameMatches = m.name ? (customerBucketMap.get(m.name.toLowerCase()) || []) : [];
+
+    const seen = new Set();
+    const assignedCustomers = [];
+    for (const c of [...idMatches, ...nameMatches]) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        assignedCustomers.push(c);
+      }
+    }
 
     const totalDebt = assignedCustomers.reduce((acc, c) => acc + Number(c.currentBalance || 0), 0);
     const customerCodes = assignedCustomers.map(c => c.customerCode || `#${c.id.slice(0, 6)}`);
@@ -272,11 +299,6 @@ export const getMarketers = asyncHandler(async (req, res) => {
       totalDebt,
       customerCodes
     };
-  });
-
-  const directCustomers = customers.filter(c => {
-    const { marketerId } = formatCustomerMarketer(c, registry.marketers);
-    return marketerId === 'DIRECT';
   });
 
   return sendSuccess(res, {

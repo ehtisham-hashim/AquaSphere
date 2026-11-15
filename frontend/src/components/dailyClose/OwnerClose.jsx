@@ -45,7 +45,7 @@ export default function OwnerClose() {
     loadData();
   }, [loadData]);
 
-  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED', 'COUNTER_SALE_CREATED', 'EXPENSE_LOGGED'], () => {
+  useLiveEvent(['DAILY_CLOSE_CHANGED', 'ORDER_UPDATED', 'COUNTER_SALE_CREATED', 'EXPENSE_LOGGED', 'VENDOR_UPDATED'], () => {
     refreshStatus(false);
     loadData();
   });
@@ -233,32 +233,34 @@ export default function OwnerClose() {
       )}
 
       {/* Today's Counter Sales Summary */}
-      <div className="card-surface p-4 border border-slate-200">
-        <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-          <ShoppingBag size={16} className="text-brand" />
-          Today's Counter Sales Summary
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-          <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="text-xs text-blue-600 font-semibold mb-1">Water</div>
-            <div className="text-lg font-mono font-bold text-blue-700">
-              {dailyData?.counterSales?.totalLitres || 0}L
+      {tenant !== 'wadaana' && (
+        <div className="card-surface p-4 border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <ShoppingBag size={16} className="text-brand" />
+            Today's Counter Sales Summary
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="text-xs text-blue-600 font-semibold mb-1">Water</div>
+              <div className="text-lg font-mono font-bold text-blue-700">
+                {dailyData?.counterSales?.totalLitres || 0}L
+              </div>
             </div>
-          </div>
-          <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-100">
-            <div className="text-xs text-indigo-600 font-semibold mb-1">Bottles</div>
-            <div className="text-lg font-mono font-bold text-indigo-700">
-              {dailyData?.counterSales?.totalBottles || 0}
+            <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+              <div className="text-xs text-indigo-600 font-semibold mb-1">Bottles</div>
+              <div className="text-lg font-mono font-bold text-indigo-700">
+                {dailyData?.counterSales?.totalBottles || 0}
+              </div>
             </div>
-          </div>
-          <div className="text-center p-2 bg-amber-50 rounded-lg border border-amber-100">
-            <div className="text-xs text-amber-600 font-semibold mb-1">Caps</div>
-            <div className="text-lg font-mono font-bold text-amber-700">
-              {dailyData?.counterSales?.totalCaps || 0}
+            <div className="text-center p-2 bg-amber-50 rounded-lg border border-amber-100">
+              <div className="text-xs text-amber-600 font-semibold mb-1">Caps</div>
+              <div className="text-lg font-mono font-bold text-amber-700">
+                {dailyData?.counterSales?.totalCaps || 0}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 5. Counter Audit Ledger Pre-Close Verification */}
       <CounterAuditLedgerCard

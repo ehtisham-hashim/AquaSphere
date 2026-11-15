@@ -76,10 +76,10 @@
     "ast_empty": true
   },
   "backend/package.json": {
-    "mtime": 1793621182.2514832,
-    "seen": 1794060648.4103758,
-    "ast_hash": "493ad65d3a245ce09d1c34ea3d90287e",
-    "semantic_hash": "493ad65d3a245ce09d1c34ea3d90287e"
+    "mtime": 1794732889.4418132,
+    "seen": 1794733150.1059656,
+    "ast_hash": "8b4482ec928a039c175a8073690a71ff",
+    "semantic_hash": ""
   },
   "backend/pnpm-workspace.yaml": {
     "mtime": 1790093237.0597916,
@@ -298,9 +298,9 @@
     "semantic_hash": "22a46bf9262e867bba291726c80b32f3"
   },
   "backend/src/controllers/analytics.controller.js": {
-    "mtime": 1794649459.1831317,
-    "seen": 1794649793.848768,
-    "ast_hash": "aa40ebcebe66760ed2ec3e1658833ab2",
+    "mtime": 1794729133.6609907,
+    "seen": 1794729528.7917502,
+    "ast_hash": "f50fdb0fccd40d0247c45fbe263d252c",
     "semantic_hash": ""
   },
   "backend/src/controllers/auditLog.controller.js": {
@@ -322,9 +322,9 @@
     "semantic_hash": "bcac0e4b3a3b463b4342e1eb146e1c01"
   },
   "backend/src/controllers/customer.controller.js": {
-    "mtime": 1794654210.4202979,
-    "seen": 1794654359.0954506,
-    "ast_hash": "83f3e099e55b896b909bb2b3883b52aa",
+    "mtime": 1794729158.3385334,
+    "seen": 1794729528.7919185,
+    "ast_hash": "71f1e8c888778597099d5fbee2cd4287",
     "semantic_hash": ""
   },
   "backend/src/controllers/dailyClose.controller.js": {
@@ -364,15 +364,15 @@
     "semantic_hash": ""
   },
   "backend/src/controllers/purchase.controller.js": {
-    "mtime": 1793547963.3307679,
-    "seen": 1794060648.413066,
-    "ast_hash": "2773b28258c17beda1812580b1f79507",
-    "semantic_hash": "2773b28258c17beda1812580b1f79507"
+    "mtime": 1794728888.2270992,
+    "seen": 1794729528.7922494,
+    "ast_hash": "1e1b5ecee8360cef2785608c1c44c0af",
+    "semantic_hash": ""
   },
   "backend/src/controllers/reports.controller.js": {
-    "mtime": 1794572241.2511785,
-    "seen": 1794572627.4656525,
-    "ast_hash": "2dfa7e6d035c2fe68d602fc8458c7afb",
+    "mtime": 1794730719.7945514,
+    "seen": 1794731493.639074,
+    "ast_hash": "21661fef8942ea02b93ba99c4f50109f",
     "semantic_hash": ""
   },
   "backend/src/controllers/settings.controller.js": {
@@ -382,9 +382,9 @@
     "semantic_hash": "3ff0621420e03ebd026cc6262f5d316c"
   },
   "backend/src/controllers/spotSale.controller.js": {
-    "mtime": 1794553302.444703,
-    "seen": 1794553767.5903938,
-    "ast_hash": "791308ab992df766f4eb8ba6745cd678",
+    "mtime": 1794728900.991699,
+    "seen": 1794729528.7923086,
+    "ast_hash": "ed34a9e85aa77493d297d17a56ae7385",
     "semantic_hash": ""
   },
   "backend/src/controllers/transportExpense.controller.js": {
@@ -424,9 +424,9 @@
     "semantic_hash": "a781786bc383aaebffcec1a02ad1df7a"
   },
   "backend/src/middlewares/dailyClose.middleware.js": {
-    "mtime": 1794654157.9224093,
-    "seen": 1794654359.0965576,
-    "ast_hash": "6aeeb3b6eeb4bec83fd9d76d0aff6af0",
+    "mtime": 1794728844.9022403,
+    "seen": 1794729528.792713,
+    "ast_hash": "dce84965e8b06923bc7879d2b8b6e8ce",
     "semantic_hash": ""
   },
   "backend/src/middlewares/error.middleware.js": {
@@ -520,9 +520,9 @@
     "semantic_hash": ""
   },
   "backend/src/routes/order.routes.js": {
-    "mtime": 1794581006.9627151,
-    "seen": 1794582394.029402,
-    "ast_hash": "00a7707491f965259b52dcf916bf8a9f",
+    "mtime": 1794728854.6692746,
+    "seen": 1794729528.7936754,
+    "ast_hash": "5b66438b18d4c8abcfbc2a1c40bd996e",
     "semantic_hash": ""
   },
   "backend/src/routes/production.routes.js": {
@@ -556,10 +556,10 @@
     "semantic_hash": "d4ad96a74bf5427f27abf0866d1fc76e"
   },
   "backend/src/routes/transportExpense.routes.js": {
-    "mtime": 1791110059.890023,
-    "seen": 1794060648.4155827,
-    "ast_hash": "af0b2fa723e55ce2162cd2d1af58514f",
-    "semantic_hash": "af0b2fa723e55ce2162cd2d1af58514f"
+    "mtime": 1794728866.5563169,
+    "seen": 1794729528.7941222,
+    "ast_hash": "6f6ebf3e6edb1f4fed7da1e997045cf2",
+    "semantic_hash": ""
   },
   "backend/src/routes/user.routes.js": {
     "mtime": 1793547963.3319705,
@@ -616,9 +616,9 @@
     "semantic_hash": ""
   },
   "backend/src/utils/autoMigrations.js": {
-    "mtime": 1794553335.0626333,
-    "seen": 1794553767.5926847,
-    "ast_hash": "7761f4a2bc03a28e0b9b693537d4fc1a",
+    "mtime": 1794729214.8345733,
+    "seen": 1794729528.7948573,
+    "ast_hash": "519a13443477bc21a032b04672eae440",
     "semantic_hash": ""
   },
   "backend/src/utils/cloudinaryUpload.js": {
@@ -670,10 +670,10 @@
     "semantic_hash": "40bbd53a77aa4cfb2846f571bf83496e"
   },
   "backend/src/utils/tenant.js": {
-    "mtime": 1790056385.70883,
-    "seen": 1794060648.417189,
-    "ast_hash": "9c317e96d2dbad5f84874b51fe303c1c",
-    "semantic_hash": "9c317e96d2dbad5f84874b51fe303c1c"
+    "mtime": 1794732776.0866046,
+    "seen": 1794733150.112024,
+    "ast_hash": "b57579f1920325275d429c041ecf0a11",
+    "semantic_hash": ""
   },
   "backend/test-api.js": {
     "mtime": 1790056385.70883,
@@ -706,10 +706,10 @@
     "semantic_hash": "676494c8860097a304ef6e38ed884814"
   },
   "backend/tests/erp-audit.test.mjs": {
-    "mtime": 1793547963.3329706,
-    "seen": 1794060648.417489,
-    "ast_hash": "a14563782158fc2fb25c98b9004f5a5e",
-    "semantic_hash": "a14563782158fc2fb25c98b9004f5a5e"
+    "mtime": 1794731468.241064,
+    "seen": 1794731493.6427743,
+    "ast_hash": "e94ba6453c11028adfe87d0b31ae7684",
+    "semantic_hash": ""
   },
   "dev.js": {
     "mtime": 1790056385.7118301,
@@ -736,10 +736,10 @@
     "semantic_hash": "5fb6de7876389e91c5b40994626abc64"
   },
   "frontend/package.json": {
-    "mtime": 1793617391.8705757,
-    "seen": 1794060648.4177287,
-    "ast_hash": "449a6159f0d082233467df0fcf88547f",
-    "semantic_hash": "449a6159f0d082233467df0fcf88547f"
+    "mtime": 1794729443.8056982,
+    "seen": 1794729528.7958832,
+    "ast_hash": "a790fc74cdcf8edf9669c8a4e420f3bd",
+    "semantic_hash": ""
   },
   "frontend/pnpm-workspace.yaml": {
     "mtime": 1790233346.9317317,
@@ -928,15 +928,15 @@
     "semantic_hash": "9b9da614958d717a560d1e07a337f8bd"
   },
   "frontend/src/components/dailyClose/AccountantClose.jsx": {
-    "mtime": 1794581451.7654626,
-    "seen": 1794582394.0330222,
-    "ast_hash": "248b4e35e666b32c63b4af1a090a2ffe",
+    "mtime": 1794729429.559837,
+    "seen": 1794729528.7979488,
+    "ast_hash": "5ac5396e59aa2827fbc310167d123b42",
     "semantic_hash": ""
   },
   "frontend/src/components/dailyClose/AdminClose.jsx": {
-    "mtime": 1794640709.0561311,
-    "seen": 1794640974.341453,
-    "ast_hash": "847ae8466599ab7fee1fd2b3a8cb7c81",
+    "mtime": 1794729367.027504,
+    "seen": 1794729528.797951,
+    "ast_hash": "7c5153e862f392d99aa118b290ed00be",
     "semantic_hash": ""
   },
   "frontend/src/components/dailyClose/ClosedDayBanner.jsx": {
@@ -946,10 +946,10 @@
     "semantic_hash": "7680004e9fb8593a1b6f16c5f72286ec"
   },
   "frontend/src/components/dailyClose/CounterAuditLedgerCard.jsx": {
-    "mtime": 1791098529.7295346,
-    "seen": 1794060648.4199295,
-    "ast_hash": "efe49b68cf9b1ba4dc93005a085a7f0a",
-    "semantic_hash": "efe49b68cf9b1ba4dc93005a085a7f0a"
+    "mtime": 1794729328.186968,
+    "seen": 1794729528.798012,
+    "ast_hash": "318635fc21599cd4b223a9ca7e9b4130",
+    "semantic_hash": ""
   },
   "frontend/src/components/dailyClose/DailyCloseHeader.jsx": {
     "mtime": 1790056385.7148302,
@@ -970,9 +970,9 @@
     "semantic_hash": "20eca192ff7d0d601b8c13c21b35348a"
   },
   "frontend/src/components/dailyClose/OwnerClose.jsx": {
-    "mtime": 1794640744.354143,
-    "seen": 1794640974.341699,
-    "ast_hash": "e33d023fcc1f5bba5dac6f55f67ef3a9",
+    "mtime": 1794729396.583177,
+    "seen": 1794729528.7981882,
+    "ast_hash": "0ee13eecd0e98dce333afc90833d68f6",
     "semantic_hash": ""
   },
   "frontend/src/components/dailyClose/ProductionClose.jsx": {
@@ -1594,9 +1594,9 @@
     "semantic_hash": "c6c4009c4faf1a32ac8f366bfdf8703e"
   },
   "frontend/src/context/SSEContext.jsx": {
-    "mtime": 1794572538.2509117,
-    "seen": 1794572627.4778872,
-    "ast_hash": "91d5235e84aae598f7bab45b0db30d5f",
+    "mtime": 1794729409.3440425,
+    "seen": 1794729528.8056467,
+    "ast_hash": "71c6a5b264d758e242abdd0035384692",
     "semantic_hash": ""
   },
   "frontend/src/context/TenantContext.jsx": {
@@ -2307,6 +2307,72 @@
     "ast_hash": "1927b99c607d4c7482c8e375500b5920",
     "semantic_hash": ""
   },
+  "backend/tests/order-lifecycle-integration.test.mjs": {
+    "mtime": 1794731399.436913,
+    "seen": 1794731493.6427777,
+    "ast_hash": "afe33381b6b5e45fd54247591850d129",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/01-procurement-vendor-ap.test.mjs": {
+    "mtime": 1794731982.352112,
+    "seen": 1794733150.1123207,
+    "ast_hash": "6a3577ca55f7ec36d93b1817d18d4e3c",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/02-production-bom-yield-scrap.test.mjs": {
+    "mtime": 1794732089.0643182,
+    "seen": 1794733150.1123233,
+    "ast_hash": "a6be669c449dabd3b6bdba4913a08d64",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/03-counter-sales-cash-drawer.test.mjs": {
+    "mtime": 1794732242.6376107,
+    "seen": 1794733150.1123257,
+    "ast_hash": "c9842baecc0b4653604fb170ad708f15",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/04-delivery-order-custody-debt.test.mjs": {
+    "mtime": 1794732286.2036932,
+    "seen": 1794733150.112327,
+    "ast_hash": "c9c26090d34b74cf465979cc7f308ebb",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/05-transport-fleet-daily-close-lock.test.mjs": {
+    "mtime": 1794732473.5500443,
+    "seen": 1794733150.1123288,
+    "ast_hash": "7124614d9b521637571cb814607114b0",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/06-cross-page-ripple-invariants.test.mjs": {
+    "mtime": 1794732641.7603567,
+    "seen": 1794733150.1123302,
+    "ast_hash": "a2b8374e4ae063969c066a9ac4fa97ca",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/07-wadaana-tenant-isolation.test.mjs": {
+    "mtime": 1794732834.8287127,
+    "seen": 1794733150.1123316,
+    "ast_hash": "94993fc0ff7308b6930498f9c9b083fa",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/helpers/mockExpress.js": {
+    "mtime": 1794732790.916632,
+    "seen": 1794733150.112333,
+    "ast_hash": "981292baf7945ebaa49f0f49d7b3d592",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/helpers/sandboxCleanup.js": {
+    "mtime": 1794732225.5895784,
+    "seen": 1794733150.1123343,
+    "ast_hash": "1272e01f93bc29e3c93979c6d0143fb4",
+    "semantic_hash": ""
+  },
+  "backend/tests/integration/run-all.mjs": {
+    "mtime": 1794732872.3707817,
+    "seen": 1794733150.1123357,
+    "ast_hash": "3cf61919bdbacc0281d8f6436bb45d29",
+    "semantic_hash": ""
+  },
   "backend/pnpm-lock.yaml": {
     "mtime": 1793547963.3266792,
     "seen": 1794060863.4552548,
@@ -2314,9 +2380,9 @@
     "semantic_hash": ""
   },
   "frontend/pnpm-lock.yaml": {
-    "mtime": 1793617391.8715758,
-    "seen": 1794060863.455256,
-    "ast_hash": "fd4710cd25ce7cb6e71b8ba9f4621858",
+    "mtime": 1794729506.323139,
+    "seen": 1794729528.8127878,
+    "ast_hash": "d5b13d8d16a319ad48d8646136894ddb",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
