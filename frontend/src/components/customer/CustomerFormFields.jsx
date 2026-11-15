@@ -175,7 +175,7 @@ export default function CustomerFormFields({ formData, handleChange, isWadaana }
               )}
               {marketers.map(m => (
                 <option key={m.id} value={m.id}>
-                  {m.id} — {m.name} ({m.segment || 'General'})
+                  {m.id} • {m.name}
                 </option>
               ))}
               <option value="__NEW__" className="text-emerald-600 font-bold">

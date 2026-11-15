@@ -1,22 +1,22 @@
 # Graph Report - AquaSphere  (2026-11-15)
 
 ## Corpus Check
-- 321 files · ~322,702 words
+- 321 files · ~322,696 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 17 file(s) not represented in the graph (top: (none) 8, .css 4, .toml 1)
 
 ## Summary
-- 1422 nodes · 4410 edges · 119 communities (52 shown, 67 thin omitted)
+- 1422 nodes · 4409 edges · 119 communities (53 shown, 66 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 20 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `03bc3071`
+- Built from commit: `23e49739`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- lucide-react
+- react-router-dom
 - usePagination
 - schema.prisma (backend/prisma/schema.prisma)
 - SSEContext.jsx
@@ -50,7 +50,7 @@
 - user.controller.js
 - useTenant
 - scripts/seed.js
-- StatusBadge.jsx
+- Customers.jsx
 - dependencies
 - productMappings.js
 - main.jsx
@@ -62,6 +62,7 @@
 - heal-spot-sales.js
 - @tanstack/query-sync-storage-persister
 - Sidebar.jsx
+- Transport.jsx
 - spotSale.controller.js
 - compilerOptions
 - scripts
@@ -143,9 +144,9 @@
 10. `sonner` - 56 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `eslint@^10.6.0` --declares--> `eslint`  [EXTRACTED]
-  frontend/package.json → backend/package.json
 - `papaparse@^5.7.0` --declares--> `papaparse`  [EXTRACTED]
+  frontend/package.json → backend/package.json
+- `eslint@^10.6.0` --declares--> `eslint`  [EXTRACTED]
   frontend/package.json → backend/package.json
 - `@eslint/js@^10.0.1` --declares--> `@eslint/js`  [EXTRACTED]
   frontend/package.json → backend/package.json
@@ -157,15 +158,15 @@
 ## Import Cycles
 - None detected.
 
-## Communities (119 total, 67 thin omitted)
+## Communities (119 total, 66 thin omitted)
 
-### Community 0 - "lucide-react"
-Cohesion: 0.07
-Nodes (18): FinishedGoodsBreakdown(), formatNum(), ProductionChart(), ProductionKPICards(), ProductionRecentRuns(), formatNum(), RawMaterialHealthPanel(), ProductionDashboardView() (+10 more)
+### Community 0 - "react-router-dom"
+Cohesion: 0.27
+Nodes (9): FinishedGoodsBreakdown(), formatNum(), ProductionChart(), ProductionKPICards(), ProductionRecentRuns(), formatNum(), RawMaterialHealthPanel(), ProductionDashboardView() (+1 more)
 
 ### Community 1 - "usePagination"
 Cohesion: 0.06
-Nodes (41): AuditLogsModal(), TablePagination(), COUNTER_TIMEFRAME_OPTIONS, CounterSalesHistoryTable(), getPaymentBadge(), getSaleProducts(), nameMap, BOTTLE_TYPE_LABELS (+33 more)
+Nodes (43): AuditLogsModal(), TablePagination(), COUNTER_TIMEFRAME_OPTIONS, CounterSalesHistoryTable(), getPaymentBadge(), getSaleProducts(), nameMap, BOTTLE_TYPE_LABELS (+35 more)
 
 ### Community 2 - "schema.prisma (backend/prisma/schema.prisma)"
 Cohesion: 0.04
@@ -173,7 +174,7 @@ Nodes (53): schema.prisma (backend/prisma/schema.prisma), PrismaModel:Aquasphere
 
 ### Community 3 - "SSEContext.jsx"
 Cohesion: 0.09
-Nodes (26): BulkImportCustomersModal(), AddEditVendorModal(), VendorPaymentModal(), EVENT_CACHE_MAP, KNOWN_EVENTS, SSEContext, SSEProvider(), invalidateQueries() (+18 more)
+Nodes (26): AuthContext, AuthProvider(), EVENT_CACHE_MAP, KNOWN_EVENTS, SSEContext, invalidateQueries(), CounterSales(), cache (+18 more)
 
 ### Community 4 - "createAuditLog"
 Cohesion: 0.12
@@ -204,16 +205,16 @@ Cohesion: 0.19
 Nodes (16): cachedDashboardData, computeDashboardAnalytics(), debounceTimers, getBottleCustody, getDailySummary, getDashboardAnalytics, getOrComputeDashboardAnalytics(), getProductionDashboard (+8 more)
 
 ### Community 12 - "lucide-react"
-Cohesion: 0.10
-Nodes (25): getPackSize(), LiveClock(), LogCounterSaleForm(), COMMON_UNITS, AddCustomerModal(), initialFormData, CustomerFormFields(), AlertListCard() (+17 more)
+Cohesion: 0.07
+Nodes (27): getPackSize(), LiveClock(), LogCounterSaleForm(), COMMON_UNITS, AddCustomerModal(), initialFormData, BottleAdjustmentModal(), CustomerAlerts() (+19 more)
 
 ### Community 13 - "App.jsx"
 Cohesion: 0.10
-Nodes (27): App(), AppRoutes(), Certificates, CounterSales, Customers, DailyClose, Dashboard, Expenses (+19 more)
+Nodes (32): App(), AppRoutes(), Certificates, CounterSales, Customers, DailyClose, Dashboard, Expenses (+24 more)
 
 ### Community 14 - "useAuth"
 Cohesion: 0.11
-Nodes (19): EXPENSE_TIMEFRAME_OPTIONS, ExpensesHeader(), LogExpenseModal(), FinishedGoodsSummaryCards(), CompleteBatchModal(), VehicleDetailPanel(), DeleteConfirmationModal(), AuthContext (+11 more)
+Nodes (10): EXPENSE_TIMEFRAME_OPTIONS, ExpensesHeader(), LogExpenseModal(), FinishedGoodsSummaryCards(), VehicleDetailPanel(), styles, DeleteConfirmationModal(), STATUS_CONFIGS (+2 more)
 
 ### Community 15 - "ApiResponse"
 Cohesion: 0.19
@@ -248,7 +249,7 @@ Cohesion: 0.09
 Nodes (21): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+13 more)
 
 ### Community 25 - "Orders.jsx"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (57): MultiSelectDropdown(), TableSkeleton(), CounterSaleReceiptModal(), nameMap, priceMap, AddOrderModal(), EditOrderModal(), OrderDetail() (+49 more)
 
 ### Community 26 - "seed-production-bom.js"
@@ -284,8 +285,8 @@ Cohesion: 0.50
 Nodes (7): createUser, getUsers, resolveTenant(), toggleUserStatus, updateUser, invalidateUserCache(), router
 
 ### Community 34 - "useTenant"
-Cohesion: 0.09
-Nodes (36): AddCustomerInlineModal(), BottleAdjustmentModal(), CustomerAlerts(), CustomerDetails(), CustomerProfileCard(), EditCustomerModal(), SettleCustomerDebtModal(), AccountantDashboardView() (+28 more)
+Cohesion: 0.08
+Nodes (40): AddCustomerInlineModal(), BulkImportCustomersModal(), CustomerProfileCard(), SettleCustomerDebtModal(), AccountantDashboardView(), AdminDashboardView(), AlertListCard(), AlertsSection() (+32 more)
 
 ### Community 35 - "scripts/seed.js"
 Cohesion: 0.09
@@ -335,6 +336,10 @@ Nodes (4): dependencies, @tanstack/query-sync-storage-persister@^5.102.8, @tanst
 Cohesion: 0.13
 Nodes (20): MainLayout(), PageLoader(), navItems, PREFETCH_MAP, prefetchedPaths, safePrefetch(), Sidebar(), ACTION_CONFIG (+12 more)
 
+### Community 52 - "Transport.jsx"
+Cohesion: 0.09
+Nodes (5): AddEditVendorModal(), VendorPaymentModal(), Expenses(), Vendors(), peekCachedData()
+
 ### Community 54 - "spotSale.controller.js"
 Cohesion: 0.36
 Nodes (8): createSpotSale, deleteSpotSale, generateSaleNumber(), getSpotSales, getTodaySpotSalesSummary, updateSpotSale, uploadSpotSaleReceipt, router
@@ -370,22 +375,22 @@ Nodes (15): options, swaggerSpec, allowedOrigins, apiLimiter, app, configuredOri
 ## Knowledge Gaps
 - **109 isolated node(s):** `dua_fixes.md (context/dua_fixes.md)`, `transport_manager_prompt.md (context/transport_manager_prompt.md)`, `README.md (frontend/README.md)`, `LogoLoop.css (frontend/src/components/ui/LogoLoop.css)`, `index.css (frontend/src/index.css)` (+104 more)
   These have ≤1 connection - possible missing edges. (Counts symbols only; 472 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **67 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **66 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `papaparse` connect `dependencies` to `customer.controller.js`, `lucide-react`, `frontend/package.json`?**
-  _High betweenness centrality (0.318) - this node is a cross-community bridge._
+  _High betweenness centrality (0.290) - this node is a cross-community bridge._
 - **What connects `dua_fixes.md (context/dua_fixes.md)`, `transport_manager_prompt.md (context/transport_manager_prompt.md)`, `README.md (frontend/README.md)` to the rest of the system?**
   _109 weakly-connected nodes found - possible missing edges._
-- **Should `lucide-react` be split into smaller, more focused modules?**
-  _Cohesion score 0.07049180327868852 - nodes in this community are weakly interconnected._
-- **Why does `lucide-react` connect `lucide-react` to `usePagination`, `useTenant`, `SSEContext.jsx`, `OwnerClose.jsx`, `DateRangePicker.jsx`, `lucide-react`, `useAuth`, `Inventory.jsx`, `Purchases.jsx`, `RouteErrorBoundary`, `Sidebar.jsx`, `Transport.jsx`, `Certificates.jsx`, `frontend/package.json`, `Orders.jsx`, `dependencies`?**
-  _High betweenness centrality (0.147) - this node is a cross-community bridge._
 - **Should `usePagination` be split into smaller, more focused modules?**
-  _Cohesion score 0.059154929577464786 - nodes in this community are weakly interconnected._
-- **Why does `react` connect `lucide-react` to `lucide-react`, `usePagination`, `SSEContext.jsx`, `OwnerClose.jsx`, `App.jsx`, `useAuth`, `Inventory.jsx`, `Purchases.jsx`, `RouteErrorBoundary`, `Certificates.jsx`, `frontend/package.json`, `Orders.jsx`, `dependencies`, `useTenant`, `StatusBadge.jsx`, `main.jsx`, `DateRangePicker.jsx`, `LogoLoop.jsx`, `Sidebar.jsx`, `Transport.jsx`?**
-  _High betweenness centrality (0.141) - this node is a cross-community bridge._
+  _Cohesion score 0.05745814307458143 - nodes in this community are weakly interconnected._
+- **Why does `lucide-react` connect `lucide-react` to `react-router-dom`, `usePagination`, `useTenant`, `Customers.jsx`, `OwnerClose.jsx`, `DateRangePicker.jsx`, `App.jsx`, `useAuth`, `Inventory.jsx`, `RouteErrorBoundary`, `Sidebar.jsx`, `Transport.jsx`, `Certificates.jsx`, `frontend/package.json`, `Orders.jsx`, `dependencies`?**
+  _High betweenness centrality (0.151) - this node is a cross-community bridge._
 - **Should `schema.prisma (backend/prisma/schema.prisma)` be split into smaller, more focused modules?**
   _Cohesion score 0.03773584905660377 - nodes in this community are weakly interconnected._
+- **Why does `react` connect `lucide-react` to `react-router-dom`, `usePagination`, `SSEContext.jsx`, `OwnerClose.jsx`, `App.jsx`, `useAuth`, `Inventory.jsx`, `Dashboard.jsx`, `RouteErrorBoundary`, `Certificates.jsx`, `frontend/package.json`, `Orders.jsx`, `dependencies`, `useTenant`, `Customers.jsx`, `main.jsx`, `DateRangePicker.jsx`, `LogoLoop.jsx`, `Sidebar.jsx`, `Transport.jsx`?**
+  _High betweenness centrality (0.140) - this node is a cross-community bridge._
+- **Should `SSEContext.jsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.0931174089068826 - nodes in this community are weakly interconnected._

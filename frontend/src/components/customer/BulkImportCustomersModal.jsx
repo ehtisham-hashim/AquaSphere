@@ -64,7 +64,7 @@ export default function BulkImportCustomersModal({ isOpen, onClose, onImportSucc
       : 'name,phone,type,address,mapLink,securityDeposit,currentBalance,cachedBottleBalance,creditDuration,marketerRef,qty19L,qty05LPet,qty15LPet,buyerNtn,buyerStrn,remarks';
 
     const registeredMarketersList = marketers.length > 0
-      ? marketers.map(m => `  * "${m.id} • ${m.name}" (${m.segment || 'General'})`).join('\n')
+      ? marketers.map(m => `  * "${m.id} • ${m.name}"`).join('\n')
       : '  * (No custom marketers registered yet in database)';
 
     return [

@@ -868,10 +868,10 @@
     "semantic_hash": "34eba1d4da0b0d0a43d391171834e5b1"
   },
   "frontend/src/components/customer/BulkImportCustomersModal.jsx": {
-    "mtime": 1793617391.881577,
-    "seen": 1794060648.419152,
-    "ast_hash": "7448c0784fc9598d8349846c180d4015",
-    "semantic_hash": "7448c0784fc9598d8349846c180d4015"
+    "mtime": 1794734374.4573429,
+    "seen": 1794734389.7510724,
+    "ast_hash": "3522c2c375e3e5f65013c4e62cb2d645",
+    "semantic_hash": ""
   },
   "frontend/src/components/customer/CustomerAlerts.jsx": {
     "mtime": 1794640777.5081518,
@@ -886,10 +886,10 @@
     "semantic_hash": ""
   },
   "frontend/src/components/customer/CustomerFormFields.jsx": {
-    "mtime": 1793617391.8825772,
-    "seen": 1794060648.4193301,
-    "ast_hash": "b46e0de52a673f3417348786e8fcac5a",
-    "semantic_hash": "b46e0de52a673f3417348786e8fcac5a"
+    "mtime": 1794734363.5153682,
+    "seen": 1794734389.7512014,
+    "ast_hash": "c726d54c23f34171ae8655bda4b5f390",
+    "semantic_hash": ""
   },
   "frontend/src/components/customer/CustomerHistory.jsx": {
     "mtime": 1793547963.3379705,
