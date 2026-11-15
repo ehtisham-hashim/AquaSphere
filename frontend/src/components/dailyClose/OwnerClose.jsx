@@ -51,10 +51,16 @@ export default function OwnerClose() {
   });
 
   const allDepartmentsConfirmed = Boolean(pmConfirmed && mmConfirmed && tmConfirmed);
+  const isCounterAuditReady = tenant === 'wadaana' || Boolean(status?.auditLedger);
+  const canFinalize = allDepartmentsConfirmed && isCounterAuditReady;
 
   const handleFinalize = async () => {
     if (!allDepartmentsConfirmed) {
       toast.error('Cannot finalize day: PM, MM, and TM must all confirm their department checklists first.');
+      return;
+    }
+    if (!isCounterAuditReady) {
+      toast.error('Cannot finalize day: Retail Counter Audit Ledger must be verified and saved first.');
       return;
     }
     setSubmitting(true);
@@ -217,6 +223,7 @@ export default function OwnerClose() {
       {!isClosed && (
         <DrawerReconciliationCard
           expectedCash={cashSummary?.netCash || 0}
+          vendorCash={cashSummary?.vendorCash || 0}
           actualCash={actualCash}
           onActualCashChange={setActualCash}
           notes={notes}
@@ -231,7 +238,7 @@ export default function OwnerClose() {
           <ShoppingBag size={16} className="text-brand" />
           Today's Counter Sales Summary
         </h3>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
           <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-100">
             <div className="text-xs text-blue-600 font-semibold mb-1">Water</div>
             <div className="text-lg font-mono font-bold text-blue-700">
@@ -266,17 +273,20 @@ export default function OwnerClose() {
         <div className="card-surface p-4 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <span className="text-xs font-semibold text-slate-700 block">Day is currently open for operations.</span>
-            {!allDepartmentsConfirmed && (
+            {!canFinalize && (
               <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
-                <AlertTriangle size={12} className="shrink-0" /> Awaiting PM, MM, and TM department verifications before day can be locked.
+                <AlertTriangle size={12} className="shrink-0" />
+                {!allDepartmentsConfirmed
+                  ? 'Awaiting PM, MM, and TM department verifications before day can be locked.'
+                  : 'Retail Counter Audit Ledger must be verified and saved before day can be locked.'}
               </span>
             )}
           </div>
           <button
             onClick={handleFinalize}
-            disabled={submitting || !allDepartmentsConfirmed}
-            title={!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : ''}
-            className={`btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 shrink-0 ${!allDepartmentsConfirmed ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={submitting || !canFinalize}
+            title={!canFinalize ? (!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : 'Retail Counter Audit Ledger must be verified and saved before final lock.') : ''}
+            className={`btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 shrink-0 ${!canFinalize ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Lock size={14} />
             <span>{submitting ? 'Finalizing...' : 'Finalize & Lock Day'}</span>

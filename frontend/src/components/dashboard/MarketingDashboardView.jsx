@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ShoppingBag, Truck, CheckCircle2, Package, BarChart3 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShoppingBag, Truck, CheckCircle2, Package, BarChart3, Plus, Zap, Lock } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -147,9 +148,30 @@ export default function MarketingDashboardView({ data }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 self-start sm:self-center">
-          <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
-          <TimeframeDropdown value={timeframe} onChange={handleTimeframeChange} />
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium">Timeframe:</span>
+            <TimeframeDropdown value={timeframe} onChange={handleTimeframeChange} />
+          </div>
+
+          <div className="h-5 w-[1px] bg-slate-200 hidden sm:block" />
+
+          <Link to="/orders" className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1 font-bold">
+            <Plus size={13} />
+            <span>New Order</span>
+          </Link>
+
+          {!isWadaana && (
+            <Link to="/counter-sales" className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 font-bold text-brand hover:text-brand">
+              <Zap size={13} />
+              <span>Counter Sale</span>
+            </Link>
+          )}
+
+          <Link to="/daily-close" className="btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1 text-slate-600 hover:text-slate-800">
+            <Lock size={13} className="text-emerald-600" />
+            <span>Daily Close</span>
+          </Link>
         </div>
       </div>
 

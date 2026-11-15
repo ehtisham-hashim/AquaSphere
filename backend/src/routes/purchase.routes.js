@@ -35,7 +35,7 @@ router.put('/:id', requireRoles('OWNER'), checkDailyCloseLock, updatePurchase);
 router.patch('/:id/status', requireRoles('OWNER'), checkDailyCloseLock, updatePurchaseStatus);
 
 // APPROVE route: ACCOUNTANT and OWNER can verify bills
-router.post('/:id/approve', requireRoles('OWNER', 'ACCOUNTANT'), approvePurchase);
+router.post('/:id/approve', requireRoles('OWNER', 'ACCOUNTANT'), checkDailyCloseLock, approvePurchase);
 
 // DELETE route: Strictly OWNER can delete purchases and reverse stock/ledger
 router.delete('/:id', requireRoles('OWNER'), checkDailyCloseLock, deletePurchase);

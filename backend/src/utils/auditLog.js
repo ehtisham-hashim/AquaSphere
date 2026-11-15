@@ -12,9 +12,10 @@ import { prisma } from '../config/db.js';
  * @param {string|object} [logData.details=''] - Contextual metadata or change diffs.
  * @returns {Promise<object|void>} Created audit log record or undefined on error.
  */
-export async function createAuditLog(prefix, { action, entityType, entityId, performedBy, details }) {
+export async function createAuditLog(prefix, { action, entityType, entityId, performedBy, details }, tx = null) {
+  const client = tx || prisma;
   try {
-    return await prisma[`${prefix}AuditLog`].create({
+    return await client[`${prefix}AuditLog`].create({
       data: {
         action,
         entityType,
@@ -25,5 +26,6 @@ export async function createAuditLog(prefix, { action, entityType, entityId, per
     });
   } catch (err) {
     console.error(`Failed to record audit log for ${prefix}:`, err.message);
+    if (tx) throw err;
   }
 }

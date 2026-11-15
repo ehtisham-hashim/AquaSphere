@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Factory, Building, AlertTriangle, Lock, CheckCircle2, ShieldCheck, Clock, Droplets } from 'lucide-react';
 
 export default function ProductionKPICards({
@@ -64,15 +65,47 @@ export default function ProductionKPICards({
             <Building size={16} />
           </div>
         </div>
-        <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
-          {(finishedGoods || []).reduce((sum, item) => sum + Number(item.factoryQty || 0), 0).toLocaleString()}
-          <span className="text-xs font-semibold text-slate-500 ml-1">
-            {isWadaana ? 'Bottles' : 'Units'}
-          </span>
-        </div>
-        <div className="text-[11px] font-medium text-slate-500 mt-1.5">
-          Available at factory floor
-        </div>
+        {(() => {
+          let bottles19L = 0;
+          let petPacks = 0;
+          (finishedGoods || []).forEach(item => {
+            const qty = Number(item.factoryQty || 0);
+            const is19L = item.name?.toLowerCase().includes('19l') || Number(item.packSize || 1) === 1;
+            if (is19L) bottles19L += qty;
+            else petPacks += qty;
+          });
+
+          if (isWadaana || petPacks === 0) {
+            return (
+              <>
+                <div className="text-xl sm:text-2xl font-mono font-black text-slate-900">
+                  {bottles19L.toLocaleString()}
+                  <span className="text-xs font-semibold text-slate-500 ml-1">
+                    {isWadaana ? 'Bottles' : '19L Bottles'}
+                  </span>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+                  Available at factory floor
+                </div>
+              </>
+            );
+          }
+
+          return (
+            <>
+              <div className="text-lg sm:text-xl font-mono font-black text-slate-900 flex items-baseline gap-1.5 flex-wrap">
+                <span>{bottles19L.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-slate-500">btl</span>
+                <span className="text-slate-300 font-normal">•</span>
+                <span>{petPacks.toLocaleString()}</span>
+                <span className="text-xs font-semibold text-slate-500">packs</span>
+              </div>
+              <div className="text-[11px] font-medium text-slate-500 mt-1.5">
+                {bottles19L.toLocaleString()} 19L bottles & {petPacks.toLocaleString()} PET packs
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Raw Material Health */}
@@ -114,10 +147,14 @@ export default function ProductionKPICards({
       )}
 
       {/* Daily Close Status */}
-      <div className="card-surface p-4">
+      <Link 
+        to="/daily-close"
+        className="card-surface p-4 block hover:border-slate-300 hover:shadow-xs transition-all group cursor-pointer"
+        title="Open Daily Close Checklist"
+      >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Daily Close</span>
-          <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-brand transition-colors">Daily Close</span>
+          <div className="p-1.5 bg-slate-100 group-hover:bg-brand-light group-hover:text-brand text-slate-600 rounded-lg transition-colors">
             <Lock size={16} />
           </div>
         </div>
@@ -132,14 +169,15 @@ export default function ProductionKPICards({
             </span>
           ) : (
             <span className="text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-bold inline-flex items-center gap-1">
-              <Clock size={13} /> Pending PM Verification
+              <Clock size={13} /> Pending Verification &rarr;
             </span>
           )}
         </div>
-        <div className="text-[11px] font-medium text-slate-500 mt-2">
-          {pendingBatchesCount > 0 ? `${pendingBatchesCount} batch(es) pending` : 'No pending batches'}
+        <div className="text-[11px] font-medium text-slate-500 mt-2 flex items-center justify-between">
+          <span>{pendingBatchesCount > 0 ? `${pendingBatchesCount} batch(es) pending` : 'No pending batches'}</span>
+          <span className="text-brand text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">Open Checklist &rarr;</span>
         </div>
-      </div>
+      </Link>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, Rot
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
-import { peekCachedData } from '../utils/apiCache';
+import { peekCachedData, clearCache } from '../utils/apiCache';
 import { getCompanyFromCookie } from '../utils/companyCookie';
 import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { formatItemUnitTag, formatOrderItemsSummary } from '../utils/unitFormat';
@@ -181,6 +181,8 @@ export default function Orders() {
   }, []);
 
   const [orderToDelete, setOrderToDelete] = useState(null);
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const openDeliverModal = (order) => {
     setSelectedOrder(order);
@@ -214,6 +216,34 @@ export default function Orders() {
     }
   };
 
+  const confirmCancelOrder = async (id) => {
+    try {
+      setIsCancelling(true);
+      const tenant = getCompanyFromCookie();
+      const res = await fetch(`${API_URL}/orders/${id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'x-tenant': tenant },
+        credentials: 'include'
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Order cancelled successfully');
+        clearCache('orders');
+        fetchData();
+        if (selectedOrderDetails && selectedOrderDetails.id === id) {
+          setSelectedOrderDetails(prev => prev ? { ...prev, deliveryStatus: 'CANCELLED' } : null);
+        }
+      } else {
+        toast.error(json.message || 'Failed to cancel order');
+      }
+    } catch (_err) {
+      toast.error('Error cancelling order');
+    } finally {
+      setIsCancelling(false);
+      setOrderToCancel(null);
+    }
+  };
+
   const isOwner = user?.role === 'OWNER';
   const isAdmin = user?.role === 'ADMIN';
   const isAccountant = user?.role === 'ACCOUNTANT';
@@ -222,6 +252,7 @@ export default function Orders() {
   const canAddCustomer = !isTransportManager && (isOwner || isAdmin || isMarketingManager);
   const canCreateOrder = !isTransportManager && (isOwner || isAdmin || isAccountant || isMarketingManager);
   const canDeleteOrder = isOwner;
+  const canCancelOrder = isOwner || isAdmin || isAccountant || isMarketingManager;
   const canSettleDebt = isOwner || isAdmin || isAccountant || isMarketingManager;
 
   // Unpaid/Partial order count for quick alerts
@@ -231,7 +262,7 @@ export default function Orders() {
   const filteredOrders = orders.filter(o => {
     // Tab filtering
     if (activeTab === 'Pending Orders' && o.deliveryStatus !== 'PENDING') return false;
-    if (activeTab === 'Unpaid Orders' && o.paymentStatus === 'PAID') return false;
+    if (activeTab === 'Unpaid Orders' && (o.paymentStatus === 'PAID' || o.deliveryStatus === 'CANCELLED')) return false;
     if (activeTab === 'Completed Orders' && (o.deliveryStatus !== 'DELIVERED' || o.paymentStatus !== 'PAID')) return false;
     if (activeTab === 'Cancelled Orders' && o.deliveryStatus !== 'CANCELLED') return false;
     
@@ -308,7 +339,9 @@ export default function Orders() {
       const total = o.withGst ? sub + Math.round(sub * 0.18) : sub;
       const paid = (o.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
       totalValue += total;
-      unpaidAmount += Math.max(0, total - paid);
+      if (o.deliveryStatus !== 'CANCELLED') {
+        unpaidAmount += Math.max(0, total - paid);
+      }
       for (const it of (o.items || [])) {
         const q = Number(it.quantity || 0);
         const nameLower = (it.item?.name || '').toLowerCase();
@@ -390,10 +423,10 @@ export default function Orders() {
         const name = (i.item?.name || '').toLowerCase();
         if (isDelivered) {
           rec.totalBilled += q * Number(i.price || 0);
+          if (name.includes('19l')) rec.delivered19L += q;
+          else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
+          else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
         }
-        if (name.includes('19l')) rec.delivered19L += q;
-        else if (name.includes('1.5') || name.includes('1.5l')) rec.delivered15L += q;
-        else if (name.includes('0.5') || name.includes('500ml')) rec.delivered05L += q;
       });
     });
 
@@ -412,6 +445,7 @@ export default function Orders() {
           order={selectedOrderDetails}
           onClose={() => setSelectedOrderDetails(null)}
           onSettle={(order) => openDeliverModal(order)}
+          onCancelOrder={(order) => setOrderToCancel(order)}
         />
       ) : (
         <>
@@ -829,6 +863,15 @@ export default function Orders() {
                               Edit
                             </button>
                           )}
+                          {canCancelOrder && o.deliveryStatus === 'PENDING' && (
+                            <button
+                              onClick={() => setOrderToCancel(o)}
+                              className="btn-secondary py-1 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                              title="Cancel Order"
+                            >
+                              Cancel
+                            </button>
+                          )}
                           {canProcess && (
                             <button 
                               onClick={() => openDeliverModal(o)} 
@@ -920,6 +963,18 @@ export default function Orders() {
         />
       )}
 
+
+      {/* Soft Cancel Order Modal (Owner, Admin, Accountant, Marketing Manager) */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(orderToCancel)}
+        title={`Cancel Order #${orderToCancel?.id?.substring(0, 8).toUpperCase()}`}
+        message={`Are you sure you want to cancel order #${orderToCancel?.id?.substring(0, 8).toUpperCase()} for ${orderToCancel?.customer?.name || 'Customer'}? The order will be marked as Cancelled and kept in records.`}
+        confirmText="Cancel Order"
+        variant="danger"
+        loading={isCancelling}
+        onConfirm={() => confirmCancelOrder(orderToCancel.id)}
+        onClose={() => setOrderToCancel(null)}
+      />
 
       {/* Permanent Delete Order Modal (Owner Only) */}
       <DeleteConfirmationModal

@@ -54,6 +54,10 @@ export default function AdminClose() {
       toast.error('Cannot finalize day: PM, MM, and TM must all confirm their department checklists first.');
       return;
     }
+    if (!isCounterAuditReady) {
+      toast.error('Cannot finalize day: Retail Counter Audit Ledger must be verified and saved first.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -88,6 +92,8 @@ export default function AdminClose() {
   const t = status?.transportTotals || {};
 
   const allDepartmentsConfirmed = pmConfirmed && mmConfirmed && tmConfirmed;
+  const isCounterAuditReady = tenant === 'wadaana' || Boolean(status?.auditLedger);
+  const canFinalize = allDepartmentsConfirmed && isCounterAuditReady;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
@@ -168,6 +174,7 @@ export default function AdminClose() {
           {/* 3. Cash Drawer Physical Count & Reconciliation */}
           <DrawerReconciliationCard
             expectedCash={cashSummary?.netCash || 0}
+            vendorCash={cashSummary?.vendorCash || 0}
             actualCash={actualCash}
             onActualCashChange={setActualCash}
             notes={notes}
@@ -181,7 +188,7 @@ export default function AdminClose() {
               <ShoppingBag size={16} className="text-brand" />
               Today's Counter Sales Summary
             </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
               <div className="text-center p-2 bg-blue-50 rounded-lg border border-blue-100">
                 <div className="text-xs text-blue-600 font-semibold mb-1">Water</div>
                 <div className="text-lg font-mono font-bold text-blue-700">
@@ -220,9 +227,12 @@ export default function AdminClose() {
               </div>
               <p className="text-xs text-slate-600 max-w-xl font-medium">
                 Double-verifying finalizes daily numbers and locks date records from unauthorized edits.
-                {!allDepartmentsConfirmed && (
+                {!canFinalize && (
                   <span className="block text-amber-700 font-bold text-[11px] mt-1 flex items-center gap-1">
-                    <AlertTriangle size={13} className="shrink-0" /> All department verifications (PM, MM, TM) are required before final lock.
+                    <AlertTriangle size={13} className="shrink-0" />
+                    {!allDepartmentsConfirmed 
+                      ? 'All department verifications (PM, MM, TM) are required before final lock.' 
+                      : 'Retail Counter Audit Ledger must be verified and saved before final lock.'}
                   </span>
                 )}
               </p>
@@ -230,9 +240,9 @@ export default function AdminClose() {
 
             <button
               onClick={handleFinalize}
-              disabled={submitting || !allDepartmentsConfirmed}
-              title={!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : ''}
-              className={`btn-primary py-3 px-6 text-sm flex items-center gap-2 shrink-0 font-bold shadow-md transition-all ${!allDepartmentsConfirmed ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'}`}
+              disabled={submitting || !canFinalize}
+              title={!canFinalize ? (!allDepartmentsConfirmed ? 'All department verifications (PM, MM, TM) are required before final lock.' : 'Retail Counter Audit Ledger must be verified and saved before final lock.') : ''}
+              className={`btn-primary py-3 px-6 text-sm flex items-center gap-2 shrink-0 font-bold shadow-md transition-all ${!canFinalize ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'}`}
             >
               {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Lock size={16} />}
               <span>{submitting ? 'Finalizing...' : 'Double-Verify & Lock Day'}</span>

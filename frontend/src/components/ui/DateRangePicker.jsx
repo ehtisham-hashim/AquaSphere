@@ -312,10 +312,16 @@ export default function DateRangePicker({
         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Popover Dropdown (Right-aligned to avoid screen cut-off) */}
+      {/* Popover Dropdown (Centered modal on mobile, right-aligned popover on desktop) */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 w-[95vw] sm:w-[500px] max-w-[500px] animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <>
+          {/* Mobile backdrop */}
+          <div 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-2xs z-50 sm:hidden animate-in fade-in duration-100" 
+            onClick={handleCancel}
+          />
+          <div className="fixed inset-x-3 top-1/2 -translate-y-1/2 z-50 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:translate-y-0 sm:mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 w-auto sm:w-[500px] sm:max-w-[500px] max-h-[90dvh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex flex-col sm:flex-row gap-4">
             {/* LEFT COLUMN: Interactive Calendar (Fixed Width) */}
             <div className="w-full sm:w-[260px] shrink-0">
               {/* Month Navigation */}
@@ -472,6 +478,7 @@ export default function DateRangePicker({
             </div>
           </div>
         </div>
+        </>
       )}
     </div>
   );

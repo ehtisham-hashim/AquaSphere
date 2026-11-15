@@ -18,11 +18,15 @@ export async function getAllReturnableRawMaterials(tx, prefix) {
  * Resolves a specific returnable raw material item by ID, via a finished good's BOM recipe,
  * or finds the primary returnable raw material.
  */
-export async function resolveReturnableRawMaterial(tx, prefix, { rawMaterialId = null, finishedGoodId = null } = {}) {
+export async function resolveReturnableRawMaterial(tx, prefix, { rawMaterialId = null, finishedGoodId = null, allowArchived = false } = {}) {
   // 1. Direct lookup if rawMaterialId is explicitly provided
   if (rawMaterialId) {
     const direct = await tx[`${prefix}Item`].findFirst({
-      where: { id: rawMaterialId, type: 'RAW_MATERIAL', archivedAt: null }
+      where: {
+        id: rawMaterialId,
+        type: 'RAW_MATERIAL',
+        ...(allowArchived ? {} : { archivedAt: null })
+      }
     });
     if (direct) return direct;
   }
@@ -180,12 +184,13 @@ export async function debitEmptyBottlesFromFactory(tx, prefix, {
   customerId = null,
   orderId = null,
   reason = 'BOTTLE_RETRIEVAL_REVERSAL',
-  skipTransactionLog = false
+  skipTransactionLog = false,
+  allowArchived = false
 }) {
   const qty = Math.round(Number(quantity || 0));
   if (qty <= 0) return null;
 
-  const item = await resolveReturnableRawMaterial(tx, prefix, { rawMaterialId, finishedGoodId });
+  const item = await resolveReturnableRawMaterial(tx, prefix, { rawMaterialId, finishedGoodId, allowArchived });
   if (!item) return null;
 
   const updated = await tx[`${prefix}Item`].update({

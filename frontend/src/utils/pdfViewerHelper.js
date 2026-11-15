@@ -38,8 +38,8 @@ export async function getPdfDocument(url) {
         } catch (_e) {
           // Ignore destruction errors on timeout
         }
-        reject(new Error('PDF loading timeout (3s limit reached)'));
-      }, 3000)
+        reject(new Error('PDF loading timeout (15s limit reached)'));
+      }, 15000)
     );
 
     const doc = await Promise.race([loadingTask.promise, timeoutPromise]);
@@ -79,10 +79,17 @@ export async function renderPdfToCanvas({
       scale = dpr;
     }
 
-    // Protect against GPU canvas memory limits while providing crisp 300+ DPI
-    scale = Math.min(Math.max(scale, 0.5), 7.0);
+    // Protect against GPU canvas memory limits while providing crisp DPI
+    scale = Math.min(Math.max(scale, 0.5), 5.0);
 
-    const viewport = page.getViewport({ scale });
+    let viewport = page.getViewport({ scale });
+    const totalPixels = viewport.width * viewport.height;
+    if (totalPixels > 16_777_216) {
+      const clampFactor = Math.sqrt(16_777_216 / totalPixels);
+      scale *= clampFactor;
+      viewport = page.getViewport({ scale });
+    }
+
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return null;
 

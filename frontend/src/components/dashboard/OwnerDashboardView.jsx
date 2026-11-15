@@ -155,6 +155,21 @@ export default function OwnerDashboardView({ data, summary, summaryLoading }) {
   const [chartTimeframe, setChartTimeframe] = useState('7');
   const [chartMode, setChartMode] = useState('profit'); // 'profit' | 'cash'
 
+  // Sync chart timeframe when top page timeframe selector changes
+  useEffect(() => {
+    if (timeframe === 'TODAY' || timeframe === 'DAILY' || timeframe === 'YESTERDAY') {
+      setChartTimeframe('7');
+    } else if (timeframe === 'LAST_3_DAYS') {
+      setChartTimeframe('7');
+    } else if (timeframe === '1_WEEK' || timeframe === 'WEEKLY') {
+      setChartTimeframe('7');
+    } else if (timeframe === '1_MONTH' || timeframe === 'MONTHLY') {
+      setChartTimeframe('30');
+    } else if (timeframe === '1_YEAR' || timeframe === 'YEARLY') {
+      setChartTimeframe('12m');
+    }
+  }, [timeframe]);
+
   const trendData = useMemo(() => {
     if (!data) return [];
     if (chartTimeframe === '12m') {

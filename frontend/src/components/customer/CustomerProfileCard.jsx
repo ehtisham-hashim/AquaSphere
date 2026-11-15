@@ -38,7 +38,7 @@ export default function CustomerProfileCard({ customer: c, onNewOrder, onClear }
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-y sm:divide-y-0 divide-slate-100 border-b border-slate-100">
 
         {!isWadaana ? (
           <div className="p-3 text-center">

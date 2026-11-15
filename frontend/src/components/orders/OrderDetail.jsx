@@ -5,7 +5,7 @@ import {
   Phone, MapPin, Calendar, 
   ExternalLink, ShoppingBag, User, Share2,
   Copy, CheckCircle2, Clock, Truck, Navigation, Camera, DollarSign,
-  ArrowLeft
+  ArrowLeft, XCircle
 } from 'lucide-react';
 import { Badge, StatusBadge, ImagePreviewModal } from '../ui';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +15,7 @@ import { formatItemUnitTag, formatOrderItemsSummary } from '../../utils/unitForm
 import { openWhatsAppWeb } from '../../utils/whatsapp';
 
 // ponytail: tabbed detail view groups actions logically; generous spacing prevents visual fatigue
-export default function OrderDetail({ order, onClose, onSettle }) {
+export default function OrderDetail({ order, onClose, onSettle, onCancelOrder }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isWadaana } = useTenant();
@@ -37,6 +37,9 @@ export default function OrderDetail({ order, onClose, onSettle }) {
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balanceDue = grandTotal - totalPaid;
   const canSettle = balanceDue > 0 && order.deliveryStatus !== 'CANCELLED' && user?.role !== 'TRANSPORT_MANAGER';
+  const canCancel = ['OWNER', 'ADMIN', 'ACCOUNTANT', 'MARKETING_MANAGER'].includes(user?.role) &&
+    order.deliveryStatus === 'PENDING' &&
+    totalPaid === 0;
 
   const orderDate = order.createdAt 
     ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -275,6 +278,17 @@ export default function OrderDetail({ order, onClose, onSettle }) {
             </div>
             
             <div className="flex items-center gap-2">
+              {canCancel && onCancelOrder && (
+                <button
+                  type="button"
+                  onClick={() => onCancelOrder(order)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition-colors shadow-2xs cursor-pointer"
+                  title="Cancel this order"
+                >
+                  <XCircle size={14} className="text-rose-600" />
+                  <span>Cancel Order</span>
+                </button>
+              )}
               {canSettle && onSettle && (
                 <button
                   type="button"

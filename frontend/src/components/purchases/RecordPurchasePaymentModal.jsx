@@ -161,7 +161,7 @@ export default function RecordPurchasePaymentModal({ purchase, onClose, onSucces
           </div>
 
           {/* Quick Balance Stats */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-mono">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-mono">
             <div>
               <span className="text-slate-500 text-[10px] uppercase font-bold block">Grand Total</span>
               <span className="font-bold text-slate-800">Rs. {total.toLocaleString()}</span>
