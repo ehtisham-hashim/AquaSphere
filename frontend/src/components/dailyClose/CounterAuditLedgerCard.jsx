@@ -4,8 +4,6 @@ import { toast } from 'sonner';
 import { fetchCounterAuditLedger, submitCounterAuditLedger } from '../../services/dailyCloseService';
 
 export default function CounterAuditLedgerCard({ date, tenant, isClosed, onLedgerSaved }) {
-  if (tenant === 'wadaana') return null;
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ledger, setLedger] = useState(null);
@@ -19,6 +17,7 @@ export default function CounterAuditLedgerCard({ date, tenant, isClosed, onLedge
   });
 
   useEffect(() => {
+    if (tenant === 'wadaana') return;
     let mounted = true;
     setLoading(true);
     fetchCounterAuditLedger(date, tenant)
@@ -82,6 +81,8 @@ export default function CounterAuditLedgerCard({ date, tenant, isClosed, onLedge
       setSaving(false);
     }
   };
+
+  if (tenant === 'wadaana') return null;
 
   const isSaved = !!ledger?.id;
 

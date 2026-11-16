@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Search, ShieldCheck, Mail } from 'lucide-react';
+import { Plus, X, Search, ShieldCheck, Mail, Edit2, Archive, RotateCcw } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../utils/api';
-import { PageHeader } from '../components/ui';
+import { PageHeader, TableActionMenu } from '../components/ui';
 import { usePagination } from '../hooks/usePagination';
 import TablePagination from '../components/common/TablePagination';
 import { formatRole } from '../constants/roleAccess';
@@ -169,14 +169,14 @@ export default function Users() {
       {/* Users Table */}
       <div className="table-container">
         <div className="overflow-x-auto">
-          <table className="w-full text-left whitespace-nowrap">
+          <table className="w-full text-left">
             <thead>
               <tr>
                 <th className="table-th">User</th>
                 <th className="table-th">Contact</th>
                 <th className="table-th">Role</th>
                 <th className="table-th">Status</th>
-                <th className="table-th text-right">Actions</th>
+                <th className="table-th text-right sticky right-0 bg-slate-50 z-10">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -194,62 +194,75 @@ export default function Users() {
                   <td colSpan="5" className="p-10 text-center text-slate-400 text-sm">No users found.</td>
                 </tr>
               ) : (
-                pagination.paginatedItems.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="table-td">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-brand-light text-brand-primary flex items-center justify-center font-bold text-xs">
-                        {(u.name || u.email).charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-800 text-sm">{u.name || 'N/A'}</div>
-                        <div className="text-[11px] text-slate-400 font-normal">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="table-td text-xs text-slate-600 font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Mail size={13} className="text-slate-400" /> {u.email}
-                    </div>
-                  </td>
-                  <td className="table-td">
-                    <span className="badge-neutral inline-flex items-center gap-1 text-[11px] font-bold">
-                      <ShieldCheck size={12} className="text-brand-primary" /> {formatRole(u.role)}
-                    </span>
-                  </td>
-                  <td className="table-td">
-                    {u.isActive ? (
-                      <span className="badge-success text-[11px]">Active</span>
-                    ) : (
-                      <span className="badge-danger text-[11px]">Archived</span>
-                    )}
-                  </td>
-                  <td className="table-td text-right">
-                    {isOwner ? (
-                      <div className="flex justify-end gap-1.5">
-                        <button 
-                          onClick={() => openEditModal(u)} 
-                          className="btn-outline text-xs py-1 px-2.5"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => toggleStatus(u.id, u.isActive)} 
-                          className={`text-xs py-1 px-2.5 rounded-xl font-bold transition border ${
-                            u.isActive 
-                              ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100' 
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {u.isActive ? 'Archive' : 'Restore'}
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 font-medium italic">Read-only</span>
-                    )}
-                  </td>
-                </tr>
-              )))}
+                pagination.paginatedItems.map(u => {
+                  const menuItems = [
+                    {
+                      label: 'Edit User Profile',
+                      icon: Edit2,
+                      onClick: () => openEditModal(u)
+                    },
+                    {
+                      label: u.isActive ? 'Archive User' : 'Restore User',
+                      icon: u.isActive ? Archive : RotateCcw,
+                      onClick: () => toggleStatus(u.id, u.isActive),
+                      danger: u.isActive,
+                      divider: true
+                    }
+                  ];
+
+                  return (
+                    <tr 
+                      key={u.id} 
+                      onClick={() => isOwner && openEditModal(u)}
+                      className={`hover:bg-slate-50/80 transition-colors group ${isOwner ? 'cursor-pointer' : ''}`}
+                    >
+                      <td className="table-td">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-brand-light text-brand-primary flex items-center justify-center font-bold text-xs">
+                            {(u.name || u.email).charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800 text-sm">{u.name || 'N/A'}</div>
+                            <div className="text-[11px] text-slate-400 font-normal">Joined {new Date(u.createdAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="table-td text-xs text-slate-600 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Mail size={13} className="text-slate-400" /> {u.email}
+                        </div>
+                      </td>
+                      <td className="table-td">
+                        <span className="badge-neutral inline-flex items-center gap-1 text-[11px] font-bold">
+                          <ShieldCheck size={12} className="text-brand-primary" /> {formatRole(u.role)}
+                        </span>
+                      </td>
+                      <td className="table-td">
+                        {u.isActive ? (
+                          <span className="badge-success text-[11px]">Active</span>
+                        ) : (
+                          <span className="badge-danger text-[11px]">Archived</span>
+                        )}
+                      </td>
+                      <td className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10" onClick={(e) => e.stopPropagation()}>
+                        {isOwner ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button 
+                              onClick={() => openEditModal(u)} 
+                              className="btn-outline text-xs py-1 px-2.5 font-medium"
+                            >
+                              Edit
+                            </button>
+                            <TableActionMenu items={menuItems} />
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium italic">Read-only</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

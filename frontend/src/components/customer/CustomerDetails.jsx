@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { 
-  X, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2, DollarSign
+  ArrowLeft, Phone, MapPin, Calendar, 
+  FileText, ExternalLink, ShoppingBag, User, Edit3, Share2, MapPinIcon, Trash2, DollarSign,
+  Droplets, Copy
 } from 'lucide-react';
 import { Badge, DeleteConfirmationModal } from '../ui';
 import ImagePreviewModal from '../ui/ImagePreviewModal';
@@ -14,10 +15,9 @@ import SettleCustomerDebtModal from './SettleCustomerDebtModal';
 import { API_URL as API } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
-import { WhatsAppTemplates } from '../../utils/whatsapp';
 import { shareOrSendCustomerReceiptWhatsApp } from '../../utils/receiptFormatter';
+import { openWhatsAppWeb } from '../../utils/whatsapp';
 
-// ponytail: two-column flat layout eliminates container fatigue; circular avatar frame and high-contrast action toolbar
 export default function CustomerDetails({ customer: initialCustomer, onClose, onCustomerUpdated, onCustomerDeleted, onViewOrder }) {
   const { user } = useAuth();
   const { tenant } = useTenant();
@@ -31,9 +31,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
 
   const isWadaana = tenant === 'wadaana';
 
-  // Role permissions:
-  // OWNER side has: Edit, Delete, and Close/Cancel
-  // Other sides (PM, MM, ADMIN, ACCOUNTANT, etc.): Edit and Close/Cancel, but strictly NO Delete
+  // Role permissions
   const userRole = (user?.role || '').toUpperCase();
   const isOwner = userRole === 'OWNER';
   const canEdit = ['OWNER', 'ADMIN', 'MARKETING_MANAGER'].includes(userRole);
@@ -102,7 +100,7 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
       } else {
         toast.error(json.message || 'Failed to delete customer');
       }
-    } catch (err) {
+    } catch {
       toast.error('Error deleting customer');
     } finally {
       setIsLoading(false);
@@ -121,422 +119,282 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
   const lastOrderDate = c.lastDeliveryAt ? new Date(c.lastDeliveryAt).toLocaleDateString() : 'Never';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden animate-in fade-in duration-200">
       
-      {/* Left Column: Profile Card & Image Placeholder */}
-      <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
-        
-        {/* Profile Image - Elegant Circular Frame */}
-        <div className="relative group mb-4">
-          {/* Circular Frame Outer Gradient Border */}
-          <div
-            className={`w-36 h-36 rounded-full p-1 bg-gradient-to-tr ${
-              isWadaana 
-                ? 'from-sky-400 via-blue-500 to-indigo-500 shadow-sky-500/20 ring-sky-100/70' 
-                : 'from-emerald-400 via-teal-500 to-cyan-500 shadow-emerald-500/20 ring-emerald-100/70'
-            } shadow-lg ring-4 transition-all duration-300 group-hover:scale-105`}
+      {/* ======================================================== */}
+      {/* ROW 1: COMMAND BAR (Identity + Quick Action Toolbar)    */}
+      {/* ======================================================== */}
+      <div className="px-5 sm:px-6 pt-4 pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+        {/* Left: Back Navigation, Avatar, Customer Name & Badges */}
+        <div className="flex items-center gap-3.5 min-w-0 flex-wrap">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors py-1.5 px-2 rounded-lg hover:bg-slate-100 -ml-2 shrink-0 cursor-pointer"
+            title="Back to Customer Directory"
           >
-            {/* Inner White Ring */}
-            <div className="w-full h-full rounded-full bg-white p-1 overflow-hidden flex items-center justify-center">
-              <div
-                className={`w-full h-full rounded-full ${theme.accentBg} flex items-center justify-center overflow-hidden relative ${c.homePictureUrl ? 'cursor-pointer' : ''}`}
-                onClick={() => c.homePictureUrl && setPreviewImage(c.homePictureUrl)}
-                title={c.homePictureUrl ? 'Click to view full image' : ''}
-              >
-                {c.homePictureUrl ? (
-                  <>
-                    <img 
-                      src={c.homePictureUrl} 
-                      alt={c.name} 
-                      className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-110"
-                      onError={(e) => { 
-                        e.currentTarget.style.display = 'none'; 
-                        if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex'; 
-                      }} 
-                    />
-                    <div className="hidden w-full h-full items-center justify-center">
-                      <User size={56} className={`${theme.iconColor} opacity-75`} />
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center">
-                    <User size={56} className={`${theme.iconColor} opacity-75`} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+            <ArrowLeft size={14} />
+            <span>Customers</span>
+          </button>
 
-          {/* Active status indicator badge */}
+          <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
+
+          {/* Customer Avatar Frame with Pulse Indicator & Preview */}
           <div 
-            className="absolute bottom-1 right-2 w-6 h-6 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center shadow-md text-xs font-bold"
-            title="Active Customer Profile"
+            className={`relative w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 ${c.homePictureUrl ? 'cursor-pointer hover:opacity-90' : ''}`}
+            onClick={() => c.homePictureUrl && setPreviewImage(c.homePictureUrl)}
+            title={c.homePictureUrl ? 'Click to view photo' : ''}
           >
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            {c.homePictureUrl ? (
+              <img 
+                src={c.homePictureUrl} 
+                alt={c.name} 
+                className="w-full h-full object-cover"
+                onError={(e) => { 
+                  e.currentTarget.style.display = 'none'; 
+                  if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex'; 
+                }} 
+              />
+            ) : null}
+            <User size={20} className={`text-slate-400 ${c.homePictureUrl ? 'hidden' : ''}`} />
+            <div 
+              className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"
+              title="Active Profile"
+            />
+          </div>
+
+          {/* Customer Name, Code, Ref, and Type Badges */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight truncate">{c.name}</h1>
+            <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
+            </span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
+              c.marketerId && c.marketerId !== 'DIRECT'
+                ? 'bg-slate-50 text-slate-700 border-slate-200'
+                : 'bg-slate-50 text-slate-500 border-slate-200'
+            }`}>
+              {c.marketerId && c.marketerId !== 'DIRECT' ? `Ref: ${c.marketerName || c.marketerRef || c.marketerId}` : 'Direct'}
+            </span>
+            <Badge variant={theme.badgeVariant} className="text-[10px]">{c.type || 'Standard'}</Badge>
           </div>
         </div>
 
-        {/* Name & Badges */}
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-          <h1 className="text-xl font-bold text-slate-900">{c.name}</h1>
-          <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs tracking-wide">
-            {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
-          </span>
-        </div>
-        <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
-            c.marketerId && c.marketerId !== 'DIRECT'
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'bg-slate-100 text-slate-600 border-slate-200'
-          }`}>
-            👤 Marketer / Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerName || c.marketerRef} (${c.marketerId})` : (c.marketerName || c.marketerRef || 'Direct / Company')}
-          </span>
-          <Badge variant={theme.badgeVariant}>{c.type || 'Standard'}</Badge>
-          <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
-        </div>
-        {(c.buyerNtn || c.buyerStrn) && (
-          <div className="text-[11px] text-slate-500 font-mono mt-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 inline-block">
-            {c.buyerNtn && <span className="mr-2">NTN: {c.buyerNtn}</span>}
-            {c.buyerStrn && <span>STRN: {c.buyerStrn}</span>}
-          </div>
-        )}
-
-        {/* Contact Info List */}
-        <div className="w-full border-t border-slate-100 mt-6 pt-6 space-y-4 text-left text-sm">
-          <div className="flex items-center gap-2 text-slate-700">
-            <Phone size={16} className="text-slate-400 flex-shrink-0" />
-            <span className="font-semibold flex-1">{c.phone || 'No phone provided'}</span>
-            {c.phone && (() => {
-              const fullDetails = WhatsAppTemplates.customerProfile(c, isWadaana);
-
-              return (
-                <>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(fullDetails);
-                      toast.success('Customer profile copied to clipboard!');
-                    }}
-                    className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0"
-                    title="Copy customer profile"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  </button>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await shareOrSendCustomerReceiptWhatsApp({ customer: c, isWadaana });
-                        if (res?.method === 'web-share') {
-                          toast.success('Customer receipt slip shared via WhatsApp!');
-                        } else {
-                          toast.success('Customer receipt copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
-                        }
-                      } catch (err) {
-                        console.error('Customer receipt error:', err);
-                        toast.error('Could not send receipt to WhatsApp.');
-                      }
-                    }}
-                    className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex-shrink-0"
-                    title="Send Customer Receipt / Statement Slip via WhatsApp"
-                  >
-                    <Share2 size={18} />
-                  </button>
-                </>
-              );
-            })()}
-          </div>
-          <div className="flex items-start gap-3 text-slate-600">
-            <MapPin size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-            <span className="leading-relaxed">{c.address || 'No physical address provided.'}</span>
-          </div>
-          {c.mapLink && (
-            <div className="flex items-center gap-2 pt-2">
-              <a
-                href={c.mapLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 font-bold ${theme.primaryText} hover:underline text-xs`}
-              >
-                <span>View on Google Maps</span>
-                <ExternalLink size={14} />
-              </a>
-              <a
-                href={c.mapLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium ${isWadaana ? 'bg-sky-100 text-[#0ea5e9] hover:bg-sky-200' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'} transition-colors flex items-center gap-1`}
-                title="Open location in maps"
-              >
-                <MapPinIcon size={14} />
-                Open Location
-              </a>
-            </div>
+        {/* Right: Restrained Quick Action Toolbar */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+          {/* Quick WhatsApp Statement Slip */}
+          {c.phone && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await shareOrSendCustomerReceiptWhatsApp({ customer: c, isWadaana });
+                  if (res?.method === 'web-share') {
+                    toast.success('Customer receipt slip shared via WhatsApp!');
+                  } else {
+                    toast.success('Customer receipt copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
+                  }
+                } catch {
+                  toast.error('Could not send receipt to WhatsApp.');
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Share Customer Statement via WhatsApp"
+            >
+              <Share2 size={13} className="text-slate-500" />
+              <span className="hidden sm:inline">WhatsApp Slip</span>
+            </button>
           )}
-          {c.createdAt && (
-            <div className="pt-2 text-slate-400 text-xs flex items-center gap-2">
-              <Calendar size={14} className="flex-shrink-0" />
-              <span>Member Since: {new Date(c.createdAt).toLocaleDateString()}</span>
-            </div>
+
+          {/* Bottle Adjustment button if allowed */}
+          {canAdjustBottles && !isWadaana && (
+            <button
+              type="button"
+              onClick={() => setIsBottleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Retrieve or Adjust Returnable Bottle Custody"
+            >
+              <Droplets size={13} className="text-slate-500" />
+              <span className="hidden sm:inline">Bottles</span>
+            </button>
+          )}
+
+          {/* Edit Customer Button */}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Edit Customer Profile"
+            >
+              <Edit3 size={13} className="text-slate-500" />
+              <span>Edit</span>
+            </button>
+          )}
+
+          {/* Primary CTA: Pay Debt (if debt exists and permitted) */}
+          {canSettleDebt && currentBalance > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsPayDebtOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Settle Outstanding Debt with FIFO Allocation"
+            >
+              <DollarSign size={13} />
+              <span>Pay Debt</span>
+            </button>
+          )}
+
+          {/* Delete Button (Owner Only) */}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="p-1.5 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Delete Customer (Owner Only)"
+            >
+              <Trash2 size={13} />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Right Column: Unified Details & Financial Overview */}
-      <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-        <div className="space-y-6">
-          
-          {/* Header & Polished Action Buttons */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">{c.name}</h2>
-                <span className="font-mono text-xs font-extrabold bg-slate-900 text-white px-2 py-0.5 rounded-md shadow-2xs">
-                  {c.customerCode || `#${c.id.slice(0, 8).toUpperCase()}`}
-                </span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                  c.marketerId && c.marketerId !== 'DIRECT'
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    : 'bg-slate-100 text-slate-600 border-slate-200'
-                }`}>
-                  Ref: {c.marketerId && c.marketerId !== 'DIRECT' ? `${c.marketerId} • ${c.marketerName || c.marketerRef}` : (c.marketerName || c.marketerRef || 'Direct')}
-                </span>
-              </div>
-              <p className="text-slate-500 text-xs mt-0.5">Complete financial, credit, and product profiles</p>
-            </div>
+      {/* ======================================================== */}
+      {/* ROW 2: CONTEXT & METADATA STRIP (Dedicated breathing room)*/}
+      {/* ======================================================== */}
+      <div className="px-5 sm:px-6 py-2.5 bg-slate-50/70 border-t border-b border-slate-100 flex items-center gap-4 flex-wrap text-xs text-slate-600">
+        {c.phone && (
+          <div className="flex items-center gap-1.5">
+            <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1 text-slate-700 hover:text-brand font-mono font-medium">
+              <Phone size={12} className="text-slate-400" />
+              <span>{c.phone}</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(c.phone);
+                toast.success('Phone copied!');
+              }}
+              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+              title="Copy phone"
+            >
+              <Copy size={11} />
+            </button>
+            <button
+              type="button"
+              onClick={() => openWhatsAppWeb(c.phone, '')}
+              className="text-slate-400 hover:text-emerald-600 p-0.5 cursor-pointer"
+              title="Chat on WhatsApp"
+            >
+              <Share2 size={11} />
+            </button>
+          </div>
+        )}
 
-            {/* Action Buttons Toolbar */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {/* Edit Customer Button - Accessible to OWNER, PM, MM, ADMIN, etc. */}
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditOpen(true)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold text-xs sm:text-sm tracking-wide shadow-sm transition-all duration-200 active:scale-95 ${
-                    isWadaana 
-                      ? 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-sky-500/25 hover:shadow-md hover:shadow-sky-500/35' 
-                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/25 hover:shadow-md hover:shadow-emerald-600/35'
-                  }`}
-                  title="Edit Customer Details"
-                >
-                  <Edit3 size={15} className="text-white/90" />
-                  <span>Edit Customer</span>
-                </button>
-              )}
+        {c.address && (
+          <div className="flex items-center gap-1 text-slate-600 max-w-md truncate" title={c.address}>
+            <MapPin size={12} className="text-slate-400 shrink-0" />
+            <span className="truncate">{c.address}</span>
+            {c.mapLink && (
+              <a
+                href={c.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline inline-flex items-center shrink-0 ml-0.5"
+                title="View on Google Maps"
+              >
+                <ExternalLink size={11} />
+              </a>
+            )}
+          </div>
+        )}
 
-              {/* Delete Button - Strictly OWNER ONLY */}
-              {canDelete && (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100/90 text-rose-600 hover:text-rose-700 border border-rose-200/80 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 shadow-sm hover:shadow active:scale-95 group"
-                  title="Delete Customer (Owner Only)"
-                >
-                  <Trash2 size={15} className="text-rose-500 group-hover:text-rose-700 transition-colors" />
-                  <span>Delete</span>
-                </button>
-              )}
+        {(c.buyerNtn || c.buyerStrn) && (
+          <span className="text-[11px] font-mono text-slate-400 border-l border-slate-200 pl-3">
+            {c.buyerNtn ? `NTN: ${c.buyerNtn}` : `STRN: ${c.buyerStrn}`}
+          </span>
+        )}
+      </div>
 
-              {/* Close Button - For all roles */}
+      {/* ======================================================== */}
+      {/* ROW 3: FINANCIAL & CUSTODY KPI METRICS STRIP             */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-white border-b border-slate-100 px-5 sm:px-6 py-3.5">
+        {/* Col 1: Current Debt */}
+        <div className="py-2 sm:py-0 sm:pr-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Current Debt</span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className={`text-base sm:text-lg font-bold font-mono tabular-nums ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+              Rs. {currentBalance.toLocaleString()}
+            </span>
+            {canSettleDebt && currentBalance > 0 && (
               <button
                 type="button"
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/90 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 shadow-sm hover:shadow active:scale-95 group"
-                title="Close Overview"
+                onClick={() => setIsPayDebtOpen(true)}
+                className="text-xs font-semibold text-brand hover:underline cursor-pointer"
               >
-                <span>Close</span>
-                <X size={15} className="text-slate-400 group-hover:text-slate-700 transition-colors" />
+                Settle
               </button>
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* Inline Financial & Custody Metrics Banner (No Box Fatigue) */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-y md:divide-y-0 md:divide-x divide-slate-200">
-              
-              <div className="p-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Current Debt</span>
-                <span className={`text-lg font-bold font-mono block mt-1 ${currentBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
-                  Rs. {currentBalance.toLocaleString()}
-                </span>
-                {canSettleDebt && currentBalance > 0 && (
-                  <div className="flex items-center justify-center gap-1.5 mt-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setIsPayDebtOpen(true)}
-                      className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] inline-flex items-center gap-1 transition-colors shadow-xs"
-                      title="Settle Outstanding Debt with FIFO Allocation"
-                    >
-                      <DollarSign size={10} />
-                      <span>Pay Debt</span>
-                    </button>
-                    {c.phone && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const res = await shareOrSendCustomerReceiptWhatsApp({
-                              customer: c,
-                              isWadaana,
-                              options: {
-                                subtitle: 'PAYMENT REMINDER & ACCOUNT STATEMENT',
-                                remarks: 'Kindly clear the outstanding debt balance at your earliest convenience.'
-                              }
-                            });
-                            if (res?.method === 'web-share') {
-                              toast.success('Payment reminder receipt shared via WhatsApp!');
-                            } else {
-                              toast.success('Payment reminder copied! Press Ctrl+V in WhatsApp to send.', { duration: 6000 });
-                            }
-                          } catch (err) {
-                            console.error('Payment reminder error:', err);
-                            toast.error('Could not send reminder to WhatsApp.');
-                          }
-                        }}
-                        className="px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1 transition-colors"
-                        title="Send Overdue Bill Receipt via WhatsApp"
-                      >
-                        <Share2 size={10} />
-                        <span>Reminder</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Security Deposit</span>
-                <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
-                  Rs. {(c.deposit || 0).toLocaleString()}
-                </span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Refundable deposit
-                </span>
-              </div>
-
-              <div className="p-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  {!isWadaana ? 'Returnable Custody' : 'Credit Terms'}
-                </span>
-                <span className="text-lg font-bold font-mono text-slate-800 block mt-1">
-                  {!isWadaana ? `${c.cachedBottleBalance || 0} Units` : `${c.creditDuration || 1} Days`}
-                </span>
-                {!isWadaana ? (
-                  <>
-                    {Array.isArray(c.returnableCustody) && c.returnableCustody.length > 0 && (
-                      <div className="flex flex-wrap justify-center gap-1 mt-1">
-                        {c.returnableCustody.map((rc) => (
-                          <span
-                            key={rc.itemId || 'legacy'}
-                            className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono font-medium"
-                          >
-                            {rc.itemName}: <span className="font-bold text-amber-700">{rc.balance}</span>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {canAdjustBottles && (
-                      <button
-                        onClick={() => setIsBottleModalOpen(true)}
-                        className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline mt-1 block mx-auto cursor-pointer"
-                      >
-                        Retrieve / Adjust
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">
-                    Allowed credit span
-                  </span>
-                )}
-              </div>
-
-              <div className="p-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Last Activity</span>
-                <span className="text-lg font-bold text-slate-800 block mt-1 truncate">{lastOrderDate}</span>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {!isWadaana ? `${c.creditDuration || 1} Days Credit` : 'Order history'}
-                </span>
-              </div>
-            </div>
+        {/* Col 2: Security Deposit */}
+        <div className="py-2 sm:py-0 sm:px-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Security Deposit</span>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-800 tabular-nums">
+              Rs. {(c.deposit || 0).toLocaleString()}
+            </span>
+            <span className="text-xs text-slate-400">Refundable</span>
           </div>
+        </div>
 
-          {/* Purchasing Preferences Section */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <ShoppingBag size={16} className={theme.iconColor} />
-                <span>Purchased Products ({isWadaana ? 'Wadaana Preforms' : 'AquaSphere Delivery'})</span>
-              </h3>
-            </div>
-            
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              {!isWadaana ? (
-                <div className="flex flex-wrap gap-2 items-center">
-                  {c.buys19L && <Badge variant="blue" className="text-sm px-3 py-1">19L Refill Bottles</Badge>}
-                  {c.buys05LPet && <Badge variant="emerald" className="text-sm px-3 py-1">0.5L PET Bottles</Badge>}
-                  {c.buys15LPet && <Badge variant="amber" className="text-sm px-3 py-1">1.5L PET Bottles</Badge>}
-                  {!c.buys19L && !c.buys05LPet && !c.buys15LPet && (
-                    <span className="text-slate-400 text-sm italic">No active product types recorded for this customer.</span>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-xs font-bold text-sky-700 block mb-1.5">Pure Preform Bottles</span>
-                    <div className="flex flex-wrap gap-2">
-                      {c.buysPure05L && <Badge variant="cyan" className="text-sm px-3 py-1">0.5L Pure Bottle (15g)</Badge>}
-                      {c.buysPure15L && <Badge variant="sky" className="text-sm px-3 py-1">1.5L Pure Bottle (30g)</Badge>}
-                      {!c.buysPure05L && !c.buysPure15L && <span className="text-slate-400 text-xs">No pure preforms selected</span>}
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="text-xs font-bold text-amber-700 block mb-1.5">Mix Preform Bottles</span>
-                    <div className="flex flex-wrap gap-2">
-                      {c.buysMix05L && <Badge variant="amber" className="text-sm px-3 py-1">0.5L Mix Bottle (13g)</Badge>}
-                      {c.buysMix15L && <Badge variant="orange" className="text-sm px-3 py-1">1.5L Mix Bottle (27g)</Badge>}
-                      {!c.buysMix05L && !c.buysMix15L && <span className="text-slate-400 text-xs">No mix preforms selected</span>}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Col 3: Custody / Terms */}
+        <div className="py-2 sm:py-0 sm:px-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+            {!isWadaana ? 'Bottle Custody' : 'Credit Terms'}
+          </span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-800 tabular-nums">
+              {!isWadaana ? `${c.cachedBottleBalance || 0} btl` : `${c.creditDuration || 1} Days`}
+            </span>
+            {!isWadaana && canAdjustBottles && (
+              <button
+                type="button"
+                onClick={() => setIsBottleModalOpen(true)}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+              >
+                Adjust
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Remarks Section */}
-          <div className="space-y-2 pt-2">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <FileText size={16} className={theme.iconColor} />
-              <span>Remarks & Notes</span>
-            </h3>
-            <p className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-700 text-sm leading-relaxed whitespace-pre-line">
-              {c.remarks && c.remarks.trim() ? c.remarks : 'No special remarks or notes recorded for this customer.'}
-            </p>
+        {/* Col 4: Total Orders & Activity */}
+        <div className="py-2 sm:py-0 sm:pl-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Total Orders</span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-800 tabular-nums">
+              {(c.orders || []).length}
+            </span>
+            <span className="text-xs text-slate-400 truncate">
+              Last: {lastOrderDate}
+            </span>
           </div>
-
         </div>
       </div>
 
-      {/* Alerts Section */}
-      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        <CustomerAlerts
-          customer={c}
-          isWadaana={isWadaana}
-          onOpenBottleModal={canAdjustBottles ? () => setIsBottleModalOpen(true) : null}
-        />
-      </div>
+      {/* High-Visibility Consolidated Alert Banner (renders null if no critical risks) */}
+      <CustomerAlerts customer={c} />
 
-      {/* History Section */}
-      <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin">
-              <div className="w-6 h-6 border-2 border-slate-300 border-t-emerald-600 rounded-full"></div>
-            </div>
-            <span className="ml-2 text-slate-600">Loading customer history...</span>
-          </div>
-        ) : (
-          <CustomerHistory customer={c} isWadaana={isWadaana} onViewOrder={onViewOrder} />
-        )}
-      </div>
+      {/* Full-Width Workspace with Single-Tier Underline Tabs */}
+      <CustomerHistory
+        customer={c}
+        isWadaana={isWadaana}
+        onViewOrder={onViewOrder}
+        isLoading={isLoading}
+      />
 
       {/* Bottle Adjustment / Retrieval Modal */}
       {isBottleModalOpen && (
@@ -544,7 +402,6 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           customer={c}
           onClose={() => setIsBottleModalOpen(false)}
           onSuccess={() => {
-            // Refetch customer details
             fetch(`${API}/customers/${c.id}`, {
               headers: { 'x-tenant': tenant },
               credentials: 'include'
@@ -585,7 +442,6 @@ export default function CustomerDetails({ customer: initialCustomer, onClose, on
           onClose={() => setIsPayDebtOpen(false)}
           onSuccess={() => {
             setIsPayDebtOpen(false);
-            // Re-fetch customer details to update balance
             fetch(`${API}/customers/${c.id}`, {
               headers: { 'x-tenant': tenant },
               credentials: 'include'

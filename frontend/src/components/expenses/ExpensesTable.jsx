@@ -3,6 +3,7 @@ import { EXPENSE_CATEGORIES, getExpenseCategoryColor } from '../../constants/exp
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import TableActionMenu from '../ui/TableActionMenu';
 
 export default function ExpensesTable({
   filteredExpenses = [],
@@ -63,100 +64,106 @@ export default function ExpensesTable({
       {/* ERP Expense Table */}
       <div className="table-container w-full max-w-full min-w-0">
         <div className="overflow-x-auto w-full max-w-full">
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[640px]">
+          <table className="w-full text-left text-sm">
             <thead>
               <tr>
-                <th className="table-th">Date</th>
-                <th className="table-th">Category</th>
-                <th className="table-th">Amount</th>
+                <th className="table-th">Date & Staff</th>
+                <th className="table-th">Category & Vehicle</th>
                 <th className="table-th">Description</th>
-                <th className="table-th text-center">Receipt Status</th>
-                <th className="table-th">Created By</th>
-                {canDelete && <th className="table-th text-center">Actions</th>}
+                <th className="table-th">Amount</th>
+                <th className="table-th text-right sticky right-0 bg-slate-50 z-10">Receipt & Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={canDelete ? 7 : 6} className="p-10 text-center text-slate-400">
+                  <td colSpan={5} className="p-10 text-center text-slate-400">
                     <Loader2 className={`w-6 h-6 animate-spin mx-auto mb-2 ${isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600'}`} />
                     Loading expenses...
                   </td>
                 </tr>
               ) : pagination.paginatedItems.map(ex => {
                 const categoryLabel = String(ex.category || ex.type || 'MISC');
+                const menuItems = [
+                  ...(ex.receiptUrl ? [{
+                    label: 'View Receipt',
+                    icon: CheckCircle,
+                    onClick: () => window.open(ex.receiptUrl, '_blank')
+                  }] : []),
+                  ...(canDelete ? [{
+                    label: 'Delete Expense',
+                    icon: Trash2,
+                    onClick: () => onDeleteExpense(ex),
+                    danger: true,
+                    divider: !!ex.receiptUrl
+                  }] : [])
+                ];
+
                 return (
-                <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="table-td text-slate-600 text-xs font-medium">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={13} className="text-slate-400" />
+                <tr key={ex.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="table-td text-xs">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                      <Calendar size={13} className="text-slate-400 shrink-0" />
                       {new Date(ex.createdAt).toLocaleDateString()}
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
+                      <UserCheck size={11} className="text-slate-400 shrink-0" />
+                      <span>{ex.createdBy?.name || userName || 'System'}</span>
                     </div>
                   </td>
 
                   <td className="table-td">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getExpenseCategoryColor(categoryLabel)}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold inline-block ${getExpenseCategoryColor(categoryLabel)}`}>
                       {categoryLabel}
                     </span>
-                  </td>
-
-                  <td className="table-td font-bold text-slate-900 text-sm tabular-nums">
-                    Rs. {Math.round(Number(ex.amount)).toLocaleString()}
-                  </td>
-
-                  <td className="table-td text-slate-700 text-xs max-w-[280px]">
-                    <div className="truncate">{ex.remarks || '—'}</div>
                     {ex.vehicle && (
-                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-1 border border-slate-200/60">
+                      <div className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-1 border border-slate-200/60 max-w-full">
                         <Car size={11} className="text-brand-primary shrink-0" />
-                        <span className="font-semibold text-slate-800">{ex.vehicle.name}</span>
-                        <span className="text-slate-500">({ex.vehicle.plateNumber})</span>
+                        <span className="font-semibold text-slate-800 truncate">{ex.vehicle.name}</span>
+                        <span className="text-slate-500 shrink-0">({ex.vehicle.plateNumber})</span>
                       </div>
                     )}
                   </td>
 
-                  <td className="table-td text-center">
-                    {ex.receiptUrl ? (
-                      <a 
-                        href={ex.receiptUrl} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-brand-primary hover:underline font-bold bg-brand-light px-2.5 py-0.5 rounded-lg border border-brand-light"
-                      >
-                        <CheckCircle size={13} className="text-brand-primary" /> View Receipt
-                      </a>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200 font-bold">
-                        <AlertCircle size={13} /> Missing
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="table-td text-xs font-semibold text-slate-700">
-                    <div className="flex items-center gap-1.5">
-                      <UserCheck size={13} className="text-slate-400" />
-                      {ex.createdBy?.name || userName || 'System'}
+                  <td className="table-td text-slate-700 text-xs max-w-[260px]">
+                    <div className="line-clamp-2 leading-relaxed" title={ex.remarks}>
+                      {ex.remarks || '—'}
                     </div>
                   </td>
 
-                  {canDelete && (
-                    <td className="table-td text-center">
-                      <button
-                        onClick={() => onDeleteExpense(ex)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                        title="Delete Expense"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  )}
+                  <td className="table-td font-bold text-slate-900 text-sm tabular-nums whitespace-nowrap">
+                    Rs. {Math.round(Number(ex.amount)).toLocaleString()}
+                  </td>
+
+                  <td className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {ex.receiptUrl ? (
+                        <a 
+                          href={ex.receiptUrl} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs text-brand-primary hover:underline font-bold bg-brand-light px-2.5 py-1 rounded-lg border border-brand-light shrink-0"
+                        >
+                          <CheckCircle size={12} className="text-brand-primary" /> Receipt
+                        </a>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
+                          <AlertCircle size={11} /> No receipt
+                        </span>
+                      )}
+                      {menuItems.length > 0 && (
+                        <TableActionMenu items={menuItems} />
+                      )}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
 
               {!loading && filteredExpenses.length === 0 && (
                 <tr>
-                  <td colSpan={canDelete ? 7 : 6} className="p-10 text-center text-slate-400 text-sm">
+                  <td colSpan={5} className="p-10 text-center text-slate-400 text-sm">
                     No matching expense logs found.
                   </td>
                 </tr>

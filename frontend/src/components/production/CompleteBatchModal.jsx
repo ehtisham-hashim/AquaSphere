@@ -332,16 +332,8 @@ export default function CompleteBatchModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
-            <span>Products in this Run ({producedProducts.length})</span>
-            <span>Net Good Output &amp; Extra Line Breakage</span>
-          </div>
-
-          <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-[11px] text-sky-900">
-            <strong>Mode A (Net Good Output):</strong> Quantities below represent{' '}
-            <strong>net good stock</strong> added to Factory inventory. Any breakage entered on the right deducts{' '}
-            <strong>extra raw materials</strong> consumed during line spoilage without reducing finished stock.
-          </div>
+          {/* Mode A: Quantities below represent net good stock added to factory inventory.
+              Any breakage entered deducts extra raw materials consumed during line spoilage without reducing finished stock. */}
 
           {producedProducts.length === 0 ? (
             <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
@@ -353,45 +345,33 @@ export default function CompleteBatchModal({
                 return (
                   <div
                     key={prod.key}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-slate-300 transition space-y-3 shadow-2xs"
+                    className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-slate-300 transition shadow-2xs"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Package size={16} className="text-brand shrink-0" />
-                          <h4 className="text-sm font-bold text-slate-900">{prod.name}</h4>
+                          <Package size={15} className="text-slate-400 shrink-0" />
+                          <h4 className="text-sm font-bold text-slate-900 truncate">{prod.name}</h4>
                         </div>
                         <p className="text-xs text-slate-500">
-                          Net Good Output:{' '}
-                          <strong className="text-emerald-700 font-mono">
-                            {prod.qty.toLocaleString()} {prod.isPacks ? 'PETs' : prod.unit}
-                          </strong>
-                          {prod.bottlesTotal && (
-                            <span className="text-slate-400 font-normal ml-1">
-                              ({prod.bottlesTotal.toLocaleString()} good bottles)
-                            </span>
-                          )}
+                          Output: <strong className="text-slate-900 font-mono font-bold">{prod.qty.toLocaleString()} {prod.isPacks ? 'packs' : prod.unit}</strong>
                         </p>
                       </div>
 
                       {/* Breakage Input */}
                       <div className="text-right shrink-0">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-rose-600 mb-1">
-                          Extra Line Breakage ({prod.pieceLabel})
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Breakage ({prod.pieceLabel})
                         </label>
-                        <div className="flex items-center gap-1.5 justify-end">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={breakages[prod.key] || ''}
-                            onChange={(e) => handleBreakageChange(prod.key, e.target.value)}
-                            placeholder="0"
-                            className="w-20 border border-slate-300 bg-white rounded-lg p-1.5 text-right font-mono font-bold text-sm text-slate-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
-                          />
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          Extra RM scrap (max {prod.maxBreakage.toLocaleString()})
-                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={breakages[prod.key] || ''}
+                          onChange={(e) => handleBreakageChange(prod.key, e.target.value)}
+                          placeholder="0"
+                          title={prod.maxBreakage ? `Max allowable: ${prod.maxBreakage}` : ''}
+                          className="w-20 border border-slate-300 bg-white rounded-lg p-1.5 text-right font-mono font-bold text-sm text-slate-900 focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+                        />
                       </div>
                     </div>
                   </div>

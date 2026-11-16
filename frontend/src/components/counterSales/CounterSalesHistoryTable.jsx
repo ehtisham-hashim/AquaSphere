@@ -7,6 +7,7 @@ import {
   User, 
   ShoppingBag, 
   Eye,
+  Printer,
   Droplets,
   Package,
   Shield,
@@ -18,7 +19,7 @@ import { API_URL } from '../../utils/api';
 import { useTenant } from '../../context/TenantContext';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
-import { TimeframeDropdown } from '../ui';
+import { TimeframeDropdown, TableActionMenu } from '../ui';
 
 const COUNTER_TIMEFRAME_OPTIONS = [
   { value: 'ALL', label: 'All Time' },
@@ -182,17 +183,15 @@ export default function CounterSalesHistoryTable({
 
       <div className="table-container">
         <div className="overflow-x-auto">
-          <table className="w-full text-left whitespace-nowrap">
+          <table className="w-full text-left text-xs">
             <thead>
               <tr>
-                <th className="table-th">Sale Details</th>
+                <th className="table-th">Sale & Cashier</th>
                 <th className="table-th">Customer</th>
                 <th className="table-th">Items Sold</th>
-                <th className="table-th">Total & Paid</th>
-                <th className="table-th">Payment</th>
+                <th className="table-th">Bill & Status</th>
                 <th className="table-th text-center">Ledger Pic</th>
-                <th className="table-th">Cashier</th>
-                <th className="table-th text-right">Actions</th>
+                <th className="table-th text-right sticky right-0 bg-slate-50/95 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -222,15 +221,8 @@ export default function CounterSalesHistoryTable({
                       <div className="h-4 bg-slate-200 rounded w-20 mb-1"></div>
                       <div className="h-3 bg-slate-200 rounded w-16"></div>
                     </td>
-                    <td className="table-td">
-                      <div className="h-5 bg-slate-200 rounded-full w-14"></div>
-                    </td>
                     <td className="table-td text-center">
                       <div className="h-5 bg-slate-200 rounded w-16 mx-auto"></div>
-                    </td>
-                    <td className="table-td">
-                      <div className="h-3.5 bg-slate-200 rounded w-16 mb-1"></div>
-                      <div className="h-2.5 bg-slate-200 rounded w-10"></div>
                     </td>
                     <td className="table-td text-right">
                       <div className="h-6 bg-slate-200 rounded w-16 ml-auto"></div>
@@ -239,7 +231,7 @@ export default function CounterSalesHistoryTable({
                 ))
               ) : filteredSales.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="p-12 text-center text-slate-500">
+                  <td colSpan="6" className="p-12 text-center text-slate-500">
                     <div className="max-w-md mx-auto flex flex-col items-center">
                       <div className="p-3 rounded-full bg-brand/10 text-brand mb-2">
                         <ShoppingBag size={24} />
@@ -265,37 +257,64 @@ export default function CounterSalesHistoryTable({
 
                   const saleNum = sale.saleNumber || (sale.id ? sale.id.substring(0, 8).toUpperCase() : 'SALE');
 
+                  const menuItems = [
+                    {
+                      label: 'View & Print Receipt',
+                      icon: Printer,
+                      onClick: () => onPrintReceipt(sale),
+                    },
+                    sale.receiptUrl ? {
+                      label: 'View Ledger Photo',
+                      icon: Camera,
+                      onClick: () => window.open(sale.receiptUrl, '_blank'),
+                    } : null,
+                    isOwner ? { divider: true } : null,
+                    isOwner ? {
+                      label: 'Delete Sale',
+                      icon: Trash2,
+                      variant: 'danger',
+                      onClick: () => onDeleteSale && onDeleteSale(sale),
+                    } : null,
+                  ];
+
                   return (
-                    <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors text-xs">
-                      {/* Sale ID & Timestamp */}
+                    <tr 
+                      key={sale.id} 
+                      onClick={() => onPrintReceipt && onPrintReceipt(sale)}
+                      className="hover:bg-slate-50/90 transition-colors cursor-pointer group text-xs"
+                    >
+                      {/* 1. Sale ID & Timestamp & Cashier */}
                       <td className="table-td">
                         <span className="font-mono font-bold text-xs text-brand block">
                           #{saleNum}
                         </span>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono mt-0.5">
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono mt-0.5 whitespace-nowrap">
                           <Calendar size={11} className="text-slate-400 shrink-0" />
                           {new Date(sale.createdAt).toLocaleDateString()} {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Cashier: <strong className="text-slate-700">{sale.createdBy?.name || 'Staff'}</strong>
+                        </span>
                       </td>
 
-                      {/* Customer */}
+                      {/* 2. Customer */}
                       <td className="table-td">
                         <div className="flex items-center gap-2">
                           <div className="h-7 w-7 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center shrink-0">
                             <User size={13} />
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-800 text-xs">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 text-xs truncate max-w-[140px] sm:max-w-xs">
                               {sale.customer?.name || 'Walk-In Customer'}
                             </div>
-                            <div className="text-[10px] text-slate-400 font-mono">
+                            <div className="text-[10px] text-slate-400 font-mono truncate">
                               {sale.customer?.phone || 'Counter Cash'}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Items Sold */}
+                      {/* 3. Items Sold */}
                       <td className="table-td">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {visibleProducts.map((p, idx) => (
@@ -310,7 +329,10 @@ export default function CounterSalesHistoryTable({
                           {remainingCount > 0 && (
                             <button
                               type="button"
-                              onClick={() => onPrintReceipt(sale)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onPrintReceipt(sale);
+                              }}
                               title="Click to view all items on receipt"
                               className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition border border-slate-200"
                             >
@@ -338,14 +360,14 @@ export default function CounterSalesHistoryTable({
                           </div>
                         )}
                         {sale.remarks && (
-                          <span className="text-[10px] text-slate-400 block mt-1 truncate max-w-[200px]">
+                          <span className="text-[10px] text-slate-400 block mt-1 truncate max-w-[200px]" title={sale.remarks}>
                             {sale.remarks}
                           </span>
                         )}
                       </td>
 
-                      {/* Total & Paid */}
-                      <td className="table-td">
+                      {/* 4. Bill & Status */}
+                      <td className="table-td tabular-nums text-xs">
                         <div className="font-mono font-bold text-slate-900 text-xs">
                           ₨ {total.toLocaleString()}
                         </div>
@@ -358,15 +380,13 @@ export default function CounterSalesHistoryTable({
                             Paid in Full
                           </div>
                         )}
+                        <div className="mt-1">
+                          {getPaymentBadge(paid, debt)}
+                        </div>
                       </td>
 
-                      {/* Clean Payment Badge */}
-                      <td className="table-td">
-                        {getPaymentBadge(paid, debt)}
-                      </td>
-
-                      {/* Physical Ledger Pic */}
-                      <td className="table-td text-center">
+                      {/* 5. Physical Ledger Pic */}
+                      <td className="table-td text-center" onClick={(e) => e.stopPropagation()}>
                         {sale.receiptUrl ? (
                           <div className="inline-flex items-center justify-center gap-1.5">
                             <img
@@ -379,7 +399,7 @@ export default function CounterSalesHistoryTable({
                             <button
                               type="button"
                               onClick={() => window.open(sale.receiptUrl, '_blank')}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                              className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
                               title="View paper ledger picture"
                             >
                               View
@@ -411,43 +431,32 @@ export default function CounterSalesHistoryTable({
                         )}
                       </td>
 
-                      {/* Cashier / Operator */}
-                      <td className="table-td">
-                        <div className="font-semibold text-slate-800 text-xs">
-                          {sale.createdBy?.name || 'Staff'}
-                        </div>
-                        <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-                          {sale.createdBy?.role || 'POS'}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="table-td text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      {/* 6. Actions (Sticky Right) */}
+                      <td 
+                        className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)] transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           <button
-                            onClick={() => onPrintReceipt(sale)}
-                            className="btn-outline text-xs px-2.5 py-1 flex items-center gap-1.5"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPrintReceipt(sale);
+                            }}
+                            className="btn-outline text-xs px-2.5 py-1 inline-flex items-center gap-1.5 cursor-pointer font-semibold"
                             title="View & Print Receipt"
                           >
-                            <Eye size={13} />
+                            <Eye size={12} />
                             <span>Receipt</span>
                           </button>
-
-                          {isOwner && (
-                            <button
-                              onClick={() => onDeleteSale(sale)}
-                              title="Delete Sale (Owner Only)"
-                              className="p-1.5 rounded-lg border text-xs bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 transition"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
 
                           {dailyClosed && (
                             <span title="Daily Close Locked" className="text-amber-600 p-1">
                               <ShieldAlert size={14} />
                             </span>
                           )}
+
+                          <TableActionMenu items={menuItems} />
                         </div>
                       </td>
                     </tr>

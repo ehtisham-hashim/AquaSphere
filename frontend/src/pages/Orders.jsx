@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, RotateCcw, Users } from 'lucide-react';
+import { Plus, Clock, UserPlus, Printer, Eye, Share2, Copy, Trash2, Package, RotateCcw, Users, Edit2, XCircle, DollarSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { API_URL } from '../utils/api';
@@ -10,7 +10,7 @@ import { getOrderCleanName as formatItemName } from '../constants/orders';
 import { formatItemUnitTag, formatOrderItemsSummary } from '../utils/unitFormat';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/common/Skeleton';
-import { PageHeader, StatusBadge, TimeframeDropdown, DeleteConfirmationModal } from '../components/ui';
+import { PageHeader, StatusBadge, TimeframeDropdown, DeleteConfirmationModal, TableActionMenu } from '../components/ui';
 import MultiSelectDropdown from '../components/common/MultiSelectDropdown';
 import { openWhatsAppWeb, WhatsAppTemplates } from '../utils/whatsapp';
 
@@ -617,22 +617,20 @@ export default function Orders() {
           </div>
 
           <div className="table-container">
-            <table className="w-full text-left whitespace-nowrap text-xs">
+            <table className="w-full text-left text-xs">
               <thead>
                 <tr>
                   <th className="table-th">Customer</th>
-                  <th className="table-th">Customer Code</th>
-                  <th className="table-th text-center">Month Orders</th>
-                  <th className="table-th">Delivered Breakdown</th>
+                  <th className="table-th">Delivered Volume</th>
                   <th className="table-th text-right">Month Billed</th>
                   <th className="table-th text-right">Current Debt</th>
-                  <th className="table-th text-right">Actions</th>
+                  <th className="table-th text-right sticky right-0 bg-slate-50/95 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {statementList.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="p-8 text-center text-slate-400">
+                    <td colSpan="5" className="p-8 text-center text-slate-400">
                       No customer orders or outstanding debt recorded for {statementMonth}.
                     </td>
                   </tr>
@@ -640,21 +638,38 @@ export default function Orders() {
                   statementList.map(s => {
                     const cust = s.customer || {};
                     const balance = Number(cust.currentBalance || 0);
+
+                    const menuItems = [
+                      {
+                        label: 'Send WhatsApp Statement',
+                        icon: Share2,
+                        onClick: () => shareOrSendMonthlyStatementWhatsApp({ customer: cust, month: statementMonth, orders: s.orders, isWadaana }),
+                      },
+                      canSettleDebt && balance > 0 ? {
+                        label: 'Settle Outstanding Debt',
+                        icon: DollarSign,
+                        onClick: () => setSettleCustomer(cust),
+                      } : null,
+                    ];
+
                     return (
-                      <tr key={cust.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={cust.id} className="hover:bg-slate-50/90 transition-colors">
+                        {/* 1. Customer */}
                         <td className="table-td">
-                          <div className="font-bold text-slate-800">{cust.name}</div>
-                          <div className="text-[11px] text-slate-400 font-mono">{cust.phone || '—'}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-800">{cust.name}</span>
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                              {cust.customerCode || `#${cust.id?.substring(0, 6).toUpperCase()}`}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">{cust.phone || '—'}</div>
                         </td>
+
+                        {/* 2. Delivered Volume */}
                         <td className="table-td">
-                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
-                            {cust.customerCode || `#${cust.id?.substring(0, 6).toUpperCase()}`}
-                          </span>
-                        </td>
-                        <td className="table-td text-center font-bold text-slate-700">
-                          {s.orders.length}
-                        </td>
-                        <td className="table-td">
+                          <div className="font-bold text-slate-700 text-xs mb-1">
+                            {s.orders.length} {s.orders.length === 1 ? 'order' : 'orders'}
+                          </div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {s.delivered19L > 0 && (
                               <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold font-mono text-[11px]">
@@ -676,10 +691,14 @@ export default function Orders() {
                             )}
                           </div>
                         </td>
-                        <td className="table-td text-right font-mono font-bold text-slate-800">
+
+                        {/* 3. Month Billed */}
+                        <td className="table-td text-right font-mono font-bold text-slate-800 tabular-nums">
                           Rs. {Math.round(s.totalBilled).toLocaleString()}
                         </td>
-                        <td className="table-td text-right font-mono font-bold">
+
+                        {/* 4. Current Debt */}
+                        <td className="table-td text-right font-mono font-bold tabular-nums">
                           {balance === 0 ? (
                             <span className="inline-flex items-center text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                               Cleared (Rs. 0)
@@ -690,25 +709,23 @@ export default function Orders() {
                             </span>
                           )}
                         </td>
-                        <td className="table-td text-right">
-                          <div className="flex justify-end items-center gap-1.5">
+
+                        {/* 5. Actions (Sticky Right) */}
+                        <td 
+                          className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)] transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-end items-center gap-1.5 whitespace-nowrap">
                             {canSettleDebt && balance > 0 && (
                               <button
                                 type="button"
                                 onClick={() => setSettleCustomer(cust)}
-                                className="px-2.5 py-1 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition shadow-xs"
+                                className="px-2.5 py-1 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition shadow-xs cursor-pointer"
                               >
                                 Settle Debt
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => shareOrSendMonthlyStatementWhatsApp({ customer: cust, month: statementMonth, orders: s.orders, isWadaana })}
-                              className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition shadow-xs flex items-center gap-1"
-                              title="Send Monthly Statement via WhatsApp"
-                            >
-                              <Share2 size={12} /> WhatsApp
-                            </button>
+                            <TableActionMenu items={menuItems} />
                           </div>
                         </td>
                       </tr>
@@ -721,21 +738,20 @@ export default function Orders() {
         </div>
       ) : (
         <div className="table-container">
-          <table className="w-full text-left whitespace-nowrap">
+          <table className="w-full text-left text-xs">
             <thead>
               <tr>
-                <th className="table-th">Order ID</th>
-                <th className="table-th">Customer</th>
-                <th className="table-th">Order Details</th>
-                <th className="table-th">Target Date</th>
+                <th className="table-th">Order & Customer</th>
+                <th className="table-th">Items Summary</th>
+                <th className="table-th">Total Bill</th>
                 <th className="table-th">Status</th>
-                <th className="table-th text-right">Actions</th>
+                <th className="table-th text-right sticky right-0 bg-slate-50/95 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-12 text-center text-slate-500">
+                    <td colSpan="5" className="p-12 text-center text-slate-500">
                       <p>No orders found.</p>
                       {(dateFilter !== 'ALL' || selectedClientTypes.length > 0 || selectedSizes.length > 0 || searchQuery) && (
                         <div className="mt-2">
@@ -758,32 +774,99 @@ export default function Orders() {
                   const needsPaymentSettlement = o.deliveryStatus === 'DELIVERED' && o.paymentStatus !== 'PAID';
                   const canProcess = !isTransportManager && o.deliveryStatus !== 'CANCELLED' && !isFullyGreenlit;
 
+                  const orderTotal = o.items?.reduce((s, i) => s + parseFloat(i.price || 0) * (i.quantity || 0), 0) || 0;
+                  const paidAmount = o.payments?.reduce((s, p) => s + parseFloat(p.amount || 0), 0) || (o.paymentStatus === 'PAID' ? orderTotal : 0);
+                  const dueAmount = Math.max(0, orderTotal - paidAmount);
+
+                  const canEdit = (isOwner || isAdmin || isAccountant || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED';
+                  const canCancel = canCancelOrder && o.deliveryStatus === 'PENDING';
+
+                  const menuItems = [
+                    {
+                      label: 'View Order Details',
+                      icon: Eye,
+                      onClick: () => setSelectedOrderDetails(o),
+                    },
+                    {
+                      label: 'Print Invoice',
+                      icon: Printer,
+                      onClick: () => setInvoiceOrder(o),
+                    },
+                    canEdit ? {
+                      label: 'Edit Order',
+                      icon: Edit2,
+                      onClick: () => openEditModal(o),
+                    } : null,
+                    isTransportManager ? {
+                      label: 'Copy Driver Dispatch',
+                      icon: Copy,
+                      onClick: () => {
+                        const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
+                        navigator.clipboard.writeText(text);
+                        toast.success('Complete driver order dispatch copied!');
+                      },
+                    } : null,
+                    isTransportManager ? {
+                      label: 'Share to Driver WhatsApp',
+                      icon: Share2,
+                      onClick: () => {
+                        const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
+                        openWhatsAppWeb('', text);
+                        toast.success('Opening WhatsApp to dispatch order to driver.');
+                      },
+                    } : null,
+                    canCancel || canDeleteOrder ? { divider: true } : null,
+                    canCancel ? {
+                      label: 'Cancel Order',
+                      icon: XCircle,
+                      variant: 'danger',
+                      onClick: () => setOrderToCancel(o),
+                    } : null,
+                    canDeleteOrder ? {
+                      label: 'Delete Order',
+                      icon: Trash2,
+                      variant: 'danger',
+                      onClick: () => setOrderToDelete(o),
+                    } : null,
+                  ];
+
                   return (
-                    <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td 
-                        className="table-td font-mono font-semibold text-slate-500 cursor-pointer hover:text-brand transition-colors"
-                        onClick={() => setSelectedOrderDetails(o)}
-                        title="Click to view details"
-                      >
-                        #{o.id.substring(0,6).toUpperCase()}
-                      </td>
-                      <td 
-                        className="table-td cursor-pointer group"
-                        onClick={() => setSelectedOrderDetails(o)}
-                        title="Click to view details"
-                      >
-                        <div className="font-bold text-slate-800 group-hover:text-brand transition-colors">{o.customer?.name}</div>
-                        <div className="flex gap-2 items-center text-xs mt-0.5">
-                          <span className="text-slate-400 font-mono">{o.customer?.phone}</span>
+                    <tr 
+                      key={o.id} 
+                      onClick={() => setSelectedOrderDetails(o)}
+                      className="hover:bg-slate-50/90 transition-colors cursor-pointer group"
+                    >
+                      {/* 1. Order & Customer */}
+                      <td className="table-td">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-xs text-brand shrink-0">
+                            #{o.id.substring(0,6).toUpperCase()}
+                          </span>
+                          <span className="font-bold text-slate-800 group-hover:text-brand transition-colors truncate max-w-[180px] sm:max-w-xs">
+                            {o.customer?.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                          <span className="font-mono text-slate-400">{o.customer?.phone || 'No phone'}</span>
+                          {o.expectedDelivery ? (
+                            <span className="inline-flex items-center gap-1 font-mono text-slate-500 text-[11px]">
+                              <Clock size={11} className="text-slate-400 shrink-0" />
+                              {parseOrderDate(o.expectedDelivery)?.toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-[11px]">No target date</span>
+                          )}
                         </div>
                       </td>
+
+                      {/* 2. Items Summary */}
                       <td className="table-td">
                         <div className="flex items-center gap-2.5">
-                          <div className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 text-xs">
+                          <div className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 text-xs shrink-0">
                             {formatOrderItemsSummary(o.items)}
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-slate-800 text-xs">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-slate-800 text-xs truncate max-w-[160px] sm:max-w-xs">
                               {formatItemName(o.items[0]?.item?.name)}{' '}
                               {o.items[0]?.item && (
                                 <span className="text-[10px] font-normal text-slate-400">
@@ -792,19 +875,34 @@ export default function Orders() {
                               )}
                             </span>
                             {o.items?.length > 1 && (
-                              <span className="text-[10px] font-bold text-brand bg-brand-light px-1.5 py-0.5 rounded w-max">
+                              <span className="text-[10px] font-bold text-brand bg-brand-light px-1.5 py-0.5 rounded w-max mt-0.5">
                                 +{o.items.length - 1} more item{o.items.length > 2 ? 's' : ''}
                               </span>
                             )}
-                            {o.remarks && <span className="text-[11px] text-slate-400 truncate max-w-[150px]">{o.remarks}</span>}
+                            {o.remarks && <span className="text-[11px] text-slate-400 truncate max-w-[150px] mt-0.5" title={o.remarks}>{o.remarks}</span>}
                           </div>
                         </div>
                       </td>
-                      <td className="table-td text-xs text-slate-600">
-                        {o.expectedDelivery ? (
-                          <div className="flex items-center gap-1 font-mono text-slate-600"><Clock size={13}/> {parseOrderDate(o.expectedDelivery)?.toLocaleDateString()}</div>
-                        ) : <span className="text-slate-400 text-xs">Not set</span>}
+
+                      {/* 3. Total Bill */}
+                      <td className="table-td tabular-nums text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-900 font-mono text-sm">
+                            Rs. {orderTotal.toLocaleString()}
+                          </span>
+                          {dueAmount > 0 ? (
+                            <span className="text-[10px] font-semibold text-rose-600 font-mono">
+                              Due: Rs. {dueAmount.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-emerald-700 font-mono">
+                              Paid in Full
+                            </span>
+                          )}
+                        </div>
                       </td>
+
+                      {/* 4. Status */}
                       <td className="table-td">
                         <div className="flex flex-col gap-1 items-start">
                           <StatusBadge status={o.deliveryStatus} />
@@ -813,86 +911,31 @@ export default function Orders() {
                           )}
                         </div>
                       </td>
-                      <td className="table-td text-right">
-                        <div className="flex justify-end gap-1.5 items-center">
-                          <button
-                            onClick={() => setSelectedOrderDetails(o)}
-                            className="btn-secondary py-1 px-2.5 text-xs inline-flex items-center gap-1 font-semibold"
-                            title="View Order Details & Share to Driver"
-                          >
-                            <Eye size={13} /> Details
-                          </button>
 
-                          {isTransportManager && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
-                                  navigator.clipboard.writeText(text);
-                                  toast.success('Complete driver order dispatch copied!');
-                                }}
-                                className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                                title="Quick copy order dispatch for driver"
-                              >
-                                <Copy size={13} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const text = WhatsAppTemplates.orderDispatch(o, isWadaana);
-                                  openWhatsAppWeb('', text);
-                                  toast.success('Opening WhatsApp to dispatch order to driver.');
-                                }}
-                                className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                                title="Share to driver via WhatsApp"
-                              >
-                                <Share2 size={13} />
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            onClick={() => setInvoiceOrder(o)}
-                            className="btn-secondary py-1 px-2.5 text-xs"
-                            title="Print Invoice"
-                          >
-                            <Printer size={13} /> Invoice
-                          </button>
-
-                          {(isOwner || isAdmin || isAccountant || isMarketingManager) && o.deliveryStatus !== 'DELIVERED' && o.deliveryStatus !== 'CANCELLED' && (
-                            <button onClick={() => openEditModal(o)} className="btn-secondary py-1 px-2.5 text-xs">
-                              Edit
-                            </button>
-                          )}
-                          {canCancelOrder && o.deliveryStatus === 'PENDING' && (
-                            <button
-                              onClick={() => setOrderToCancel(o)}
-                              className="btn-secondary py-1 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                              title="Cancel Order"
-                            >
-                              Cancel
-                            </button>
-                          )}
+                      {/* 5. Actions (Sticky Right) */}
+                      <td 
+                        className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)] transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-end gap-1.5 items-center whitespace-nowrap">
                           {canProcess && (
                             <button 
-                              onClick={() => openDeliverModal(o)} 
-                              className={`py-1 px-3 text-xs rounded-xl font-bold transition-all ${
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeliverModal(o);
+                              }}
+                              className={`py-1 px-3 text-xs rounded-xl font-bold transition-all cursor-pointer ${
                                 needsPaymentSettlement 
-                                  ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs' 
                                   : 'btn-primary'
                               }`}
                             >
                               {needsPaymentSettlement ? 'Settle Payment' : 'Process'}
                             </button>
                           )}
-                          {canDeleteOrder && (
-                            <button
-                              onClick={() => setOrderToDelete(o)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                              title="Permanently Delete Order (Owner Only)"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
+
+                          <TableActionMenu items={menuItems} />
                         </div>
                       </td>
                     </tr>

@@ -42,7 +42,7 @@ export default function MainLayout() {
           onToggleCollapse={toggleCollapse}
           isCollapsed={isCollapsed}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 md:p-6 scroll-smooth min-w-0 max-w-full">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 md:p-6 scroll-smooth min-w-0 max-w-full [scrollbar-gutter:stable]">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             <RouteErrorBoundary key={location.pathname}>
               <Suspense fallback={<PageLoader />}>

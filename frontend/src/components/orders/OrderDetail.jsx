@@ -14,7 +14,7 @@ import { getOrderCleanName as formatItemName } from '../../constants/orders';
 import { formatItemUnitTag, formatOrderItemsSummary } from '../../utils/unitFormat';
 import { openWhatsAppWeb } from '../../utils/whatsapp';
 
-// ponytail: tabbed detail view groups actions logically; generous spacing prevents visual fatigue
+// ponytail: unified full-width card layout groups actions and customer context cleanly without layout cramping
 export default function OrderDetail({ order, onClose, onSettle, onCancelOrder }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -49,12 +49,7 @@ export default function OrderDetail({ order, onClose, onSettle, onCancelOrder })
     : orderDate;
 
   const theme = {
-    primaryText: isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600',
-    accentBg: isWadaana ? 'bg-sky-50' : 'bg-emerald-50',
-    avatarBorder: isWadaana ? 'border-sky-200' : 'border-emerald-200',
-    iconColor: isWadaana ? 'text-[#0ea5e9]' : 'text-emerald-600',
     badgeVariant: isWadaana ? 'sky' : 'emerald',
-    tabActive: isWadaana ? 'bg-white text-slate-900 shadow-sm border-slate-200 font-bold' : 'bg-white text-slate-900 shadow-sm border-slate-200 font-bold',
   };
 
   const sanitizeMapLink = (link) => {
@@ -135,268 +130,276 @@ export default function OrderDetail({ order, onClose, onSettle, onCancelOrder })
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden animate-in fade-in duration-200">
       
-      {/* Left Column: Customer Profile Card */}
-      <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-        <div className="flex flex-col items-center text-center">
-          
-          {/* Customer Picture / Placeholder */}
+      {/* ======================================================== */}
+      {/* ROW 1: COMMAND BAR (Order Identity + Action Toolbar)    */}
+      {/* ======================================================== */}
+      <div className="px-5 sm:px-6 pt-4 pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+        {/* Left: Back + Avatar + Order Reference + Status Badges */}
+        <div className="flex items-center gap-3.5 min-w-0 flex-wrap">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors py-1.5 px-2 rounded-lg hover:bg-slate-100 -ml-2 shrink-0 cursor-pointer"
+            title="Back to Orders list"
+          >
+            <ArrowLeft size={14} />
+            <span>Orders</span>
+          </button>
+
+          <div className="h-5 w-px bg-slate-200 hidden sm:block shrink-0" />
+
+          {/* Customer Avatar Frame with click preview */}
           <div
-            className={`w-32 h-32 rounded-2xl ${theme.accentBg} border-2 ${customer.homePictureUrl ? 'border-solid' : 'border-dashed'} ${theme.avatarBorder} flex items-center justify-center mb-3 shadow-inner overflow-hidden ${customer.homePictureUrl ? 'cursor-pointer' : ''}`}
+            className={`relative w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 ${customer.homePictureUrl ? 'cursor-pointer hover:opacity-90' : ''}`}
             onClick={() => customer.homePictureUrl && setPreviewImage(customer.homePictureUrl)}
-            title={customer.homePictureUrl ? 'Click to view full photo' : ''}
+            title={customer.homePictureUrl ? 'Click to view house photo' : ''}
           >
             {customer.homePictureUrl ? (
-              <img 
-                src={customer.homePictureUrl} 
-                alt={customer.name} 
-                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'block'; }} 
+              <img
+                src={customer.homePictureUrl}
+                alt={customer.name || 'Customer'}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
+                }}
               />
             ) : null}
-            <User size={56} className={`${theme.iconColor} opacity-80 ${customer.homePictureUrl ? 'hidden' : ''}`} />
+            <User size={20} className={`text-slate-400 ${customer.homePictureUrl ? 'hidden' : ''}`} />
           </div>
+
+          {/* Order Reference & Live Status Badges */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h1 className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight">
+              Order #{order.id?.substring(0, 8).toUpperCase()}
+            </h1>
+            <StatusBadge status={order.deliveryStatus} />
+            <StatusBadge status={order.paymentStatus} />
+          </div>
+        </div>
+
+        {/* Right: Restrained Quick Action Toolbar */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+          {canCancel && onCancelOrder && (
+            <button
+              type="button"
+              onClick={() => onCancelOrder(order)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg font-medium text-xs transition shadow-2xs cursor-pointer active:scale-95"
+              title="Cancel this order"
+            >
+              <XCircle size={13} />
+              <span>Cancel</span>
+            </button>
+          )}
 
           {customer.homePictureUrl && (
             <button
               type="button"
               onClick={copyPhotoBinaryToClipboard}
-              className="mb-3 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-              title="Copy House Photo (Binary PNG)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Copy house photo to clipboard"
             >
-              {copiedPhoto ? <CheckCircle2 size={13} className="text-emerald-600" /> : <Camera size={13} />}
-              <span>{copiedPhoto ? 'Photo Copied!' : 'Copy House Photo'}</span>
+              {copiedPhoto ? <CheckCircle2 size={13} className="text-emerald-600" /> : <Camera size={13} className="text-slate-500" />}
+              <span className="hidden sm:inline">{copiedPhoto ? 'Photo Copied' : 'House Photo'}</span>
             </button>
           )}
 
-          {/* Customer Name & Badges */}
-          <h2 className="text-lg font-bold text-slate-900">{customer.name || 'Unnamed Customer'}</h2>
-          <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
-            <Badge variant={theme.badgeVariant}>{customer.type || 'Customer'}</Badge>
-            <Badge variant="slate" className="uppercase text-[10px]">{isWadaana ? 'Wadaana Ind.' : 'AquaSphere'}</Badge>
-          </div>
+          <button
+            type="button"
+            onClick={handleShareWhatsAppDriver}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-medium text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+            title="Send driver delivery slip via WhatsApp"
+          >
+            <Share2 size={13} className="text-slate-500" />
+            <span className="hidden sm:inline">WhatsApp Slip</span>
+          </button>
 
-          {/* Customer Contact & Delivery Info */}
-          <div className="w-full border-t border-slate-100 mt-5 pt-5 space-y-4 text-left text-sm">
-            <div className="flex items-center gap-2 text-slate-700">
-              <Phone size={16} className="text-slate-400 flex-shrink-0" />
-              <span className="font-semibold flex-1 truncate">{customer.phone || 'No phone provided'}</span>
-              {customer.phone && (
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`Customer: ${customer.name}\nPhone: ${customer.phone}`);
-                      toast.success('Customer phone copied!');
-                    }}
-                    className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                    title="Copy phone"
-                  >
-                    <Copy size={15} />
-                  </button>
-                  <button
-                    onClick={() => openWhatsAppWeb(customer.phone, '')}
-                    className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                    title="Open WhatsApp chat"
-                  >
-                    <Share2 size={15} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-start gap-2.5 text-slate-600">
-              <MapPin size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
-              <span className="leading-relaxed text-xs sm:text-sm">{customer.address || 'No delivery address specified.'}</span>
-            </div>
-
-            {customer.mapLink && (
-              <div className="pt-1">
-                <a
-                  href={customer.mapLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`inline-flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold ${isWadaana ? 'bg-sky-50 text-[#0ea5e9] hover:bg-sky-100 border border-sky-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'} transition-all`}
-                >
-                  <Navigation size={14} />
-                  <span>Open in Google Maps</span>
-                  <ExternalLink size={13} />
-                </a>
-              </div>
-            )}
-
-            <div className="pt-3 border-t border-slate-100 space-y-2 text-xs">
-              <div className="flex items-center justify-between text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <Calendar size={14} />
-                  <span>Order Placed:</span>
-                </div>
-                <span className="font-semibold text-slate-700">{orderDate}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <Clock size={14} />
-                  <span>Target Delivery:</span>
-                </div>
-                <span className="font-bold text-slate-900">{targetDate}</span>
-              </div>
-            </div>
-          </div>
+          {canSettle && onSettle && (
+            <button
+              type="button"
+              onClick={() => onSettle(order)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition shadow-2xs active:scale-95 cursor-pointer"
+              title="Settle Payment"
+            >
+              <DollarSign size={13} />
+              <span>Settle Payment</span>
+            </button>
+          )}
         </div>
+      </div>
 
-        {/* View Customer Profile Direct Shortcut Button */}
-        {customer.id && (
-          <div className="pt-5 mt-5 border-t border-slate-100">
+      {/* ======================================================== */}
+      {/* ROW 2: CONTEXT & METADATA STRIP (Customer, Phone, Address)*/}
+      {/* ======================================================== */}
+      <div className="px-5 sm:px-6 py-2.5 bg-slate-50/70 border-t border-b border-slate-100 flex items-center gap-4 flex-wrap text-xs text-slate-600">
+        {/* Customer Identity Link & Code */}
+        <div className="flex items-center gap-2">
+          {customer.id ? (
             <button
               type="button"
               onClick={() => navigate(`/customers?id=${customer.id}`)}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-xs"
+              className="font-bold text-slate-800 hover:text-brand hover:underline inline-flex items-center gap-1.5 cursor-pointer truncate max-w-[200px]"
+              title="View customer profile"
             >
-              <User size={15} className={theme.iconColor} />
-              <span>View Full Customer Profile</span>
+              <User size={13} className="text-slate-400" />
+              <span>{customer.name || 'Unnamed Customer'}</span>
+            </button>
+          ) : (
+            <span className="font-bold text-slate-800 inline-flex items-center gap-1.5">
+              <User size={13} className="text-slate-400" />
+              <span>{customer.name || 'Unnamed Customer'}</span>
+            </span>
+          )}
+
+          <span className="font-mono text-[11px] font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+            {customer.customerCode || (customer.id ? `#${customer.id.substring(0, 6)}` : '')}
+          </span>
+          <Badge variant={theme.badgeVariant} className="text-[10px]">{customer.type || 'Customer'}</Badge>
+        </div>
+
+        {/* Phone with Call, Copy & WhatsApp shortcuts */}
+        {customer.phone && (
+          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
+            <a href={`tel:${customer.phone}`} className="inline-flex items-center gap-1 text-slate-700 hover:text-brand font-mono font-medium">
+              <Phone size={12} className="text-slate-400" />
+              <span>{customer.phone}</span>
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(customer.phone);
+                toast.success('Phone copied!');
+              }}
+              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+              title="Copy phone"
+            >
+              <Copy size={11} />
+            </button>
+            <button
+              type="button"
+              onClick={() => openWhatsAppWeb(customer.phone, '')}
+              className="text-slate-400 hover:text-emerald-600 p-0.5 cursor-pointer"
+              title="Open WhatsApp"
+            >
+              <Share2 size={11} />
             </button>
           </div>
         )}
+
+        {/* Delivery Address */}
+        {customer.address && (
+          <div className="flex items-center gap-1 text-slate-600 max-w-md truncate border-l border-slate-200 pl-3" title={customer.address}>
+            <MapPin size={12} className="text-slate-400 shrink-0" />
+            <span className="truncate">{customer.address}</span>
+            {customer.mapLink && (
+              <a
+                href={customer.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline inline-flex items-center shrink-0 ml-0.5"
+                title="View on Google Maps"
+              >
+                <ExternalLink size={11} />
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Target Delivery Date */}
+        <div className="flex items-center gap-1.5 text-slate-500 border-l border-slate-200 pl-3">
+          <Clock size={12} className="text-slate-400 shrink-0" />
+          <span>Target: <strong className="text-slate-700 font-medium">{targetDate}</strong></span>
+        </div>
       </div>
 
-      {/* Right Column: Tabbed Workspace */}
-      <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-6">
-        <div className="space-y-5">
-          
-          {/* Header & Main Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Order #{order.id?.substring(0, 8).toUpperCase()}
-                </h1>
-                <StatusBadge status={order.deliveryStatus} />
-                <StatusBadge status={order.paymentStatus} />
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Order details, delivery route dispatch, and payment logs</p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {canCancel && onCancelOrder && (
-                <button
-                  type="button"
-                  onClick={() => onCancelOrder(order)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition-colors shadow-2xs cursor-pointer"
-                  title="Cancel this order"
-                >
-                  <XCircle size={14} className="text-rose-600" />
-                  <span>Cancel Order</span>
-                </button>
-              )}
-              {canSettle && onSettle && (
-                <button
-                  type="button"
-                  onClick={() => onSettle(order)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs transition-colors shadow-sm"
-                  title="Settle Payment"
-                >
-                  <DollarSign size={14} />
-                  <span>Settle Payment</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
-                title="Back to orders list"
-              >
-                <ArrowLeft size={14} />
-                <span>Back to Orders</span>
-              </button>
-            </div>
+      {/* ======================================================== */}
+      {/* ROW 3: FINANCIAL KPI METRICS STRIP (3 Clean Columns)    */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 bg-white border-b border-slate-100 px-5 sm:px-6 py-3.5">
+        {/* Col 1: Total Bill */}
+        <div className="py-2 sm:py-0 sm:pr-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Total Bill</span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 tabular-nums">
+              Rs. {grandTotal.toLocaleString()}
+            </span>
+            <span className="text-xs text-slate-400">
+              {items.length} {items.length === 1 ? 'item' : 'items'}
+            </span>
           </div>
+        </div>
 
-          {/* Tab Navigation Strip */}
-          <div className="flex items-center gap-2 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 w-fit">
-            <button
-              type="button"
-              onClick={() => setActiveTab('items')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'items'
-                  ? theme.tabActive
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <ShoppingBag size={14} className={activeTab === 'items' ? theme.iconColor : 'text-slate-400'} />
-              <span>Items & Billing</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-200 text-slate-700">
-                {items.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('dispatch')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'dispatch'
-                  ? theme.tabActive
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Truck size={14} className={activeTab === 'dispatch' ? theme.iconColor : 'text-slate-400'} />
-              <span>Driver Dispatch</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('history')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'history'
-                  ? theme.tabActive
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Calendar size={14} className={activeTab === 'history' ? theme.iconColor : 'text-slate-400'} />
-              <span>Deliveries & Payments</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-200 text-slate-700">
-                {deliveries.length + payments.length}
-              </span>
-            </button>
+        {/* Col 2: Amount Paid */}
+        <div className="py-2 sm:py-0 sm:px-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Amount Paid</span>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-base sm:text-lg font-bold font-mono text-emerald-600 tabular-nums">
+              Rs. {totalPaid.toLocaleString()}
+            </span>
+            <span className="text-xs text-slate-400">Recorded</span>
           </div>
+        </div>
 
+        {/* Col 3: Balance Due */}
+        <div className="py-2 sm:py-0 sm:pl-4 flex flex-col justify-center">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Balance Due</span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className={`text-base sm:text-lg font-bold font-mono tabular-nums ${balanceDue > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+              Rs. {balanceDue > 0 ? balanceDue.toLocaleString() : '0'}
+            </span>
+            <span className="text-xs text-slate-400">
+              {balanceDue > 0 ? 'Pending' : 'Settled'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Full-Width Operational Workspace with Scrollable Tabs */}
+      <div className="flex flex-col min-w-0">
+        
+        {/* Seamless Underline Tabs */}
+        <div className="px-5 sm:px-6 border-b border-slate-100 flex items-center gap-6 overflow-x-auto select-none no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab('items')}
+            className={`py-3 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'items'
+                ? 'border-slate-900 text-slate-900 font-bold -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <ShoppingBag size={13} className={activeTab === 'items' ? 'text-slate-900' : 'text-slate-400'} />
+            <span>Order Items</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600">
+              {items.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('dispatch')}
+            className={`py-3 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer shrink-0 ${
+              activeTab === 'dispatch'
+                ? 'border-slate-900 text-slate-900 font-bold -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Truck size={13} className={activeTab === 'dispatch' ? 'text-slate-900' : 'text-slate-400'} />
+            <span>Driver Slip</span>
+          </button>
+        </div>
+
+        {/* Tab Content Canvas (100% Full Width with stable min-height) */}
+        <div className="p-5 sm:p-6 flex-1 min-w-0 space-y-5 min-h-[420px]">
           {/* TAB 1: Items & Billing */}
           {activeTab === 'items' && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              
-              {/* Financial Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Total Bill</span>
-                  <span className="text-2xl font-bold font-mono text-slate-900 block mt-1">
-                    Rs. {grandTotal.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-slate-500 mt-1 block">{formatOrderItemsSummary(items)} ordered</span>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Amount Paid</span>
-                  <span className="text-2xl font-bold font-mono text-emerald-600 block mt-1">
-                    Rs. {totalPaid.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-slate-500 mt-1 block">Recorded in ledger</span>
-                </div>
-
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Balance Due</span>
-                  <span className={`text-2xl font-bold font-mono block mt-1 ${balanceDue > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
-                    Rs. {balanceDue > 0 ? balanceDue.toLocaleString() : '0'}
-                  </span>
-                  <span className="text-xs text-slate-500 mt-1 block">
-                    {balanceDue > 0 ? 'Pending collection' : 'Fully Settled'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <div className="space-y-5">
+              {/* Items Container: Responsive Table (sm+) & Mobile Cards (< sm) */}
+              <div className="hidden sm:block border border-slate-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-xs tracking-wider select-none">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase font-bold text-xs tracking-wider select-none">
                     <tr>
                       <th className="py-3 px-4">Item Description</th>
                       <th className="py-3 px-4 text-center">Quantity</th>
@@ -407,7 +410,7 @@ export default function OrderDetail({ order, onClose, onSettle, onCancelOrder })
                   <tbody className="divide-y divide-slate-100">
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+                        <td colSpan={4} className="py-8 text-center text-slate-400 italic text-xs">
                           No product items recorded for this order.
                         </td>
                       </tr>
@@ -416,19 +419,19 @@ export default function OrderDetail({ order, onClose, onSettle, onCancelOrder })
                         const lineTotal = Number(i.price || 0) * Number(i.quantity || 0);
                         return (
                           <tr key={i.id || idx} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4 font-semibold text-slate-900">
+                            <td className="py-3 px-4 font-semibold text-slate-900 text-xs">
                               {formatItemName(i.item?.name) || 'Product Item'}
-                              <span className="ml-2 text-xs text-slate-400 font-normal">
+                              <span className="ml-2 text-[11px] text-slate-400 font-normal">
                                 ({formatItemUnitTag(i.item, i.quantity)})
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 tabular-nums">
+                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 tabular-nums text-xs">
                               {i.quantity}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono text-slate-700">
+                            <td className="py-3 px-4 text-right font-mono text-slate-700 tabular-nums text-xs">
                               Rs. {Number(i.price || 0).toLocaleString()}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                            <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums text-xs">
                               Rs. {lineTotal.toLocaleString()}
                             </td>
                           </tr>
@@ -439,172 +442,183 @@ export default function OrderDetail({ order, onClose, onSettle, onCancelOrder })
                 </table>
               </div>
 
-              {/* Remarks */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/80">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+              {/* Mobile Item Cards (< sm) */}
+              <div className="block sm:hidden space-y-2.5">
+                {items.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400 italic border border-slate-200/80 rounded-xl bg-slate-50 text-xs">
+                    No product items recorded for this order.
+                  </div>
+                ) : (
+                  items.map((i, idx) => {
+                    const lineTotal = Number(i.price || 0) * Number(i.quantity || 0);
+                    return (
+                      <div key={i.id || idx} className="p-3.5 bg-white border border-slate-200/80 rounded-xl space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-bold text-slate-900 text-xs">
+                            {formatItemName(i.item?.name) || 'Product Item'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-slate-100 font-mono font-bold text-xs text-slate-800 tabular-nums">
+                            {i.quantity} {formatItemUnitTag(i.item, i.quantity)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 text-slate-500">
+                          <span>Rate: Rs. {Number(i.price || 0).toLocaleString()}</span>
+                          <span className="font-bold font-mono text-slate-900">
+                            Rs. {lineTotal.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Delivery Notes & Remarks */}
+              <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                   Delivery Notes & Instructions:
                 </span>
-                <p className="text-sm text-slate-800 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed">
                   {order.remarks && order.remarks.trim() ? order.remarks : 'No special notes recorded.'}
                 </p>
               </div>
+
+              {/* Downward Flow: Delivery Runs & Payment Receipts (Rendered only when records exist) */}
+              {deliveries.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Truck size={14} className="text-slate-400" />
+                    <span>Delivery Runs ({deliveries.length})</span>
+                  </h3>
+
+                  <div className="border border-slate-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase font-bold text-xs tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 text-xs">Date</th>
+                          <th className="py-2.5 px-4 text-center text-xs">Delivered</th>
+                          <th className="py-2.5 px-4 text-xs">Returned Bottles</th>
+                          <th className="py-2.5 px-4 text-right text-xs">Cash Received</th>
+                          <th className="py-2.5 px-4 text-xs">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {deliveries.map(d => (
+                          <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-4 text-slate-700 text-xs font-mono">
+                              {new Date(d.deliveredAt || d.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-900 tabular-nums text-xs">
+                              {d.qtyDelivered}
+                            </td>
+                            <td className="py-2.5 px-4 text-xs">
+                              {d.bottlesReturnedGood > 0 && <span className="text-emerald-700 font-bold mr-2">↩ {d.bottlesReturnedGood} Good</span>}
+                              {d.bottlesReturnedBroken > 0 && <span className="text-amber-700 font-bold mr-2">💔 {d.bottlesReturnedBroken} Broken</span>}
+                              {d.bottlesLost > 0 && <span className="text-rose-700 font-bold">❌ {d.bottlesLost} Lost</span>}
+                              {!d.bottlesReturnedGood && !d.bottlesReturnedBroken && !d.bottlesLost && <span className="text-slate-400">—</span>}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900 tabular-nums text-xs">
+                              {parseFloat(d.cashReceived || 0) > 0 ? `Rs. ${parseFloat(d.cashReceived).toLocaleString()}` : '—'}
+                            </td>
+                            <td className="py-2.5 px-4 text-slate-500 italic text-xs">
+                              {d.remarks || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {payments.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <DollarSign size={14} className="text-slate-400" />
+                    <span>Payment Receipts ({payments.length})</span>
+                  </h3>
+
+                  <div className="border border-slate-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase font-bold text-xs tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-4 text-xs">Date</th>
+                          <th className="py-2.5 px-4 text-right text-xs">Amount</th>
+                          <th className="py-2.5 px-4 text-center text-xs">Method</th>
+                          <th className="py-2.5 px-4 text-xs">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {payments.map(p => (
+                          <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-4 text-slate-700 text-xs font-mono">
+                              {new Date(p.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-600 tabular-nums text-xs">
+                              Rs. {parseFloat(p.amount).toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {p.type || 'Cash'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-slate-600 italic text-xs">
+                              {p.remarks || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* TAB 2: Driver Dispatch */}
           {activeTab === 'dispatch' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Dispatch Order to Driver</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Quickly copy delivery details or send via WhatsApp</p>
+                  <h3 className="text-xs font-bold text-slate-900">Dispatch Order to Driver</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Copy delivery details or send directly via WhatsApp</p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleCopyDriverDetails}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-xs font-medium transition shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    {copied ? <CheckCircle2 size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                    {copied ? <CheckCircle2 size={13} className="text-emerald-600" /> : <Copy size={13} />}
                     <span>{copied ? 'Copied!' : 'Copy Summary'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleShareWhatsAppDriver}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-2xs active:scale-95 cursor-pointer"
                   >
-                    <Share2 size={14} />
-                    <span>Send via WhatsApp</span>
+                    <Share2 size={13} />
+                    <span>Send WhatsApp</span>
                   </button>
                 </div>
               </div>
 
               {/* Pre-formatted Message Card */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-white font-mono text-xs text-slate-700 leading-relaxed max-h-72 overflow-y-auto whitespace-pre-wrap select-all">
+              <div className="border border-slate-200/80 rounded-xl p-4 bg-slate-50/30 font-mono text-xs text-slate-700 leading-relaxed max-h-72 overflow-y-auto whitespace-pre-wrap select-all">
                 {buildDriverMessage()}
               </div>
             </div>
           )}
 
-          {/* TAB 3: Deliveries & Payments */}
-          {activeTab === 'history' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              
-              {/* Deliveries Sub-table */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Truck size={15} className={theme.iconColor} />
-                  <span>Delivery Runs ({deliveries.length})</span>
-                </h3>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-xs tracking-wider">
-                      <tr>
-                        <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4 text-center">Delivered</th>
-                        <th className="py-3 px-4">Returned Bottles</th>
-                        <th className="py-3 px-4 text-right">Cash Received</th>
-                        <th className="py-3 px-4">Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {deliveries.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-6 text-center text-slate-400 italic text-sm">
-                            No delivery attempts logged yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        deliveries.map(d => (
-                          <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4 text-slate-700 text-xs">
-                              {new Date(d.deliveredAt || d.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900">
-                              {d.qtyDelivered}
-                            </td>
-                            <td className="py-3.5 px-4 text-xs">
-                              {d.bottlesReturnedGood > 0 && <span className="text-emerald-700 font-bold mr-2">↩ {d.bottlesReturnedGood} Good</span>}
-                              {d.bottlesReturnedBroken > 0 && <span className="text-amber-700 font-bold mr-2">💔 {d.bottlesReturnedBroken} Broken</span>}
-                              {d.bottlesLost > 0 && <span className="text-rose-700 font-bold">❌ {d.bottlesLost} Lost</span>}
-                              {!d.bottlesReturnedGood && !d.bottlesReturnedBroken && !d.bottlesLost && <span className="text-slate-400">—</span>}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                              {parseFloat(d.cashReceived || 0) > 0 ? `Rs. ${parseFloat(d.cashReceived).toLocaleString()}` : '—'}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-500 italic text-xs">
-                              {d.remarks || '—'}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Payments Sub-table */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <DollarSign size={15} className={theme.iconColor} />
-                  <span>Payment Receipts ({payments.length})</span>
-                </h3>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold text-xs tracking-wider">
-                      <tr>
-                        <th className="py-3 px-4">Date</th>
-                        <th className="py-3 px-4 text-right">Amount</th>
-                        <th className="py-3 px-4 text-center">Method</th>
-                        <th className="py-3 px-4">Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {payments.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="py-6 text-center text-slate-400 italic text-sm">
-                            No payment transactions recorded for this order.
-                          </td>
-                        </tr>
-                      ) : (
-                        payments.map(p => (
-                          <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-3.5 px-4 text-slate-700 text-xs">
-                              {new Date(p.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600">
-                              Rs. {parseFloat(p.amount).toLocaleString()}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="px-2 py-0.5 rounded text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                {p.type || 'Cash'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 italic text-xs">
-                              {p.remarks || '—'}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
-          )}
-
+          {/* Footer Info Strip */}
+          <div className="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-slate-100">
+            <span>Order Reference: <code className="font-mono text-slate-600">#{order.id?.substring(0, 8).toUpperCase()}</code></span>
+            <span>Audited by: <strong className="text-slate-600">{user?.name || user?.role}</strong></span>
+          </div>
         </div>
 
-        {/* Footer info */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-          <span>Order ID: <code className="font-mono text-slate-600">#{order.id?.substring(0, 8).toUpperCase()}</code></span>
-          <span>Logged in as: <strong className="text-slate-600">{user?.name || user?.role}</strong></span>
-        </div>
       </div>
 
       {previewImage && (

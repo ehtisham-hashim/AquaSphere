@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Factory, Trash2, CheckCircle2, AlertCircle, X, Package, Flame, Clock, UserCheck, Eye } from 'lucide-react';
 import { usePagination } from '../../hooks/usePagination';
 import TablePagination from '../common/TablePagination';
+import { TableActionMenu } from '../ui';
 import { parsePreformInfo } from '../../utils/preformHelper';
 
 function getBatchConsumptions(b, isWadaana) {
@@ -90,10 +91,9 @@ function getBatchProducts(b, isWadaana) {
           let qtyLabel;
           if (isPet) {
             const pets = Number(p.quantity) || 0;
-            const totalBottles = p.totalBottles || (pets * packSize);
-            qtyLabel = `${pets.toLocaleString()} PETs (${totalBottles.toLocaleString()} btl)`;
+            qtyLabel = `${pets.toLocaleString()} packs`;
           } else {
-            qtyLabel = `${Number(p.quantity).toLocaleString()} ${p.unit || 'bottles'}`;
+            qtyLabel = `${Number(p.quantity).toLocaleString()} ${p.unit || 'units'}`;
           }
 
           return {
@@ -129,9 +129,9 @@ function getBatchProducts(b, isWadaana) {
 
   // AquaSphere standard fallback
   const list = [];
-  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `${b.packs05L.toLocaleString()} PETs (${(b.packs05L * 12).toLocaleString()} btl)`, color: 'emerald' });
-  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `${b.packs15L.toLocaleString()} PETs (${(b.packs15L * 6).toLocaleString()} btl)`, color: 'purple' });
-  if (b.quantity > 0) list.push({ name: '19L Refill', qty: `${b.quantity.toLocaleString()} bottles`, color: 'blue' });
+  if (b.packs05L > 0) list.push({ name: '0.5L PET', qty: `${b.packs05L.toLocaleString()} packs`, color: 'emerald' });
+  if (b.packs15L > 0) list.push({ name: '1.5L PET', qty: `${b.packs15L.toLocaleString()} packs`, color: 'purple' });
+  if (b.quantity > 0) list.push({ name: '19L Refill', qty: `${b.quantity.toLocaleString()} units`, color: 'blue' });
   return list;
 }
 
@@ -257,21 +257,20 @@ export default function ProductionBatchTable({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs whitespace-nowrap">
+        <table className="w-full text-left text-xs">
           <thead>
             <tr>
-              <th className="table-th">Batch ID & Date</th>
-              <th className="table-th">Produced Product & Breakdown</th>
+              <th className="table-th">Batch & Date</th>
+              <th className="table-th">Produced Output</th>
               <th className="table-th">Waste / Loss</th>
               <th className="table-th">Status</th>
-              <th className="table-th">Recorded By</th>
-              <th className="table-th text-right">Actions</th>
+              <th className="table-th text-right sticky right-0 bg-slate-50/95 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {batches.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-slate-400">
+                <td colSpan={5} className="p-8 text-center text-slate-400">
                   No production batches recorded.
                 </td>
               </tr>
@@ -281,16 +280,39 @@ export default function ProductionBatchTable({
                 const visibleProducts = products.slice(0, 2);
                 const remainingCount = products.length - 2;
                 const wasteCount = getTotalWaste(b);
+                const canConfirm = b.status !== 'COMPLETED' && (isOwner || user?.role === 'PRODUCTION_MANAGER');
+
+                const menuItems = [
+                  {
+                    label: 'Inspect Batch & Consumptions',
+                    icon: Eye,
+                    onClick: () => setViewingBatch(b),
+                  },
+                  isOwner ? { divider: true } : null,
+                  isOwner ? {
+                    label: 'Delete Batch',
+                    icon: Trash2,
+                    variant: 'danger',
+                    onClick: () => onDelete(b),
+                  } : null,
+                ];
 
                 return (
-                  <tr key={b.id} className="hover:bg-slate-50/80 transition-colors text-xs">
+                  <tr 
+                    key={b.id} 
+                    onClick={() => setViewingBatch(b)}
+                    className="hover:bg-slate-50/90 transition-colors cursor-pointer group text-xs"
+                  >
                     {/* 1. Batch ID & Date */}
                     <td className="table-td">
                       <span className="font-mono font-bold text-xs text-brand block">
                         #{b.id.substring(0, 8).toUpperCase()}
                       </span>
-                      <span className="text-xs text-slate-500 block mt-0.5">
+                      <span className="text-[11px] text-slate-500 block mt-0.5 whitespace-nowrap">
                         {new Date(b.createdAt).toLocaleDateString()} <span className="text-slate-400">at {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        By: <span className="text-slate-600 font-semibold">{b.createdBy?.name || 'System'}</span>
                       </span>
                     </td>
 
@@ -301,9 +323,12 @@ export default function ProductionBatchTable({
                           <button
                             key={pIdx}
                             type="button"
-                            onClick={() => setViewingBatch(b)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingBatch(b);
+                            }}
                             title="Click to view full batch details & consumptions"
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border shadow-2xs hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border hover:opacity-85 transition cursor-pointer text-left ${getColorClasses(p.color)}`}
                           >
                             <span className="font-semibold">{p.name}:</span>
                             <span className="font-bold">{p.qty}</span>
@@ -312,8 +337,11 @@ export default function ProductionBatchTable({
                         {remainingCount > 0 && (
                           <button
                             type="button"
-                            onClick={() => setViewingBatch(b)}
-                            className="px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition border border-slate-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingBatch(b);
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] cursor-pointer transition border border-slate-200"
                             title="View all products produced in this batch"
                           >
                             +{remainingCount} more
@@ -339,59 +367,39 @@ export default function ProductionBatchTable({
 
                     {/* 4. Status */}
                     <td className="table-td">
-                      <div className="flex items-center gap-2">
-                        {b.status === 'COMPLETED' ? (
-                          <span className="badge-success text-xs">
-                            <CheckCircle2 size={12} />
-                            Completed
-                          </span>
-                        ) : (
-                          <>
-                            <span className="badge-warning text-xs">
-                              <Clock size={12} />
-                              Pending
-                            </span>
-                            {(isOwner || user?.role === 'PRODUCTION_MANAGER') && (
-                              <button
-                                onClick={() => onComplete(b.id)}
-                                className="btn-primary text-xs py-1 px-2.5"
-                              >
-                                Confirm
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
+                      {b.status === 'COMPLETED' ? (
+                        <span className="badge-success text-xs inline-flex items-center gap-1">
+                          <CheckCircle2 size={12} />
+                          Completed
+                        </span>
+                      ) : (
+                        <span className="badge-warning text-xs inline-flex items-center gap-1">
+                          <Clock size={12} />
+                          Pending
+                        </span>
+                      )}
                     </td>
 
-                    {/* 5. Recorded By */}
-                    <td className="table-td">
-                      <div className="text-xs">
-                        <span className="font-semibold text-slate-800 block">{b.createdBy?.name || 'System'}</span>
-                        <span className="text-[11px] text-slate-400 uppercase tracking-wider">{b.createdBy?.role ? b.createdBy.role.replace(/_/g, ' ') : 'Staff'}</span>
-                      </div>
-                    </td>
-
-                    {/* 6. Actions (Inspect for all, Delete for Owner) */}
-                    <td className="table-td text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setViewingBatch(b)}
-                          title="Inspect Batch Details & Consumptions"
-                          className="p-1 rounded-md text-slate-500 hover:text-brand hover:bg-slate-100 transition cursor-pointer"
-                        >
-                          <Eye size={15} />
-                        </button>
-                        {isOwner && (
+                    {/* 5. Actions (Sticky Right) */}
+                    <td 
+                      className="table-td text-right sticky right-0 bg-white group-hover:bg-slate-50/90 z-10 shadow-[-6px_0_8px_-4px_rgba(0,0,0,0.04)] transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                        {canConfirm && (
                           <button
-                            onClick={() => onDelete(b)}
-                            title="Delete Batch (Owner Only)"
-                            className="btn-danger text-xs p-1"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onComplete(b.id);
+                            }}
+                            className="btn-primary text-xs py-1 px-2.5 font-bold cursor-pointer"
                           >
-                            <Trash2 size={13} />
+                            Confirm
                           </button>
                         )}
+
+                        <TableActionMenu items={menuItems} />
                       </div>
                     </td>
                   </tr>

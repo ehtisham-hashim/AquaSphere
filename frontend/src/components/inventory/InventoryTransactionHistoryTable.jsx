@@ -87,23 +87,20 @@ export default function InventoryTransactionHistoryTable({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left whitespace-nowrap">
+        <table className="w-full text-left">
           <thead>
             <tr>
               <th className="table-th">Date & Time</th>
-              <th className="table-th">Finished Product</th>
+              <th className="table-th">Finished Product & Batch</th>
               <th className="table-th">Movement</th>
               <th className="table-th">Quantity</th>
-              <th className="table-th">Location</th>
-              <th className="table-th">Batch Ref</th>
-              <th className="table-th">Reason</th>
-              <th className="table-th">Expiry (FIFO)</th>
+              <th className="table-th">Reason & Expiry</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoading ? (
               <tr>
-                <td colSpan="8" className="p-10 text-center text-slate-400">
+                <td colSpan="5" className="p-10 text-center text-slate-400">
                   <div className="flex items-center justify-center gap-2 font-medium text-sm">
                     <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
                     Loading audit transactions...
@@ -112,7 +109,7 @@ export default function InventoryTransactionHistoryTable({
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan="8" className="p-10 text-center text-slate-400">
+                <td colSpan="5" className="p-10 text-center text-slate-400">
                   <Package size={32} className="mx-auto mb-2 opacity-30 text-slate-400" />
                   <span className="text-sm font-medium">No transactions recorded yet.</span>
                 </td>
@@ -133,14 +130,21 @@ export default function InventoryTransactionHistoryTable({
 
                 return (
                   <tr key={t.id} className="hover:bg-slate-50/80 transition-colors text-xs sm:text-sm">
-                    <td className="table-td text-slate-600">
+                    <td className="table-td text-slate-600 whitespace-nowrap">
                       <span className="font-semibold text-slate-800 block">{new Date(t.createdAt).toLocaleDateString()}</span>
                       <span className="text-xs text-slate-400">{new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </td>
-                    <td className="table-td font-semibold text-slate-900">
-                      {t.item?.name || 'Finished Product'}
-                    </td>
                     <td className="table-td">
+                      <div className="font-bold text-slate-900 text-sm">
+                        {t.item?.name || 'Finished Product'}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                        <span className="font-mono bg-slate-100 px-1 rounded border border-slate-200">{batchDisplay}</span>
+                        <span>•</span>
+                        <span className="font-semibold text-slate-600">{locDisplay}</span>
+                      </div>
+                    </td>
+                    <td className="table-td whitespace-nowrap">
                       {isTransfer ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold">
                           <ArrowLeftRight size={13} /> TRANSFER
@@ -155,7 +159,7 @@ export default function InventoryTransactionHistoryTable({
                         </span>
                       )}
                     </td>
-                    <td className="table-td">
+                    <td className="table-td whitespace-nowrap">
                       <span className={`font-semibold text-sm tabular-nums ${isTransfer ? 'text-sky-700' : isIN ? 'text-emerald-700' : 'text-rose-700'}`}>
                         {isTransfer ? '↔' : isIN ? '+' : '-'}{qty.toLocaleString()} <span className="text-xs font-normal text-slate-500 font-sans">{t.item?.unit || 'bottle'}</span>
                       </span>
@@ -165,19 +169,13 @@ export default function InventoryTransactionHistoryTable({
                         </span>
                       )}
                     </td>
-                    <td className="table-td text-xs font-semibold text-slate-700">
-                      {locDisplay}
-                    </td>
-                    <td className="table-td font-mono text-xs text-slate-500">
-                      {batchDisplay}
-                    </td>
-                    <td className="table-td text-slate-600 truncate max-w-[200px]">
-                      {t.reason || 'PRODUCTION'}
-                    </td>
-                    <td className="table-td text-xs text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={13} className="text-slate-400" />
-                        {t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'FIFO: +1 Yr'}
+                    <td className="table-td text-xs">
+                      <div className="text-slate-700 font-medium truncate max-w-[200px]">
+                        {t.reason || 'PRODUCTION'}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
+                        <Calendar size={11} className="text-slate-400 shrink-0" />
+                        <span>{t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'FIFO: +1 Yr'}</span>
                       </div>
                     </td>
                   </tr>
